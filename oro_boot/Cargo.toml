@@ -1,0 +1,9 @@
+[package]
+name = "oro_boot"
+version = "0.1.0"
+authors = ["Josh Junon <junon@oro.sh>"]
+edition = "2021"
+
+[dependencies]
+bootloader-locator = "0.0.4"
+locate-cargo-manifest = "0.2.2"

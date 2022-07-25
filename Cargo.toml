@@ -1,0 +1,15 @@
+[package]
+name = "oro-kernel"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = [
+	"oro_boot"
+]
+
+[profile.release]
+strip = "symbols"
+
+[dependencies]
+bootloader = "0.10.12"
