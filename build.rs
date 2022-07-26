@@ -38,7 +38,8 @@ fn main() {
 	}
 
 	let font_path = Path::new(&src_dir).join(FONT_FILE);
-	let font_blob = MagickWand::new()
+
+	let mut font_img = MagickWand::new()
 		.set_size((FONT_WIDTH * FONT_CHARSET.len()) as u64, FONT_HEIGHT as u64)
 		.unwrap()
 		.read_image("xc:black")
@@ -55,9 +56,13 @@ fn main() {
 			FONT_CHARSET,
 		)
 		.unwrap()
-		.set_image_format("GRAY")
-		.unwrap()
 		.set_image_depth(1)
+		.unwrap()
+		.clone();
+
+	let font_blob = font_img
+		.clone()
+		.set_image_format("GRAY")
 		.unwrap()
 		.write_image_blob()
 		.unwrap()
@@ -78,6 +83,19 @@ fn main() {
 	{
 		let dest_path = Path::new(&out_dir).join("font.bin");
 		fs::write(&dest_path, font_blob).unwrap();
+	}
+
+	{
+		let dest_path = Path::new(&out_dir).join("font.png");
+		fs::write(
+			&dest_path,
+			font_img
+				.set_image_format("PNG")
+				.unwrap()
+				.write_image_blob()
+				.unwrap(),
+		)
+		.unwrap();
 	}
 
 	{
