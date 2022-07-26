@@ -37,9 +37,9 @@ fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 
 		let mut rasterizer = gfx::Rasterizer::new(UnsafeCell::from(framebuffer.buffer_mut()), info);
 		rasterizer.set_bg(0, 0, 0, 0);
+		rasterizer.set_fg(0x50, 0, 0, 0x70);
 		rasterizer.clear();
-		rasterizer.set_fg(0xFF, 0xFF, 0xFF, 0xFF);
-		rasterizer.draw_oro(fb_info.horizontal_resolution - 50, 50);
+		rasterizer.draw_boot_frame();
 
 		unsafe {
 			GLOBAL_RASTERIZER = &mut rasterizer;
