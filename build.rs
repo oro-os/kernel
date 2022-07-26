@@ -4,10 +4,11 @@ use std::path::Path;
 
 use graphicsmagick::wand::{DrawingWand, MagickWand, PixelWand};
 
-const FONT_FILE: &str = "asset/kubasta.ttf"; // by Kai Kubasta (https://kai.kubasta.net)
-const FONT_POINT_SIZE: usize = 10;
-const FONT_HEIGHT: usize = 13;
+const FONT_FILE: &str = "asset/Optixal.ttf";
+const FONT_POINT_SIZE: usize = 16;
+const FONT_HEIGHT: usize = 10;
 const FONT_WIDTH: usize = 6;
+const FONT_BASELINE: usize = 8;
 
 // NOTE: The first character (index 0) is used as the 'unknown character'
 // NOTE: glyph and is inverted whenever it is shown. Make sure it's a glyph
