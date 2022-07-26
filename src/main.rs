@@ -5,6 +5,7 @@
 
 mod gfx;
 
+use core::cell::UnsafeCell;
 use core::panic::PanicInfo;
 use core::ptr::null_mut;
 
@@ -34,11 +35,11 @@ fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 			stride: fb_info.stride,
 		};
 
-		let mut rasterizer = gfx::Rasterizer::new(framebuffer.buffer_mut(), info);
-		rasterizer.set_color(0, 0, 0, 0);
+		let mut rasterizer = gfx::Rasterizer::new(UnsafeCell::from(framebuffer.buffer_mut()), info);
+		rasterizer.set_bg(0, 0, 0, 0);
 		rasterizer.clear();
-		rasterizer.set_color(0xFF, 0xFF, 0xFF, 0xFF);
-		rasterizer.draw_oro(fb_info.horizontal_resolution >> 1, 75);
+		rasterizer.set_fg(0xFF, 0xFF, 0xFF, 0xFF);
+		rasterizer.draw_oro(fb_info.horizontal_resolution - 50, 50);
 
 		unsafe {
 			GLOBAL_RASTERIZER = &mut rasterizer;
