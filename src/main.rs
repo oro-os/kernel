@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 #![feature(abi_x86_interrupt)]
+#![feature(core_intrinsics)]
 
 mod gfx;
 
@@ -36,12 +37,8 @@ fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 		let mut rasterizer = gfx::Rasterizer::new(framebuffer.buffer_mut(), info);
 		rasterizer.set_color(0, 0, 0, 0);
 		rasterizer.clear();
-		rasterizer.set_accent_color();
-		rasterizer.draw_frame();
 		rasterizer.set_color(0xFF, 0xFF, 0xFF, 0xFF);
-		for i in 0..91 {
-			rasterizer.mark_glyph(i, 8 + (i % 10) * 6, 8 + (i / 10) * 13);
-		}
+		rasterizer.draw_oro(fb_info.horizontal_resolution >> 1, 75);
 
 		unsafe {
 			GLOBAL_RASTERIZER = &mut rasterizer;

@@ -1,4 +1,5 @@
 use core::cmp::min;
+use micromath::F32Ext;
 
 // Kubasta Font by Kai Kubasta
 // https://kai.kubasta.net/
@@ -84,19 +85,128 @@ impl<'a> Rasterizer<'a> {
 		}
 	}
 
+	pub fn mark_circle_outline(self: &mut Self, cx: usize, cy: usize, r: usize) {
+		let mut d = (5 - (r as isize) * 4) / 4;
+		let mut x = 0 as isize;
+		let mut y = r as isize;
+
+		let cxi = cx as isize;
+		let cyi = cy as isize;
+
+		loop {
+			self.mark((cxi + x) as usize, (cyi + y) as usize);
+			self.mark((cxi + x) as usize, (cyi - y) as usize);
+			self.mark((cxi - x) as usize, (cyi + y) as usize);
+			self.mark((cxi - x) as usize, (cyi - y) as usize);
+			self.mark((cxi + y) as usize, (cyi + x) as usize);
+			self.mark((cxi + y) as usize, (cyi - x) as usize);
+			self.mark((cxi - y) as usize, (cyi + x) as usize);
+			self.mark((cxi - y) as usize, (cyi - x) as usize);
+
+			if d < 0 {
+				d += 2 * x + 1;
+			} else {
+				d += 2 * (x - y) + 1;
+				y -= 1;
+			}
+
+			x += 1;
+
+			if x > y {
+				break;
+			};
+		}
+	}
+
+	fn mark_line_to_y(self: &mut Self, x: usize, y: usize, to_y: usize) {
+		if y < to_y {
+			for py in y..to_y {
+				self.mark(x, py);
+			}
+		} else {
+			for py in to_y..y {
+				self.mark(x, py);
+			}
+		}
+	}
+
+	pub fn mark_circle_fill(self: &mut Self, cx: usize, cy: usize, r: usize) {
+		let mut d = (5 - (r as isize) * 4) / 4;
+		let mut x = 0 as isize;
+		let mut y = r as isize;
+
+		let cxi = cx as isize;
+		let cyi = cy as isize;
+
+		loop {
+			self.mark_line_to_y((cxi + x) as usize, (cyi + y) as usize, cy);
+			self.mark_line_to_y((cxi + x) as usize, (cyi - y) as usize, cy);
+			self.mark_line_to_y((cxi - x) as usize, (cyi + y) as usize, cy);
+			self.mark_line_to_y((cxi - x) as usize, (cyi - y) as usize, cy);
+			self.mark_line_to_y((cxi + y) as usize, (cyi + x) as usize, cy);
+			self.mark_line_to_y((cxi + y) as usize, (cyi - x) as usize, cy);
+			self.mark_line_to_y((cxi - y) as usize, (cyi + x) as usize, cy);
+			self.mark_line_to_y((cxi - y) as usize, (cyi - x) as usize, cy);
+
+			if d < 0 {
+				d += 2 * x + 1;
+			} else {
+				d += 2 * (x - y) + 1;
+				y -= 1;
+			}
+
+			x += 1;
+
+			if x > y {
+				break;
+			};
+		}
+	}
+
+	pub fn draw_oro(self: &mut Self, cx: usize, cy: usize) {
+		let x = (cx as isize) - 50;
+		let y = (cy as isize) - 50;
+
+		self.mark_circle_fill((x + 50) as usize, (y + 50) as usize, 30);
+		let old_color = self.color;
+		self.set_color(0, 0, 0, 0);
+		self.mark_circle_fill((x + 50) as usize, (y + 50) as usize, 26);
+		self.color = old_color;
+
+		for deg in -130..165 {
+			let rad = ((deg % 360) as f32) * 0.01745329252;
+			let px = ((rad + 0.9).cos() * 35.0).floor();
+			let py = (rad.sin() * 35.0).floor();
+			self.mark(
+				(x + (50.0 + px) as isize) as usize,
+				(y + (50.0 + py) as isize) as usize,
+			);
+		}
+
+		self.mark_circle_fill((x + 77) as usize, (y + 40) as usize, 11);
+		let old_color = self.color;
+		self.set_color(0, 0, 0, 0);
+		self.mark_circle_fill((x + 77) as usize, (y + 40) as usize, 7);
+		self.color = old_color;
+	}
+
+	pub fn mark_box(self: &mut Self, x: usize, y: usize, x2: usize, y2: usize) {
+		for px in x..x2 {
+			self.mark(px, y);
+			self.mark(px, y2);
+		}
+		for py in y..y2 {
+			self.mark(x, py);
+			self.mark(x2, py);
+		}
+		self.mark(x2, y2);
+	}
+
 	pub fn draw_frame(self: &mut Self) {
 		let right = self.info.width - 5;
 		let bottom = self.info.height - 5;
 
-		for x in 5..right {
-			self.mark_unsafe(x, 5);
-			self.mark_unsafe(x, bottom);
-		}
-		for y in 5..bottom {
-			self.mark_unsafe(5, y);
-			self.mark_unsafe(right, y);
-		}
-		self.mark_unsafe(right, bottom);
+		self.mark_box(5, 5, right, bottom);
 
 		let br = right - 90;
 		for y in 5..20 {

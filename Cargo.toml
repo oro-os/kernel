@@ -13,6 +13,7 @@ strip = "symbols"
 
 [dependencies]
 bootloader = "0.10.12"
+micromath = "2.0.0"
 
 [target.'cfg(all(target_arch = "x86_64"))'.dependencies]
 x86_64 = "0.14.10"
