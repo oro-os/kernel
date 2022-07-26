@@ -1,5 +1,12 @@
 use core::cmp::min;
 
+// Kubasta Font by Kai Kubasta
+// https://kai.kubasta.net/
+const FONT_BITS: &'static [u8] = core::include_bytes!("font.bin");
+const FONT_GLYPH_WIDTH: usize = 6;
+const FONT_GLYPH_HEIGHT: usize = 13;
+const FONT_GLYPH_STRIDE_BITS: usize = 552;
+
 pub enum PixelFormat {
 	RGB8,
 	BGR8,
@@ -116,6 +123,21 @@ impl<'a> Rasterizer<'a> {
 		let offset = (y * self.info.stride + x) * self.info.pixel_stride;
 		for i in 0..self.pixel_size {
 			self.buffer[offset + i] = self.color[i];
+		}
+	}
+
+	pub fn mark_glyph(self: &mut Self, glyph: usize, x: usize, y: usize) {
+		let glyph_row_offset = FONT_GLYPH_WIDTH * glyph;
+		for by in 0..FONT_GLYPH_HEIGHT {
+			let bit_offset = by * FONT_GLYPH_STRIDE_BITS;
+			for bx in 0..FONT_GLYPH_WIDTH {
+				let abs_bit = bit_offset + glyph_row_offset + bx;
+				let byte = abs_bit / 8;
+				let bit = abs_bit % 8;
+				if ((FONT_BITS[byte] >> (7 - bit)) & 1) == 1 {
+					self.mark(x + bx, y + by);
+				}
+			}
 		}
 	}
 }

@@ -38,6 +38,10 @@ fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 		rasterizer.clear();
 		rasterizer.set_accent_color();
 		rasterizer.draw_frame();
+		rasterizer.set_color(0xFF, 0xFF, 0xFF, 0xFF);
+		for i in 0..91 {
+			rasterizer.mark_glyph(i, 8 + (i % 10) * 6, 8 + (i / 10) * 13);
+		}
 
 		unsafe {
 			GLOBAL_RASTERIZER = &mut rasterizer;
