@@ -47,11 +47,6 @@ impl<'a> Rasterizer<'a> {
 		}
 	}
 
-	pub fn set_accent_color(self: &mut Self) {
-		// A pre-determined accent color for the Oro VGA displays.
-		self.set_color(0x4D, 0x00, 0xE7, 0x40);
-	}
-
 	pub fn set_color(self: &mut Self, r: u8, g: u8, b: u8, grey: u8) {
 		match self.info.format {
 			PixelFormat::RGB8 => {
@@ -200,26 +195,6 @@ impl<'a> Rasterizer<'a> {
 			self.mark(x2, py);
 		}
 		self.mark(x2, y2);
-	}
-
-	pub fn draw_frame(self: &mut Self) {
-		let right = self.info.width - 5;
-		let bottom = self.info.height - 5;
-
-		self.mark_box(5, 5, right, bottom);
-
-		let br = right - 90;
-		for y in 5..20 {
-			for x in br..right {
-				self.mark_unsafe(x, y);
-			}
-		}
-
-		for by in 0..15 {
-			for bx in (br - (15 - by))..br {
-				self.mark_unsafe(bx, by + 5);
-			}
-		}
 	}
 
 	pub fn mark(self: &mut Self, x: usize, y: usize) {
