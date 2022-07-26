@@ -40,6 +40,14 @@ fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 		rasterizer.set_fg(0x50, 0, 0, 0x70);
 		rasterizer.clear();
 		rasterizer.draw_boot_frame();
+		rasterizer.set_fg(0xFF, 0xFF, 0xFF, 0xFF);
+
+		// XXX DEBUG
+		let mut x: usize = 10;
+		for b in "Hello, Oro! test::START() 0.394182752256023 <3 {OK} invalid=\x1b".bytes() {
+			rasterizer.draw_char(x, 10, b);
+			x += gfx::GLYPH_WIDTH;
+		}
 
 		unsafe {
 			GLOBAL_RASTERIZER = &mut rasterizer;

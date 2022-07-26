@@ -2,12 +2,10 @@ use core::cell::UnsafeCell;
 use core::cmp::min;
 use micromath::F32Ext;
 
-// Kubasta Font by Kai Kubasta
-// https://kai.kubasta.net/
-const FONT_BITS: &'static [u8] = core::include_bytes!("font.bin");
-const FONT_GLYPH_WIDTH: usize = 6;
-const FONT_GLYPH_HEIGHT: usize = 13;
-const FONT_GLYPH_STRIDE_BITS: usize = 552;
+include!(concat!(env!("OUT_DIR"), "/oro_font.rs"));
+
+pub const GLYPH_WIDTH: usize = FONT_GLYPH_WIDTH;
+pub const GLYPH_HEIGHT: usize = FONT_GLYPH_HEIGHT;
 
 pub enum PixelFormat {
 	RGB8,
@@ -286,14 +284,43 @@ impl Rasterizer {
 		}
 	}
 
-	fn mark_glyph(self: &Self, glyph: usize, x: usize, y: usize, color: &PixelColor) {
-		let glyph_row_offset = FONT_GLYPH_WIDTH * glyph;
+	pub fn draw_char(self: &Self, x: usize, y: usize, c: u8) {
+		let lookup = FONT_GLYPH_LOOKUP[c as usize];
+
+		if lookup == 255 {
+			self.mark_unknown_glyph(x, y, &self.fg_color);
+		} else {
+			self.mark_glyph(lookup as usize, x, y, &self.fg_color);
+		}
+	}
+
+	fn mark_unknown_glyph(self: &Self, x: usize, y: usize, color: &PixelColor) {
 		for by in 0..FONT_GLYPH_HEIGHT {
 			let bit_offset = by * FONT_GLYPH_STRIDE_BITS;
+
+			for bx in 0..FONT_GLYPH_WIDTH {
+				let abs_bit = bit_offset + bx;
+				let byte = abs_bit / 8;
+				let bit = abs_bit % 8;
+
+				if ((FONT_BITS[byte] >> (7 - bit)) & 1) == 0 {
+					self.mark(x + bx, y + by, color);
+				}
+			}
+		}
+	}
+
+	fn mark_glyph(self: &Self, glyph: usize, x: usize, y: usize, color: &PixelColor) {
+		let glyph_row_offset = FONT_GLYPH_WIDTH * glyph;
+
+		for by in 0..FONT_GLYPH_HEIGHT {
+			let bit_offset = by * FONT_GLYPH_STRIDE_BITS;
+
 			for bx in 0..FONT_GLYPH_WIDTH {
 				let abs_bit = bit_offset + glyph_row_offset + bx;
 				let byte = abs_bit / 8;
 				let bit = abs_bit % 8;
+
 				if ((FONT_BITS[byte] >> (7 - bit)) & 1) == 1 {
 					self.mark(x + bx, y + by, color);
 				}
