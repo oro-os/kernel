@@ -45,7 +45,9 @@ fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 		// XXX DEBUG
 		let mut x: usize = 10;
 		for b in "Hello, Oro! test::START() 0.394182752256023 <3 {OK} invalid=\x1b".bytes() {
-			rasterizer.draw_char(x, 10, b);
+			if (b as char) != ' ' {
+				rasterizer.draw_char(x, 10, b);
+			}
 			x += gfx::GLYPH_WIDTH;
 		}
 
