@@ -39,26 +39,37 @@ fn main() {
 
 	let font_path = Path::new(&src_dir).join(FONT_FILE);
 
+	let mut font = DrawingWand::new()
+		.set_font(font_path.to_str().unwrap())
+		.set_font_size(FONT_POINT_SIZE as f64)
+		.set_fill_color(PixelWand::new().set_color("#FFFFFF"))
+		.set_text_antialias(0)
+		.clone();
+
 	let mut font_img = MagickWand::new()
 		.set_size((FONT_WIDTH * FONT_CHARSET.len()) as u64, FONT_HEIGHT as u64)
 		.unwrap()
 		.read_image("xc:black")
 		.unwrap()
-		.annotate_image(
-			DrawingWand::new()
-				.set_font(font_path.to_str().unwrap())
-				.set_font_size(FONT_POINT_SIZE as f64)
-				.set_fill_color(PixelWand::new().set_color("#FFFFFF"))
-				.set_text_antialias(0),
-			0.0,
-			FONT_POINT_SIZE as f64,
-			0.0,
-			FONT_CHARSET,
-		)
-		.unwrap()
 		.set_image_depth(1)
 		.unwrap()
 		.clone();
+
+	FONT_CHARSET
+		.chars()
+		.into_iter()
+		.enumerate()
+		.for_each(|(i, c)| {
+			(&mut font_img)
+				.annotate_image(
+					&mut font,
+					(i * FONT_WIDTH) as f64,
+					FONT_BASELINE as f64,
+					0.0,
+					&c.to_string(),
+				)
+				.unwrap();
+		});
 
 	let font_blob = font_img
 		.clone()
