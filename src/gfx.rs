@@ -28,6 +28,7 @@ pub struct Rasterizer {
 	info: RasterizerInfo,
 	fg_color: PixelColor,
 	bg_color: PixelColor,
+	acc_color: PixelColor,
 	pixel_size: usize,
 	buffer: UnsafeCell<&'static mut [u8]>,
 }
@@ -78,6 +79,7 @@ impl Rasterizer {
 			info: info,
 			fg_color: [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
 			bg_color: [0, 0, 0, 0, 0, 0, 0, 0],
+			acc_color: [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
 			buffer: buffer,
 			pixel_size: pixel_size,
 		}
@@ -100,6 +102,18 @@ impl Rasterizer {
 			&self.info.format,
 			self.pixel_size,
 			&mut self.fg_color,
+			r,
+			g,
+			b,
+			grey,
+		);
+	}
+
+	pub fn set_accent(self: &mut Self, r: u8, g: u8, b: u8, grey: u8) {
+		set_color(
+			&self.info.format,
+			self.pixel_size,
+			&mut self.acc_color,
 			r,
 			g,
 			b,
@@ -222,24 +236,15 @@ impl Rasterizer {
 			5,
 			self.info.width - 5,
 			self.info.height - 5,
-			&self.fg_color,
+			&self.acc_color,
 		);
 
-		self.mark_box_fill(
-			6,
-			self.info.height - 106,
-			81,
-			self.info.height - 6,
+		self.mark_oro(
+			self.info.width >> 2,
+			self.info.height >> 1,
 			&self.fg_color,
+			&self.bg_color,
 		);
-
-		self.mark_oro(42, self.info.height - 55, &self.bg_color, &self.fg_color);
-
-		for py in 0..38 {
-			for px in 0..(py * 2) {
-				self.mark_unsafe(px + 6, py + self.info.height - 106 - 38, &self.fg_color);
-			}
-		}
 	}
 
 	fn mark_box_fill(self: &Self, x: usize, y: usize, x2: usize, y2: usize, color: &PixelColor) {
