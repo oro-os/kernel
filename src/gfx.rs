@@ -7,15 +7,18 @@ include!(concat!(env!("OUT_DIR"), "/oro_font.rs"));
 pub const GLYPH_WIDTH: usize = FONT_GLYPH_WIDTH;
 pub const GLYPH_HEIGHT: usize = FONT_GLYPH_HEIGHT;
 
+#[derive(Default)]
 pub enum PixelFormat {
 	RGB8,
 	BGR8,
 	GREY8,
+	#[default]
 	FALLBACK,
 }
 
 pub type PixelColor = [u8; 8];
 
+#[derive(Default)]
 pub struct RasterizerInfo {
 	pub format: PixelFormat,
 	pub width: usize,
@@ -121,10 +124,21 @@ impl Rasterizer {
 		);
 	}
 
-	pub fn clear(self: &Self) {
+	pub fn clear_screen(self: &Self) {
 		for y in 0..self.info.height {
 			for x in 0..self.info.width {
 				self.mark_unsafe(x, y, &self.bg_color);
+			}
+		}
+	}
+
+	pub fn clear(self: &Self, x: usize, y: usize, x2: usize, y2: usize) {
+		let xr = min(x2, self.info.width);
+		let yr = min(y2, self.info.height);
+
+		for py in y..yr {
+			for px in x..xr {
+				self.mark_unsafe(px, py, &self.bg_color);
 			}
 		}
 	}
@@ -239,12 +253,7 @@ impl Rasterizer {
 			&self.acc_color,
 		);
 
-		self.mark_oro(
-			self.info.width >> 2,
-			self.info.height >> 1,
-			&self.fg_color,
-			&self.bg_color,
-		);
+		self.mark_oro(51, self.info.height - 55, &self.fg_color, &self.bg_color);
 	}
 
 	fn mark_box_fill(self: &Self, x: usize, y: usize, x2: usize, y2: usize, color: &PixelColor) {

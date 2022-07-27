@@ -4,17 +4,35 @@
 #![feature(core_intrinsics)]
 
 mod gfx;
+mod logger;
 
 use core::cell::UnsafeCell;
 use core::panic::PanicInfo;
-use core::ptr::null_mut;
+use logger::BootLogger;
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
 	loop {}
 }
 
-static mut GLOBAL_RASTERIZER: *mut gfx::Rasterizer = null_mut();
+// XXX DEBUG
+const FUN_LINES: &'static [&str] = &[
+	"initializing memory segment @ 0x000FF000000...",
+	"created boot sequence",
+	"scanning regions of nonsense... OK",
+	"bringing base modules online.... OK",
+	"booting system.... 0%",
+	"booting system.... 22%",
+	"booting system.... 39%",
+	"booting system.... 58%",
+	"booting system.... 83%",
+	"booting system.... 100%",
+	"setting system clock... OK (from NTP server)",
+	"connecting to base WiFi antenna... OK",
+	"leasing DHCP information... OK",
+	"florping sixteen gabfloobers... OK (successfully flooped)",
+	"system was booted in a mode that will underperform at any task!"
+];
 
 fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 	if let Some(framebuffer) = boot_info.framebuffer.as_mut() {
@@ -39,12 +57,24 @@ fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 		rasterizer.set_bg(0, 0, 0, 0);
 		rasterizer.set_fg(0xFF, 0xFF, 0xFF, 0xFF);
 		rasterizer.set_accent(0x78, 0x00, 0xFF, 0x80);
-		rasterizer.clear();
+		rasterizer.clear_screen();
 		rasterizer.draw_boot_frame();
 
-		unsafe {
-			GLOBAL_RASTERIZER = &mut rasterizer;
-		};
+		let mut logger = BootLogger::new(
+			100,
+			10,
+			fb_info.horizontal_resolution - 10,
+			fb_info.vertical_resolution - 10,
+			rasterizer,
+		);
+		logger::set_global_logger(&mut logger);
+
+		// XXX DEBUG
+		FUN_LINES
+			.iter()
+			.cycle()
+			.take(500)
+			.for_each(|&line| println!("{}", line));
 	}
 
 	loop {}
