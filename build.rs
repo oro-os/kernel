@@ -4,7 +4,7 @@ use std::path::Path;
 
 use graphicsmagick::wand::{DrawingWand, MagickWand, PixelWand};
 
-const FONT_FILE: &str = "asset/Optixal.ttf";
+const FONT_FILE: &str = "asset/EnterCommand.ttf";
 const FONT_POINT_SIZE: usize = 16;
 const FONT_HEIGHT: usize = 10;
 const FONT_WIDTH: usize = 6;
