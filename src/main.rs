@@ -18,7 +18,10 @@ fn panic(info: &PanicInfo) -> ! {
 	println!();
 	println!();
 	println!("-- ORO PANICKED --\n{}", info);
-	loop {}
+
+	loop {
+		arch::halt();
+	}
 }
 
 fn _start_oro(boot_info: &'static mut bootloader::BootInfo) -> ! {
@@ -65,7 +68,9 @@ fn _start_oro(boot_info: &'static mut bootloader::BootInfo) -> ! {
 	println!();
 	println!();
 	println!("-- ORO HALTED --");
-	loop {}
+	loop {
+		arch::halt();
+	}
 }
 
 bootloader::entry_point!(_start_oro);
