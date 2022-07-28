@@ -1,6 +1,9 @@
+mod irq;
+
 pub fn init() {
 	println!("cpu is x86_64");
-	panic!("test message");
+	irq::init();
+	println!("... irq OK");
 }
 
 pub fn halt() {

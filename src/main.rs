@@ -15,10 +15,12 @@ use logger::FrameBufferLogger;
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-	println!();
-	println!();
-	println!("-- ORO PANICKED --\n{}", info);
+	println!("\n\n-- ORO PANICKED --\n{}", info);
+	halt();
+}
 
+pub fn halt() -> ! {
+	println!("\n\n-- ORO HALTED --");
 	loop {
 		arch::halt();
 	}
@@ -64,13 +66,7 @@ fn _start_oro(boot_info: &'static mut bootloader::BootInfo) -> ! {
 	logger::set_global_serial_logger(arch::get_serial_logger());
 
 	init::init_oro();
-
-	println!();
-	println!();
-	println!("-- ORO HALTED --");
-	loop {
-		arch::halt();
-	}
+	halt();
 }
 
 bootloader::entry_point!(_start_oro);

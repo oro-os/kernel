@@ -16,6 +16,10 @@ bootloader = "0.10.12"
 micromath = "2.0.0"
 const_format = "0.2.26"
 
+[dependencies.lazy_static]
+version = "1.4.0"
+features = ["spin_no_std"]
+
 [build_dependencies]
 graphicsmagick = "0.3.2"
 
