@@ -212,6 +212,12 @@ impl Rasterizer {
 
 		self.mark_circle_fill((x + 77) as usize, (y + 40) as usize, 11, fg);
 		self.mark_circle_fill((x + 77) as usize, (y + 40) as usize, 7, bg);
+
+		// FIXME: This is a hack to kill that one extra pixel at the bottom
+		// FIXME: of the Oro orbit line. If you are familiar with trig and
+		// FIXME: know of a way to smooth out the line automatically, that'd
+		// FIXME: be awesome.
+		self.mark(cx - 28, cy + 35, bg);
 	}
 
 	pub fn draw_boot_frame(&self) {
