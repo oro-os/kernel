@@ -347,6 +347,16 @@ impl Rasterizer {
 		}
 	}
 
+	pub fn draw_char_opaque(self: &Self, x: usize, y: usize, c: u8) {
+		let lookup = FONT_GLYPH_LOOKUP[c as usize];
+
+		if lookup == 255 {
+			self.mark_unknown_glyph_opaque(x, y, &self.fg_color, &self.bg_color);
+		} else {
+			self.mark_glyph_opaque(lookup as usize, x, y, &self.fg_color, &self.bg_color);
+		}
+	}
+
 	fn mark_unknown_glyph(self: &Self, x: usize, y: usize, color: &PixelColor) {
 		for by in 0..FONT_GLYPH_HEIGHT {
 			let bit_offset = by * FONT_GLYPH_STRIDE_BITS;
@@ -377,6 +387,51 @@ impl Rasterizer {
 				if ((FONT_BITS[byte] >> (7 - bit)) & 1) == 1 {
 					self.mark(x + bx, y + by, color);
 				}
+			}
+		}
+	}
+
+	fn mark_unknown_glyph_opaque(
+		self: &Self,
+		x: usize,
+		y: usize,
+		color: &PixelColor,
+		bg_color: &PixelColor,
+	) {
+		for by in 0..FONT_GLYPH_HEIGHT {
+			let bit_offset = by * FONT_GLYPH_STRIDE_BITS;
+
+			for bx in 0..FONT_GLYPH_WIDTH {
+				let abs_bit = bit_offset + bx;
+				let byte = abs_bit / 8;
+				let bit = abs_bit % 8;
+
+				let v = ((FONT_BITS[byte] >> (7 - bit)) & 1) == 0;
+				self.mark(x + bx, y + by, if v { color } else { bg_color });
+			}
+		}
+	}
+
+	fn mark_glyph_opaque(
+		self: &Self,
+		glyph: usize,
+		x: usize,
+		y: usize,
+		color: &PixelColor,
+		bg_color: &PixelColor,
+	) {
+		let glyph_row_offset = FONT_GLYPH_WIDTH * glyph;
+
+		for by in 0..FONT_GLYPH_HEIGHT {
+			let bit_offset = by * FONT_GLYPH_STRIDE_BITS;
+
+			for bx in 0..FONT_GLYPH_WIDTH {
+				let abs_bit = bit_offset + glyph_row_offset + bx;
+				let byte = abs_bit / 8;
+				let bit = abs_bit % 8;
+
+				let v = ((FONT_BITS[byte] >> (7 - bit)) & 1) == 1;
+				self.mark(x + bx, y + by, if v { color } else { bg_color });
 			}
 		}
 	}

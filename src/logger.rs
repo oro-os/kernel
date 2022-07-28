@@ -37,39 +37,44 @@ impl BootLogger {
 	}
 
 	fn mark_char(&self, x: usize, y: usize, c: u8) {
-		self.rasterizer.draw_char(
+		self.rasterizer.draw_char_opaque(
 			self.x + gfx::GLYPH_WIDTH * x,
 			self.y + gfx::GLYPH_HEIGHT * y,
 			c,
 		);
 	}
 
-	fn redraw(&self) {
-		self.rasterizer.clear(self.x, self.y, self.x2, self.y2);
-
-		for y in 0..self.rows {
-			let row = &self.buffer[y];
+	fn shift_up(&mut self) {
+		for y in 0..(self.rows - 1) {
+			let row = &self.buffer[y + 1];
 
 			for x in 0..self.cols {
 				let c = row[x];
 
 				if c == 0 {
+					let top = self.y + y * gfx::GLYPH_HEIGHT;
+
+					self.rasterizer.clear(
+						self.x + x * gfx::GLYPH_WIDTH,
+						top,
+						self.x2,
+						top + gfx::GLYPH_HEIGHT,
+					);
+
 					break;
 				} else {
 					self.mark_char(x, y, c);
 				}
 			}
-		}
-	}
 
-	fn shift_up(&mut self) {
-		for i in 1..self.rows {
-			self.buffer[i - 1] = self.buffer[i];
+			self.buffer[y] = *row;
 		}
+
+		let top = self.y + (self.rows - 1) * gfx::GLYPH_HEIGHT;
+		self.rasterizer
+			.clear(self.x, top, self.x2, top + gfx::GLYPH_HEIGHT);
 
 		self.buffer[self.rows - 1] = [0; MAX_LOGGER_COLS];
-
-		self.redraw();
 	}
 
 	fn write_char(&mut self, c: u8) {
