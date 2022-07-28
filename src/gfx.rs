@@ -91,7 +91,7 @@ impl Rasterizer {
 		}
 	}
 
-	pub fn set_fg(self: &mut Self, r: u8, g: u8, b: u8, grey: u8) {
+	pub fn set_fg(&mut self, r: u8, g: u8, b: u8, grey: u8) {
 		set_color(
 			&self.info.format,
 			self.pixel_size,
@@ -103,7 +103,7 @@ impl Rasterizer {
 		);
 	}
 
-	pub fn set_bg(self: &mut Self, r: u8, g: u8, b: u8, grey: u8) {
+	pub fn set_bg(&mut self, r: u8, g: u8, b: u8, grey: u8) {
 		set_color(
 			&self.info.format,
 			self.pixel_size,
@@ -115,7 +115,7 @@ impl Rasterizer {
 		);
 	}
 
-	pub fn set_accent(self: &mut Self, r: u8, g: u8, b: u8, grey: u8) {
+	pub fn set_accent(&mut self, r: u8, g: u8, b: u8, grey: u8) {
 		set_color(
 			&self.info.format,
 			self.pixel_size,
@@ -127,7 +127,7 @@ impl Rasterizer {
 		);
 	}
 
-	pub fn clear_screen(self: &Self) {
+	pub fn clear_screen(&self) {
 		for y in 0..self.info.height {
 			for x in 0..self.info.width {
 				self.mark_unsafe(x, y, &self.bg_color);
@@ -135,7 +135,7 @@ impl Rasterizer {
 		}
 	}
 
-	pub fn clear(self: &Self, x: usize, y: usize, x2: usize, y2: usize) {
+	pub fn clear(&self, x: usize, y: usize, x2: usize, y2: usize) {
 		let xr = min(x2, self.info.width);
 		let yr = min(y2, self.info.height);
 
@@ -146,40 +146,7 @@ impl Rasterizer {
 		}
 	}
 
-	fn mark_circle_outline(self: &Self, cx: usize, cy: usize, r: usize, color: &PixelColor) {
-		let mut d = (5 - (r as isize) * 4) / 4;
-		let mut x = 0 as isize;
-		let mut y = r as isize;
-
-		let cxi = cx as isize;
-		let cyi = cy as isize;
-
-		loop {
-			self.mark((cxi + x) as usize, (cyi + y) as usize, color);
-			self.mark((cxi + x) as usize, (cyi - y) as usize, color);
-			self.mark((cxi - x) as usize, (cyi + y) as usize, color);
-			self.mark((cxi - x) as usize, (cyi - y) as usize, color);
-			self.mark((cxi + y) as usize, (cyi + x) as usize, color);
-			self.mark((cxi + y) as usize, (cyi - x) as usize, color);
-			self.mark((cxi - y) as usize, (cyi + x) as usize, color);
-			self.mark((cxi - y) as usize, (cyi - x) as usize, color);
-
-			if d < 0 {
-				d += 2 * x + 1;
-			} else {
-				d += 2 * (x - y) + 1;
-				y -= 1;
-			}
-
-			x += 1;
-
-			if x > y {
-				break;
-			};
-		}
-	}
-
-	fn mark_line_to_y(self: &Self, x: usize, y: usize, to_y: usize, color: &PixelColor) {
+	fn mark_line_to_y(&self, x: usize, y: usize, to_y: usize, color: &PixelColor) {
 		if y < to_y {
 			for py in y..to_y {
 				self.mark(x, py, color);
@@ -191,7 +158,7 @@ impl Rasterizer {
 		}
 	}
 
-	fn mark_circle_fill(self: &Self, cx: usize, cy: usize, r: usize, color: &PixelColor) {
+	fn mark_circle_fill(&self, cx: usize, cy: usize, r: usize, color: &PixelColor) {
 		let mut d = (5 - (r as isize) * 4) / 4;
 		let mut x = 0 as isize;
 		let mut y = r as isize;
@@ -224,7 +191,7 @@ impl Rasterizer {
 		}
 	}
 
-	fn mark_oro(self: &Self, cx: usize, cy: usize, fg: &PixelColor, bg: &PixelColor) {
+	fn mark_oro(&self, cx: usize, cy: usize, fg: &PixelColor, bg: &PixelColor) {
 		let x = (cx as isize) - 50;
 		let y = (cy as isize) - 50;
 
@@ -247,7 +214,7 @@ impl Rasterizer {
 		self.mark_circle_fill((x + 77) as usize, (y + 40) as usize, 7, bg);
 	}
 
-	pub fn draw_boot_frame(self: &Self) {
+	pub fn draw_boot_frame(&self) {
 		self.mark_box(
 			PADDING / 2,
 			PADDING / 2,
@@ -295,20 +262,7 @@ impl Rasterizer {
 		}
 	}
 
-	fn mark_box_fill(self: &Self, x: usize, y: usize, x2: usize, y2: usize, color: &PixelColor) {
-		if x >= self.info.width || y >= self.info.height {
-			return;
-		}
-		let xr = min(x2, self.info.width - 1);
-		let yr = min(y2, self.info.height - 1);
-		for py in y..=yr {
-			for px in x..=xr {
-				self.mark_unsafe(px, py, color);
-			}
-		}
-	}
-
-	fn mark_box(self: &Self, x: usize, y: usize, x2: usize, y2: usize, color: &PixelColor) {
+	fn mark_box(&self, x: usize, y: usize, x2: usize, y2: usize, color: &PixelColor) {
 		for px in x..x2 {
 			self.mark(px, y, color);
 			self.mark(px, y2, color);
@@ -320,14 +274,14 @@ impl Rasterizer {
 		self.mark(x2, y2, color);
 	}
 
-	fn mark(self: &Self, x: usize, y: usize, color: &PixelColor) {
+	fn mark(&self, x: usize, y: usize, color: &PixelColor) {
 		if x >= self.info.width || y >= self.info.height {
 			return;
 		}
 		self.mark_unsafe(x, y, color);
 	}
 
-	fn mark_unsafe(self: &Self, x: usize, y: usize, color: &PixelColor) {
+	fn mark_unsafe(&self, x: usize, y: usize, color: &PixelColor) {
 		let offset = (y * self.info.stride + x) * self.info.pixel_stride;
 
 		for i in 0..self.pixel_size {
@@ -337,7 +291,7 @@ impl Rasterizer {
 		}
 	}
 
-	pub fn draw_char(self: &Self, x: usize, y: usize, c: u8) {
+	pub fn draw_char(&self, x: usize, y: usize, c: u8) {
 		let lookup = FONT_GLYPH_LOOKUP[c as usize];
 
 		if lookup == 255 {
@@ -347,7 +301,7 @@ impl Rasterizer {
 		}
 	}
 
-	pub fn draw_char_opaque(self: &Self, x: usize, y: usize, c: u8) {
+	pub fn draw_char_opaque(&self, x: usize, y: usize, c: u8) {
 		let lookup = FONT_GLYPH_LOOKUP[c as usize];
 
 		if lookup == 255 {
@@ -357,7 +311,7 @@ impl Rasterizer {
 		}
 	}
 
-	fn mark_unknown_glyph(self: &Self, x: usize, y: usize, color: &PixelColor) {
+	fn mark_unknown_glyph(&self, x: usize, y: usize, color: &PixelColor) {
 		for by in 0..FONT_GLYPH_HEIGHT {
 			let bit_offset = by * FONT_GLYPH_STRIDE_BITS;
 
@@ -373,7 +327,7 @@ impl Rasterizer {
 		}
 	}
 
-	fn mark_glyph(self: &Self, glyph: usize, x: usize, y: usize, color: &PixelColor) {
+	fn mark_glyph(&self, glyph: usize, x: usize, y: usize, color: &PixelColor) {
 		let glyph_row_offset = FONT_GLYPH_WIDTH * glyph;
 
 		for by in 0..FONT_GLYPH_HEIGHT {
@@ -392,7 +346,7 @@ impl Rasterizer {
 	}
 
 	fn mark_unknown_glyph_opaque(
-		self: &Self,
+		&self,
 		x: usize,
 		y: usize,
 		color: &PixelColor,
@@ -413,7 +367,7 @@ impl Rasterizer {
 	}
 
 	fn mark_glyph_opaque(
-		self: &Self,
+		&self,
 		glyph: usize,
 		x: usize,
 		y: usize,

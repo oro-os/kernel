@@ -10,7 +10,6 @@ pub struct BootLogger {
 	x: usize,
 	y: usize,
 	x2: usize,
-	y2: usize,
 	rows: usize,
 	cols: usize,
 	rasterizer: gfx::Rasterizer,
@@ -30,7 +29,6 @@ impl BootLogger {
 			buffer: [[0; MAX_LOGGER_COLS]; MAX_LOGGER_ROWS],
 			cursor: (0, 0),
 			x2: x + cols * gfx::GLYPH_WIDTH,
-			y2: y + rows * gfx::GLYPH_HEIGHT,
 			rows: rows,
 			cols: cols,
 		}
