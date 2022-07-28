@@ -14,6 +14,7 @@ strip = "symbols"
 [dependencies]
 bootloader = "0.10.12"
 micromath = "2.0.0"
+const_format = "0.2.26"
 
 [build_dependencies]
 graphicsmagick = "0.3.2"

@@ -31,7 +31,7 @@ const FUN_LINES: &'static [&str] = &[
 	"connecting to base WiFi antenna... OK",
 	"leasing DHCP information... OK",
 	"florping sixteen gabfloobers... OK (successfully flooped)",
-	"system was booted in a mode that will underperform at any task!"
+	"system was booted in a mode that will underperform at any task!",
 ];
 
 fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
@@ -61,10 +61,10 @@ fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 		rasterizer.draw_boot_frame();
 
 		let mut logger = BootLogger::new(
-			100,
-			10,
-			fb_info.horizontal_resolution - 10,
-			fb_info.vertical_resolution - 10,
+			gfx::PADDING + gfx::LEFT_GUTTER_WIDTH,
+			gfx::PADDING,
+			fb_info.horizontal_resolution - gfx::PADDING,
+			fb_info.vertical_resolution - gfx::PADDING,
 			rasterizer,
 		);
 		logger::set_global_logger(&mut logger);

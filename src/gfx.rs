@@ -1,3 +1,4 @@
+use const_format::formatcp;
 use core::cell::UnsafeCell;
 use core::cmp::min;
 use micromath::F32Ext;
@@ -6,6 +7,8 @@ include!(concat!(env!("OUT_DIR"), "/oro_font.rs"));
 
 pub const GLYPH_WIDTH: usize = FONT_GLYPH_WIDTH;
 pub const GLYPH_HEIGHT: usize = FONT_GLYPH_HEIGHT;
+pub const PADDING: usize = 10;
+pub const LEFT_GUTTER_WIDTH: usize = 90;
 
 #[derive(Default)]
 pub enum PixelFormat {
@@ -80,9 +83,9 @@ impl Rasterizer {
 
 		Self {
 			info: info,
-			fg_color: [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
-			bg_color: [0, 0, 0, 0, 0, 0, 0, 0],
-			acc_color: [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
+			fg_color: [0xFF; 8],
+			bg_color: [0; 8],
+			acc_color: [0xFF; 8],
 			buffer: buffer,
 			pixel_size: pixel_size,
 		}
@@ -246,14 +249,50 @@ impl Rasterizer {
 
 	pub fn draw_boot_frame(self: &Self) {
 		self.mark_box(
-			5,
-			5,
-			self.info.width - 5,
-			self.info.height - 5,
+			PADDING / 2,
+			PADDING / 2,
+			self.info.width - PADDING / 2,
+			self.info.height - PADDING / 2,
 			&self.acc_color,
 		);
 
-		self.mark_oro(51, self.info.height - 55, &self.fg_color, &self.bg_color);
+		const ORO_X_MANUAL_TRANSLATE: usize = 3;
+		self.mark_oro(
+			PADDING + LEFT_GUTTER_WIDTH / 2 - ORO_X_MANUAL_TRANSLATE,
+			self.info.height - (4 * GLYPH_HEIGHT + PADDING) - 50,
+			&self.fg_color,
+			&self.bg_color,
+		);
+
+		let version_top = self.info.height - (4 * GLYPH_HEIGHT + PADDING);
+
+		// "ORO"
+		{
+			const ORO: &'static str = "ORO";
+			let top = version_top;
+			let left = PADDING + (LEFT_GUTTER_WIDTH / 2) - ((ORO.len() * GLYPH_WIDTH) / 2);
+
+			ORO.bytes()
+				.enumerate()
+				.for_each(|(i, c)| self.draw_char(left + i * GLYPH_WIDTH, top, c));
+		}
+
+		// version info
+		{
+			const VERSION: &'static str = formatcp!(
+				"{}-{}",
+				env!("CARGO_PKG_VERSION"),
+				if cfg!(debug_assertions) { "d" } else { "r" }
+			);
+
+			let top = version_top + GLYPH_HEIGHT;
+			let left = PADDING + (LEFT_GUTTER_WIDTH / 2) - ((VERSION.len() * GLYPH_WIDTH) / 2);
+
+			VERSION
+				.bytes()
+				.enumerate()
+				.for_each(|(i, c)| self.draw_char(left + i * GLYPH_WIDTH, top, c));
+		}
 	}
 
 	fn mark_box_fill(self: &Self, x: usize, y: usize, x2: usize, y2: usize, color: &PixelColor) {
