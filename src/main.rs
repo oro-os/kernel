@@ -4,35 +4,21 @@
 #![feature(core_intrinsics)]
 
 mod gfx;
+#[macro_use]
 mod logger;
+mod init;
 
 use core::cell::UnsafeCell;
 use core::panic::PanicInfo;
 use logger::BootLogger;
 
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+	println!();
+	println!();
+	println!("-- ORO PANICKED --\n{}", info);
 	loop {}
 }
-
-// XXX DEBUG
-const FUN_LINES: &'static [&str] = &[
-	"initializing memory segment @ 0x000FF000000...",
-	"created boot sequence",
-	"scanning regions of nonsense... OK",
-	"bringing base modules online.... OK",
-	"booting system.... 0%",
-	"booting system.... 22%",
-	"booting system.... 39%",
-	"booting system.... 58%",
-	"booting system.... 83%",
-	"booting system.... 100%",
-	"setting system clock... OK (from NTP server)",
-	"connecting to base WiFi antenna... OK",
-	"leasing DHCP information... OK",
-	"florping sixteen gabfloobers... OK (successfully flooped)",
-	"system was booted in a mode that will underperform at any task!",
-];
 
 fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 	if let Some(framebuffer) = boot_info.framebuffer.as_mut() {
@@ -69,15 +55,13 @@ fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 		);
 
 		logger::set_global_logger(logger);
-
-		// XXX DEBUG
-		FUN_LINES
-			.iter()
-			.cycle()
-			.take(500)
-			.for_each(|&line| println!("{}", line));
 	}
 
+	init::init();
+
+	println!();
+	println!();
+	println!("-- ORO HALTED --");
 	loop {}
 }
 
