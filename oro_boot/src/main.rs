@@ -3,7 +3,12 @@ use std::{
 	process::Command,
 };
 
-const RUN_ARGS: &[&str] = &["--no-reboot", "-s"];
+const RUN_ARGS: &[&str] = &[
+	"--no-reboot",
+	"-s",
+	"-monitor",
+	"telnet::45454,server,nowait",
+];
 
 fn main() {
 	let mut args = std::env::args().skip(1); // skip executable name
@@ -12,14 +17,21 @@ fn main() {
 		let path = PathBuf::from(args.next().unwrap());
 		path.canonicalize().unwrap()
 	};
-	let no_boot = if let Some(arg) = args.next() {
+
+	let mut no_boot = false;
+	let mut debug = false;
+
+	for arg in args {
 		match arg.as_str() {
-			"--no-run" => true,
+			"--no-run" => {
+				no_boot = true;
+			}
+			"--debug" => {
+				debug = true;
+			}
 			other => panic!("unexpected argument `{}`", other),
 		}
-	} else {
-		false
-	};
+	}
 
 	let bios = create_disk_images(&kernel_binary_path);
 
@@ -32,6 +44,11 @@ fn main() {
 	run_cmd
 		.arg("-drive")
 		.arg(format!("format=raw,file={}", bios.display()));
+
+	if debug {
+		run_cmd.arg("-S");
+	}
+
 	run_cmd.args(RUN_ARGS);
 
 	let exit_status = run_cmd.status().unwrap();
