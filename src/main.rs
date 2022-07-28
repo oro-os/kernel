@@ -6,6 +6,7 @@
 mod gfx;
 #[macro_use]
 mod logger;
+mod arch;
 mod init;
 
 use core::cell::UnsafeCell;
@@ -56,6 +57,8 @@ fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 
 		logger::set_global_framebuffer_logger(logger);
 	}
+
+	logger::set_global_serial_logger(arch::get_serial_logger());
 
 	init::init();
 

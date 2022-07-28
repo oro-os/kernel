@@ -6,6 +6,15 @@ const MAX_LOGGER_ROWS: usize = 256;
 const MAX_LOGGER_COLS: usize = 128;
 
 static mut GLOBAL_FRAMEBUFFER_LOGGER: Option<FrameBufferLogger> = None;
+static mut GLOBAL_SERIAL_LOGGER: SerialLogger = SerialLogger::None;
+
+pub enum SerialLogger {
+	None,
+	#[allow(unused)]
+	IO(uart_16550::SerialPort),
+	#[allow(unused)]
+	Map(uart_16550::MmioSerialPort),
+}
 
 pub struct FrameBufferLogger {
 	x: usize,
@@ -113,9 +122,22 @@ pub fn set_global_framebuffer_logger(logger: FrameBufferLogger) {
 	}
 }
 
+pub fn set_global_serial_logger(logger: SerialLogger) {
+	unsafe {
+		GLOBAL_SERIAL_LOGGER = logger;
+	}
+}
+
 #[doc(hidden)]
 pub fn _print_log(args: fmt::Arguments) {
 	use fmt::Write;
+
+	match unsafe { &mut GLOBAL_SERIAL_LOGGER } {
+		SerialLogger::None => (),
+		SerialLogger::IO(port) => port.write_fmt(args).unwrap(),
+		SerialLogger::Map(port) => port.write_fmt(args).unwrap(),
+	}
+
 	if let Some(logger) = unsafe { GLOBAL_FRAMEBUFFER_LOGGER.as_mut() } {
 		logger.write_fmt(args).unwrap();
 	}
