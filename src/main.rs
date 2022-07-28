@@ -60,14 +60,15 @@ fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 		rasterizer.clear_screen();
 		rasterizer.draw_boot_frame();
 
-		let mut logger = BootLogger::new(
+		let logger = BootLogger::new(
 			gfx::PADDING + gfx::LEFT_GUTTER_WIDTH,
 			gfx::PADDING,
 			fb_info.horizontal_resolution - gfx::PADDING,
 			fb_info.vertical_resolution - gfx::PADDING,
 			rasterizer,
 		);
-		logger::set_global_logger(&mut logger);
+
+		logger::set_global_logger(logger);
 
 		// XXX DEBUG
 		FUN_LINES

@@ -1,10 +1,11 @@
 use crate::gfx;
 use core::cmp::min;
 use core::fmt;
-use core::ptr::null_mut;
 
 const MAX_LOGGER_ROWS: usize = 256;
 const MAX_LOGGER_COLS: usize = 128;
+
+static mut GLOBAL_LOGGER: Option<BootLogger> = None;
 
 pub struct BootLogger {
 	x: usize,
@@ -106,11 +107,9 @@ impl fmt::Write for BootLogger {
 	}
 }
 
-static mut GLOBAL_LOGGER: *mut BootLogger = null_mut();
-
-pub fn set_global_logger(logger: *mut BootLogger) {
+pub fn set_global_logger(logger: BootLogger) {
 	unsafe {
-		GLOBAL_LOGGER = logger;
+		GLOBAL_LOGGER = Some(logger);
 	}
 }
 
