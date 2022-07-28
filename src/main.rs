@@ -21,7 +21,7 @@ fn panic(info: &PanicInfo) -> ! {
 	loop {}
 }
 
-fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
+fn _start_oro(boot_info: &'static mut bootloader::BootInfo) -> ! {
 	if let Some(framebuffer) = boot_info.framebuffer.as_mut() {
 		let fb_info = framebuffer.info();
 
@@ -60,7 +60,7 @@ fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 
 	logger::set_global_serial_logger(arch::get_serial_logger());
 
-	init::init();
+	init::init_oro();
 
 	println!();
 	println!();
@@ -68,4 +68,4 @@ fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 	loop {}
 }
 
-bootloader::entry_point!(oro_init);
+bootloader::entry_point!(_start_oro);
