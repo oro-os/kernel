@@ -10,7 +10,7 @@ mod init;
 
 use core::cell::UnsafeCell;
 use core::panic::PanicInfo;
-use logger::BootLogger;
+use logger::FrameBufferLogger;
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -46,7 +46,7 @@ fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 		rasterizer.clear_screen();
 		rasterizer.draw_boot_frame();
 
-		let logger = BootLogger::new(
+		let logger = FrameBufferLogger::new(
 			gfx::PADDING + gfx::LEFT_GUTTER_WIDTH,
 			gfx::PADDING,
 			fb_info.horizontal_resolution - gfx::PADDING,
@@ -54,7 +54,7 @@ fn oro_init(boot_info: &'static mut bootloader::BootInfo) -> ! {
 			rasterizer,
 		);
 
-		logger::set_global_logger(logger);
+		logger::set_global_framebuffer_logger(logger);
 	}
 
 	init::init();

@@ -5,9 +5,9 @@ use core::fmt;
 const MAX_LOGGER_ROWS: usize = 256;
 const MAX_LOGGER_COLS: usize = 128;
 
-static mut GLOBAL_LOGGER: Option<BootLogger> = None;
+static mut GLOBAL_FRAMEBUFFER_LOGGER: Option<FrameBufferLogger> = None;
 
-pub struct BootLogger {
+pub struct FrameBufferLogger {
 	x: usize,
 	y: usize,
 	x2: usize,
@@ -18,7 +18,7 @@ pub struct BootLogger {
 	cursor: (usize, usize),
 }
 
-impl BootLogger {
+impl FrameBufferLogger {
 	pub fn new(x: usize, y: usize, x2: usize, y2: usize, rasterizer: gfx::Rasterizer) -> Self {
 		let cols = min(MAX_LOGGER_COLS, (x2 - x) / gfx::GLYPH_WIDTH);
 		let rows = min(MAX_LOGGER_ROWS, (y2 - y) / gfx::GLYPH_HEIGHT);
@@ -98,7 +98,7 @@ impl BootLogger {
 	}
 }
 
-impl fmt::Write for BootLogger {
+impl fmt::Write for FrameBufferLogger {
 	fn write_str(&mut self, s: &str) -> fmt::Result {
 		for c in s.bytes() {
 			self.write_char(c);
@@ -107,16 +107,16 @@ impl fmt::Write for BootLogger {
 	}
 }
 
-pub fn set_global_logger(logger: BootLogger) {
+pub fn set_global_framebuffer_logger(logger: FrameBufferLogger) {
 	unsafe {
-		GLOBAL_LOGGER = Some(logger);
+		GLOBAL_FRAMEBUFFER_LOGGER = Some(logger);
 	}
 }
 
 #[doc(hidden)]
 pub fn _print_log(args: fmt::Arguments) {
 	use fmt::Write;
-	if let Some(logger) = unsafe { GLOBAL_LOGGER.as_mut() } {
+	if let Some(logger) = unsafe { GLOBAL_FRAMEBUFFER_LOGGER.as_mut() } {
 		logger.write_fmt(args).unwrap();
 	}
 }
