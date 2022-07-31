@@ -150,5 +150,5 @@ macro_rules! println {
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => ($crate::logger::_print_log(format_args!($($arg)*)));
+	($($arg:tt)*) => ($crate::logger::_print_log(format_args!($($arg)*)));
 }
