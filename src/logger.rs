@@ -6,37 +6,24 @@ use core::fmt;
 const MAX_LOGGER_ROWS: usize = 256;
 const MAX_LOGGER_COLS: usize = 128;
 
+static mut FRAMEBUFFER_LOGGER_BUFFER: [[u8; MAX_LOGGER_COLS]; MAX_LOGGER_ROWS] =
+	[[0; MAX_LOGGER_COLS]; MAX_LOGGER_ROWS];
+
 static mut GLOBAL_FRAMEBUFFER_LOGGER: Option<FrameBufferLogger> = None;
 static mut GLOBAL_SERIAL_LOGGER: Option<SerialLogger> = None;
 
-pub struct FrameBufferLogger {
+struct FrameBufferLogger {
 	x: usize,
 	y: usize,
 	x2: usize,
 	rows: usize,
 	cols: usize,
+	buffer: &'static mut [[u8; MAX_LOGGER_COLS]; MAX_LOGGER_ROWS],
 	rasterizer: gfx::Rasterizer,
-	buffer: [[u8; MAX_LOGGER_COLS]; MAX_LOGGER_ROWS],
 	cursor: (usize, usize),
 }
 
 impl FrameBufferLogger {
-	pub fn new(x: usize, y: usize, x2: usize, y2: usize, rasterizer: gfx::Rasterizer) -> Self {
-		let cols = min(MAX_LOGGER_COLS, (x2 - x) / gfx::GLYPH_WIDTH);
-		let rows = min(MAX_LOGGER_ROWS, (y2 - y) / gfx::GLYPH_HEIGHT);
-
-		Self {
-			x: x,
-			y: y,
-			rasterizer: rasterizer,
-			buffer: [[0; MAX_LOGGER_COLS]; MAX_LOGGER_ROWS],
-			cursor: (0, 0),
-			x2: x + cols * gfx::GLYPH_WIDTH,
-			rows: rows,
-			cols: cols,
-		}
-	}
-
 	fn mark_char(&self, x: usize, y: usize, c: u8) {
 		self.rasterizer.draw_char_opaque(
 			self.x + gfx::GLYPH_WIDTH * x,
@@ -109,10 +96,31 @@ impl fmt::Write for FrameBufferLogger {
 	}
 }
 
-pub fn set_global_framebuffer_logger(logger: FrameBufferLogger) {
-	unsafe {
-		GLOBAL_FRAMEBUFFER_LOGGER = Some(logger);
-	}
+/*
+	Unsafe because it MUST only ever be called once!
+*/
+pub unsafe fn init_global_framebuffer_logger(
+	x: usize,
+	y: usize,
+	x2: usize,
+	y2: usize,
+	rasterizer: gfx::Rasterizer,
+) {
+	let cols = min(MAX_LOGGER_COLS, (x2 - x) / gfx::GLYPH_WIDTH);
+	let rows = min(MAX_LOGGER_ROWS, (y2 - y) / gfx::GLYPH_HEIGHT);
+
+	let res = FrameBufferLogger {
+		x: x,
+		y: y,
+		rasterizer: rasterizer,
+		buffer: &mut FRAMEBUFFER_LOGGER_BUFFER,
+		cursor: (0, 0),
+		x2: x + cols * gfx::GLYPH_WIDTH,
+		rows: rows,
+		cols: cols,
+	};
+
+	GLOBAL_FRAMEBUFFER_LOGGER = Some(res);
 }
 
 pub fn set_global_serial_logger(logger: SerialLogger) {
