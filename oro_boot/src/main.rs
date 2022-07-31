@@ -6,6 +6,8 @@ use std::{
 const RUN_ARGS: &[&str] = &[
 	"--no-reboot",
 	"-s",
+	"-serial",
+	"stdio",
 	"-monitor",
 	"telnet::45454,server,nowait",
 ];
