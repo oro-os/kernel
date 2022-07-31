@@ -7,7 +7,7 @@ mod gfx;
 #[macro_use]
 mod logger;
 mod arch;
-mod init;
+mod oro;
 
 use core::cell::UnsafeCell;
 use core::panic::PanicInfo;
@@ -67,8 +67,8 @@ fn _start_oro(boot_info: &'static mut bootloader::BootInfo) -> ! {
 		logger::set_global_framebuffer_logger(logger);
 	}
 
+	oro::init();
 
-	init::init_oro();
 	halt();
 }
 
