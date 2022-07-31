@@ -29,3 +29,4 @@ uart_16550 = "0.2.18"
 
 [package.metadata.bootloader]
 aslr = true
+kernel-stack-size = 524288
