@@ -27,6 +27,10 @@ pub fn halt() -> ! {
 }
 
 fn _start_oro(boot_info: &'static mut bootloader::BootInfo) -> ! {
+	if let Some(logger) = arch::get_serial_logger() {
+		logger::set_global_serial_logger(logger);
+	}
+
 	if let Some(framebuffer) = boot_info.framebuffer.as_mut() {
 		let fb_info = framebuffer.info();
 
@@ -63,7 +67,6 @@ fn _start_oro(boot_info: &'static mut bootloader::BootInfo) -> ! {
 		logger::set_global_framebuffer_logger(logger);
 	}
 
-	logger::set_global_serial_logger(arch::get_serial_logger());
 
 	init::init_oro();
 	halt();
