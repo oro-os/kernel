@@ -40,14 +40,14 @@ impl BootInfoFrameAllocator {
 			regions: memory_regions,
 			mapping_index: start_index,
 			offset: start_offset,
-			last_unused: 0,
+			last_unused: u64::MAX,
 		}
 	}
 }
 
 unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
 	fn allocate_frame(&mut self) -> Option<PhysFrame> {
-		if self.last_unused > 0 {
+		if self.last_unused != u64::MAX {
 			static_assert!(Size4KiB::SIZE as usize >= size_of::<usize>());
 
 			let next_unused = self.last_unused;
