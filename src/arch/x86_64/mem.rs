@@ -12,6 +12,7 @@ static mut KERNEL_ADDRESS_MAPPER: Option<OffsetPageTable> = None;
 static mut FRAME_ALLOCATOR: Option<BootInfoFrameAllocator> = None;
 
 struct BootInfoFrameAllocator {
+	phys_offset: u64,
 	regions: &'static MemoryRegions,
 	mapping_index: usize,
 	offset: u64,
@@ -19,7 +20,7 @@ struct BootInfoFrameAllocator {
 }
 
 impl BootInfoFrameAllocator {
-	fn new(memory_regions: &'static MemoryRegions) -> Self {
+	fn new(phys_offset: u64, memory_regions: &'static MemoryRegions) -> Self {
 		let (start_index, start_offset) = if memory_regions.len() == 0 {
 			(0, 0)
 		} else {
@@ -35,6 +36,7 @@ impl BootInfoFrameAllocator {
 		};
 
 		Self {
+			phys_offset: phys_offset,
 			regions: memory_regions,
 			mapping_index: start_index,
 			offset: start_offset,
@@ -49,7 +51,7 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
 			static_assert!(Size4KiB::SIZE as usize >= size_of::<usize>());
 
 			let next_unused = self.last_unused;
-			self.last_unused = unsafe { *(next_unused as *const u64) };
+			self.last_unused = unsafe { *((next_unused + self.phys_offset) as *const u64) };
 			return Some(PhysFrame::containing_address(PhysAddr::new(next_unused)));
 		}
 
@@ -84,7 +86,7 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
 impl FrameDeallocator<Size4KiB> for BootInfoFrameAllocator {
 	unsafe fn deallocate_frame(&mut self, frame: PhysFrame) {
 		let offset = frame.start_address().as_u64();
-		*(offset as *mut u64) = self.last_unused;
+		*((offset + self.phys_offset) as *mut u64) = self.last_unused;
 		self.last_unused = offset;
 	}
 }
@@ -123,6 +125,9 @@ unsafe fn init_page_table(phys_offset: VirtAddr) -> OffsetPageTable<'static> {
 pub fn init(phys_offset: VirtAddr, memory_regions: &'static MemoryRegions) {
 	unsafe {
 		KERNEL_ADDRESS_MAPPER = Some(init_page_table(phys_offset));
-		FRAME_ALLOCATOR = Some(BootInfoFrameAllocator::new(memory_regions));
+		FRAME_ALLOCATOR = Some(BootInfoFrameAllocator::new(
+			phys_offset.as_u64(),
+			memory_regions,
+		));
 	}
 }
