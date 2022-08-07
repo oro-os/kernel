@@ -114,8 +114,10 @@ extern "x86-interrupt" fn irq_page_fault(
 	fault: PageFaultErrorCode,
 ) {
 	println!(
-		"\n\n-- ORO EXCEPTION: PAGE FAULT --\n{:#?}\n{:#?}",
-		stack_frame, fault
+		"\n\n-- ORO EXCEPTION: PAGE FAULT --\n{:#?}\n\n{:#?}\n\naddr={:#?}",
+		stack_frame,
+		fault,
+		::x86_64::registers::control::Cr2::read()
 	);
 	crate::halt();
 }

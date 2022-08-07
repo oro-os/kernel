@@ -6,6 +6,8 @@
 mod gfx;
 #[macro_use]
 mod logger;
+#[macro_use]
+mod util;
 mod arch;
 mod oro;
 
@@ -28,6 +30,12 @@ pub fn halt() -> ! {
 fn _start_oro(boot_info: &'static mut bootloader::BootInfo) -> ! {
 	if let Some(logger) = arch::get_serial_logger() {
 		logger::set_global_serial_logger(logger);
+	}
+
+	if let Some(phys_offset) = boot_info.physical_memory_offset.into_option() {
+		arch::init(phys_offset, &boot_info.memory_regions);
+	} else {
+		panic!("Oro was booted without a proper linear physical page table map");
 	}
 
 	if let Some(framebuffer) = boot_info.framebuffer.as_mut() {
