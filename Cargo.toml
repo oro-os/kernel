@@ -18,7 +18,7 @@ const_format = "0.2.26"
 
 [dependencies.spin]
 version = "0.9.4"
-features = ["mutex", "spin_mutex", "ticket_mutex"]
+features = ["mutex", "spin_mutex", "ticket_mutex", "rwlock"]
 
 [dependencies.lazy_static]
 version = "1.4.0"

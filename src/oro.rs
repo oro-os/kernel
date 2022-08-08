@@ -1,10 +1,9 @@
 mod module;
 mod ring;
 
-use ::alloc::sync::Arc;
 use ring::Ring;
 
-static mut ROOT_RING: Option<Arc<Ring>> = None;
+static mut ROOT_RING: Option<Ring> = None;
 
 pub fn init() {
 	println!(
@@ -13,12 +12,16 @@ pub fn init() {
 		if cfg!(debug_assertions) { "d" } else { "r" }
 	);
 
-	// Allocate the root ring
 	unsafe {
-		debug_assert!(ROOT_RING.is_none());
-		ROOT_RING = Some(Ring::new_root());
-		debug_assert!(ROOT_RING.as_mut().unwrap().id() == 0usize);
-		debug_assert!(ROOT_RING.as_mut().unwrap().id() == ring::get_ring_by_id(0).unwrap().id());
+		ROOT_RING = Some(Ring::root());
+		debug_assert!(ROOT_RING.as_ref().unwrap().id() == 0);
 	}
 	println!("root ring initialized");
+
+	// TODO: Fill in the rest of the owl...
+
+	unsafe {
+		ROOT_RING = None;
+	}
+	println!("root ring destroyed");
 }
