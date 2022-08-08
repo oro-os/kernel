@@ -1,15 +1,80 @@
 use ::bootloader::boot_info::{MemoryRegionKind, MemoryRegions};
+use ::buddy_system_allocator::{Heap, LockedHeapWithRescue};
 use ::core::mem::size_of;
 use ::x86_64::{
 	addr::PhysAddr,
 	structures::paging::{
-		FrameAllocator, FrameDeallocator, OffsetPageTable, PageSize, PageTable, PhysFrame, Size4KiB,
+		FrameAllocator, FrameDeallocator, Mapper, OffsetPageTable, Page, PageSize as _PageSize,
+		PageTable, PageTableFlags, PhysFrame, Size4KiB,
 	},
 	VirtAddr,
 };
+use alloc::alloc::Layout;
 
-static mut KERNEL_ADDRESS_MAPPER: Option<OffsetPageTable> = None;
+type PageSize = Size4KiB;
+
+const HEAP_CHUNK_SIZE: u64 = 128 * PageSize::SIZE;
+const KERNEL_BASE: u64 = 0x8000_0000_0000; // TODO Statically get this from the bootloader config somehow.
+const HEAP_BASE: u64 = 0x4000_0000_0000; // Must not conflict with bootloader's physical-memory-offset.
+
+static mut CURRENT_HEAP_BASE: u64 = HEAP_BASE;
+static mut KERNEL_PAGE_TABLE: Option<OffsetPageTable> = None;
 static mut FRAME_ALLOCATOR: Option<BootInfoFrameAllocator> = None;
+
+static_assert!(HEAP_BASE < KERNEL_BASE);
+
+#[global_allocator]
+static KERNEL_HEAP_ALLOCATOR: LockedHeapWithRescue<32> = LockedHeapWithRescue::new(
+	|heap: &mut Heap<32>, layout: &Layout| {
+		unsafe {
+			// FIXME: This is avoidable with some clever calculations here.
+			// FIXME: As long as this is fixed prior to heap_end being calculated,
+			// FIXME: then we can avoid this class of panic. It's not super important
+			// FIXME: for now, however.
+			if layout.size() as u64 > HEAP_CHUNK_SIZE {
+				println!("CRITICAL WARNING: allocation size exceeded kernel heap chunk size! KERNEL WILL PANIC!");
+				return;
+			}
+
+			let heap_start = VirtAddr::new(CURRENT_HEAP_BASE);
+			let heap_end = heap_start + HEAP_CHUNK_SIZE - 1u64;
+
+			if heap_end.as_u64() >= KERNEL_BASE {
+				println!("CRITICAL WARNING: kernel heap has grown into the base kernel image zone! KERNEL WILL PANIC!");
+				return;
+			}
+
+			let page_range = {
+				let heap_start_page = Page::containing_address(heap_start);
+				let heap_end_page = Page::containing_address(heap_end);
+				Page::range_inclusive(heap_start_page, heap_end_page)
+			};
+
+			let frame_allocator = FRAME_ALLOCATOR.as_mut().unwrap();
+			let mapper = KERNEL_PAGE_TABLE.as_mut().unwrap();
+
+			for page in page_range {
+				if let Some(frame) = frame_allocator.allocate_frame() {
+					let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+					if let Ok(tlb_entry) = mapper.map_to(page, frame, flags, frame_allocator) {
+						tlb_entry.flush();
+					} else {
+						return; // Will inevitably cause the heap allocator to fail and the kernel to stall.
+					}
+				} else {
+					return; // Will inevitably cause the heap allocator to fail and the kernel to stall.
+				}
+			}
+
+			heap.add_to_heap(
+				heap_start.as_u64() as usize,
+				(heap_end.as_u64() + 1u64) as usize,
+			);
+
+			CURRENT_HEAP_BASE += HEAP_CHUNK_SIZE;
+		}
+	},
+);
 
 struct BootInfoFrameAllocator {
 	phys_offset: u64,
@@ -45,10 +110,10 @@ impl BootInfoFrameAllocator {
 	}
 }
 
-unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
+unsafe impl FrameAllocator<PageSize> for BootInfoFrameAllocator {
 	fn allocate_frame(&mut self) -> Option<PhysFrame> {
 		if self.last_unused != u64::MAX {
-			static_assert!(Size4KiB::SIZE as usize >= size_of::<usize>());
+			static_assert!(PageSize::SIZE as usize >= size_of::<usize>());
 
 			let next_unused = self.last_unused;
 			self.last_unused = unsafe { *((next_unused + self.phys_offset) as *const u64) };
@@ -78,12 +143,12 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
 		}
 
 		let result_offset = self.offset;
-		self.offset += Size4KiB::SIZE;
+		self.offset += PageSize::SIZE;
 		return Some(PhysFrame::containing_address(PhysAddr::new(result_offset)));
 	}
 }
 
-impl FrameDeallocator<Size4KiB> for BootInfoFrameAllocator {
+impl FrameDeallocator<PageSize> for BootInfoFrameAllocator {
 	unsafe fn deallocate_frame(&mut self, frame: PhysFrame) {
 		let offset = frame.start_address().as_u64();
 		*((offset + self.phys_offset) as *mut u64) = self.last_unused;
@@ -124,7 +189,7 @@ unsafe fn init_page_table(phys_offset: VirtAddr) -> OffsetPageTable<'static> {
 
 pub fn init(phys_offset: VirtAddr, memory_regions: &'static MemoryRegions) {
 	unsafe {
-		KERNEL_ADDRESS_MAPPER = Some(init_page_table(phys_offset));
+		KERNEL_PAGE_TABLE = Some(init_page_table(phys_offset));
 		FRAME_ALLOCATOR = Some(BootInfoFrameAllocator::new(
 			phys_offset.as_u64(),
 			memory_regions,

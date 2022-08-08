@@ -20,6 +20,10 @@ const_format = "0.2.26"
 version = "1.4.0"
 features = ["spin_no_std"]
 
+[dependencies.buddy_system_allocator]
+version = "0.8.0"
+features = ["use_spin", "const_fn"]
+
 [build_dependencies]
 graphicsmagick = "0.3.2"
 
@@ -30,4 +34,5 @@ uart_16550 = "0.2.18"
 [package.metadata.bootloader]
 aslr = true
 map-physical-memory = true
+physical-memory-offset = 0x8000_0000_0000
 #map-framebuffer = false

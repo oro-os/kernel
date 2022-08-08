@@ -2,6 +2,7 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 #![feature(core_intrinsics)]
+#![feature(alloc_error_handler)]
 
 mod gfx;
 #[macro_use]
@@ -11,6 +12,8 @@ mod util;
 mod arch;
 mod oro;
 
+extern crate alloc;
+
 use core::cell::UnsafeCell;
 use core::panic::PanicInfo;
 
@@ -18,6 +21,11 @@ use core::panic::PanicInfo;
 fn panic(info: &PanicInfo) -> ! {
 	println!("\n\n-- ORO PANICKED --\n{}", info);
 	halt();
+}
+
+#[alloc_error_handler]
+fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
+	panic!("allocation error (out of memory?): {:?}", layout)
 }
 
 pub fn halt() -> ! {
