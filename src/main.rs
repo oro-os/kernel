@@ -3,6 +3,7 @@
 #![feature(abi_x86_interrupt)]
 #![feature(core_intrinsics)]
 #![feature(alloc_error_handler)]
+#![feature(generic_associated_types)]
 
 mod gfx;
 #[macro_use]
@@ -11,6 +12,7 @@ mod logger;
 mod util;
 mod arch;
 mod oro;
+mod sync;
 
 extern crate alloc;
 

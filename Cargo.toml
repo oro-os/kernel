@@ -16,6 +16,10 @@ bootloader = "0.10.12"
 micromath = "2.0.0"
 const_format = "0.2.26"
 
+[dependencies.spin]
+version = "0.9.4"
+features = ["mutex", "spin_mutex", "ticket_mutex"]
+
 [dependencies.lazy_static]
 version = "1.4.0"
 features = ["spin_no_std"]
