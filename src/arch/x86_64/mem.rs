@@ -92,8 +92,7 @@ impl BootInfoFrameAllocator {
 			match memory_regions
 				.iter()
 				.enumerate()
-				.filter(|(_, r)| r.kind == MemoryRegionKind::Usable)
-				.next()
+				.find(|(_, r)| r.kind == MemoryRegionKind::Usable)
 			{
 				Some((idx, reg)) => (idx, reg.start),
 				None => (0, 0),
@@ -101,7 +100,7 @@ impl BootInfoFrameAllocator {
 		};
 
 		Self {
-			phys_offset: phys_offset,
+			phys_offset,
 			regions: memory_regions,
 			mapping_index: start_index,
 			offset: start_offset,
@@ -144,7 +143,7 @@ unsafe impl FrameAllocator<PageSize> for BootInfoFrameAllocator {
 
 		let result_offset = self.offset;
 		self.offset += PageSize::SIZE;
-		return Some(PhysFrame::containing_address(PhysAddr::new(result_offset)));
+		Some(PhysFrame::containing_address(PhysAddr::new(result_offset)))
 	}
 }
 
@@ -156,9 +155,7 @@ impl FrameDeallocator<PageSize> for BootInfoFrameAllocator {
 	}
 }
 
-/**
-	Must ONLY be called once!
-*/
+/// NOTE: Must ONLY be called once!
 unsafe fn get_level_4(phys_offset: VirtAddr) -> &'static mut PageTable {
 	#[cfg(debug_assertions)]
 	{
@@ -180,9 +177,7 @@ unsafe fn get_level_4(phys_offset: VirtAddr) -> &'static mut PageTable {
 	&mut *page_table
 }
 
-/**
-	Must ONLY be called once!
-*/
+/// Must ONLY be called once!
 unsafe fn init_page_table(phys_offset: VirtAddr) -> OffsetPageTable<'static> {
 	OffsetPageTable::new(get_level_4(phys_offset), phys_offset)
 }

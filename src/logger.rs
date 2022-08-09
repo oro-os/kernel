@@ -36,6 +36,7 @@ impl FrameBufferLogger {
 		for y in 0..(self.rows - 1) {
 			let row = &self.buffer[y + 1];
 
+			#[allow(clippy::needless_range_loop)]
 			for x in 0..self.cols {
 				let c = row[x];
 
@@ -76,7 +77,7 @@ impl FrameBufferLogger {
 			self.cursor.1 = self.rows - 1;
 		}
 
-		if c == ('\n' as u8) {
+		if c == b'\n' {
 			self.cursor.0 = 0;
 			self.cursor.1 += 1;
 		} else {
@@ -110,14 +111,14 @@ pub unsafe fn init_global_framebuffer_logger(
 	let rows = min(MAX_LOGGER_ROWS, (y2 - y) / gfx::GLYPH_HEIGHT);
 
 	let res = FrameBufferLogger {
-		x: x,
-		y: y,
-		rasterizer: rasterizer,
+		x,
+		y,
+		rasterizer,
 		buffer: &mut FRAMEBUFFER_LOGGER_BUFFER,
 		cursor: (0, 0),
 		x2: x + cols * gfx::GLYPH_WIDTH,
-		rows: rows,
-		cols: cols,
+		rows,
+		cols,
 	};
 
 	GLOBAL_FRAMEBUFFER_LOGGER = Some(res);

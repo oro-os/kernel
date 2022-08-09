@@ -57,8 +57,8 @@ fn _start_oro(boot_info: &'static mut bootloader::BootInfo) -> ! {
 			format: match fb_info.pixel_format {
 				BootPixFmt::RGB => gfx::PixelFormat::RGB8,
 				BootPixFmt::BGR => gfx::PixelFormat::BGR8,
-				BootPixFmt::U8 => gfx::PixelFormat::GREY8,
-				_ => gfx::PixelFormat::FALLBACK,
+				BootPixFmt::U8 => gfx::PixelFormat::Grey8,
+				_ => gfx::PixelFormat::Fallback,
 			},
 			width: fb_info.horizontal_resolution,
 			height: fb_info.vertical_resolution,

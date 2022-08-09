@@ -43,7 +43,7 @@ impl Ring {
 	fn new_with_parent(id: usize, parent: Option<Self>) -> Self {
 		let res = Self {
 			data: Arc::new(UnfairRwMutex::new(RingData {
-				id: id,
+				id,
 				parent: parent.map(|parent| Arc::downgrade(&parent.data)),
 				children: Map::new(),
 			})),

@@ -27,20 +27,17 @@ fn main() {
 	}
 
 	let mut charset_lookup = [255u8; 256];
-	let mut i = 0;
-	for c in FONT_CHARSET.bytes() {
+	for (i, c) in FONT_CHARSET.bytes().enumerate() {
 		if charset_lookup[c as usize] != 255 {
 			panic!("duplicate charset character at index {}", i);
 		}
 
-		charset_lookup[c as usize] = i;
-
-		i += 1;
+		charset_lookup[c as usize] = i as u8;
 	}
 
 	let font_path = Path::new(&src_dir).join(FONT_FILE);
 
-	let mut font = DrawingWand::new()
+	let font = DrawingWand::new()
 		.set_font(font_path.to_str().unwrap())
 		.set_font_size(FONT_POINT_SIZE as f64)
 		.set_fill_color(PixelWand::new().set_color("#FFFFFF"))
@@ -61,9 +58,9 @@ fn main() {
 		.into_iter()
 		.enumerate()
 		.for_each(|(i, c)| {
-			(&mut font_img)
+			font_img
 				.annotate_image(
-					&mut font,
+					&font,
 					(i * FONT_WIDTH) as f64,
 					FONT_BASELINE as f64,
 					0.0,
@@ -116,7 +113,7 @@ fn main() {
 			&dest_path,
 			format!(
 				"
-					const FONT_BITS: &'static [u8] = core::include_bytes!(\"font.bin\");
+					const FONT_BITS: &[u8] = core::include_bytes!(\"font.bin\");
 					const FONT_GLYPH_WIDTH: usize = {};
 					const FONT_GLYPH_HEIGHT: usize = {};
 					const FONT_GLYPH_STRIDE_BITS: usize = {};

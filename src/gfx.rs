@@ -14,9 +14,9 @@ pub const LEFT_GUTTER_WIDTH: usize = 90;
 pub enum PixelFormat {
 	RGB8,
 	BGR8,
-	GREY8,
+	Grey8,
 	#[default]
-	FALLBACK,
+	Fallback,
 }
 
 pub type PixelColor = [u8; 8];
@@ -59,12 +59,13 @@ fn set_color(
 			color[1] = g;
 			color[2] = r;
 		}
-		PixelFormat::GREY8 => {
+		PixelFormat::Grey8 => {
 			color[0] = grey;
 			color[1] = grey;
 			color[2] = grey;
 		}
-		PixelFormat::FALLBACK => {
+		#[allow(clippy::needless_range_loop)]
+		PixelFormat::Fallback => {
 			for i in 0..pixel_size {
 				color[i] = grey;
 			}
@@ -77,17 +78,17 @@ impl Rasterizer {
 		let pixel_size = match info.format {
 			PixelFormat::RGB8 => 3,
 			PixelFormat::BGR8 => 3,
-			PixelFormat::GREY8 => 1,
-			PixelFormat::FALLBACK => min(info.pixel_stride, 8),
+			PixelFormat::Grey8 => 1,
+			PixelFormat::Fallback => min(info.pixel_stride, 8),
 		};
 
 		Self {
-			info: info,
+			info,
 			fg_color: [0xFF; 8],
 			bg_color: [0; 8],
 			acc_color: [0xFF; 8],
-			buffer: buffer,
-			pixel_size: pixel_size,
+			buffer,
+			pixel_size,
 		}
 	}
 
@@ -160,7 +161,7 @@ impl Rasterizer {
 
 	fn mark_circle_fill(&self, cx: usize, cy: usize, r: usize, color: &PixelColor) {
 		let mut d = (5 - (r as isize) * 4) / 4;
-		let mut x = 0 as isize;
+		let mut x = 0_isize;
 		let mut y = r as isize;
 
 		let cxi = cx as isize;
@@ -199,7 +200,7 @@ impl Rasterizer {
 		self.mark_circle_fill((x + 50) as usize, (y + 50) as usize, 26, bg);
 
 		for deg in -130..165 {
-			let rad = ((deg % 360) as f32) * 0.01745329252;
+			let rad = ((deg % 360) as f32) * 0.017_453_292;
 			let px = ((rad + 0.9).cos() * 35.0).floor();
 			let py = (rad.sin() * 35.0).floor();
 
@@ -241,7 +242,7 @@ impl Rasterizer {
 
 		// "ORO"
 		{
-			const ORO: &'static str = "ORO";
+			const ORO: &str = "ORO";
 			let top = version_top;
 			let left = PADDING + (LEFT_GUTTER_WIDTH / 2) - ((ORO.len() * GLYPH_WIDTH) / 2);
 
@@ -252,7 +253,7 @@ impl Rasterizer {
 
 		// version info
 		{
-			const VERSION: &'static str = formatcp!(
+			const VERSION: &str = formatcp!(
 				"{}-{}",
 				env!("CARGO_PKG_VERSION"),
 				if cfg!(debug_assertions) { "d" } else { "r" }
@@ -290,6 +291,7 @@ impl Rasterizer {
 	fn mark_unsafe(&self, x: usize, y: usize, color: &PixelColor) {
 		let offset = (y * self.info.stride + x) * self.info.pixel_stride;
 
+		#[allow(clippy::needless_range_loop)]
 		for i in 0..self.pixel_size {
 			unsafe {
 				(*(self.buffer.get()))[offset + i] = color[i];
