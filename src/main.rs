@@ -3,7 +3,7 @@
 #![feature(abi_x86_interrupt)]
 #![feature(core_intrinsics)]
 #![feature(alloc_error_handler)]
-#![feature(generic_associated_types)]
+#![feature(new_uninit)]
 
 mod gfx;
 #[macro_use]
