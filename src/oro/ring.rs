@@ -1,3 +1,19 @@
+//! Rings are collections of Modules, each with a single parent -
+//! except for the "root ring" (ID=0), which has no parent (`None`).
+//!
+//! All module instances within a ring can see all other module
+//! instances without restriction. They can also see all child
+//! rings and their respective instances, also without restriction.
+//!
+//! Conversely, a module instance cannot traverse 'upward' and
+//! look into any of the rings that parent its own. This forms
+//! a security boundary by which isolation, access control,
+//! organization, compartmentalization, "containerization",
+//! and other useful scenarios may take place.
+//!
+//! Every ring is given a unique ID. In the nearly impossible
+//! event wherein ring IDs are exhausted, the kernel will panic.
+
 use crate::{sync, sync::UnfairRwMutex};
 use ::core::mem::MaybeUninit;
 #[cfg(debug_assertions)]
@@ -9,23 +25,52 @@ use alloc::{
 	sync::{Arc, Weak},
 };
 
+#[doc(hidden)]
 #[cfg(debug_assertions)]
 static ROOT_INITIALIZED: AtomicBool = AtomicBool::new(false);
+
+#[doc(hidden)]
 static mut ROOT_RING_DATA: MaybeUninit<Ring> = MaybeUninit::<Ring>::uninit();
 lazy_static! {
+	/// The map of all ring IDs to their respective ring data objects.
+	///
+	/// Values are stored as weak pointers to the internal
+	/// data instances that can be promoted to reference counted
+	/// [`Ring`] instances.
 	static ref RING_MAP: UnfairRwMutex<Map<usize, WeakRingData>> =
 		UnfairRwMutex::new(Map::<usize, WeakRingData>::new());
 }
 
+/// Internal data members for [`Ring`], which are just
+/// wrappers around a reference counted [`RingData`] object.
 struct RingData {
+	/// The globally (kernel-wide) unique [`Ring`] ID number.
+	///
+	/// A [`Ring`] with the `id` of `0` refers to the "root ring",
+	/// which is the first ring created by the kernel upon boot
+	/// and has no `Self::parent`.
 	id: usize,
+	/// The parent [`Ring`], if any. This field is [`Some`] in all
+	/// cases _expect_ the "root ring" (with a [`Self::id`] of `0`).
+	///
+	/// FIXME: This may not even be necessary to track. We don't currently
+	/// use it, and the security model dictates that traversal upwards
+	/// should never happen. I struggle to think of a case where it's
+	/// useful to track this.
+	#[deprecated(note = ".parent is probably not useful to track; don't rely on it being around")]
 	parent: Option<WeakRingData>,
+	/// A map of all child ring IDs to _owning_ child [`Ring`]s.
 	children: Map<usize, Ring>,
 }
 
+/// Non-owning (weak) references to internal [`RingData`] objects.
 type WeakRingData = Weak<UnfairRwMutex<RingData>>;
+/// Owning (strong, counted) references to internal [`RingData`] objects.
 type StrongRingData = Arc<UnfairRwMutex<RingData>>;
 
+/// A wrapper for an owning [`StrongRingData`], which itself is just an
+/// [`alloc::sync::Arc`] (atomically reference counted) [`RingData`]
+/// object.
 #[derive(Clone)]
 pub struct Ring {
 	data: StrongRingData,
@@ -40,6 +85,14 @@ impl Drop for RingData {
 }
 
 impl Ring {
+	/// Creates a new instance with the given ID and parent.
+	///
+	/// # Arguments
+	///
+	/// * `id` - A globally (whole-kernel) unique ID. Can only be
+	///   `0` in the case of the "root ring".
+	///
+	/// * `parent` - A parent [`Ring`] in the case that `id != 0`
 	fn new_with_parent(id: usize, parent: Option<Self>) -> Self {
 		debug_assert!(id == 0 || parent.is_some());
 
@@ -59,6 +112,7 @@ impl Ring {
 		res
 	}
 
+	/// Creates a new child [`Ring`] instance
 	pub fn new(parent: Self) -> Self {
 		let id = unique_id();
 		debug_assert!(id != 0);
@@ -73,12 +127,23 @@ impl Ring {
 		res
 	}
 
+	/// The [`Ring`]'s global (kernel-wide) unique ID.
+	/// An ID of `0` indicates this is the "root ring".
 	pub fn id(&self) -> usize {
 		sync::map_read(&self.data, |this| this.id)
 	}
 }
 
-/// NOTE: MUST ONLY BE CALLED ONCE AT BEGINNING OF BOOT.
+/// Initializes the "root ring".
+///
+/// # Unsafe
+///
+/// Must ONLY be called ONCE, and MUST ALWAYS be called BEFORE [`drop_root()`].
+///
+/// **This function is intended _only_ to be called by [`crate::oro::init`].
+/// DO NOT CALL THIS FUNCTION DIRECTLY.**
+///
+/// Debug builds enforce this constraint.
 pub unsafe fn init_root() {
 	#[cfg(debug_assertions)]
 	{
@@ -93,7 +158,18 @@ pub unsafe fn init_root() {
 	ROOT_RING_DATA.write(Ring::new_with_parent(0, None));
 }
 
-/// NOTE: MUST ONLY BE CALLED ONCE DIRECTLY BEFORE HALT.
+/// Drops (disposes) the "root ring". **This effectively disposes the entire
+/// system, including all rings, modules, resources, and userspace memory.**
+///
+/// # Unsafe
+///
+/// Must ONLY be called ONCE, and MUST ALWAYS be called AFTER a successful
+/// call to [`init_root()`].
+///
+/// **This function is intended _only_ to be called by [`crate::oro::init`].
+/// DO NOT CALL THIS FUNCTION DIRECTLY.**
+///
+/// Debug builds enforce this constraint.
 pub unsafe fn drop_root() {
 	#[cfg(debug_assertions)]
 	{
@@ -108,6 +184,18 @@ pub unsafe fn drop_root() {
 	ROOT_RING_DATA.assume_init_drop();
 }
 
+/// Returns the "root ring"
+///
+/// # Unsafe
+///
+/// Must ONLY be called _after_ a call to [`init_root`] and _before_
+/// a matching call to [`drop_root`].
+///
+/// For the most part, if you're working outside the init functions (either
+/// Oro kernel or architecture-specific init functions), this constraint
+/// will be satisfied.
+///
+/// Debug builds enforce this constraint.
 pub fn root() -> Ring {
 	#[cfg(debug_assertions)]
 	if !ROOT_INITIALIZED.load(Ordering::Acquire) {
@@ -117,6 +205,11 @@ pub fn root() -> Ring {
 	(unsafe { ROOT_RING_DATA.assume_init_ref() }).clone()
 }
 
+/// Get a ring by its ID.
+///
+/// # Arguments
+///
+/// * `id` - The ring ID (if you know you're passing `0`, use [`root`]() instead)
 #[allow(unused)]
 pub fn get_ring_by_id(id: usize) -> Option<Ring> {
 	sync::map_read(&*RING_MAP, |map| {
@@ -126,6 +219,7 @@ pub fn get_ring_by_id(id: usize) -> Option<Ring> {
 	})
 }
 
+/// Returns a guaranteed-unique ID for new [`Ring`]s.
 fn unique_id() -> usize {
 	// NOTE: Imperative that this starts at 1!
 	static COUNTER: AtomicUsize = AtomicUsize::new(1);

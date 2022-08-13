@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 106 106" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:1.5;">
+    <circle cx="53" cy="53" r="53"/>
+    <g>
+        <path d="M62.129,27.48C71.668,21.609 79.734,19.602 83.158,23.025C86.586,26.454 84.568,34.538 78.68,44.092" style="fill:none;stroke:#fff;stroke-width:1.14px;"/>
+        <path d="M44.199,78.544C34.677,84.396 26.628,86.394 23.209,82.975C19.759,79.525 21.823,71.361 27.798,61.727" style="fill:none;stroke:#fff;stroke-width:1.14px;"/>
+        <circle cx="53.037" cy="53" r="26.948" style="stroke:#fff;stroke-width:4.31px;"/>
+        <path d="M78.68,44.092C74.966,50.119 69.712,56.731 63.313,63.13C56.887,69.556 50.246,74.827 44.199,78.544" style="fill:none;stroke:#fff;stroke-width:1.14px;"/>
+        <circle cx="79.985" cy="42.705" r="8.478" style="stroke:#fff;stroke-width:4.31px;"/>
+    </g>
+</svg>

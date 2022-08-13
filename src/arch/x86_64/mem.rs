@@ -1,3 +1,29 @@
+//! Contains the Physical Memory Mapper (PMM), Page Frame Allocator (PFA),
+//! and the kernel heap allocator.
+//!
+//! The Physical Memory Mapper (PMM) is the mechanism that commits allocated
+//! pages into the kernel's address space. This typically only happens when
+//! the heap allocator has invoked its rescue ("allocation too large" or
+//! "out of memory") function, in which case the PFA allocates a new page
+//! and the PMM maps it into kernel address space.
+//!
+//! The Page Frame Allocator (PFA) reads the memory map provided by the
+//! bootloader and iterates over all unallocated usable pages in physical
+//! memory. When the PFA is given a page to release, that page is added
+//! to a linked list of all other pages, which are then handed back to
+//! the application first. This means that, if the linked list is empty,
+//! and no more pages are available from the memory map, then the system
+//! has completely run out of memory.
+//!
+//! The kernel heap allocator uses the PFA to allocate chunks of frames
+//! and create buddy allocators out of them. The number of pages (frames)
+//! allocated per buddy arena is specified by [`HEAP_CHUNK_SIZE`]. The heap
+//! allocator then maps those pages into kernel memory via the PMM, and
+//! passes back the base address of the allocation to the caller.
+//!
+//! The kernel heap allocator is used as the global Rust runtime allocator
+//! for the kernel.
+
 use ::bootloader::boot_info::{MemoryRegionKind, MemoryRegions};
 use ::buddy_system_allocator::{Heap, LockedHeapWithRescue};
 use ::core::mem::size_of;
@@ -11,18 +37,38 @@ use ::x86_64::{
 };
 use alloc::alloc::Layout;
 
+/// The page size to use for all allocations.
+///
+/// NOTE: This is a temporary fix and will eventually go away when
+/// huge page support is added.
 type PageSize = Size4KiB;
 
+/// The number of bytes to allocate for new buddy arenas when the
+/// global allocator panics due to being out of space.
 const HEAP_CHUNK_SIZE: u64 = 128 * PageSize::SIZE;
-const KERNEL_BASE: u64 = 0x8000_0000_0000; // TODO Statically get this from the bootloader config somehow.
+/// The base address of the linear memory map set up by the bootloader.
+///
+/// FIXME: This is entirely unnecessary. The bootloader passes this in
+/// at runtime. We should be using that value instead of the one here.
+#[deprecated(note = "please use the physical offset passed in by the bootloader")]
+const KERNEL_BASE: u64 = 0x8000_0000_0000;
+/// The base address of kernel heap storage. New heap arenas are alloated
+/// starting from this address.
 const HEAP_BASE: u64 = 0x4000_0000_0000; // Must not conflict with bootloader's physical-memory-offset.
 
+/// Where the next heap arena allocation will be based.
 static mut CURRENT_HEAP_BASE: u64 = HEAP_BASE;
+/// The kernel page table used to map frames into kernel address space.
 static mut KERNEL_PAGE_TABLE: Option<OffsetPageTable> = None;
+/// The Page Frame Allocator (PFA) instance used to shell out new, unused
+/// memory frames given the bootloader memory map.
 static mut FRAME_ALLOCATOR: Option<BootInfoFrameAllocator> = None;
 
 static_assert!(HEAP_BASE < KERNEL_BASE);
 
+/// The global allocator instance, using a buddy allocation system with
+/// rescue function that allocates a new heap arena in the kernel address
+/// space.
 #[global_allocator]
 static KERNEL_HEAP_ALLOCATOR: LockedHeapWithRescue<32> = LockedHeapWithRescue::new(
 	|heap: &mut Heap<32>, layout: &Layout| {
@@ -76,15 +122,36 @@ static KERNEL_HEAP_ALLOCATOR: LockedHeapWithRescue<32> = LockedHeapWithRescue::n
 	},
 );
 
+/// A Page Frame Allocator (PFA) that pulls frames from a
+/// [`bootloader::boot_info::MemoryRegions`] reference.
 struct BootInfoFrameAllocator {
+	/// The physical offset of the linear physical memory map established by the bootloader
 	phys_offset: u64,
+	/// The non-offset-adjusted physical memory map reference provided by the bootloader
 	regions: &'static MemoryRegions,
+	/// The current [`bootloader::boot_info::MemoryRegion`] offset in the [`Self::regions`] slice
+	/// currently being iterated
 	mapping_index: usize,
+	/// The offset within the current [`Self::regions`] mapping (determined by [`Self::mapping_index`])
+	/// that is being iterated
 	offset: u64,
+	/// The physical offset of the most recently freed (and not since re-allocated) memory
+	/// frame. Set to [`u64::MAX`] if no memory frames are available for re-use. In such a
+	/// case, all physical memory has been allocated when the [`Self::mapping_index`] is greater
+	/// than or equal to the number of [`Self::regions`] entries.
 	last_unused: u64,
 }
 
 impl BootInfoFrameAllocator {
+	/// Creates a new instance of `BootInfoFrameAllocator`.
+	///
+	/// # Arguments
+	///
+	/// * `phys_offset` - The offset of the linear physical memory map established
+	///   by the bootloader
+	///
+	/// * `memory_regions` - The non-offset-adjusted physical memory map provided
+	///   by the bootloader
 	fn new(phys_offset: u64, memory_regions: &'static MemoryRegions) -> Self {
 		let (start_index, start_offset) = if memory_regions.len() == 0 {
 			(0, 0)
@@ -110,6 +177,9 @@ impl BootInfoFrameAllocator {
 }
 
 unsafe impl FrameAllocator<PageSize> for BootInfoFrameAllocator {
+	/// Allocate a new, unused frame of physical memory.
+	/// Returns [`None`] in the case that all physical memory
+	/// has been exhausted.
 	fn allocate_frame(&mut self) -> Option<PhysFrame> {
 		if self.last_unused != u64::MAX {
 			static_assert!(PageSize::SIZE as usize >= size_of::<usize>());
@@ -148,6 +218,23 @@ unsafe impl FrameAllocator<PageSize> for BootInfoFrameAllocator {
 }
 
 impl FrameDeallocator<PageSize> for BootInfoFrameAllocator {
+	/// Release a frame to be used again in the next allocation.
+	///
+	/// # Arguments
+	///
+	/// * `frame` - The physical frame to release.
+	///
+	/// # Unsafe
+	///
+	/// It is **IMPERATIVE** that the released frame has not
+	/// been previously released ("double free"). This presents
+	/// a security concern for the entire system.
+	///
+	/// TODO: In debug builds, write a canary value to the page
+	/// when released and check for it again at the beginning
+	/// of the method. There will be cases of false positives,
+	/// but the chance of that happening are extremely low.
+	/// Log them out to the serial line.
 	unsafe fn deallocate_frame(&mut self, frame: PhysFrame) {
 		let offset = frame.start_address().as_u64();
 		debug_assert!((offset % PageSize::SIZE) == 0);
@@ -156,7 +243,15 @@ impl FrameDeallocator<PageSize> for BootInfoFrameAllocator {
 	}
 }
 
-/// NOTE: Must ONLY be called once!
+/// Returns the level 4 page table given the linear physical memory
+/// map address provided by the bootloader.
+///
+/// # Unsafe
+///
+/// This function **MUST** only be called once. Calling this function
+/// multiple times invokes immediate undefined behavior.
+///
+/// Debug builds enforce this constraint.
 unsafe fn get_level_4(phys_offset: VirtAddr) -> &'static mut PageTable {
 	#[cfg(debug_assertions)]
 	{
@@ -178,11 +273,34 @@ unsafe fn get_level_4(phys_offset: VirtAddr) -> &'static mut PageTable {
 	&mut *page_table
 }
 
-/// Must ONLY be called once!
+/// Initializes the kernel page table instance.
+///
+/// # Unsafe
+///
+/// This function **MUST** only be called once. Calling this function
+/// multiple times invokes immediate undefined behavior.
+///
+/// Debug builds enforce this constraint.
 unsafe fn init_page_table(phys_offset: VirtAddr) -> OffsetPageTable<'static> {
 	OffsetPageTable::new(get_level_4(phys_offset), phys_offset)
 }
 
+/// Initializes the Oro memory management facilities for the x86_64 architecture.
+///
+/// # Arguments
+///
+/// * `phys_offset` - The offset of the linear physical memory map established
+///   by the bootloader
+///
+/// * `memory_regions` - The non-offset-adjusted physical memory map provided
+///   by the bootloader
+///
+/// # Unsafe
+///
+/// This function **MUST** only be called once. Calling this function
+/// multiple times invokes immediate undefined behavior.
+///
+/// Debug builds enforce this constraint.
 pub fn init(phys_offset: VirtAddr, memory_regions: &'static MemoryRegions) {
 	unsafe {
 		KERNEL_PAGE_TABLE = Some(init_page_table(phys_offset));

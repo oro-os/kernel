@@ -1,9 +1,14 @@
+//! Initializers for the Interrupt Descriptor Table (IDT)
+//! for the x86_64 architecture.
+
 use ::lazy_static::lazy_static;
 use ::x86_64::structures::idt::{
 	InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
 };
 
 lazy_static! {
+	/// The x86_64 Interrupt Descriptor Table (IDT) to be registered
+	/// in the CPU.
 	static ref IDT: InterruptDescriptorTable = {
 		let mut idt = InterruptDescriptorTable::new();
 		idt.breakpoint.set_handler_fn(irq_breakpoint);
@@ -32,6 +37,7 @@ lazy_static! {
 	};
 }
 
+/// Loads the IDT into the appropriate CPU register.
 pub fn init() {
 	IDT.load();
 }

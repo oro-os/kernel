@@ -143,12 +143,14 @@ pub fn _print_log(args: fmt::Arguments) {
 	}
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! println {
 	() => (print!("\n"));
 	($($arg:tt)*) => (print!("{}\n", format_args!($($arg)*)));
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! print {
 	($($arg:tt)*) => ($crate::logger::_print_log(format_args!($($arg)*)));
