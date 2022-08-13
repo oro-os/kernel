@@ -1,4 +1,3 @@
-mod module;
 mod ring;
 
 pub fn init() {
