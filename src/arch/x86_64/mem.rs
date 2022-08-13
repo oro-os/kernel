@@ -150,6 +150,7 @@ unsafe impl FrameAllocator<PageSize> for BootInfoFrameAllocator {
 impl FrameDeallocator<PageSize> for BootInfoFrameAllocator {
 	unsafe fn deallocate_frame(&mut self, frame: PhysFrame) {
 		let offset = frame.start_address().as_u64();
+		debug_assert!((offset % PageSize::SIZE) == 0);
 		*((offset + self.phys_offset) as *mut u64) = self.last_unused;
 		self.last_unused = offset;
 	}
