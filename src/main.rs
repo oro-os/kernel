@@ -1,7 +1,6 @@
 //! The [Oro Operating System](https://oro.sh) kernel main entry point module.
 //!
-//! This is the first point in the kernel that receives execution from the
-//! bootloader.
+//! This is the first point in the kernel that receives execution from the bootloader.
 //!
 //! The goal of the main entry point in this module is to establish early
 //! logging/debugging facilities, initialize the CPU (via the [`arch`] module)
@@ -124,6 +123,7 @@ fn _start_oro(boot_info: &'static mut bootloader::BootInfo) -> ! {
 
 	oro::init();
 
+	println!("oro will now halt");
 	halt();
 }
 
