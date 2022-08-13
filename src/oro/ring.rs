@@ -41,6 +41,8 @@ impl Drop for RingData {
 
 impl Ring {
 	fn new_with_parent(id: usize, parent: Option<Self>) -> Self {
+		debug_assert!(id == 0 || parent.is_some());
+
 		let res = Self {
 			data: Arc::new(UnfairRwMutex::new(RingData {
 				id,
