@@ -1,5 +1,17 @@
+//! Entry point for the Oro kernel.
+//!
+//! All functionality herein, including all child modules,
+//! are architecture-agnostic.
+
 mod ring;
 
+/// Main architecture-agnostic kernel entry point
+///
+/// Must only be called after the processor and all
+/// loggers (framebuffer logger, serial logger, etc.)
+/// are initialized.
+///
+/// Assumes a global allocator exists and is usable.
 pub fn init() {
 	println!(
 		"booting Oro {}-{}",

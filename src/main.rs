@@ -10,11 +10,8 @@
 
 #![no_std]
 #![no_main]
-#![feature(abi_x86_interrupt)]
-#![feature(core_intrinsics)]
-#![feature(alloc_error_handler)]
-#![feature(new_uninit)]
-#![deny(missing_docs)]
+#![feature(abi_x86_interrupt, core_intrinsics, alloc_error_handler, new_uninit)]
+#![deny(missing_docs, clippy::missing_docs_in_private_items)]
 // FIXME: Use local resources when possible
 // FIXME: See: https://github.com/rust-lang/rust/issues/79254
 #![doc(

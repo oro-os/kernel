@@ -42,16 +42,19 @@ pub fn init() {
 	IDT.load();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_breakpoint(stack_frame: InterruptStackFrame) {
 	println!("\n\n-- ORO EXCEPTION: BREAKPOINT --\n{:#?}", stack_frame);
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_debug(stack_frame: InterruptStackFrame) {
 	println!("\n\n-- ORO EXCEPTION: DEBUG --\n{:#?}", stack_frame);
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_nmi(stack_frame: InterruptStackFrame) {
 	println!(
 		"\n\n-- ORO EXCEPTION: NON-MASkABLE INTERRUPT --\n{:#?}",
@@ -60,6 +63,7 @@ extern "x86-interrupt" fn irq_nmi(stack_frame: InterruptStackFrame) {
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_invalid_opcode(stack_frame: InterruptStackFrame) {
 	println!(
 		"\n\n-- ORO EXCEPTION: INVALID OPCODE --\n{:#?}",
@@ -68,16 +72,19 @@ extern "x86-interrupt" fn irq_invalid_opcode(stack_frame: InterruptStackFrame) {
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_oob(stack_frame: InterruptStackFrame) {
 	println!("\n\n-- ORO EXCEPTION: OUT OF BOUNDS --\n{:#?}", stack_frame);
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_x87(stack_frame: InterruptStackFrame) {
 	println!("\n\n-- ORO EXCEPTION: x87 FP ERROR --\n{:#?}", stack_frame);
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_simd_fp(stack_frame: InterruptStackFrame) {
 	println!(
 		"\n\n-- ORO EXCEPTION: SIMGD FP ERROR --\n{:#?}",
@@ -86,6 +93,7 @@ extern "x86-interrupt" fn irq_simd_fp(stack_frame: InterruptStackFrame) {
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_div(stack_frame: InterruptStackFrame) {
 	println!(
 		"\n\n-- ORO EXCEPTION: DIVISION ERROR --\n{:#?}",
@@ -94,6 +102,7 @@ extern "x86-interrupt" fn irq_div(stack_frame: InterruptStackFrame) {
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_device_not_available(stack_frame: InterruptStackFrame) {
 	println!(
 		"\n\n-- ORO EXCEPTION: DEVICE NOT AVAILABLE --\n{:#?}",
@@ -102,11 +111,13 @@ extern "x86-interrupt" fn irq_device_not_available(stack_frame: InterruptStackFr
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_overflow(stack_frame: InterruptStackFrame) {
 	println!("\n\n-- ORO EXCEPTION: OVERFLOW --\n{:#?}", stack_frame);
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_double_fault(stack_frame: InterruptStackFrame, error_code: u64) -> ! {
 	println!(
 		"\n\n-- ORO EXCEPTION: DOUBLE FAULT --\n{:#?}\n\nerror code = {}",
@@ -115,6 +126,7 @@ extern "x86-interrupt" fn irq_double_fault(stack_frame: InterruptStackFrame, err
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_page_fault(
 	stack_frame: InterruptStackFrame,
 	fault: PageFaultErrorCode,
@@ -128,6 +140,7 @@ extern "x86-interrupt" fn irq_page_fault(
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_invalid_tss(stack_frame: InterruptStackFrame, error_code: u64) {
 	println!(
 		"\n\n-- ORO EXCEPTION: INVALID TSS --\n{:#?}\n\nerror code = {}",
@@ -136,6 +149,7 @@ extern "x86-interrupt" fn irq_invalid_tss(stack_frame: InterruptStackFrame, erro
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_missing_segment(stack_frame: InterruptStackFrame, error_code: u64) {
 	println!(
 		"\n\n-- ORO EXCEPTION: MISSING SEGMENT --\n{:#?}\n\nerror code = {}",
@@ -144,6 +158,7 @@ extern "x86-interrupt" fn irq_missing_segment(stack_frame: InterruptStackFrame, 
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_stack_fault(stack_frame: InterruptStackFrame, error_code: u64) {
 	println!(
 		"\n\n-- ORO EXCEPTION: STACK FAULT --\n{:#?}\n\nerror code = {}",
@@ -152,6 +167,7 @@ extern "x86-interrupt" fn irq_stack_fault(stack_frame: InterruptStackFrame, erro
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_gpf(stack_frame: InterruptStackFrame, error_code: u64) {
 	println!(
 		"\n\n-- ORO EXCEPTION: GENERAL PROTECTION FAULT --\n{:#?}\n\nerror code = {}",
@@ -160,6 +176,7 @@ extern "x86-interrupt" fn irq_gpf(stack_frame: InterruptStackFrame, error_code: 
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_chk_alignment(stack_frame: InterruptStackFrame, error_code: u64) {
 	println!(
 		"\n\n-- ORO EXCEPTION: ALIGNMENT ERROR --\n{:#?}\n\nerror code = {}",
@@ -168,11 +185,13 @@ extern "x86-interrupt" fn irq_chk_alignment(stack_frame: InterruptStackFrame, er
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_chk_machine(stack_frame: InterruptStackFrame) -> ! {
 	println!("\n\n-- ORO EXCEPTION: MACHINE ERROR --\n{:#?}", stack_frame);
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_virtualization(stack_frame: InterruptStackFrame) {
 	println!(
 		"\n\n-- ORO EXCEPTION: VIRTUALIZATION ERROR --\n{:#?}",
@@ -181,6 +200,7 @@ extern "x86-interrupt" fn irq_virtualization(stack_frame: InterruptStackFrame) {
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_vmm(stack_frame: InterruptStackFrame, error_code: u64) {
 	println!(
 		"\n\n-- ORO EXCEPTION: VMM COMM ERROR --\n{:#?}\n\nerror code = {}",
@@ -189,6 +209,7 @@ extern "x86-interrupt" fn irq_vmm(stack_frame: InterruptStackFrame, error_code: 
 	crate::halt();
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 extern "x86-interrupt" fn irq_security(stack_frame: InterruptStackFrame, error_code: u64) {
 	println!(
 		"\n\n-- ORO EXCEPTION: VMM SECURITY EVENT --\n{:#?}\n\nerror code = {}",

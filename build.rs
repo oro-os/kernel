@@ -113,10 +113,15 @@ fn main() {
 			&dest_path,
 			format!(
 				"
+					/// Raw font data packed in from the TTF font build step.
 					const FONT_BITS: &[u8] = core::include_bytes!(\"font.bin\");
+					/// The number of horizontal bits per glyph
 					const FONT_GLYPH_WIDTH: usize = {};
+					/// The number of vertical bits per glyph
 					const FONT_GLYPH_HEIGHT: usize = {};
+					/// The number of bits per font atlas scanline
 					const FONT_GLYPH_STRIDE_BITS: usize = {};
+					/// ASCII -> glyph lookup table
 					const FONT_GLYPH_LOOKUP: [u8;256] = [{}];
 				",
 				FONT_WIDTH,

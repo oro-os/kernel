@@ -73,6 +73,7 @@ type StrongRingData = Arc<UnfairRwMutex<RingData>>;
 /// object.
 #[derive(Clone)]
 pub struct Ring {
+	#[doc(hidden)]
 	data: StrongRingData,
 }
 
@@ -222,6 +223,7 @@ pub fn get_ring_by_id(id: usize) -> Option<Ring> {
 /// Returns a guaranteed-unique ID for new [`Ring`]s.
 fn unique_id() -> usize {
 	// NOTE: Imperative that this starts at 1!
+	#[doc(hidden)]
 	static COUNTER: AtomicUsize = AtomicUsize::new(1);
 
 	let new_id = COUNTER.fetch_add(1, Ordering::Relaxed);
