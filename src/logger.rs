@@ -107,6 +107,19 @@ pub unsafe fn init_global_framebuffer_logger(
 	y2: usize,
 	rasterizer: gfx::Rasterizer,
 ) {
+	#[cfg(debug_assertions)]
+	{
+		use core::sync::atomic::{AtomicBool, Ordering};
+		#[doc(hidden)]
+		static CALLED: AtomicBool = AtomicBool::new(false);
+		if CALLED
+			.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+			.is_err()
+		{
+			panic!("must only call init_global_framebuffer_logger() once!");
+		}
+	}
+
 	let cols = min(MAX_LOGGER_COLS, (x2 - x) / gfx::GLYPH_WIDTH);
 	let rows = min(MAX_LOGGER_ROWS, (y2 - y) / gfx::GLYPH_HEIGHT);
 

@@ -291,6 +291,9 @@ impl Rasterizer {
 	fn mark_unsafe(&self, x: usize, y: usize, color: &PixelColor) {
 		let offset = (y * self.info.stride + x) * self.info.pixel_stride;
 
+		debug_assert!(x < self.info.width);
+		debug_assert!(y < self.info.height);
+
 		#[allow(clippy::needless_range_loop)]
 		for i in 0..self.pixel_size {
 			unsafe {
@@ -345,6 +348,8 @@ impl Rasterizer {
 				let abs_bit = bit_offset + glyph_row_offset + bx;
 				let byte = abs_bit / 8;
 				let bit = abs_bit % 8;
+
+				debug_assert!(byte < FONT_BITS.len());
 
 				if ((FONT_BITS[byte] >> (7 - bit)) & 1) == 1 {
 					self.mark(x + bx, y + by, color);
