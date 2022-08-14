@@ -1,6 +1,12 @@
 //! Synchronization primitives and access utilities
 //! for use in shared resource scenarios.
 
+// TODO Instead of all this weird trait stuff,
+// TODO just wrap the mutexes in their own types
+// TODO that have the `map_*` accessors as methods.
+// TODO Lockable isn't even meant to be used outside
+// TODO this module, it's just `pub` for Rust reasons.
+
 use crate::arch::run_critical_section;
 use ::core::ops::{Deref, DerefMut, FnOnce};
 use ::spin::{
