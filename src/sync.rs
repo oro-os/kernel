@@ -51,7 +51,6 @@ pub trait Lockable<'a, A: ?Sized> {
 impl<'a, A> Lockable<'a, A> for &'a UnfairMutex<A> {
 	type Guard = UnfairMutexGuard<'a, A>;
 
-	#[doc(hidden)]
 	fn lock(self) -> Self::Guard {
 		(self as &'a UnfairMutex<A>).lock()
 	}
