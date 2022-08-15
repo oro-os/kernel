@@ -1,0 +1,115 @@
+@import "ayu.css";
+
+:root {
+	--oro-accent: #ff0052;
+	--oro-accent2: #c0ff00;
+	--oro-accent3: #05dcff;
+	--main-background-color: #000000;
+	--main-color: #ffffff;
+	--settings-input-color: var(--oro-accent);
+	--sidebar-background-color: #000000;
+	--sidebar-background-color-hover: rgba(70, 70, 70, 0.33);
+	--code-block-background-color: #111;
+	--scrollbar-track-background-color: transparent;
+	--scrollbar-thumb-background-color: #ffffff;
+	--scrollbar-color: var(--scrollbar-thumb-background-color)
+		var(--scrollbar-thumb-track-color);
+	--headings-border-bottom-color: var(--oro-accent);
+}
+* {
+	scrollbar-width: thin !important;
+}
+::-webkit-scrollbar {
+	width: 0.5rem;
+	height: 0.5rem;
+}
+a,
+.content span.externcrate,
+.content span.mod,
+.content a.mod,
+.sidebar a {
+	color: var(--oro-accent);
+}
+.docblock a > code {
+	color: var(--oro-accent) !important;
+}
+.docblock code,
+.content span.fn,
+.content a.fn,
+.content span.method,
+.content a.method,
+.content span.tymethod,
+.content a.tymethod,
+.content .fnnam,
+.sidebar .current,
+.sidebar a:hover,
+.content span.fn,
+.content a.fn,
+.content span.method,
+.content a.method,
+.content span.tymethod,
+.content a.tymethod,
+.content .fnname {
+	color: var(--oro-accent2);
+}
+span[title="Restricted Visibility"] {
+	visibility: hidden;
+}
+span[title="Restricted Visibility"]:after {
+	width: 1rem;
+	visibility: visible;
+	content: "🔒\FE0E";
+	margin-left: -1rem;
+	color: orange;
+}
+.content span.enum,
+.content a.enum,
+.content span.struct,
+.content a.struct {
+	color: var(--oro-accent3);
+}
+@keyframes target-blink {
+	0% {
+		background: rgb(255 255 255 / 6%);
+		border-right: 3px solid rgb(255 255 255 / 85%);
+	}
+	50% {
+		background: rgb(255 255 255 / 3%);
+		border-right: 3px solid rgb(255 255 255 / 44%);
+	}
+	100% {
+		background: rgb(255 255 255 / 6%);
+		border-right: 3px solid rgb(255 255 255 / 85%);
+	}
+}
+:target {
+	background: rgb(255 255 255 / 6%);
+	border-right: 3px solid rgb(255 255 255 / 85%);
+	animation: target-blink 1.5s infinite;
+}
+.in-band {
+	background-color: var(--code-block-background-color);
+}
+.stab.unstable,
+.stab.deprecated,
+.stab.portability,
+.stab.empty-impl,
+.stab.must_implement {
+	color: black;
+	font-weight: bold;
+	background: #ffa500 !important;
+	border-style: none !important;
+	border-radius: 2px;
+	padding: 3px 6px 3px 6px;
+	font-weight: bold;
+}
+.stab.deprecated span.emoji {
+	visibility: hidden;
+}
+.stab.deprecated span.emoji:after {
+	width: 1rem;
+	visibility: visible;
+	content: "⚠️\FE0E";
+	margin-left: -1.5rem;
+	color: orange;
+}
