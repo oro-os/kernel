@@ -12,7 +12,7 @@ members = [
 strip = "symbols"
 
 [dependencies]
-bootloader = "0.10.12"
+bootloader = "0.10.13"
 micromath = "2.0.0"
 const_format = "0.2.26"
 
