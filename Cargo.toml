@@ -14,7 +14,7 @@ strip = "symbols"
 [dependencies]
 bootloader = "0.10.13"
 micromath = "2.0.0"
-const_format = "0.2.26"
+const_format = "0.2.28"
 
 [dependencies.spin]
 version = "0.9.4"
