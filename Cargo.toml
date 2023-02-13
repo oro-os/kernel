@@ -17,7 +17,7 @@ micromath = "2.0.0"
 const_format = "0.2.30"
 
 [dependencies.spin]
-version = "0.9.4"
+version = "0.9.5"
 features = ["mutex", "spin_mutex", "ticket_mutex", "rwlock"]
 
 [dependencies.lazy_static]
