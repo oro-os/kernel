@@ -1,0 +1,17 @@
+[workspace.package]
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[workspace]
+members = [
+	"src/oro-boot",
+	"src/oro-boot-limine",
+	"src/oro-kernel",
+]
+
+[profile.release]
+opt-level = 3       # Maximum optimizations
+lto = "fat"         # Perform LTO across all crates
+codegen-units = 1   # Reduce number of codegen units to increase optimizations.
+strip = true        # Strip symbols from binary
