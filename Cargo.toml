@@ -2,6 +2,8 @@
 version = "0.0.0"
 publish = false
 edition = "2021"
+authors = [ "Joshua Lee Junon <junon@oro.sh> (https://github.com/qix-)" ]
+repository = "https://github.com/oro-os/kernel"
 
 [workspace]
 members = [

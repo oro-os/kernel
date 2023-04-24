@@ -2,6 +2,8 @@
 name = "oro-boot-limine"
 description = "Limine bootloader support for the Oro Operating System"
 version = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
 publish = { workspace = true }
 edition = { workspace = true }
 

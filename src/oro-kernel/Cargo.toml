@@ -2,6 +2,8 @@
 name = "oro-kernel"
 description = "The Oro Operating System kernel"
 version = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
 publish = { workspace = true }
 edition = { workspace = true }
 
