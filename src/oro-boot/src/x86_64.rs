@@ -26,12 +26,29 @@ pub const KERNEL_PUBLIC_HEAP_PAGE_TABLE_INDICES: (u16, u16) = (384, 447);
 /// All userspace allocations can be safely put here; inclusive.
 pub const USER_PAGE_TABLE_INDICES: (u16, u16) = (2, 255);
 
+#[derive(Ser2Mem, Copy, Clone, Debug)]
+#[repr(u8)]
+pub enum MemoryRegionKind {
+	Usable,
+	Modules,
+	Reserved,
+}
+
+#[derive(Ser2Mem)]
+#[repr(C, align(8))]
+pub struct MemoryRegion {
+	pub base: u64,
+	pub length: u64,
+	pub kind: MemoryRegionKind,
+}
+
 #[derive(Ser2Mem)]
 #[repr(C, align(4096))]
 pub struct BootConfig {
 	pub magic: u64,
 	pub nonce: u64,
 	pub nonce_xor_magic: u64,
+	pub test_kind: MemoryRegionKind,
 }
 
 #[inline(always)]

@@ -701,6 +701,7 @@ pub unsafe fn _start() -> ! {
 		magic: ::oro_boot::BOOT_MAGIC,
 		nonce: boot_time as u64,
 		nonce_xor_magic: ::oro_boot::BOOT_MAGIC ^ (boot_time as u64),
+		test_kind: oro_boot::x86_64::MemoryRegionKind::Modules, // XXX TODO DEBUG
 	};
 	::oro_boot::serialize!(
 		boot_config,
