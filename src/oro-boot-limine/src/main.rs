@@ -1,6 +1,6 @@
 #![no_std]
 #![no_main]
-#![feature(naked_functions, core_intrinsics)]
+#![feature(naked_functions, core_intrinsics, more_qualified_paths)]
 
 // XXX Just to note: when the memory map is eventually constructed for
 // XXX the kernel to consume, we *can* mark KernelAndModules as re-
@@ -15,8 +15,9 @@ use lazy_static::lazy_static;
 use limine_protocol::StackSizeRequest;
 use limine_protocol::{
 	structures::memory_map_entry::{EntryType, MemoryMapEntry},
-	HHDMRequest, MemoryMapRequest, ModuleRequest, Request,
+	BootTimeRequest, HHDMRequest, MemoryMapRequest, ModuleRequest, Request,
 };
+use oro_boot::x86_64::l4_to_range_48;
 use spin::Mutex;
 use uart_16550::SerialPort;
 use x86_64::{
@@ -72,7 +73,15 @@ static MOD_REQUEST: Request<ModuleRequest> = ModuleRequest {
 }
 .into();
 
+#[used]
+static TIME_REQUEST: Request<BootTimeRequest> = BootTimeRequest {
+	revision: 0,
+	..BootTimeRequest::new()
+}
+.into();
+
 #[cfg(debug_assertions)]
+#[used]
 static STKSZ_REQUEST: Request<StackSizeRequest> = StackSizeRequest {
 	revision: 0,
 	stack_size: 64 * 1024 * 1024,
@@ -138,7 +147,7 @@ unsafe impl FrameAllocator<Size4KiB> for LiminePageFrameAllocator {
 		// 2. There's always at least one page in each memory entry
 		//
 		// Number 2 is not explicitly listed in the spec so we're
-		// making an educated assumption; the authorsof Limine
+		// making an educated assumption; the authors of Limine
 		// has chosen not to specify it but we're going to simplify
 		// this by assuming it won't receive a zero-length entry
 		// based on Discord conversations.
@@ -276,9 +285,7 @@ where
 			Ok(flusher) => flusher.flush(),
 			Err(err) => {
 				dbg!(
-					"boot error: failed to map stubs to ",
-					STUBS_ADDR,
-					": ",
+					"boot error: failed to map memory: ",
 					match err {
 						MapToError::FrameAllocationFailed => "frame allocation failed",
 						MapToError::ParentEntryHugePage => "parent entry is a huge page",
@@ -287,6 +294,65 @@ where
 				);
 				halt();
 			}
+		}
+	}
+}
+
+struct OroBootAllocator<'a, 'b, A>
+where
+	A: FrameAllocator<Size4KiB> + 'static,
+{
+	current_position: u64,
+	pfa: &'a mut A,
+	rw_mapper: &'a mut OffsetPageTable<'b>,
+	ro_mapper: &'a mut OffsetPageTable<'b>,
+}
+
+impl<'a, 'b, A> OroBootAllocator<'a, 'b, A>
+where
+	A: FrameAllocator<Size4KiB>,
+{
+	fn new(
+		pfa: &'a mut A,
+		rw_mapper: &'a mut OffsetPageTable<'b>,
+		ro_mapper: &'a mut OffsetPageTable<'b>,
+	) -> Self {
+		Self {
+			current_position: l4_to_range_48(::oro_boot::x86_64::ORO_BOOT_PAGE_TABLE_INDEX).0,
+			pfa,
+			rw_mapper,
+			ro_mapper,
+		}
+	}
+}
+
+unsafe impl<'a, 'b, A> ::oro_boot::Allocator for OroBootAllocator<'a, 'b, A>
+where
+	A: FrameAllocator<Size4KiB>,
+{
+	#[inline(always)]
+	fn position(&self) -> u64 {
+		self.current_position
+	}
+
+	unsafe fn allocate(&mut self, sz: u64) {
+		let current_page = self.current_position >> 12;
+		let next_page = (self.current_position + sz) >> 12;
+		for _ in current_page..next_page {
+			let frame = self.pfa.allocate_frame().unwrap_or_else(|| {
+				dbg!("boot error: out of memory when allocating boot protocol structures");
+				halt();
+			});
+
+			self.rw_mapper.map_or_die(
+				current_page << 12,
+				frame,
+				PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+				self.pfa,
+			);
+
+			self.ro_mapper
+				.map_or_die(current_page << 12, frame, PageTableFlags::PRESENT, self.pfa);
 		}
 	}
 }
@@ -320,17 +386,6 @@ macro_rules! map_stubs {
 			);
 		}
 	};
-}
-
-#[inline(always)]
-fn sign_extend_48(addr: u64) -> u64 {
-	addr | (((addr >> 47) & 1) * 0xFFFF_0000_0000_0000)
-}
-
-#[inline(always)]
-fn l4_to_range(idx: u16) -> (u64, u64) {
-	let base = sign_extend_48(((idx as u64) & 511) << (12 + 9 + 9 + 9));
-	(base, base | 0x7F_FFFF_FFFF)
 }
 
 /// This is necessary due to the fact that CStr slices
@@ -510,6 +565,13 @@ pub unsafe fn _start() -> ! {
 		halt();
 	};
 
+	let boot_time = if let Some(res) = TIME_REQUEST.get_response() {
+		res.boot_time
+	} else {
+		dbg!("boot error: missing limine boot time response");
+		halt();
+	};
+
 	#[cfg(debug_assertions)]
 	if STKSZ_REQUEST.get_response().is_none() {
 		dbg!("!!WARNING!! Oro + limine boot stage built in debug mode, which");
@@ -550,7 +612,7 @@ pub unsafe fn _start() -> ! {
 	// use the x86_64 crate's RecursivePageTable structure.
 	//
 	// Must be done before we pass the mutable reference to the mapper.
-	oro_l4_page_table[oro_boot::x86_64::well_known::RECURSIVE_PAGE_TABLE_INDEX as usize].set_addr(
+	oro_l4_page_table[oro_boot::x86_64::RECURSIVE_PAGE_TABLE_INDEX as usize].set_addr(
 		PhysAddr::new_unsafe(oro_l4_page_table_phys_addr),
 		PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE,
 	);
@@ -563,8 +625,7 @@ pub unsafe fn _start() -> ! {
 	// Set up the stack space. We'll give it 64KiB to start with (the kernel
 	// may choose to grow the stack, as per oro_boot's specification of the
 	// kernel stack index value).
-	let (_, stack_last_addr) =
-		l4_to_range(oro_boot::x86_64::well_known::KERNEL_STACK_PAGE_TABLE_INDEX);
+	let (_, stack_last_addr) = l4_to_range_48(oro_boot::x86_64::KERNEL_STACK_PAGE_TABLE_INDEX);
 	let stack_init_addr = stack_last_addr & (!0xFFF); // used by the stubs to set the kernel stack
 	let stack_page_end = stack_last_addr >> 12;
 	let stack_page_start = stack_page_end - 16; // 16 * 4KiB = 64KiB initial kernel stack size
@@ -631,6 +692,23 @@ pub unsafe fn _start() -> ! {
 	let mut limine_mapper = OffsetPageTable::new(
 		limine_l4_page_table,
 		VirtAddr::new_unsafe(hhdm.offset as u64),
+	);
+
+	// Serialize the boot configuration to memory for the kernel to pick up
+	// once we switch to it.
+	type Proxy = ::oro_boot::Proxy![::oro_boot::x86_64::BootConfig];
+	let boot_config = Proxy {
+		magic: ::oro_boot::BOOT_MAGIC,
+		nonce: boot_time as u64,
+		nonce_xor_magic: ::oro_boot::BOOT_MAGIC ^ (boot_time as u64),
+	};
+	::oro_boot::serialize!(
+		boot_config,
+		&mut OroBootAllocator::new(
+			&mut pfa,
+			&mut limine_mapper, // mapped as RW
+			&mut oro_mapper     // mapped as RO
+		)
 	);
 
 	// Now we map in the stubs to the same address as where they'll exist

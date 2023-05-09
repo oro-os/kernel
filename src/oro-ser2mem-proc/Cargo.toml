@@ -1,6 +1,6 @@
 [package]
-name = "oro-boot"
-description = "Oro kernel boot protocol structures"
+name = "oro-ser2mem-proc"
+description = "Procedural macros for the ser2mem crate"
 version = { workspace = true }
 authors = { workspace = true }
 repository = { workspace = true }
@@ -8,8 +8,9 @@ publish = { workspace = true }
 edition = { workspace = true }
 
 [lib]
-test = false
-bench = false
+proc-macro = true
 
 [dependencies]
-oro-ser2mem = { path = "../oro-ser2mem" }
+proc-macro2 = "1.0.56"
+quote = "1.0.26"
+syn = { version = "2.0.15", features = ["full"] }

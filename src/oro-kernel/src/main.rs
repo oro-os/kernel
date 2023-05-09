@@ -1,11 +1,16 @@
 #![no_std]
 #![no_main]
 
+mod arch;
+
 use lazy_static::lazy_static;
 use spin::Mutex;
+
+// XXX TODO DEBUG
 #[cfg(target_arch = "x86_64")]
 use uart_16550::SerialPort;
 
+// XXX TODO DEBUG
 lazy_static! {
 	#[cfg(target_arch = "x86_64")]
 	static ref SERIAL: Mutex<SerialPort> = {
@@ -24,10 +29,12 @@ unsafe fn halt() -> ! {
 	}
 }
 
+// XXX TODO DEBUG
 trait DebugPrint {
 	fn dbgprint(self);
 }
 
+// XXX TODO DEBUG
 impl DebugPrint for &str {
 	fn dbgprint(self) {
 		use core::fmt::Write;
@@ -35,6 +42,7 @@ impl DebugPrint for &str {
 	}
 }
 
+// XXX TODO DEBUG
 macro_rules! dbg {
 	($($e:expr),*) => {
 		$($e.dbgprint();)*
@@ -45,7 +53,7 @@ macro_rules! dbg {
 #[inline(never)]
 #[panic_handler]
 unsafe fn panic(_info: &::core::panic::PanicInfo) -> ! {
-	dbg!("kernel panic");
+	dbg!("kernel panic"); // XXX TODO DEBUG
 	halt()
 }
 
@@ -54,6 +62,8 @@ unsafe fn panic(_info: &::core::panic::PanicInfo) -> ! {
 #[inline(never)]
 #[no_mangle]
 pub unsafe fn _start() -> ! {
-	dbg!("Oro kernel has booted successfully!");
+	self::arch::init();
+
+	dbg!("Oro kernel has booted successfully!"); // XXX TODO DEBUG
 	halt()
 }

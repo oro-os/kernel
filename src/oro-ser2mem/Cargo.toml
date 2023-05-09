@@ -1,15 +1,11 @@
 [package]
-name = "oro-boot"
-description = "Oro kernel boot protocol structures"
+name = "oro-ser2mem"
+description = "Serialize-to-memory main crate, used for boot structure transfer to the kernel"
 version = { workspace = true }
 authors = { workspace = true }
 repository = { workspace = true }
 publish = { workspace = true }
 edition = { workspace = true }
 
-[lib]
-test = false
-bench = false
-
 [dependencies]
-oro-ser2mem = { path = "../oro-ser2mem" }
+oro-ser2mem-proc = { path = "../oro-ser2mem-proc" }

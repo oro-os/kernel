@@ -45,10 +45,10 @@ target/x86_64/$(RELEASE)/.limine/iso/oro-boot-limine: target/x86_64/$(RELEASE)/o
 	cp "$<" "$@"
 .PHONY: target/x86_64/$(RELEASE)/oro-kernel
 target/x86_64/$(RELEASE)/oro-kernel:
-	cargo build -p oro-kernel --target=./src/triple/x86_64.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem $(CARGO_FLAGS)
+	env RUSTFLAGS="-Z macro-backtrace" cargo build -p oro-kernel --target=./src/triple/x86_64.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem $(CARGO_FLAGS)
 .PHONY: target/x86_64/$(RELEASE)/oro-boot-limine
 target/x86_64/$(RELEASE)/oro-boot-limine:
-	cargo build -p oro-boot-limine --target=./src/triple/x86_64.json -Zunstable-options -Zbuild-std=core,compiler_builtins -Zbuild-std-features=compiler-builtins-mem $(CARGO_FLAGS)
+	env RUSTFLAGS="-Z macro-backtrace" cargo build -p oro-boot-limine --target=./src/triple/x86_64.json -Zunstable-options -Zbuild-std=core,compiler_builtins -Zbuild-std-features=compiler-builtins-mem $(CARGO_FLAGS)
 target/x86_64/$(RELEASE)/.limine/limine-deploy: src/oro-boot-limine/bootloader/limine-deploy
 	@mkdir -p "$(dir $@)"
 	cp "$<" "$@"

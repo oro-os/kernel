@@ -10,6 +10,8 @@ members = [
 	"src/oro-boot",
 	"src/oro-boot-limine",
 	"src/oro-kernel",
+	"src/oro-ser2mem",
+	"src/oro-ser2mem-proc",
 ]
 
 [profile.release]
