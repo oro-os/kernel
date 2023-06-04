@@ -6,6 +6,7 @@ authors = [ "Joshua Lee Junon <junon@oro.sh> (https://github.com/qix-)" ]
 repository = "https://github.com/oro-os/kernel"
 
 [workspace]
+resolver = "2"
 members = [
 	"src/oro-boot",
 	"src/oro-boot-limine",
