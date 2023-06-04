@@ -11,8 +11,8 @@ use syn::{
 	parse::{discouraged::Speculative, Parse},
 	parse_macro_input,
 	spanned::Spanned,
-	Error, GenericParam, Generics, Ident, ItemEnum, ItemStruct, Meta, TraitBoundModifier, Type,
-	TypeParamBound, Visibility, WherePredicate,
+	Error, Fields, GenericParam, Generics, Ident, ItemEnum, ItemStruct, Meta, TraitBoundModifier,
+	Type, TypeParamBound, Visibility, WherePredicate,
 };
 
 enum StructOrEnum {
@@ -308,14 +308,8 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 const ALLOWED_ENUM_REPRS: [&str; 8] = ["u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64"];
 
 fn derive_enum(structure: ItemEnum) -> proc_macro::TokenStream {
+	// Make sure the enum is marked as `repr(u*/i*)`.
 	'find_repr: {
-		// TODO: Make sure enum is marked non-exhaustive.
-		// TODO: This is because C-interop is possible with
-		// TODO: ser2mem structures and in C/C++ it is valid
-		// TODO: to cast any value to an enum type (whereas it's
-		// TODO: not possible in Rust). Thus we need to make sure
-		// TODO: usages of the enum in the Kernel account for this.
-
 		for attr in &structure.attrs {
 			if let Meta::List(ref maybe_repr) = &attr.meta {
 				if maybe_repr.path.leading_colon.is_none()
@@ -334,16 +328,6 @@ fn derive_enum(structure: ItemEnum) -> proc_macro::TokenStream {
 			}
 		}
 
-		// TODO: Enforce that enums are not generic. Should also be enforced with
-		// TODO: the below check but providing an extra compiler error can't hurt.
-
-		// TODO: Enforce that all enum variants are fieldless.
-		// TODO: Rust has a well-defined mechanism for this, even with
-		// TODO: `repr(c)`, but we don't want to support it as it comes
-		// TODO: with a lot of extra complexity in both ser2mem as well as
-		// TODO: the C implementation, which is neither useful for ser2mem
-		// TODO: nor the kernel. Thus, we want to enforce they're not used.
-
 		return Error::new(
 			structure.span(),
 			"ser2mem enums must be annotated as #[repr(u*/i*)]",
@@ -352,7 +336,57 @@ fn derive_enum(structure: ItemEnum) -> proc_macro::TokenStream {
 		.into();
 	}
 
-	// TODO: make sure enum is marked
+	// Make sure enum is marked non-exhaustive.
+	// This is because C-interop is possible with
+	// ser2mem structures and in C/C++ it is valid
+	// to cast any value to an enum type (whereas it's
+	// not possible in Rust). Thus we need to make sure
+	// usages of the enum in the Kernel account for this.
+	'find_non_exhaustive: {
+		for attr in &structure.attrs {
+			if let Meta::Path(ref maybe_attr) = &attr.meta {
+				if maybe_attr.leading_colon.is_none()
+					&& maybe_attr.segments.len() == 1
+					&& maybe_attr.segments.first().unwrap().ident == "non_exhaustive"
+				{
+					break 'find_non_exhaustive;
+				}
+			}
+		}
+
+		return Error::new(
+			structure.span(),
+			"ser2mem enums must be annotated as #[non_exhaustive]",
+		)
+		.into_compile_error()
+		.into();
+	}
+
+	if !structure.generics.params.is_empty() || structure.generics.where_clause.is_some() {
+		return Error::new(structure.span(), "ser2mem enums may not have generics")
+			.into_compile_error()
+			.into();
+	}
+
+	// Enforce that all enum variants are fieldless.
+	// Rust has a well-defined mechanism for this, even with
+	// `repr(u*/i*)`, but we don't want to support it as it comes
+	// with a lot of extra complexity in both ser2mem as well as
+	// the C implementation, which is neither useful for ser2mem
+	// nor the kernel. Thus, we want to enforce they're not used.
+	for variant in structure.variants {
+		match variant.fields {
+			Fields::Unit => {}
+			_ => {
+				return Error::new(
+					variant.span(),
+					"ser2mem enum variants may not contain fields",
+				)
+				.into_compile_error()
+				.into()
+			}
+		}
+	}
 
 	let ident = structure.ident;
 

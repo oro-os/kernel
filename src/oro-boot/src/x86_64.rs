@@ -28,6 +28,7 @@ pub const USER_PAGE_TABLE_INDICES: (u16, u16) = (2, 255);
 
 #[derive(Ser2Mem, Copy, Clone, Debug)]
 #[repr(u8)]
+#[non_exhaustive]
 pub enum MemoryRegionKind {
 	Usable,
 	Modules,
