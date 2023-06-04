@@ -1,4 +1,4 @@
-use oro_ser2mem::Ser2Mem;
+use oro_ser2mem::{CloneIterator, Ser2Mem};
 
 /// MUST NOT be 511! MUST correspond to the beginning of the private kernel stack space
 pub const RECURSIVE_PAGE_TABLE_INDEX: u16 = 256;
@@ -44,11 +44,14 @@ pub struct MemoryRegion {
 
 #[derive(Ser2Mem)]
 #[repr(C, align(4096))]
-pub struct BootConfig {
+pub struct BootConfig<M>
+where
+	M: CloneIterator<Item = MemoryRegion>,
+{
 	pub magic: u64,
 	pub nonce: u64,
 	pub nonce_xor_magic: u64,
-	pub test_kind: MemoryRegionKind,
+	pub memory_map: M,
 }
 
 #[inline(always)]

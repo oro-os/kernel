@@ -52,6 +52,8 @@
 
 pub mod _detail;
 
+use core::marker::PhantomData;
+
 pub use oro_ser2mem_proc::Ser2Mem;
 
 /// To be implemented by bootloaders in order to allocate linear
@@ -67,8 +69,8 @@ pub use oro_ser2mem_proc::Ser2Mem;
 /// This allocator MUST halt the CPU if it runs out of memory, preferably
 /// with an error message.
 pub unsafe trait Allocator {
-	/// Returns the next address that would be returned by
-	/// a call to `allocate()`.
+	/// Returns the next base address that would be allocated by the
+	/// next call to `allocate()`.
 	fn position(&self) -> u64;
 
 	/// Allocate `sz` bytes of memory, directly (contiguously) after
@@ -102,6 +104,23 @@ pub unsafe trait Allocator {
 	}
 }
 
+/// # Safety
+///
+/// Does some erotic dancing with pointers. Do not implement yourself;
+/// the only valid way to implement this trait is to use `#[derive(Ser2Mem)]`.
+pub unsafe trait Serialize {
+	/// # Safety
+	///
+	/// Among other things (such as writing invalid slices to memory),
+	/// `alloc.position()` must report an address that is aligned to
+	/// `Self`'s alignment requirements prior to calling this function.
+	/// This function will only align child elements prior to serializing
+	/// them, but expects the caller to have done so beforehand.
+	unsafe fn serialize<A>(self, alloc: &mut A)
+	where
+		A: Allocator;
+}
+
 /// Get the proxied type of a `Ser2Mem`-derived type.
 /// The returned type is the type that should be populated
 /// and subsequently serialized to memory.
@@ -112,10 +131,37 @@ macro_rules! Proxy {
 	};
 }
 
-#[macro_export]
-macro_rules! serialize {
-	($root:expr, $alloc:expr) => {
-		use $crate::_detail::Proxy as _;
-		$root.serialize($alloc);
-	};
+/// This is some black magic. Essentially, we have to emulate iterator types to silence
+/// the Rust compiler's type checking in order to invoke the `Proxy!` macro to get the
+/// anonymously generated struct type based on the boot information structs. It's a whole
+/// deal. Luckily, this is the "ugliest" and "hackiest" part of the whole thing, and doing
+/// it this way makes it so that we don't need to pollute the boot protocol namespace
+/// with unhygienic procedural macros.
+pub struct Fake<T>
+where
+	T: Sized + _detail::Serializable,
+{
+	pd: PhantomData<T>,
 }
+
+impl<T> Clone for Fake<T>
+where
+	T: Sized + _detail::Serializable,
+{
+	fn clone(&self) -> Self {
+		panic!("do not actually construct or clone a Fake iterator!");
+	}
+}
+
+impl<T> Iterator for Fake<T>
+where
+	T: Sized + _detail::Serializable,
+{
+	type Item = T;
+	fn next(&mut self) -> Option<Self::Item> {
+		panic!("do not actually iterate over a Fake iterator!");
+	}
+}
+
+pub trait CloneIterator: Clone + Iterator {}
+impl<T> CloneIterator for T where T: Clone + Iterator {}

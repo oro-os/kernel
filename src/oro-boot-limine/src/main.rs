@@ -17,7 +17,7 @@ use limine_protocol::{
 	structures::memory_map_entry::{EntryType, MemoryMapEntry},
 	BootTimeRequest, HHDMRequest, MemoryMapRequest, ModuleRequest, Request,
 };
-use oro_boot::x86_64::l4_to_range_48;
+use oro_boot::{x86_64::l4_to_range_48, Serialize};
 use spin::Mutex;
 use uart_16550::SerialPort;
 use x86_64::{
@@ -303,6 +303,7 @@ where
 	A: FrameAllocator<Size4KiB> + 'static,
 {
 	current_position: u64,
+	last_allocated_page: u64,
 	pfa: &'a mut A,
 	rw_mapper: &'a mut OffsetPageTable<'b>,
 	ro_mapper: &'a mut OffsetPageTable<'b>,
@@ -319,6 +320,7 @@ where
 	) -> Self {
 		Self {
 			current_position: l4_to_range_48(::oro_boot::x86_64::ORO_BOOT_PAGE_TABLE_INDEX).0,
+			last_allocated_page: 0,
 			pfa,
 			rw_mapper,
 			ro_mapper,
@@ -335,25 +337,35 @@ where
 		self.current_position
 	}
 
+	// TODO: Woof, this is a a really poorly written implementation.
+	// TODO: Might want to re-write this later...
 	unsafe fn allocate(&mut self, sz: u64) {
 		let current_page = self.current_position >> 12;
-		let next_page = (self.current_position + sz) >> 12;
-		for _ in current_page..next_page {
+		let last_page = (self.current_position + sz) >> 12;
+
+		for page in current_page..=last_page {
+			if self.last_allocated_page >= page {
+				continue;
+			}
+
 			let frame = self.pfa.allocate_frame().unwrap_or_else(|| {
 				dbg!("boot error: out of memory when allocating boot protocol structures");
 				halt();
 			});
 
 			self.rw_mapper.map_or_die(
-				current_page << 12,
+				page << 12,
 				frame,
 				PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
 				self.pfa,
 			);
 
 			self.ro_mapper
-				.map_or_die(current_page << 12, frame, PageTableFlags::PRESENT, self.pfa);
+				.map_or_die(page << 12, frame, PageTableFlags::PRESENT, self.pfa);
 		}
+
+		self.current_position += sz;
+		self.last_allocated_page = last_page;
 	}
 }
 
@@ -696,21 +708,28 @@ pub unsafe fn _start() -> ! {
 
 	// Serialize the boot configuration to memory for the kernel to pick up
 	// once we switch to it.
-	type Proxy = ::oro_boot::Proxy![::oro_boot::x86_64::BootConfig];
-	let boot_config = Proxy {
+	let boot_config = ::oro_boot::x86_64::BootConfig {
 		magic: ::oro_boot::BOOT_MAGIC,
 		nonce: boot_time as u64,
 		nonce_xor_magic: ::oro_boot::BOOT_MAGIC ^ (boot_time as u64),
-		test_kind: oro_boot::x86_64::MemoryRegionKind::Modules, // XXX TODO DEBUG
+		memory_map: mmap
+			.iter()
+			.map(|limine_region| ::oro_boot::x86_64::MemoryRegion {
+				base: limine_region.base,
+				length: limine_region.length,
+				kind: match limine_region.kind {
+					EntryType::Usable => ::oro_boot::x86_64::MemoryRegionKind::Usable,
+					EntryType::KernelAndModules => ::oro_boot::x86_64::MemoryRegionKind::Modules,
+					_ => ::oro_boot::x86_64::MemoryRegionKind::Reserved,
+				},
+			}),
 	};
-	::oro_boot::serialize!(
-		boot_config,
-		&mut OroBootAllocator::new(
-			&mut pfa,
-			&mut limine_mapper, // mapped as RW
-			&mut oro_mapper     // mapped as RO
-		)
-	);
+
+	boot_config.serialize(&mut OroBootAllocator::new(
+		&mut pfa,
+		&mut limine_mapper, // mapped as RW
+		&mut oro_mapper,    // mapped as RO
+	));
 
 	// Now we map in the stubs to the same address as where they'll exist
 	// after the CR3 switch. We can use the page frame allocator still since

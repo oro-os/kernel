@@ -1,8 +1,9 @@
-use oro_boot::x86_64 as boot;
-
 pub fn init() {
 	let boot_config = unsafe {
-		&*(boot::l4_to_range_48(boot::ORO_BOOT_PAGE_TABLE_INDEX).0 as *const boot::BootConfig)
+		use oro_boot::{x86_64 as boot, Fake, Proxy};
+
+		&*(boot::l4_to_range_48(boot::ORO_BOOT_PAGE_TABLE_INDEX).0
+			as *const Proxy![boot::BootConfig<Fake<boot::MemoryRegion>>])
 	};
 
 	// Validate the magic number

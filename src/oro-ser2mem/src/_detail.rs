@@ -18,35 +18,19 @@ pub unsafe trait Pod: 'static + Copy {}
 
 /// # Safety
 ///
-/// Does some erotic dancing with pointers. Do not implement yourself;
-/// the only method to implement this trait is to use `#[derive(Ser2Mem)]`.
-///
-/// To get a reference to the proxy type, use `Proxy![OriginalType]`.
-pub unsafe trait Proxy {
-	/// # Safety
-	///
-	/// Among other things (such as writing invalid slices to memory),
-	/// `alloc.position()` must report an address that is aligned to
-	/// `Self`'s alignment requirements prior to calling this function.
-	/// This function will only align child elements prior to serializing
-	/// them, but expects the caller to have done so beforehand.
-	unsafe fn serialize<A>(self, alloc: &mut A)
-	where
-		A: Allocator;
-}
-
-/// # Safety
-///
 /// Do not implement yourself. Instead, use the `#[derive(Ser2Mem)]`
 /// attribute.
 pub unsafe trait Proxied {
 	/// The type to be implemented.
-	type Proxy: Proxy;
+	type Proxy;
 }
 
 /// A T=>U type relationship for serializing a Bootloader value to a
 /// memory-correct Kernel memory value. For [Pod]-marked types, this
 /// is a simple byte-wise copy.
+///
+/// To get around blanket + specialized trait implementation mixing,
+/// a single trait type argument is specified, but is entirely unused.
 ///
 /// # Safety
 ///
@@ -56,35 +40,62 @@ pub unsafe trait Proxied {
 ///
 /// A gentle reminder that ser2mem is _not_ a general-purpose
 /// serialization framework.
-pub unsafe trait Serializable<T: Sized> {
+pub unsafe trait Serializable {
+	type Target: Sized;
+
 	/// # Safety
-	/// Do not call yourself. Use the `serialize!()` macro.
+	/// Do not call yourself. Use the `.serialize()` method on `Serialize` types.
 	///
 	/// A gentle reminder that ser2mem is _not_ a general-purpose
 	/// serialization framework.
-	unsafe fn serialize_to<A>(&self, to: *mut T, alloc: &mut A)
+	unsafe fn serialize_to<A>(self, to: *mut Self::Target, alloc: &mut A)
 	where
 		A: Allocator;
 }
 
-// For any copyable (trivial) type, simply copy them.
-unsafe impl<T> Serializable<T> for T
-where
-	T: Pod,
-{
-	#[inline(always)]
-	unsafe fn serialize_to<A>(&self, to: *mut T, _alloc: &mut A)
-	where
-		A: Allocator,
-	{
-		*to = *self;
-	}
-}
-
 macro_rules! pod_types {
 	($($t:ty),*) => {
-		$(unsafe impl Pod for $t {})*
+		$(unsafe impl Serializable for $t {
+			type Target = Self;
+
+			#[inline(always)]
+			unsafe fn serialize_to<A>(self, to: *mut Self, _alloc: &mut A)
+			where
+				A: Allocator,
+			{
+				*to = self;
+			}
+		})*
 	}
 }
 
-pod_types![u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, bool];
+pod_types![u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64];
+
+/// Serialize (with ser2mem) an iterator to a new memory region and return the slice
+///
+/// # Safety
+///
+/// DO NOT CALL. This is for use by auto-generated implementations by the ser2mem
+/// procedural macros.
+///
+/// A gentle reminder that ser2mem is _not_ a general-purpose
+/// serialization framework.
+pub unsafe fn serialize_iterator_to_slice<I, T, A>(iter: I, alloc: &mut A) -> &'static [T::Target]
+where
+	T: Serializable,
+	I: Iterator<Item = T> + Clone,
+	A: Allocator,
+{
+	let count = iter.clone().count();
+	let layout = ::core::alloc::Layout::array::<T::Target>(count).unwrap();
+
+	alloc.align(layout.align() as u64);
+	let base = ::core::slice::from_raw_parts_mut(alloc.position() as *mut T::Target, count);
+	alloc.allocate(layout.size() as u64);
+
+	for (i, item) in iter.enumerate() {
+		item.serialize_to(&mut base[i] as *mut T::Target, alloc);
+	}
+
+	base
+}
