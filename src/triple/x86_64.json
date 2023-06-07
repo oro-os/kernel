@@ -8,12 +8,12 @@
 	"os": "oro",
 	"linker-flavor": "ld.lld",
 	"linker": "rust-lld",
-	"position-independent-executables": true,
+	"position-independent-executables": false,
 	"panic-strategy": "abort",
 	"disable-redzone": true,
 	"features": "-mmx,-sse,-sse2,-sse3,-ssse3,+soft-float",
 	"code-model": "kernel",
 	"pre-link-args": {
-		"ld": ["--relax"]
+		"ld": ["--relax", "-static"]
 	}
 }

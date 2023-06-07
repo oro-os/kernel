@@ -451,7 +451,7 @@ unsafe fn load_kernel_elf_err<M: Mapper<Size4KiB>, A: FrameAllocator<Size4KiB>>(
 			let dest_end_page = dest_start_page + (phdr.p_memsz >> 12);
 
 			let pflags = {
-				let mut pflags = PageTableFlags::PRESENT | PageTableFlags::GLOBAL;
+				let mut pflags = PageTableFlags::PRESENT;
 
 				if (phdr.p_flags & elf::abi::PF_W) != 0 {
 					pflags |= PageTableFlags::WRITABLE;
@@ -720,6 +720,9 @@ pub unsafe fn _start() -> ! {
 				kind: match limine_region.kind {
 					EntryType::Usable => ::oro_boot::x86_64::MemoryRegionKind::Usable,
 					EntryType::KernelAndModules => ::oro_boot::x86_64::MemoryRegionKind::Modules,
+					EntryType::BootloaderReclaimable => {
+						::oro_boot::x86_64::MemoryRegionKind::Usable
+					}
 					_ => ::oro_boot::x86_64::MemoryRegionKind::Reserved,
 				},
 			}),

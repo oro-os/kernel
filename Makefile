@@ -25,7 +25,7 @@ clippy:
 
 # oro x86_64-limine
 x86_64-limine.qemu: x86_64-limine
-	qemu-system-x86_64 -cdrom target/out/oro-$(ORO_VERSION)-x86_64-limine-$(RELEASE).iso -serial stdio $(QEMUFLAGS)
+	qemu-system-x86_64 -cdrom target/out/oro-$(ORO_VERSION)-x86_64-limine-$(RELEASE).iso -serial stdio $(QEMUFLAGS) -no-reboot -no-shutdown
 x86_64-limine: x86_64 target/out/oro-$(ORO_VERSION)-x86_64-limine-$(RELEASE).iso
 target/out/oro-$(ORO_VERSION)-x86_64-limine-$(RELEASE).iso: $(addprefix target/x86_64/$(RELEASE)/.limine/,iso/oro-kernel iso/oro-boot-limine iso/limine-cd-efi.bin iso/limine-cd.bin iso/limine.sys iso/limine.cfg limine-deploy)
 	@mkdir -p "$(dir $@)"
