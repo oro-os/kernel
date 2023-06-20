@@ -56,12 +56,12 @@ where
 }
 
 #[inline(always)]
-fn sign_extend_48(addr: u64) -> u64 {
+const fn sign_extend_48(addr: u64) -> u64 {
 	addr | (((addr >> 47) & 1) * 0xFFFF_0000_0000_0000)
 }
 
 #[inline(always)]
-pub fn l4_to_range_48(idx: u16) -> (u64, u64) {
+pub const fn l4_to_range_48(idx: u16) -> (u64, u64) {
 	let base = sign_extend_48(((idx as u64) & 511) << (12 + 9 + 9 + 9));
 	(base, base | 0x7F_FFFF_FFFF)
 }
