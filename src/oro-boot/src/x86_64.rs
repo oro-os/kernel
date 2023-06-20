@@ -26,7 +26,7 @@ pub const KERNEL_PUBLIC_HEAP_PAGE_TABLE_INDICES: (u16, u16) = (384, 447);
 /// All userspace allocations can be safely put here; inclusive.
 pub const USER_PAGE_TABLE_INDICES: (u16, u16) = (2, 255);
 
-#[derive(Ser2Mem, Copy, Clone, Debug)]
+#[derive(Ser2Mem, Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u8)]
 #[non_exhaustive]
 pub enum MemoryRegionKind {
