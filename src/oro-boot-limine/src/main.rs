@@ -2,12 +2,6 @@
 #![no_main]
 #![feature(naked_functions, core_intrinsics, more_qualified_paths)]
 
-// XXX Just to note: when the memory map is eventually constructed for
-// XXX the kernel to consume, we *can* mark KernelAndModules as re-
-// XXX claimable since we now unpack the kernel and (will eventually)
-// XXX copy all modules to a well known location that the OS can
-// XXX reclaim itself anyway.
-
 use core::{arch::asm, ffi::CStr};
 use elf::{endian::AnyEndian, ElfBytes, ParseError};
 use lazy_static::lazy_static;
