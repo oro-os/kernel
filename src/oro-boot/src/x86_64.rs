@@ -49,9 +49,17 @@ pub struct BootConfig<M>
 where
 	M: CloneIterator<Item = MemoryRegion>,
 {
+	/// Set to `oro_boot::BOOT_MAGIC`
 	pub magic: u64,
+	/// Set to a non-deterministic value, such as the current timestamp
 	pub nonce: u64,
+	/// Assign the result of `magic XOR nonce`
 	pub nonce_xor_magic: u64,
+	/// The list of memory regions made available to the machine.
+	///
+	/// It is IMPERATIVE that the order here matches the order used by
+	/// the boot stage allocator, and that the boot stage allocator allocates
+	/// frames IN ORDER from the beginning of the first usable region.
 	pub memory_map: M,
 }
 
