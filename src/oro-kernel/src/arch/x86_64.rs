@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
-use spin::Mutex;
+use oro_boot::x86_64 as boot;
+use spin::mutex::{spin::SpinMutex, ticket::TicketMutex};
 use uart_16550::SerialPort;
 use x86_64::{
 	structures::{
@@ -13,10 +14,10 @@ use x86_64::{
 pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
 
 lazy_static! {
-	static ref SERIAL: Mutex<SerialPort> = {
+	static ref SERIAL: SpinMutex<SerialPort> = {
 		let mut serial_port = unsafe { SerialPort::new(0x3F8) };
 		serial_port.init();
-		Mutex::new(serial_port)
+		SpinMutex::new(serial_port)
 	};
 	static ref IDT: InterruptDescriptorTable = {
 		let mut idt = InterruptDescriptorTable::new();
