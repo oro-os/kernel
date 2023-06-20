@@ -83,7 +83,7 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 						"lifetime parameters are not allowed in ser2mem generics",
 					)
 					.into_compile_error()
-					.into()
+					.into();
 				}
 				GenericParam::Const(c) => {
 					return Error::new(
@@ -91,7 +91,7 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 						"constant parameters are not allowed in ser2mem generics",
 					)
 					.into_compile_error()
-					.into()
+					.into();
 				}
 				GenericParam::Type(gt) => {
 					if !gt.attrs.is_empty() {
@@ -128,11 +128,16 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 							"ser2mem generic `where` clauses cannot contain lifetime predicates",
 						)
 						.into_compile_error()
-						.into()
+						.into();
 					}
 					WherePredicate::Type(gt) => {
 						if gt.lifetimes.is_some() {
-							return Error::new(gt.lifetimes.span(), "ser2mem generic `where` predicates cannot contain `for<'_>` lifetimes").into_compile_error().into();
+							return Error::new(
+								gt.lifetimes.span(),
+								"ser2mem generic `where` predicates cannot contain `for<'_>` lifetimes",
+							)
+							.into_compile_error()
+							.into();
 						}
 
 						let ident = match &gt.bounded_ty {
@@ -172,7 +177,7 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 							"unknown `where` predicate (and thus unsupported by ser2mem)",
 						)
 						.into_compile_error()
-						.into()
+						.into();
 					}
 				}
 			}
@@ -196,8 +201,15 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 					None => None,
 					Some(Some(TypeParamBound::Trait(pt))) => {
 						match pt.modifier {
-							TraitBoundModifier::None => {},
-							_ => return Error::new(pt.modifier.span(), "ser2mem structure generic parameter bounds cannot be modified (e.g. with `?`)").into_compile_error().into()
+							TraitBoundModifier::None => {}
+							_ => {
+								return Error::new(
+									pt.modifier.span(),
+									"ser2mem structure generic parameter bounds cannot be modified (e.g. with `?`)",
+								)
+								.into_compile_error()
+								.into();
+							}
 						}
 
 						if let Some(lts) = &pt.lifetimes {
@@ -221,7 +233,7 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 							"ser2mem generic parameters must be bounded only to `::oro_ser2mem::CloneIterator` traits",
 						)
 						.into_compile_error()
-						.into()
+						.into();
 					}
 					Some(None) => {
 						return Error::new(
@@ -229,7 +241,7 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 							"ser2mem generic type bounds must be trait bounds",
 						)
 						.into_compile_error()
-						.into()
+						.into();
 					}
 				}
 			} else {
@@ -383,7 +395,7 @@ fn derive_enum(structure: ItemEnum) -> proc_macro::TokenStream {
 					"ser2mem enum variants may not contain fields",
 				)
 				.into_compile_error()
-				.into()
+				.into();
 			}
 		}
 	}
