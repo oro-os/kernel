@@ -544,6 +544,8 @@ unsafe fn load_kernel_elf<M: Mapper<Size4KiB>, A: FrameAllocator<Size4KiB>>(
 #[inline(never)]
 #[no_mangle]
 pub unsafe fn _start() -> ! {
+	x86_64::instructions::interrupts::disable();
+
 	dbg!("starting Oro + limine pre-boot");
 
 	let hhdm = if let Some(res) = HHDM_REQUEST.get_response() {
