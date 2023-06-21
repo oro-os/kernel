@@ -9,14 +9,20 @@ use oro_ser2mem::{CloneIterator, Ser2Mem};
 pub const RECURSIVE_PAGE_TABLE_INDEX: u16 = 256;
 /// Oro sysapi page table index; the sysapi root structures
 /// should be mapped at the beginning of this index's address space.
+///
+/// Any and all memory in this region will be reclaimed upon the kernel
+/// initializing.
 pub const ORO_SYSAPI_PAGE_TABLE_INDEX: u16 = 1;
 /// Kernel stack page table index
 ///
-/// Bootloaders should make the last page in this index
+/// Boot stages MUST make the last page in this memory region
 /// non-present at all times, allocating a sufficient
 /// stack space for the kernel to operate (growing downward),
-/// and then keep all other pages lower than the last stack
+/// and then keep all other pages lower than the first (lowest) stack
 /// page as non-present.
+///
+/// Boot stages SHOULD allocate at least 16KiB for the kernel as a minimum,
+/// and 64KiB if memory constraints are a non-issue.
 pub const KERNEL_STACK_PAGE_TABLE_INDEX: u16 = 257;
 /// Oro boot protocol index; all boot protocol structures
 /// MUST be placed here, with the root structure located at
@@ -25,10 +31,20 @@ pub const KERNEL_STACK_PAGE_TABLE_INDEX: u16 = 257;
 /// in this section!
 pub const ORO_BOOT_PAGE_TABLE_INDEX: u16 = 258;
 /// All secret heap allocations can be safely put here; inclusive.
+///
+/// Boot stages MUST NOT populate any memory in this region. The kernel
+/// expects this region is completely empty.
 pub const KERNEL_SECRET_HEAP_PAGE_TABLE_INDICES: (u16, u16) = (259, 383);
 /// All public heap allocations can be safely put here; inclusive.
+///
+/// Boot stages MUST NOT populate any memory in this region. The kernel
+/// expects this region is completely empty.
 pub const KERNEL_PUBLIC_HEAP_PAGE_TABLE_INDICES: (u16, u16) = (384, 447);
 /// All userspace allocations can be safely put here; inclusive.
+///
+/// Any and all memory in this region will be reclaimed upon the kernel
+/// initializing. Boot stages SHOULD utilize this region for any temporary
+/// trampolines, memory maps, etc.
 pub const USER_PAGE_TABLE_INDICES: (u16, u16) = (2, 255);
 
 #[derive(Ser2Mem, Copy, Clone, Debug, PartialEq, Eq)]
@@ -80,7 +96,16 @@ pub const fn l4_to_range_48(idx: u16) -> (u64, u64) {
 }
 
 #[inline(always)]
+pub const fn l4_mkvirtaddr(idx1: u16, idx2: u16, idx3: u16, idx4: u16) -> u64 {
+	sign_extend_48(
+		((idx1 as u64) << (9 * 3 + 12))
+			| ((idx2 as u64) << (9 * 2 + 12))
+			| ((idx3 as u64) << (9 + 12))
+			| ((idx4 as u64) << 12),
+	)
+}
+
+#[inline(always)]
 pub const fn l4_to_recursive_table(idx: u16) -> u64 {
-	let idx = idx as u64;
-	sign_extend_48((idx << (9 * 3 + 12)) | (idx << (9 * 2 + 12)) | (idx << (9 + 12)) | (idx << 12))
+	l4_mkvirtaddr(idx, idx, idx, idx)
 }

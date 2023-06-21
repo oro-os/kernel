@@ -136,6 +136,7 @@ dependencies = [
  "rusty-hook",
  "spin 0.9.8",
  "uart_16550",
+ "volatile",
  "x86_64",
 ]
 
