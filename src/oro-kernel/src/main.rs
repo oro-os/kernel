@@ -6,8 +6,9 @@ mod arch;
 
 #[inline(never)]
 #[panic_handler]
-unsafe fn panic(_info: &::core::panic::PanicInfo) -> ! {
-	println!("kernel panic"); // XXX TODO DEBUG
+unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
+	println!("<< KERNEL PANIC >>");
+	println!("{:#?}", info);
 	self::arch::halt()
 }
 

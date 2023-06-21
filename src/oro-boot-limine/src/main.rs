@@ -34,6 +34,8 @@ lazy_static! {
 	};
 }
 
+/// We can put it here since all memory in the lower half are
+/// unmapped in the kernel upon boot, and all pages are reclaimed.
 const STUBS_ADDR: u64 = 0x0000_6000_0000_0000;
 
 // These are linked via the linker script colocated
@@ -735,6 +737,14 @@ pub unsafe fn _start() -> ! {
 	// these stubs are reclaimable.
 	map_stubs!(limine_mapper, oro_mapper, pfa);
 	map_stubs!(limine_mapper, limine_mapper, pfa);
+
+	// TODO Fast-forward the memory map provided to the kernel based on
+	// TODO number of pages we've allocated here; for each page used,
+	// TODO increase the base address and deduct the length. This still
+	// TODO guarantees that physical memory regions are still sorted,
+	// TODO and that the kernel can reliably use only unused physical
+	// TODO memory, without needing to pass any additional information
+	// TODO in the boot protocol structures.
 
 	// Now that it's all mapped, we want to push our important stuff to registers
 	// and jump to the stub

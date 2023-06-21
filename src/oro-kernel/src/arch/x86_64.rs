@@ -1,11 +1,12 @@
 use lazy_static::lazy_static;
 use oro_boot::x86_64 as boot;
-use spin::mutex::{spin::SpinMutex, ticket::TicketMutex};
+use spin::mutex::spin::SpinMutex;
 use uart_16550::SerialPort;
 use x86_64::{
 	structures::{
 		gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector},
 		idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode},
+		paging::{PageTable, PageTableFlags, RecursivePageTable},
 		tss::TaskStateSegment,
 	},
 	VirtAddr,
@@ -41,6 +42,14 @@ lazy_static! {
 		let cs = gdt.add_entry(Descriptor::kernel_code_segment());
 		let tss = gdt.add_entry(Descriptor::tss_segment(&TSS));
 		(gdt, Selectors { cs, tss })
+	};
+	#[derive(Debug)]
+	static ref KERNEL_MAPPER: SpinMutex<RecursivePageTable<'static>> = {
+		let base_addr = boot::l4_to_recursive_table(boot::RECURSIVE_PAGE_TABLE_INDEX);
+		let page_table = unsafe {
+			&mut *(base_addr as *mut PageTable)
+		};
+		SpinMutex::new(RecursivePageTable::new(page_table).unwrap())
 	};
 }
 
@@ -107,7 +116,7 @@ pub fn init() {
 	IDT.load();
 
 	let boot_config = unsafe {
-		use oro_boot::{x86_64 as boot, Fake, Proxy};
+		use oro_boot::{Fake, Proxy};
 
 		&*(boot::l4_to_range_48(boot::ORO_BOOT_PAGE_TABLE_INDEX).0
 			as *const Proxy![boot::BootConfig<Fake<boot::MemoryRegion>>])
@@ -120,4 +129,17 @@ pub fn init() {
 	if boot_config.nonce_xor_magic != (oro_boot::BOOT_MAGIC ^ boot_config.nonce) {
 		panic!("boot error (kernel): boot config magic^nonce mismatch");
 	}
+
+	// XXX DEBUG Make sure the page table is initialized correctly
+	debug_assert!({
+		let mut mapper = KERNEL_MAPPER.lock();
+		let l4 = mapper.level_4_table();
+		l4[boot::RECURSIVE_PAGE_TABLE_INDEX as usize]
+			.flags()
+			.contains(PageTableFlags::PRESENT)
+	});
+
+	// TODO set up PFA
+	// TODO set up memory mapper
+	// TODO unmap (and reclaim physical memory for) anything in lower half
 }

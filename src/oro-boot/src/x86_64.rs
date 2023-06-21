@@ -1,6 +1,11 @@
+//! TODO explain the boot protocol
+//! TODO - memory layout
+//! TODO - unmapping all memory in lower half
+
 use oro_ser2mem::{CloneIterator, Ser2Mem};
 
-/// MUST NOT be 511! MUST correspond to the beginning of the private kernel stack space
+/// MUST NOT be 511! MUST correspond to the beginning of the private kernel stack space.
+/// MUST NOT BE IN LOWER HALF (<= 255)!
 pub const RECURSIVE_PAGE_TABLE_INDEX: u16 = 256;
 /// Oro sysapi page table index; the sysapi root structures
 /// should be mapped at the beginning of this index's address space.
@@ -72,4 +77,10 @@ const fn sign_extend_48(addr: u64) -> u64 {
 pub const fn l4_to_range_48(idx: u16) -> (u64, u64) {
 	let base = sign_extend_48(((idx as u64) & 511) << (12 + 9 + 9 + 9));
 	(base, base | 0x7F_FFFF_FFFF)
+}
+
+#[inline(always)]
+pub const fn l4_to_recursive_table(idx: u16) -> u64 {
+	let idx = idx as u64;
+	sign_extend_48((idx << (9 * 3 + 12)) | (idx << (9 * 2 + 12)) | (idx << (9 + 12)) | (idx << 12))
 }
