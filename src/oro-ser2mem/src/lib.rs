@@ -116,7 +116,7 @@ pub unsafe trait Serialize {
 	/// `Self`'s alignment requirements prior to calling this function.
 	/// This function will only align child elements prior to serializing
 	/// them, but expects the caller to have done so beforehand.
-	unsafe fn serialize<A>(self, alloc: &mut A)
+	unsafe fn serialize<A>(&self, alloc: &mut A)
 	where
 		A: Allocator;
 }

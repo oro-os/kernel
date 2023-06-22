@@ -11,7 +11,13 @@ use limine_protocol::{
 	structures::memory_map_entry::{EntryType, MemoryMapEntry},
 	BootTimeRequest, HHDMRequest, MemoryMapRequest, ModuleRequest, Request,
 };
-use oro_boot::{x86_64::l4_to_range_48, Serialize};
+use oro_boot::{
+	x86_64::{
+		l4_to_range_48, BootConfig, MemoryRegion, MemoryRegionKind, KERNEL_STACK_PAGE_TABLE_INDEX,
+		ORO_BOOT_PAGE_TABLE_INDEX, RECURSIVE_PAGE_TABLE_INDEX,
+	},
+	Allocator, Serialize, BOOT_MAGIC,
+};
 use spin::Mutex;
 use uart_16550::SerialPort;
 use x86_64::{
@@ -85,11 +91,25 @@ static STKSZ_REQUEST: Request<StackSizeRequest> = StackSizeRequest {
 }
 .into();
 
+fn map_limine_to_oro_region(kind: &EntryType) -> MemoryRegionKind {
+	match kind {
+		EntryType::Usable => MemoryRegionKind::Usable,
+		EntryType::KernelAndModules => MemoryRegionKind::Modules,
+		EntryType::BootloaderReclaimable => MemoryRegionKind::Usable,
+		_ => MemoryRegionKind::Reserved,
+	}
+}
+
+fn is_oro_region_allocatable(kind: &MemoryRegionKind) -> bool {
+	kind == &MemoryRegionKind::Usable
+}
+
 struct LiminePageFrameAllocator {
 	bios_mapping: &'static [&'static MemoryMapEntry],
 	bios_mapping_offset: usize,
 	byte_offset: u64,
 	byte_offset_max: u64,
+	total_allocations: u64,
 }
 
 impl LiminePageFrameAllocator {
@@ -109,6 +129,7 @@ impl LiminePageFrameAllocator {
 			bios_mapping_offset: 0,
 			byte_offset,
 			byte_offset_max,
+			total_allocations: 0,
 		}
 	}
 }
@@ -124,7 +145,7 @@ unsafe impl FrameAllocator<Size4KiB> for LiminePageFrameAllocator {
 					// guaranteed to be non-overlapping and 4KiB aligned.
 					// Thus, we can make a _lot_ of simplifications to
 					// the byte math here.
-					if mapping.kind == EntryType::Usable {
+					if is_oro_region_allocatable(&map_limine_to_oro_region(&mapping.kind)) {
 						self.bios_mapping_offset = i;
 						self.byte_offset = mapping.base;
 						self.byte_offset_max = self.byte_offset + mapping.length;
@@ -149,7 +170,7 @@ unsafe impl FrameAllocator<Size4KiB> for LiminePageFrameAllocator {
 		// based on Discord conversations.
 		let offset = self.byte_offset;
 		self.byte_offset += Size4KiB::SIZE;
-
+		self.total_allocations += 1;
 		Some(unsafe { PhysFrame::from_start_address_unchecked(PhysAddr::new_unsafe(offset)) })
 	}
 }
@@ -315,7 +336,7 @@ where
 		ro_mapper: &'a mut OffsetPageTable<'b>,
 	) -> Self {
 		Self {
-			current_position: l4_to_range_48(::oro_boot::x86_64::ORO_BOOT_PAGE_TABLE_INDEX).0,
+			current_position: l4_to_range_48(ORO_BOOT_PAGE_TABLE_INDEX).0,
 			last_allocated_page: 0,
 			pfa,
 			rw_mapper,
@@ -324,7 +345,7 @@ where
 	}
 }
 
-unsafe impl<'a, 'b, A> ::oro_boot::Allocator for OroBootAllocator<'a, 'b, A>
+unsafe impl<'a, 'b, A> Allocator for OroBootAllocator<'a, 'b, A>
 where
 	A: FrameAllocator<Size4KiB>,
 {
@@ -622,7 +643,7 @@ pub unsafe fn _start() -> ! {
 	// use the x86_64 crate's RecursivePageTable structure.
 	//
 	// Must be done before we pass the mutable reference to the mapper.
-	oro_l4_page_table[oro_boot::x86_64::RECURSIVE_PAGE_TABLE_INDEX as usize].set_addr(
+	oro_l4_page_table[RECURSIVE_PAGE_TABLE_INDEX as usize].set_addr(
 		PhysAddr::new_unsafe(oro_l4_page_table_phys_addr),
 		PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE,
 	);
@@ -635,7 +656,7 @@ pub unsafe fn _start() -> ! {
 	// Set up the stack space. We'll give it 64KiB to start with (the kernel
 	// may choose to grow the stack, as per oro_boot's specification of the
 	// kernel stack index value).
-	let (_, stack_last_addr) = l4_to_range_48(oro_boot::x86_64::KERNEL_STACK_PAGE_TABLE_INDEX);
+	let (_, stack_last_addr) = l4_to_range_48(KERNEL_STACK_PAGE_TABLE_INDEX);
 	let stack_init_addr = stack_last_addr & (!0xFFF); // used by the stubs to set the kernel stack
 	let stack_page_end = stack_last_addr >> 12;
 	let stack_page_start = stack_page_end - 16; // 16 * 4KiB = 64KiB initial kernel stack size
@@ -706,25 +727,22 @@ pub unsafe fn _start() -> ! {
 
 	// Serialize the boot configuration to memory for the kernel to pick up
 	// once we switch to it.
-	let boot_config = ::oro_boot::x86_64::BootConfig {
-		magic: ::oro_boot::BOOT_MAGIC,
+	let boot_config = BootConfig {
+		magic: BOOT_MAGIC,
 		nonce: boot_time as u64,
-		nonce_xor_magic: ::oro_boot::BOOT_MAGIC ^ (boot_time as u64),
-		memory_map: mmap
-			.iter()
-			.map(|limine_region| ::oro_boot::x86_64::MemoryRegion {
-				base: limine_region.base,
-				length: limine_region.length,
-				kind: match limine_region.kind {
-					EntryType::Usable => ::oro_boot::x86_64::MemoryRegionKind::Usable,
-					EntryType::KernelAndModules => ::oro_boot::x86_64::MemoryRegionKind::Modules,
-					EntryType::BootloaderReclaimable => {
-						::oro_boot::x86_64::MemoryRegionKind::Usable
-					}
-					_ => ::oro_boot::x86_64::MemoryRegionKind::Reserved,
-				},
-			}),
+		nonce_xor_magic: BOOT_MAGIC ^ (boot_time as u64),
+		memory_map: mmap.iter().map(|limine_region| MemoryRegion {
+			base: limine_region.base,
+			length: limine_region.length,
+			kind: map_limine_to_oro_region(&limine_region.kind),
+		}),
 	};
+
+	// Now we map in the stubs to the same address as where they'll exist
+	// after the CR3 switch. We can use the page frame allocator still since
+	// these stubs are reclaimable.
+	map_stubs!(limine_mapper, oro_mapper, pfa);
+	map_stubs!(limine_mapper, limine_mapper, pfa);
 
 	boot_config.serialize(&mut OroBootAllocator::new(
 		&mut pfa,
@@ -732,11 +750,11 @@ pub unsafe fn _start() -> ! {
 		&mut oro_mapper,    // mapped as RO
 	));
 
-	// Now we map in the stubs to the same address as where they'll exist
-	// after the CR3 switch. We can use the page frame allocator still since
-	// these stubs are reclaimable.
-	map_stubs!(limine_mapper, oro_mapper, pfa);
-	map_stubs!(limine_mapper, limine_mapper, pfa);
+	boot_config.fast_forward_memory_map(
+		l4_to_range_48(ORO_BOOT_PAGE_TABLE_INDEX).0,
+		pfa.total_allocations,
+		is_oro_region_allocatable,
+	);
 
 	// TODO Fast-forward the memory map provided to the kernel based on
 	// TODO number of pages we've allocated here; for each page used,

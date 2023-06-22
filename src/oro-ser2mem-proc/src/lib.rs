@@ -256,7 +256,7 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 
 			field_writes.push(quote! {
 				target.#field_ident = ::oro_ser2mem::_detail::serialize_iterator_to_slice(
-					self.#field_ident,
+					self.#field_ident.clone(),
 					alloc
 				);
 			});
@@ -292,12 +292,12 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 
 			#[automatically_derived]
 			unsafe impl #impl_generics ::oro_ser2mem::Serialize for #orig_ident #ty_generics #where_clause {
-				unsafe fn serialize<A>(self, alloc: &mut A) where A: ::oro_ser2mem::Allocator {
+				unsafe fn serialize<A>(&self, alloc: &mut A) where A: ::oro_ser2mem::Allocator {
 					const layout: ::core::alloc::Layout = ::core::alloc::Layout::new::<#proxy_ident>();
 					alloc.align(layout.align() as u64);
 					let base = alloc.position();
 					alloc.allocate(layout.size() as u64);
-					self.serialize_to(base as *mut #proxy_ident, alloc);
+					self.serialize_to(base as *mut #proxy_ident, alloc)
 				}
 			}
 
@@ -305,7 +305,7 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 			unsafe impl #impl_generics ::oro_ser2mem::_detail::Serializable for #orig_ident #ty_generics #where_clause {
 				type Target = #proxy_ident;
 
-				unsafe fn serialize_to<A>(self, to: *mut #proxy_ident, alloc: &mut A) where A: ::oro_ser2mem::Allocator {
+				unsafe fn serialize_to<A>(&self, to: *mut #proxy_ident, alloc: &mut A) where A: ::oro_ser2mem::Allocator {
 					const layout: ::core::alloc::Layout = ::core::alloc::Layout::new::<#proxy_ident>();
 					let target = &mut *to;
 					alloc.allocate(layout.size() as u64);
@@ -408,11 +408,11 @@ fn derive_enum(structure: ItemEnum) -> proc_macro::TokenStream {
 			type Target = Self;
 
 			#[inline(always)]
-			unsafe fn serialize_to<A>(self, to: *mut Self, _alloc: &mut A)
+			unsafe fn serialize_to<A>(&self, to: *mut Self, _alloc: &mut A)
 			where
 				A: ::oro_ser2mem::Allocator,
 			{
-				*to = self;
+				*to = *self;
 			}
 		}
 	}

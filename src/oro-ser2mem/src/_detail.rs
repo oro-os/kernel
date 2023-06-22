@@ -48,7 +48,7 @@ pub unsafe trait Serializable {
 	///
 	/// A gentle reminder that ser2mem is _not_ a general-purpose
 	/// serialization framework.
-	unsafe fn serialize_to<A>(self, to: *mut Self::Target, alloc: &mut A)
+	unsafe fn serialize_to<A>(&self, to: *mut Self::Target, alloc: &mut A)
 	where
 		A: Allocator;
 }
@@ -59,11 +59,11 @@ macro_rules! pod_types {
 			type Target = Self;
 
 			#[inline(always)]
-			unsafe fn serialize_to<A>(self, to: *mut Self, _alloc: &mut A)
+			unsafe fn serialize_to<A>(&self, to: *mut Self, _alloc: &mut A)
 			where
 				A: Allocator,
 			{
-				*to = self;
+				*to = *self;
 			}
 		})*
 	}

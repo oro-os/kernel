@@ -2,6 +2,7 @@
 //! TODO - memory layout
 //! TODO - unmapping all memory in lower half
 
+use core::cmp::min;
 use oro_ser2mem::{CloneIterator, Ser2Mem};
 
 /// MUST NOT be 511! MUST correspond to the beginning of the private kernel stack space.
@@ -82,6 +83,70 @@ where
 	/// the boot stage allocator, and that the boot stage allocator allocates
 	/// frames IN ORDER from the beginning of the first usable region.
 	pub memory_map: M,
+}
+
+impl<M> BootConfig<M>
+where
+	M: CloneIterator<Item = MemoryRegion>,
+{
+	/// Fast forward the memory maps passed to the Oro kernel
+	/// based on the number of allocations performed at boot time.
+	///
+	/// # Safety
+	///
+	/// MUST ONLY be called after a successful call to serialize(),
+	/// and MUST ONLY be called ONCE.
+	pub unsafe fn fast_forward_memory_map<F>(
+		&self,
+		base_addr: u64,
+		alloc_count: u64,
+		is_relevant_page: F,
+	) where
+		F: Fn(&MemoryRegionKind) -> bool,
+	{
+		let boot_config = unsafe { &mut *(base_addr as *mut super::Proxy![Self]) };
+
+		let mut remaining = alloc_count;
+
+		// We do something here that is normally very, very unsafe.
+		// However given the unsafe commentary here, it can't really
+		// end up as UB as far as I'm aware. If this looks nasty and wrong
+		// to you, it probably is. Please PR if you know of a better way.
+		//
+		// Given that the safety rules are adhered to, we can assume that
+		// there is only ever one mutable reference. Further, we know that
+		// the backing memory is indeed writable (since we implemented
+		// the backing memory ourselves).
+		//
+		// Please, please never do this in normal Rust code. This is not good
+		// Rust code. This is incredibly dangerous Rust code.
+		let memory_map: &'static mut [super::Proxy![MemoryRegion]] =
+			::core::slice::from_raw_parts_mut(
+				boot_config.memory_map.as_ptr() as u64 as *mut super::Proxy![MemoryRegion],
+				boot_config.memory_map.len(),
+			);
+
+		for region in memory_map {
+			if !is_relevant_page(&region.kind) {
+				continue;
+			}
+			let region_total_pages = region.length >> 12;
+			let pages_to_subtract = min(region_total_pages, remaining);
+			remaining -= pages_to_subtract;
+
+			let total_allocated_bytes = pages_to_subtract << 12;
+			region.length -= total_allocated_bytes;
+			region.base += total_allocated_bytes;
+
+			if remaining == 0 {
+				return;
+			}
+		}
+
+		if remaining > 0 {
+			panic!("still had allocations to perform after exhausting all memory regions");
+		}
+	}
 }
 
 #[inline(always)]

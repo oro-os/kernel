@@ -17,7 +17,7 @@ use x86_64::{
 		idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode},
 		paging::{
 			page_table::PageTableEntry, FrameAllocator, FrameDeallocator, PageTable,
-			PageTableFlags, PhysFrame, RecursivePageTable, Size4KiB, Translate,
+			PageTableFlags, PhysFrame, RecursivePageTable, Size4KiB,
 		},
 		tss::TaskStateSegment,
 	},
@@ -332,18 +332,6 @@ pub fn init() {
 		let secret_heap_l1_addr = mmap_iter
 			.next()
 			.expect("cannot allocate PFA swap L1: out of memory");
-
-		// XXX DEBUG
-		println!(
-			"bc={:016X?}",
-			KERNEL_MAPPER.lock().translate_addr(unsafe {
-				VirtAddr::new_unsafe(boot_config as *const BootConfig as u64)
-			})
-		);
-		println!("l3={secret_heap_l3_addr:016X?}");
-		println!("l2={secret_heap_l2_addr:016X?}");
-		println!("l1={secret_heap_l1_addr:016X?}");
-		panic!("refusing to go further until limine boot region rewriting is implemented");
 
 		// ... set up the PFA / mapper swap page page table entries ("page page" intentional)
 		//     and calculate both the page entry address as well as the swap page base address
