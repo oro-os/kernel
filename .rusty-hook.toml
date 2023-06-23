@@ -1,5 +1,5 @@
 [hooks]
-pre-commit = "make lint clippy"
+pre-commit = "make lint clippy DEBUG=1"
 
 [logging]
 verbose = true
