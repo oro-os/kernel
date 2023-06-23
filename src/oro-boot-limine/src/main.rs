@@ -571,7 +571,7 @@ unsafe fn load_kernel_elf<M: Mapper<Size4KiB>, A: FrameAllocator<Size4KiB>>(
 pub unsafe fn _start() -> ! {
 	x86_64::instructions::interrupts::disable();
 
-	dbg!("starting Oro + limine pre-boot");
+	dbg!("STARTING ORO + LIMINE PRE-BOOT");
 
 	let hhdm = if let Some(res) = HHDM_REQUEST.get_response() {
 		res
@@ -774,7 +774,7 @@ pub unsafe fn _start() -> ! {
 
 	// Now that it's all mapped, we want to push our important stuff to registers
 	// and jump to the stub
-	dbg!("pre-boot OK; booting Oro");
+	dbg!("pre-boot ... ok\nBOOTING ORO KERNEL");
 
 	asm!(
 		"push {L4_ADDR}",
