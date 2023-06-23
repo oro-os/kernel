@@ -1,6 +1,9 @@
 //! TODO explain the boot protocol
 //! TODO - memory layout
 //! TODO - unmapping all memory in lower half
+//! TODO   - all frames mapped with flag bit 9 (BIT_9) will also have the
+//! TODO     physical frames reclaimed (leave 0 for modules and other non-reclaimable
+//! TODO     memory)
 
 use core::cmp::min;
 use oro_ser2mem::{CloneIterator, Ser2Mem};

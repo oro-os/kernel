@@ -26,6 +26,17 @@ use x86_64::{
 
 pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
 
+#[macro_export]
+macro_rules! print {
+	($($arg:tt)*) => ($crate::arch::print_args(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+	() => ($crate::print!("\n"));
+	($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+
 lazy_static! {
 	static ref SERIAL: SpinMutex<SerialPort> = {
 		let mut serial_port = unsafe { SerialPort::new(0x3F8) };
@@ -162,7 +173,7 @@ unsafe impl FrameAllocator<Size4KiB> for PageFrameAllocator {
 				// load the frame into our swap location and flush the TLB
 				self.ptentry.set_addr(
 					phys_addr,
-					PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE | PageTableFlags::WRITABLE,
+					PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
 				);
 				x86_64::instructions::tlb::flush(VirtAddr::new_unsafe(self.mapped_addr));
 
@@ -191,10 +202,8 @@ impl FrameDeallocator<Size4KiB> for PageFrameAllocator {
 		let frame_addr = frame.start_address().as_u64();
 
 		// load the frame into our swap location and flush the TLB
-		self.ptentry.set_frame(
-			frame,
-			PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE | PageTableFlags::WRITABLE,
-		);
+		self.ptentry
+			.set_frame(frame, PageTableFlags::PRESENT | PageTableFlags::WRITABLE);
 		x86_64::instructions::tlb::flush(VirtAddr::new_unsafe(self.mapped_addr));
 
 		// write the next tip address to the frame
@@ -225,23 +234,11 @@ pub fn print_args(args: core::fmt::Arguments) {
 	SERIAL.lock().write_fmt(args).unwrap();
 }
 
-#[macro_export]
-macro_rules! print {
-	($($arg:tt)*) => ($crate::arch::print_args(format_args!($($arg)*)));
-}
-
-#[macro_export]
-macro_rules! println {
-	() => ($crate::print!("\n"));
-	($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
-}
-
-extern "x86-interrupt" fn irq_page_fault(_frm: InterruptStackFrame, _err_code: PageFaultErrorCode) {
-	use core::fmt::Write;
+extern "x86-interrupt" fn irq_page_fault(frm: InterruptStackFrame, err_code: PageFaultErrorCode) {
 	unsafe {
 		SERIAL.force_unlock();
 	}
-	SERIAL.lock().write_str("PAGE FAULT").unwrap();
+	println!("PAGE FAULT frm={frm:#?} err_code={err_code:#?}");
 	unsafe {
 		halt();
 	}
@@ -279,6 +276,8 @@ pub fn init() {
 	if boot_config.nonce_xor_magic != (BOOT_MAGIC ^ boot_config.nonce) {
 		panic!("boot config magic^nonce mismatch");
 	}
+
+	println!("oro x86_64 initializing");
 
 	// Validate the memory map.
 	//
@@ -339,14 +338,14 @@ pub fn init() {
 		let (pfa_page_table_entry, pfa_mapped_page_addr) = unsafe {
 			let heap_idx = KERNEL_SECRET_HEAP_PAGE_TABLE_INDICES.0;
 			let mut mapper = KERNEL_MAPPER.lock();
-			assert!(
+			debug_assert!(
 				!mapper.level_4_table()[KERNEL_SECRET_HEAP_PAGE_TABLE_INDICES.0 as usize]
 					.flags()
 					.contains(PageTableFlags::PRESENT)
 			);
 			mapper.level_4_table()[heap_idx as usize].set_addr(
 				PhysAddr::new_unsafe(secret_heap_l3_addr),
-				PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE,
+				PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
 			);
 			let l3_vaddr = l4_mkvirtaddr(
 				RECURSIVE_PAGE_TABLE_INDEX,
@@ -358,7 +357,7 @@ pub fn init() {
 			let l3_page_table = &mut *(l3_vaddr as *mut PageTable);
 			l3_page_table[0].set_addr(
 				PhysAddr::new_unsafe(secret_heap_l2_addr),
-				PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE,
+				PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
 			);
 			let l2_vaddr = l4_mkvirtaddr(
 				RECURSIVE_PAGE_TABLE_INDEX,
@@ -370,7 +369,7 @@ pub fn init() {
 			let l2_page_table = &mut *(l2_vaddr as *mut PageTable);
 			l2_page_table[0].set_addr(
 				PhysAddr::new_unsafe(secret_heap_l1_addr),
-				PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE,
+				PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
 			);
 			let l1_vaddr = l4_mkvirtaddr(RECURSIVE_PAGE_TABLE_INDEX, heap_idx, 0, 0);
 			x86_64::instructions::tlb::flush(VirtAddr::new_unsafe(l1_vaddr));
@@ -383,7 +382,7 @@ pub fn init() {
 				// the only mutable reference to that table - at least, the only one that should actually be
 				// mutating it.
 				&mut *(l1_vaddr as *mut PageTableEntry),
-				l4_to_range_48(RECURSIVE_PAGE_TABLE_INDEX).0,
+				l4_to_range_48(heap_idx).0,
 			)
 		};
 
@@ -396,7 +395,89 @@ pub fn init() {
 			)));
 		}
 
-		// TODO unmap (and reclaim physical memory for) anything in lower half
+		// ... unmap (and reclaim physical memory for) anything in lower half
+		{
+			// sanity check; this is documented in the file where it's defined
+			// but it's always good to double check where it counts.
+			#[allow(clippy::assertions_on_constants)]
+			{
+				debug_assert!(RECURSIVE_PAGE_TABLE_INDEX >= 256);
+			}
+
+			const REC: u16 = RECURSIVE_PAGE_TABLE_INDEX; // just as a convenience
+
+			let mut mapper = KERNEL_MAPPER.lock();
+			let mut pfa = unsafe { PFA.assume_init_ref() }.lock();
+			let l4 = mapper.level_4_table();
+			for l4_idx in 0..256u16 {
+				let entry = &mut l4[l4_idx as usize];
+				if entry.is_unused() {
+					continue;
+				}
+
+				let l3 = unsafe { &mut *(l4_mkvirtaddr(REC, REC, REC, l4_idx) as *mut PageTable) };
+
+				for l3_idx in 0..512u16 {
+					let entry = &mut l3[l3_idx as usize];
+					if entry.is_unused() {
+						continue;
+					}
+
+					let l2 = unsafe {
+						&mut *(l4_mkvirtaddr(REC, REC, l4_idx, l3_idx) as *mut PageTable)
+					};
+
+					for l2_idx in 0..512u16 {
+						let entry = &mut l2[l2_idx as usize];
+						if entry.is_unused() {
+							continue;
+						}
+						let l1 = unsafe {
+							&mut *(l4_mkvirtaddr(REC, l4_idx, l3_idx, l2_idx) as *mut PageTable)
+						};
+
+						for l1_idx in 0..512u16 {
+							let entry = &mut l1[l1_idx as usize];
+							if entry.is_unused() {
+								continue;
+							}
+
+							if entry.flags().contains(PageTableFlags::BIT_9) {
+								unsafe {
+									pfa.deallocate_frame(entry.frame().unwrap());
+								}
+							}
+							entry.set_unused();
+						}
+
+						if entry.flags().contains(PageTableFlags::BIT_9) {
+							unsafe {
+								pfa.deallocate_frame(entry.frame().unwrap());
+							}
+						}
+						entry.set_unused();
+					}
+
+					if entry.flags().contains(PageTableFlags::BIT_9) {
+						unsafe {
+							pfa.deallocate_frame(entry.frame().unwrap());
+						}
+					}
+					entry.set_unused();
+				}
+
+				if entry.flags().contains(PageTableFlags::BIT_9) {
+					unsafe {
+						pfa.deallocate_frame(entry.frame().unwrap());
+					}
+				}
+				entry.set_unused();
+			}
+
+			// invalidate TLB
+			::x86_64::instructions::tlb::flush_all();
+		}
+
 		// TODO set up global (kernel) buddy allocator (placing it _above_ anything we put in secret heap above, i.e. the PFA swap page)
 	}
 }

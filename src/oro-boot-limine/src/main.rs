@@ -298,7 +298,15 @@ where
 		flags: PageTableFlags,
 		allocator: &mut A,
 	) {
-		match self.map_to(page.into_page(), frame.into_frame(), flags, allocator) {
+		// Note that bit 9 indicates to the kernel that these pages can be re-claimed if need be.
+		// We mark any allocated physical frames used for page tables as such.
+		match self.map_to_with_table_flags(
+			page.into_page(),
+			frame.into_frame(),
+			flags,
+			PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::BIT_9,
+			allocator,
+		) {
 			Ok(flusher) => flusher.flush(),
 			Err(err) => {
 				dbg!(
@@ -645,7 +653,7 @@ pub unsafe fn _start() -> ! {
 	// Must be done before we pass the mutable reference to the mapper.
 	oro_l4_page_table[RECURSIVE_PAGE_TABLE_INDEX as usize].set_addr(
 		PhysAddr::new_unsafe(oro_l4_page_table_phys_addr),
-		PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE,
+		PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
 	);
 
 	// Use it to make an offset page table, since our memory
