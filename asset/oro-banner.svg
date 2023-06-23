@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 900 181" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:1.5;">
+	<rect id="Artboard2" x="0" y="0" width="900" height="181" style="fill:none;"/>
+	<rect x="0" y="0" width="900" height="181"/>
+	<g>
+		<path d="M461.773,48.358C477.524,38.664 490.844,35.349 496.498,41.003C502.159,46.664 498.827,60.013 489.104,75.791" style="fill:none;stroke:#fff;stroke-width:1.89px;"/>
+		<path d="M432.164,132.682C416.441,142.345 403.149,145.644 397.503,139.998C391.806,134.301 395.215,120.82 405.081,104.912" style="fill:none;stroke:#fff;stroke-width:1.89px;"/>
+		<circle cx="446.758" cy="90.5" r="44.5" style="stroke:#fff;stroke-width:7.12px;"/>
+		<path d="M489.104,75.791C482.971,85.743 474.294,96.662 463.728,107.228C453.117,117.839 442.15,126.544 432.164,132.682" style="fill:none;stroke:#fff;stroke-width:1.89px;"/>
+		<circle cx="491.258" cy="73.5" r="14" style="stroke:#fff;stroke-width:7.12px;"/>
+	</g>
+</svg>
