@@ -20,6 +20,7 @@ oro-boot = { path = "../oro-boot" }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 spin = { version = "0.9.8", features = ["mutex", "spin_mutex", "ticket_mutex"] }
 volatile = "0.4.6"
+buddy_system_allocator = { version = "0.9.0", features = ["use_spin", "spin", "const_fn"] }
 
 [target.'cfg(target_arch="x86_64")'.dependencies]
 x86_64 = "0.14.10"

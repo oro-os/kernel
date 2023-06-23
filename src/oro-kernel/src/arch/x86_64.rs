@@ -1,3 +1,5 @@
+use alloc::{alloc::Layout, boxed::Box};
+use buddy_system_allocator::{Heap, LockedHeapWithRescue};
 use core::mem::MaybeUninit;
 use lazy_static::lazy_static;
 use oro_boot::{
@@ -16,7 +18,7 @@ use x86_64::{
 		gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector},
 		idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode},
 		paging::{
-			page_table::PageTableEntry, FrameAllocator, FrameDeallocator, PageTable,
+			page_table::PageTableEntry, FrameAllocator, FrameDeallocator, Mapper, Page, PageTable,
 			PageTableFlags, PhysFrame, RecursivePageTable, Size4KiB,
 		},
 		tss::TaskStateSegment,
@@ -113,10 +115,12 @@ impl Iterator for MemoryRegionIter {
 				return None;
 			}
 
-			if self.region_offset >= self.mmap[self.region_idx as usize].length {
+			if !is_region_allocatable(&self.mmap[self.region_idx as usize])
+				|| self.region_offset >= self.mmap[self.region_idx as usize].length
+			{
 				self.region_idx += 1;
 				self.region_offset = 0;
-			} else if is_region_allocatable(&self.mmap[self.region_idx as usize]) {
+			} else {
 				break;
 			}
 		}
@@ -234,6 +238,82 @@ pub fn print_args(args: core::fmt::Arguments) {
 	SERIAL.lock().write_fmt(args).unwrap();
 }
 
+static mut CURRENT_HEAP_BASE: u64 = 0;
+const KERNEL_SECRET_HEAP_LAST_VALID_ADDRESS: u64 =
+	l4_to_range_48(KERNEL_SECRET_HEAP_PAGE_TABLE_INDICES.1).1;
+
+/// The number of bytes to allocate for new buddy arenas when the
+/// global allocator panics due to being out of space.
+const HEAP_CHUNK_SIZE: u64 = 512 * 4096;
+
+#[global_allocator]
+static KERNEL_SECRET_HEAP_ALLOCATOR: LockedHeapWithRescue<32> =
+	LockedHeapWithRescue::new(|heap: &mut Heap<32>, layout: &Layout| {
+		::x86_64::instructions::interrupts::without_interrupts(|| unsafe {
+			if layout.size() as u64 > HEAP_CHUNK_SIZE {
+				// Should never happen; if this ever _does_ happen, then the heap chunk size needs to
+				// either be increased, or we need to modify how we perform panic recovery allocation
+				// calculations.
+				panic!("allocation of type larger than a single heap chunk size occurred");
+			}
+
+			// Should be properly initialized by the init routine.
+			debug_assert_ne!(CURRENT_HEAP_BASE, 0);
+
+			let heap_start = VirtAddr::new(CURRENT_HEAP_BASE);
+			let heap_end = heap_start + HEAP_CHUNK_SIZE - 1u64;
+
+			// >, not >= here since KERNEL_SECRET_HEAP_LAST_VALID_ADDRESS
+			// is upper-bound inclusive.
+			if heap_end.as_u64() > KERNEL_SECRET_HEAP_LAST_VALID_ADDRESS {
+				panic!("kernel ran out of secret heap address space");
+			}
+
+			let page_range = {
+				let heap_start_page = Page::containing_address(heap_start);
+				let heap_end_page = Page::containing_address(heap_end);
+				Page::range_inclusive(heap_start_page, heap_end_page)
+			};
+
+			let mut frame_allocator = PFA.assume_init_ref().lock();
+			let mut mapper = KERNEL_MAPPER.lock();
+
+			for page in page_range {
+				if let Some(frame) = frame_allocator.allocate_frame() {
+					match mapper.map_to_with_table_flags(
+						page,
+						frame,
+						PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+						PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+						&mut *frame_allocator,
+					) {
+						Ok(_tlb_entry) => {
+							// We don't do anything with it here; we instead
+							// flush everything all at once after this.
+						}
+						Err(error) => {
+							println!(
+								"WARNING: failed to allocate more heap storage (kernel will panic): {error:?}"
+							);
+							return; // Will inevitably cause the heap allocator to fail and the kernel to stall.
+						}
+					}
+				} else {
+					return;
+				}
+			}
+
+			::x86_64::instructions::tlb::flush_all();
+
+			heap.add_to_heap(
+				heap_start.as_u64() as usize,
+				(heap_end.as_u64() + 1u64) as usize,
+			);
+
+			CURRENT_HEAP_BASE += HEAP_CHUNK_SIZE;
+		});
+	});
+
 extern "x86-interrupt" fn irq_page_fault(frm: InterruptStackFrame, err_code: PageFaultErrorCode) {
 	unsafe {
 		SERIAL.force_unlock();
@@ -316,6 +396,8 @@ pub fn init() {
 		}
 	}
 
+	println!("boot stage memory map validation ... ok");
+
 	// Set up the memory allocation subsystem
 	{
 		// ... set up PFA iterator
@@ -336,14 +418,21 @@ pub fn init() {
 		//     and calculate both the page entry address as well as the swap page base address
 		//     for the PFA to later use
 		let (pfa_page_table_entry, pfa_mapped_page_addr) = unsafe {
-			let heap_idx = KERNEL_SECRET_HEAP_PAGE_TABLE_INDICES.0;
+			// sanity check; this is documented in the file where it's defined
+			// but it's always good to double check where it counts.
+			#[allow(clippy::assertions_on_constants)]
+			{
+				debug_assert!(KERNEL_SECRET_HEAP_PAGE_TABLE_INDICES.0 >= 256);
+			}
+			const HEAP_IDX: u16 = KERNEL_SECRET_HEAP_PAGE_TABLE_INDICES.0;
+
 			let mut mapper = KERNEL_MAPPER.lock();
 			debug_assert!(
-				!mapper.level_4_table()[KERNEL_SECRET_HEAP_PAGE_TABLE_INDICES.0 as usize]
+				!mapper.level_4_table()[HEAP_IDX as usize]
 					.flags()
 					.contains(PageTableFlags::PRESENT)
 			);
-			mapper.level_4_table()[heap_idx as usize].set_addr(
+			mapper.level_4_table()[HEAP_IDX as usize].set_addr(
 				PhysAddr::new_unsafe(secret_heap_l3_addr),
 				PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
 			);
@@ -351,10 +440,11 @@ pub fn init() {
 				RECURSIVE_PAGE_TABLE_INDEX,
 				RECURSIVE_PAGE_TABLE_INDEX,
 				RECURSIVE_PAGE_TABLE_INDEX,
-				heap_idx,
+				HEAP_IDX,
 			);
 			x86_64::instructions::tlb::flush(VirtAddr::new_unsafe(l3_vaddr));
 			let l3_page_table = &mut *(l3_vaddr as *mut PageTable);
+			l3_page_table.zero();
 			l3_page_table[0].set_addr(
 				PhysAddr::new_unsafe(secret_heap_l2_addr),
 				PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
@@ -362,29 +452,24 @@ pub fn init() {
 			let l2_vaddr = l4_mkvirtaddr(
 				RECURSIVE_PAGE_TABLE_INDEX,
 				RECURSIVE_PAGE_TABLE_INDEX,
-				heap_idx,
+				HEAP_IDX,
 				0,
 			);
 			x86_64::instructions::tlb::flush(VirtAddr::new_unsafe(l2_vaddr));
 			let l2_page_table = &mut *(l2_vaddr as *mut PageTable);
+			l2_page_table.zero();
 			l2_page_table[0].set_addr(
 				PhysAddr::new_unsafe(secret_heap_l1_addr),
 				PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
 			);
-			let l1_vaddr = l4_mkvirtaddr(RECURSIVE_PAGE_TABLE_INDEX, heap_idx, 0, 0);
+			let l1_vaddr = l4_mkvirtaddr(RECURSIVE_PAGE_TABLE_INDEX, HEAP_IDX, 0, 0);
 			x86_64::instructions::tlb::flush(VirtAddr::new_unsafe(l1_vaddr));
-			(
-				// This works, because we're aligning the PFA's swap page to the root of the secret heap
-				// region. Since that region is specified by an index in `oro-boot`, that means we can
-				// guarantee it's the first entry (the first on several levels, in fact). Since page tables
-				// are just linear lists of PageTableEntries, we can cast the page table directly to a
-				// PageTableEntry. We also specify that this is the "only" (not *really* but effectively)
-				// the only mutable reference to that table - at least, the only one that should actually be
-				// mutating it.
-				&mut *(l1_vaddr as *mut PageTableEntry),
-				l4_to_range_48(heap_idx).0,
-			)
+			let l1_page_table = &mut *(l1_vaddr as *mut PageTable);
+			l1_page_table.zero();
+			(&mut l1_page_table[0], l4_to_range_48(HEAP_IDX).0)
 		};
+
+		println!("recursive memory mapper ... ok");
 
 		// ... set up PFA and pass PFA iterator + other memory items
 		unsafe {
@@ -394,6 +479,8 @@ pub fn init() {
 				pfa_mapped_page_addr,
 			)));
 		}
+
+		println!("page frame allocator ... ok");
 
 		// ... unmap (and reclaim physical memory for) anything in lower half
 		{
@@ -478,6 +565,23 @@ pub fn init() {
 			::x86_64::instructions::tlb::flush_all();
 		}
 
-		// TODO set up global (kernel) buddy allocator (placing it _above_ anything we put in secret heap above, i.e. the PFA swap page)
+		println!("unmap+reclaim lower half ... ok");
+
+		// ... set up global (kernel) buddy allocator (placing it _above_ anything
+		//     we put in secret heap above, i.e. the PFA swap page)
+		unsafe {
+			CURRENT_HEAP_BASE = l4_mkvirtaddr(KERNEL_SECRET_HEAP_PAGE_TABLE_INDICES.0, 1, 0, 0);
+		}
+
+		// XXX DEBUG
+		let mut test_box = Box::new(1234usize);
+		println!("test box addr: {:x?}", (&*test_box) as *const usize as u64);
+		println!("test box: {}", *test_box);
+		*test_box = 5678usize;
+		println!("test box again: {}", *test_box);
+
+		println!("kernel heap ... ok");
 	}
+
+	println!("memory subsystem ... ok");
 }

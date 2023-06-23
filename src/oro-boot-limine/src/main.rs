@@ -160,7 +160,7 @@ unsafe impl FrameAllocator<Size4KiB> for LiminePageFrameAllocator {
 		}
 
 		// It's that simple, because limine guarantees a few things:
-		// 1. Bases and lengths are always 4KiB aligned
+		// 1. Bases and lengths of usable memory are always 4KiB aligned
 		// 2. There's always at least one page in each memory entry
 		//
 		// Number 2 is not explicitly listed in the spec so we're
