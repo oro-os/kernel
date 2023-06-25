@@ -19,7 +19,7 @@ bench = false
 oro-boot = { path = "../oro-boot" }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 spin = "0.9.8"
-limine-protocol = "0.4.2"
+limine = "0.1.10"
 uart_16550 = "0.2.18"
 elf = { version = "0.7.2", default-features = false }
 

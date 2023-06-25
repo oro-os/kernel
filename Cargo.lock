@@ -95,10 +95,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "limine-protocol"
-version = "0.4.2"
+name = "limine"
+version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a385aa15a0f97e3f1e0b513bd40b15bc55a2370f1fa5a5361ec2f6108c8dc6e"
+checksum = "5e9d0c951056ac044f0e6b09448b9d702f8fb1001db89cffd2bc467bd1c25307"
 
 [[package]]
 name = "lock_api"
@@ -129,7 +129,7 @@ version = "0.0.0"
 dependencies = [
  "elf",
  "lazy_static",
- "limine-protocol",
+ "limine",
  "oro-boot",
  "spin 0.9.8",
  "uart_16550",

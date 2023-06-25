@@ -5,12 +5,11 @@
 use core::{arch::asm, ffi::CStr};
 use elf::{endian::AnyEndian, ElfBytes, ParseError};
 use lazy_static::lazy_static;
-#[cfg(debug_assertions)]
-use limine_protocol::StackSizeRequest;
-use limine_protocol::{
-	structures::memory_map_entry::{EntryType, MemoryMapEntry},
-	BootTimeRequest, HHDMRequest, MemoryMapRequest, ModuleRequest, Request,
+use limine::{
+	LimineBootTimeRequest, LimineHhdmRequest, LimineMemmapEntry, LimineMemmapRequest,
+	LimineMemoryMapEntryType, LimineModuleRequest, LiminePtr, LimineStackSizeRequest, NonNullPtr,
 };
+#[cfg(debug_assertions)]
 use oro_boot::{
 	x86_64::{
 		l4_to_range_48, BootConfig, MemoryRegion, MemoryRegionKind, KERNEL_STACK_PAGE_TABLE_INDEX,
@@ -55,47 +54,24 @@ extern "C" {
 }
 
 #[used]
-static HHDM_REQUEST: Request<HHDMRequest> = HHDMRequest {
-	revision: 0,
-	..HHDMRequest::new()
-}
-.into();
-
+static HHDM_REQUEST: LimineHhdmRequest = LimineHhdmRequest::new(0);
 #[used]
-static MMAP_REQUEST: Request<MemoryMapRequest> = MemoryMapRequest {
-	revision: 0,
-	..MemoryMapRequest::new()
-}
-.into();
-
+static MMAP_REQUEST: LimineMemmapRequest = LimineMemmapRequest::new(0);
 #[used]
-static MOD_REQUEST: Request<ModuleRequest> = ModuleRequest {
-	revision: 0,
-	..ModuleRequest::new()
-}
-.into();
-
+static MOD_REQUEST: LimineModuleRequest = LimineModuleRequest::new(0);
 #[used]
-static TIME_REQUEST: Request<BootTimeRequest> = BootTimeRequest {
-	revision: 0,
-	..BootTimeRequest::new()
-}
-.into();
+static TIME_REQUEST: LimineBootTimeRequest = LimineBootTimeRequest::new(0);
 
 #[cfg(debug_assertions)]
 #[used]
-static STKSZ_REQUEST: Request<StackSizeRequest> = StackSizeRequest {
-	revision: 0,
-	stack_size: 64 * 1024 * 1024,
-	..StackSizeRequest::new()
-}
-.into();
+static STKSZ_REQUEST: LimineStackSizeRequest =
+	LimineStackSizeRequest::new(0).stack_size(64 * 1024 * 1024);
 
-fn map_limine_to_oro_region(kind: &EntryType) -> MemoryRegionKind {
+fn map_limine_to_oro_region(kind: &LimineMemoryMapEntryType) -> MemoryRegionKind {
 	match kind {
-		EntryType::Usable => MemoryRegionKind::Usable,
-		EntryType::KernelAndModules => MemoryRegionKind::Modules,
-		EntryType::BootloaderReclaimable => MemoryRegionKind::Usable,
+		LimineMemoryMapEntryType::Usable => MemoryRegionKind::Usable,
+		LimineMemoryMapEntryType::KernelAndModules => MemoryRegionKind::Modules,
+		LimineMemoryMapEntryType::BootloaderReclaimable => MemoryRegionKind::Usable,
 		_ => MemoryRegionKind::Reserved,
 	}
 }
@@ -105,7 +81,7 @@ fn is_oro_region_allocatable(kind: &MemoryRegionKind) -> bool {
 }
 
 struct LiminePageFrameAllocator {
-	bios_mapping: &'static [&'static MemoryMapEntry],
+	bios_mapping: &'static [NonNullPtr<LimineMemmapEntry>],
 	bios_mapping_offset: usize,
 	byte_offset: u64,
 	byte_offset_max: u64,
@@ -113,14 +89,14 @@ struct LiminePageFrameAllocator {
 }
 
 impl LiminePageFrameAllocator {
-	fn new(bios_mapping: &'static [&'static MemoryMapEntry]) -> Self {
+	fn new(bios_mapping: &'static [NonNullPtr<LimineMemmapEntry>]) -> Self {
 		// get byte offset of first mapping (doesn't need to be usable, just the valid base offset)
 		let (byte_offset, byte_offset_max) = if bios_mapping.is_empty() {
 			(0, 0)
 		} else {
 			(
 				bios_mapping[0].base,
-				bios_mapping[0].base + bios_mapping[0].length,
+				bios_mapping[0].base + bios_mapping[0].len,
 			)
 		};
 
@@ -145,10 +121,10 @@ unsafe impl FrameAllocator<Size4KiB> for LiminePageFrameAllocator {
 					// guaranteed to be non-overlapping and 4KiB aligned.
 					// Thus, we can make a _lot_ of simplifications to
 					// the byte math here.
-					if is_oro_region_allocatable(&map_limine_to_oro_region(&mapping.kind)) {
+					if is_oro_region_allocatable(&map_limine_to_oro_region(&mapping.typ)) {
 						self.bios_mapping_offset = i;
 						self.byte_offset = mapping.base;
-						self.byte_offset_max = self.byte_offset + mapping.length;
+						self.byte_offset_max = self.byte_offset + mapping.len;
 						break 'advance_mapping;
 					}
 				}
@@ -176,18 +152,18 @@ unsafe impl FrameAllocator<Size4KiB> for LiminePageFrameAllocator {
 }
 
 trait DebugPrint {
-	fn dbgprint(self);
+	fn dbgprint(&self);
 }
 
 impl DebugPrint for &str {
-	fn dbgprint(self) {
+	fn dbgprint(&self) {
 		use core::fmt::Write;
 		let _ = SERIAL.lock().write_str(self);
 	}
 }
 
 impl DebugPrint for u64 {
-	fn dbgprint(self) {
+	fn dbgprint(&self) {
 		for i in 0..16 {
 			let shift = 4 * (15 - i);
 			let shifted = self >> shift;
@@ -200,7 +176,7 @@ impl DebugPrint for u64 {
 }
 
 impl DebugPrint for &core::ffi::CStr {
-	fn dbgprint(self) {
+	fn dbgprint(&self) {
 		let mut sp = SERIAL.lock();
 		for b in self.to_bytes_with_nul() {
 			if *b == 0 {
@@ -208,6 +184,12 @@ impl DebugPrint for &core::ffi::CStr {
 			}
 			sp.send(*b);
 		}
+	}
+}
+
+impl DebugPrint for LiminePtr<i8> {
+	fn dbgprint(&self) {
+		self.to_str().unwrap().dbgprint();
 	}
 }
 
@@ -573,38 +555,28 @@ pub unsafe fn _start() -> ! {
 
 	dbg!("STARTING ORO + LIMINE PRE-BOOT");
 
-	let hhdm = if let Some(res) = HHDM_REQUEST.get_response() {
+	let hhdm = if let Some(res) = HHDM_REQUEST.get_response().get() {
 		res
 	} else {
 		dbg!("boot error: missing limine hhdm response");
 		halt();
 	};
 
-	let mmap = if let Some(res) = MMAP_REQUEST.get_response() {
-		if let Some(entries) = res.get_memory_map() {
-			entries
-		} else {
-			dbg!("boot error: missing limine mmap slice (response ok)");
-			halt();
-		}
+	let mmap = if let Some(res) = MMAP_REQUEST.get_response().get() {
+		res.memmap()
 	} else {
 		dbg!("boot error: missing limine mmap response");
 		halt();
 	};
 
-	let mods = if let Some(res) = MOD_REQUEST.get_response() {
-		if res.modules.is_null() {
-			dbg!("boot error: no boot modules found (null array in response)");
-			halt();
-		} else {
-			core::slice::from_raw_parts(*(res.modules), res.module_count as usize)
-		}
+	let mods = if let Some(res) = MOD_REQUEST.get_response().get() {
+		res.modules()
 	} else {
 		dbg!("boot error: missing limine modules response (or no modules specified)");
 		halt();
 	};
 
-	let boot_time = if let Some(res) = TIME_REQUEST.get_response() {
+	let boot_time = if let Some(res) = TIME_REQUEST.get_response().get() {
 		res.boot_time
 	} else {
 		dbg!("boot error: missing limine boot time response");
@@ -612,7 +584,7 @@ pub unsafe fn _start() -> ! {
 	};
 
 	#[cfg(debug_assertions)]
-	if STKSZ_REQUEST.get_response().is_none() {
+	if STKSZ_REQUEST.get_response().get().is_none() {
 		dbg!("!!WARNING!! Oro + limine boot stage built in debug mode, which");
 		dbg!("!!WARNING!! means we request a much, much larger stack size to");
 		dbg!("!!WARNING!! accommodate Rust's large debug sizes, namely around");
@@ -640,7 +612,7 @@ pub unsafe fn _start() -> ! {
 			}
 		};
 
-		let mapped_addr = phys_addr + hhdm.offset as u64;
+		let mapped_addr = phys_addr + hhdm.offset;
 		let pt = &mut *(mapped_addr as *mut PageTable);
 		pt.zero();
 		(pt, phys_addr)
@@ -658,8 +630,7 @@ pub unsafe fn _start() -> ! {
 
 	// Use it to make an offset page table, since our memory
 	// is direct-mapped at the moment.
-	let mut oro_mapper =
-		OffsetPageTable::new(oro_l4_page_table, VirtAddr::new_unsafe(hhdm.offset as u64));
+	let mut oro_mapper = OffsetPageTable::new(oro_l4_page_table, VirtAddr::new_unsafe(hhdm.offset));
 
 	// Set up the stack space. We'll give it 64KiB to start with (the kernel
 	// may choose to grow the stack, as per oro_boot's specification of the
@@ -693,10 +664,13 @@ pub unsafe fn _start() -> ! {
 	let kernel_entry_point: u64;
 	'load_kernel: {
 		for module in mods {
-			if cstr_eq(module.path, b"/oro-kernel\0") {
+			if cstr_eq(module.path.to_str().unwrap(), b"/oro-kernel\0") {
 				kernel_entry_point = load_kernel_elf(
-					core::slice::from_raw_parts(module.address, module.size as usize),
-					hhdm.offset as u64,
+					core::slice::from_raw_parts(
+						module.base.as_ptr().unwrap(),
+						module.length as usize,
+					),
+					hhdm.offset,
 					&mut oro_mapper,
 					&mut pfa,
 				);
@@ -725,13 +699,10 @@ pub unsafe fn _start() -> ! {
 	// into a Well Known place.
 	let (limine_page_table_frame, _) = x86_64::registers::control::Cr3::read();
 	let limine_l4_page_table: &mut PageTable = unsafe {
-		&mut *((hhdm.offset as u64 + limine_page_table_frame.start_address().as_u64())
-			as *mut PageTable)
+		&mut *((hhdm.offset + limine_page_table_frame.start_address().as_u64()) as *mut PageTable)
 	};
-	let mut limine_mapper = OffsetPageTable::new(
-		limine_l4_page_table,
-		VirtAddr::new_unsafe(hhdm.offset as u64),
-	);
+	let mut limine_mapper =
+		OffsetPageTable::new(limine_l4_page_table, VirtAddr::new_unsafe(hhdm.offset));
 
 	// Serialize the boot configuration to memory for the kernel to pick up
 	// once we switch to it.
@@ -741,8 +712,8 @@ pub unsafe fn _start() -> ! {
 		nonce_xor_magic: BOOT_MAGIC ^ (boot_time as u64),
 		memory_map: mmap.iter().map(|limine_region| MemoryRegion {
 			base: limine_region.base,
-			length: limine_region.length,
-			kind: map_limine_to_oro_region(&limine_region.kind),
+			length: limine_region.len,
+			kind: map_limine_to_oro_region(&limine_region.typ),
 		}),
 	};
 
