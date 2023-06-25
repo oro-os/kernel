@@ -5,11 +5,12 @@
 use core::{arch::asm, ffi::CStr};
 use elf::{endian::AnyEndian, ElfBytes, ParseError};
 use lazy_static::lazy_static;
+#[cfg(debug_assertions)]
+use limine::LimineStackSizeRequest;
 use limine::{
 	LimineBootTimeRequest, LimineHhdmRequest, LimineMemmapEntry, LimineMemmapRequest,
-	LimineMemoryMapEntryType, LimineModuleRequest, LiminePtr, LimineStackSizeRequest, NonNullPtr,
+	LimineMemoryMapEntryType, LimineModuleRequest, LiminePtr, NonNullPtr,
 };
-#[cfg(debug_assertions)]
 use oro_boot::{
 	x86_64::{
 		l4_to_range_48, BootConfig, MemoryRegion, MemoryRegionKind, KERNEL_STACK_PAGE_TABLE_INDEX,
