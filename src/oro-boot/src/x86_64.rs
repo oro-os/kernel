@@ -4,6 +4,7 @@
 //! TODO   - all frames mapped with flag bit 9 (BIT_9) will also have the
 //! TODO     physical frames reclaimed (leave 0 for modules and other non-reclaimable
 //! TODO     memory)
+//! TODO - UNSTABLE ABI until later date
 
 use core::cmp::min;
 use oro_ser2mem::{CloneIterator, Ser2Mem};
