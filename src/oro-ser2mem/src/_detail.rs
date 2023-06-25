@@ -71,6 +71,20 @@ macro_rules! pod_types {
 
 pod_types![u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64];
 
+unsafe impl<T> Serializable for Option<T>
+where
+	T: Serializable + Sized + Clone,
+{
+	type Target = Option<T>;
+
+	unsafe fn serialize_to<A>(&self, to: *mut Self::Target, _alloc: &mut A)
+	where
+		A: Allocator,
+	{
+		*to = self.clone();
+	}
+}
+
 /// Serialize (with ser2mem) an iterator to a new memory region and return the slice
 ///
 /// # Safety
