@@ -65,8 +65,9 @@ lazy_static! {
 	static ref GDT: (GlobalDescriptorTable, Selectors) = {
 		let mut gdt = GlobalDescriptorTable::new();
 		let cs = gdt.add_entry(Descriptor::kernel_code_segment());
+		let ds = gdt.add_entry(Descriptor::kernel_data_segment());
 		let tss = gdt.add_entry(Descriptor::tss_segment(&TSS));
-		(gdt, Selectors { cs, tss })
+		(gdt, Selectors { cs, ds, tss })
 	};
 	/// NOTE: DO NOT call `.clean_up()`, and DO NOT pass a range to `.clean_up_addr_range()`
 	/// NOTE: that includes the PFA swap page!!!! This WILL cause the system to crash
@@ -82,6 +83,7 @@ static mut PFA: MaybeUninit<TicketMutex<PageFrameAllocator>> = MaybeUninit::unin
 
 struct Selectors {
 	cs: SegmentSelector,
+	ds: SegmentSelector,
 	tss: SegmentSelector,
 }
 
@@ -325,23 +327,28 @@ extern "x86-interrupt" fn irq_page_fault(frm: InterruptStackFrame, err_code: Pag
 }
 
 extern "x86-interrupt" fn irq_breakpoint(_frm: InterruptStackFrame) {
-	use core::fmt::Write;
-	unsafe {
-		SERIAL.force_unlock();
-	}
-	SERIAL.lock().write_str("BREAKPOINT").unwrap();
-	unsafe {
-		halt();
-	}
+	//use core::fmt::Write;
+	//unsafe {
+	//	SERIAL.force_unlock();
+	//}
+	//SERIAL.lock().write_str("BREAKPOINT").unwrap();
+	//unsafe {
+	//	halt();
+	//}
 }
 
 pub fn init() {
-	use x86_64::instructions::segmentation::{Segment, CS};
+	use x86_64::instructions::segmentation::{Segment, CS, DS, ES, FS, GS, SS};
 	use x86_64::instructions::tables::load_tss;
 
 	GDT.0.load();
 	unsafe {
 		CS::set_reg(GDT.1.cs);
+		DS::set_reg(GDT.1.ds);
+		SS::set_reg(GDT.1.ds);
+		GS::set_reg(GDT.1.ds);
+		FS::set_reg(GDT.1.ds);
+		ES::set_reg(GDT.1.ds);
 		load_tss(GDT.1.tss);
 	}
 	IDT.load();
@@ -584,4 +591,10 @@ pub fn init() {
 	}
 
 	println!("memory subsystem ... ok");
+
+	// XXX DEBUG
+	unsafe {
+		core::arch::asm! { "INT 3" };
+		println!("recovered from breakpoint");
+	}
 }
