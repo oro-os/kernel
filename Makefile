@@ -21,7 +21,7 @@ lint:
 	cargo fmt -- --check --verbose
 
 clippy:
-	env cargo clippy --target=./src/triple/x86_64.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem --all -- -D clippy::all
+	env cargo clippy $(CARGO_FLAGS) --target=./src/triple/x86_64.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem --all -- -D clippy::all
 
 # oro x86_64-limine
 x86_64-limine.qemu: x86_64-limine
