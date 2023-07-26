@@ -65,8 +65,7 @@ static TIME_REQUEST: LimineBootTimeRequest = LimineBootTimeRequest::new(0);
 
 #[cfg(debug_assertions)]
 #[used]
-static STKSZ_REQUEST: LimineStackSizeRequest =
-	LimineStackSizeRequest::new(0).stack_size(64 * 1024);
+static STKSZ_REQUEST: LimineStackSizeRequest = LimineStackSizeRequest::new(0).stack_size(64 * 1024);
 
 fn map_limine_to_oro_region(kind: &LimineMemoryMapEntryType) -> MemoryRegionKind {
 	match kind {
