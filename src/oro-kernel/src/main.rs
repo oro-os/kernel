@@ -5,12 +5,12 @@
 extern crate alloc;
 
 mod arch;
+mod log;
 
 #[inline(never)]
 #[panic_handler]
 unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
-	println!("<< KERNEL PANIC >>");
-	println!("{:#?}", info);
+	self::log::kernel_panic!("{:?}", info);
 	self::arch::halt()
 }
 
@@ -20,7 +20,9 @@ unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 #[no_mangle]
 pub unsafe fn _start() -> ! {
 	self::arch::init();
+	self::log::ok!("boot::arch");
 
-	println!("Oro kernel has booted successfully!"); // XXX TODO DEBUG
+	self::log::ok!("boot");
+
 	self::arch::halt()
 }

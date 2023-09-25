@@ -211,7 +211,7 @@ unsafe fn halt() -> ! {
 #[inline(never)]
 #[panic_handler]
 unsafe fn panic(_info: &::core::panic::PanicInfo) -> ! {
-	dbg!("boot error: kernel panic");
+	dbg!("panic::preboot::boot error");
 	halt()
 }
 
@@ -292,7 +292,7 @@ where
 			Ok(flusher) => flusher.flush(),
 			Err(err) => {
 				dbg!(
-					"boot error: failed to map memory: ",
+					"error::preboot::failed to map memory: ",
 					match err {
 						MapToError::FrameAllocationFailed => "frame allocation failed",
 						MapToError::ParentEntryHugePage => "parent entry is a huge page",
@@ -356,7 +356,7 @@ where
 			}
 
 			let frame = self.pfa.allocate_frame().unwrap_or_else(|| {
-				dbg!("boot error: out of memory when allocating boot protocol structures");
+				dbg!("error::preboot::out of memory when allocating boot protocol structures");
 				halt();
 			});
 
@@ -386,7 +386,7 @@ macro_rules! map_stubs {
 		let end_page = (&_ORO_STUBS_END as *const u8 as u64) >> 12;
 
 		if (end_page - start_page) > 512 {
-			dbg!("boot error: stubs take up too much memory (more than 512 pages)");
+			dbg!("error::preboot::stubs take up too much memory (more than 512 pages)");
 			halt();
 		}
 
@@ -396,7 +396,7 @@ macro_rules! map_stubs {
 				match $src_mapper.translate_addr(VirtAddr::new_unsafe(page << 12)) {
 					Some(addr) => addr,
 					None => {
-						dbg!("boot error: stubs were not mapped in correctly");
+						dbg!("error::preboot::stubs were not mapped in correctly");
 						halt();
 					}
 				},
@@ -473,7 +473,7 @@ unsafe fn load_kernel_elf_err<M: Mapper<Size4KiB>, A: FrameAllocator<Size4KiB>>(
 			for dest_page in dest_start_page..=dest_end_page {
 				let dest_virt_addr = dest_page << 12;
 				let dest_phys_frame = pfa.allocate_frame().unwrap_or_else(|| {
-					dbg!("boot error: failed to allocate oro kernel segment: out of memory");
+					dbg!("error::preboot::failed to allocate oro kernel segment: out of memory");
 					halt();
 				});
 
@@ -512,7 +512,7 @@ unsafe fn load_kernel_elf_err<M: Mapper<Size4KiB>, A: FrameAllocator<Size4KiB>>(
 			}
 		}
 	} else {
-		dbg!("boot error: oro kernel has no loadable segments");
+		dbg!("error::preboot::oro kernel has no loadable segments");
 		halt();
 	}
 
@@ -539,7 +539,7 @@ unsafe fn load_kernel_elf<M: Mapper<Size4KiB>, A: FrameAllocator<Size4KiB>>(
 		Ok(r) => r,
 		Err(_err) => {
 			// TODO better error messages
-			dbg!("boot error: failed to load oro kernel");
+			dbg!("error::preboot::failed to load oro kernel");
 			halt();
 		}
 	}
@@ -553,45 +553,45 @@ unsafe fn load_kernel_elf<M: Mapper<Size4KiB>, A: FrameAllocator<Size4KiB>>(
 pub unsafe fn _start() -> ! {
 	x86_64::instructions::interrupts::disable();
 
-	dbg!("STARTING ORO + LIMINE PRE-BOOT");
+	dbg!("ok::preboot::booting oro + limine");
 
 	let hhdm = if let Some(res) = HHDM_REQUEST.get_response().get() {
 		res
 	} else {
-		dbg!("boot error: missing limine hhdm response");
+		dbg!("error::preboot::missing limine hhdm response");
 		halt();
 	};
 
 	let mmap = if let Some(res) = MMAP_REQUEST.get_response().get() {
 		res.memmap()
 	} else {
-		dbg!("boot error: missing limine mmap response");
+		dbg!("error::preboot::missing limine mmap response");
 		halt();
 	};
 
 	let mods = if let Some(res) = MOD_REQUEST.get_response().get() {
 		res.modules()
 	} else {
-		dbg!("boot error: missing limine modules response (or no modules specified)");
+		dbg!("error::preboot::missing limine modules response (or no modules specified)");
 		halt();
 	};
 
 	let boot_time = if let Some(res) = TIME_REQUEST.get_response().get() {
 		res.boot_time
 	} else {
-		dbg!("boot error: missing limine boot time response");
+		dbg!("error::preboot::missing limine boot time response");
 		halt();
 	};
 
 	#[cfg(debug_assertions)]
 	if STKSZ_REQUEST.get_response().get().is_none() {
-		dbg!("!!WARNING!! Oro + limine boot stage built in debug mode, which");
-		dbg!("!!WARNING!! means we request a much, much larger stack size to");
-		dbg!("!!WARNING!! accommodate Rust's large debug sizes, namely around");
-		dbg!("!!WARNING!! parsing the kernel ELF module. However, Limine has");
-		dbg!("!!WARNING!! not honored the stack size adjustment request, which");
-		dbg!("!!WARNING!! means some crazy stuff is probably about to happen,");
-		dbg!("!!WARNING!! the best case being a reboot or stall (triple-fault).");
+		dbg!("warn::preboot::Oro + limine boot stage built in debug mode, which");
+		dbg!("warn::preboot::means we request a much, much larger stack size to");
+		dbg!("warn::preboot::accommodate Rust's large debug sizes, namely around");
+		dbg!("warn::preboot::parsing the kernel ELF module. However, Limine has");
+		dbg!("warn::preboot::not honored the stack size adjustment request, which");
+		dbg!("warn::preboot::means some crazy stuff is probably about to happen,");
+		dbg!("warn::preboot::the best case being a reboot or stall (triple-fault).");
 	}
 
 	// The limine page frame allocator is a simple, temporary page frame allocator
@@ -607,7 +607,7 @@ pub unsafe fn _start() -> ! {
 		let phys_addr = match pfa.allocate_frame() {
 			Some(frame) => frame.start_address().as_u64(),
 			None => {
-				dbg!("boot error: cannot allocate Oro L4 page table; out of memory");
+				dbg!("error::preboot::cannot allocate Oro L4 page table; out of memory");
 				halt();
 			}
 		};
@@ -647,7 +647,7 @@ pub unsafe fn _start() -> ! {
 		let stack_frame = match pfa.allocate_frame() {
 			Some(frame) => frame,
 			None => {
-				dbg!("boot error: failed to allocate kernel stack; out of memory");
+				dbg!("error::preboot::failed to allocate kernel stack; out of memory");
 				halt();
 			}
 		};
@@ -676,18 +676,21 @@ pub unsafe fn _start() -> ! {
 				);
 				break 'load_kernel;
 			} else {
-				dbg!("warning: unused module (unrecognized path): ", module.path);
+				dbg!(
+					"warn::preboot::unused module (unrecognized path): ",
+					module.path
+				);
 			}
 		}
 
-		dbg!("boot error: /oro-kernel module not found on boot medium");
+		dbg!("error::preboot::'/oro-kernel' module not found on boot medium");
 		halt();
 	}
 
 	if kernel_entry_point == 0 {
 		// Should never happen but good to check just to
 		// safeguard against bugs above.
-		dbg!("boot error: oro kernel entry point is null");
+		dbg!("error::preboot::oro kernel entry point is null");
 		halt();
 	}
 
@@ -745,7 +748,7 @@ pub unsafe fn _start() -> ! {
 
 	// Now that it's all mapped, we want to push our important stuff to registers
 	// and jump to the stub
-	dbg!("pre-boot ... ok\nBOOTING ORO KERNEL");
+	dbg!("ok::preboot");
 
 	asm!(
 		"push {L4_ADDR}",

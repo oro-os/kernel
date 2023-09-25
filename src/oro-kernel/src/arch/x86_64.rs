@@ -1,4 +1,5 @@
-use alloc::{alloc::Layout, boxed::Box};
+use crate::log;
+use alloc::alloc::Layout;
 use buddy_system_allocator::{Heap, LockedHeapWithRescue};
 use core::mem::MaybeUninit;
 use lazy_static::lazy_static;
@@ -27,17 +28,6 @@ use x86_64::{
 };
 
 pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
-
-#[macro_export]
-macro_rules! print {
-	($($arg:tt)*) => ($crate::arch::print_args(format_args!($($arg)*)));
-}
-
-#[macro_export]
-macro_rules! println {
-	() => ($crate::print!("\n"));
-	($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
-}
 
 lazy_static! {
 	static ref SERIAL: SpinMutex<SerialPort> = {
@@ -294,8 +284,8 @@ static KERNEL_SECRET_HEAP_ALLOCATOR: LockedHeapWithRescue<32> =
 							// flush everything all at once after this.
 						}
 						Err(error) => {
-							println!(
-								"WARNING: failed to allocate more heap storage (kernel will panic): {error:?}"
+							log::warning!(
+								"failed to allocate more heap storage (kernel will panic): {error:?}"
 							);
 							return; // Will inevitably cause the heap allocator to fail and the kernel to stall.
 						}
@@ -320,7 +310,7 @@ extern "x86-interrupt" fn irq_page_fault(frm: InterruptStackFrame, err_code: Pag
 	unsafe {
 		SERIAL.force_unlock();
 	}
-	println!("PAGE FAULT frm={frm:#?} err_code={err_code:#?}");
+	log::debug!("PAGE FAULT frm={frm:#?} err_code={err_code:#?}");
 	unsafe {
 		halt();
 	}
@@ -364,7 +354,7 @@ pub fn init() {
 		panic!("boot config magic^nonce mismatch");
 	}
 
-	println!("oro x86_64 initializing");
+	log::ok!("boot::oro x86_64");
 
 	// Validate the memory map.
 	//
@@ -403,7 +393,7 @@ pub fn init() {
 		}
 	}
 
-	println!("boot stage memory map validation ... ok");
+	log::ok!("boot::boot stage memory map validation");
 
 	// Set up the memory allocation subsystem
 	{
@@ -476,7 +466,7 @@ pub fn init() {
 			(&mut l1_page_table[0], l4_to_range_48(HEAP_IDX).0)
 		};
 
-		println!("recursive memory mapper ... ok");
+		log::ok!("boot::recursive memory mapper");
 
 		// ... set up PFA and pass PFA iterator + other memory items
 		unsafe {
@@ -487,7 +477,7 @@ pub fn init() {
 			)));
 		}
 
-		println!("page frame allocator ... ok");
+		log::ok!("boot::page frame allocator");
 
 		// ... unmap (and reclaim physical memory for) anything in lower half
 		{
@@ -572,7 +562,7 @@ pub fn init() {
 			::x86_64::instructions::tlb::flush_all();
 		}
 
-		println!("unmap+reclaim lower half ... ok");
+		log::ok!("boot::unmap+reclaim lower half");
 
 		// ... set up global (kernel) buddy allocator (placing it _above_ anything
 		//     we put in secret heap above, i.e. the PFA swap page)
@@ -580,21 +570,8 @@ pub fn init() {
 			CURRENT_HEAP_BASE = l4_mkvirtaddr(KERNEL_SECRET_HEAP_PAGE_TABLE_INDICES.0, 1, 0, 0);
 		}
 
-		// XXX DEBUG
-		let mut test_box = Box::new(1234usize);
-		println!("test box addr: {:x?}", (&*test_box) as *const usize as u64);
-		println!("test box: {}", *test_box);
-		*test_box = 5678usize;
-		println!("test box again: {}", *test_box);
-
-		println!("kernel heap ... ok");
+		log::ok!("boot::kernel heap");
 	}
 
-	println!("memory subsystem ... ok");
-
-	// XXX DEBUG
-	unsafe {
-		core::arch::asm! { "INT 3" };
-		println!("recovered from breakpoint");
-	}
+	log::ok!("boot::memory subsystem");
 }
