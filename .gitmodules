@@ -1,3 +1,4 @@
 [submodule "src/oro-boot-limine/bootloader"]
 	path = src/oro-boot-limine/bootloader
 	url = https://github.com/oro-os/limine.git
+	ignore = dirty
