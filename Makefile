@@ -1,6 +1,6 @@
 .PHONY: all clean fmt lint clippy x86_64 x86_64-limine x86_64-limine.qemu
 
-ORO_VERSION = $(shell cargo metadata --format-version=1 --offline | jq -r '.packages | map(select(.name == "oro-kernel")) | .[].version')
+ORO_VERSION = $(shell cargo metadata --format-version=1 | jq -r '.packages | map(select(.name == "oro-kernel")) | .[].version')
 
 ifeq ($(DEBUG),1)
 override RELEASE = debug
