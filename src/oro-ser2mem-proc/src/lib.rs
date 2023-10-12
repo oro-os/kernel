@@ -268,7 +268,7 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 	}
 
 	let field_writes = field_writes.into_iter().reduce(|mut acc, e| {
-		acc.append_all(e.into_iter());
+		acc.append_all(e);
 		acc
 	});
 
