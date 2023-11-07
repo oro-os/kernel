@@ -8,11 +8,11 @@ repository = "https://github.com/oro-os/kernel"
 [workspace]
 resolver = "2"
 members = [
-	"src/oro-boot",
-	"src/oro-boot-limine",
-	"src/oro-kernel",
-	"src/oro-ser2mem",
-	"src/oro-ser2mem-proc",
+	"oro-boot",
+	"oro-boot-limine",
+	"oro-kernel",
+	"oro-ser2mem",
+	"oro-ser2mem-proc",
 ]
 
 [profile.release]

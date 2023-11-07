@@ -21,25 +21,25 @@ lint:
 	cargo fmt -- --check --verbose
 
 clippy:
-	env cargo clippy $(CARGO_FLAGS) --target=./src/triple/x86_64.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem --all -- -D clippy::all
+	env cargo clippy $(CARGO_FLAGS) --target=./triple/x86_64.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem --all -- -D clippy::all
 
 # oro x86_64
 .PHONY: target/x86_64/$(RELEASE)/oro-kernel
 target/x86_64/$(RELEASE)/oro-kernel:
-	env RUSTFLAGS="-Z macro-backtrace" cargo build -p oro-kernel --target=./src/triple/x86_64.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem $(CARGO_FLAGS)
+	env RUSTFLAGS="-Z macro-backtrace" cargo build -p oro-kernel --target=./triple/x86_64.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem $(CARGO_FLAGS)
 
 # oro x86_64-limine
 x86_64-limine: x86_64 target/x86_64/$(RELEASE)/oro-boot-limine
 .PHONY: target/x86_64/$(RELEASE)/oro-boot-limine
 target/x86_64/$(RELEASE)/oro-boot-limine:
-	env RUSTFLAGS="-Z macro-backtrace" cargo build -p oro-boot-limine --target=./src/triple/x86_64.json -Zunstable-options -Zbuild-std=core,compiler_builtins -Zbuild-std-features=compiler-builtins-mem $(CARGO_FLAGS)
-target/x86_64/$(RELEASE)/.limine/limine-deploy: src/oro-boot-limine/bootloader/limine-deploy
+	env RUSTFLAGS="-Z macro-backtrace" cargo build -p oro-boot-limine --target=./triple/x86_64.json -Zunstable-options -Zbuild-std=core,compiler_builtins -Zbuild-std-features=compiler-builtins-mem $(CARGO_FLAGS)
+target/x86_64/$(RELEASE)/.limine/limine-deploy: oro-boot-limine/bootloader/limine-deploy
 	@mkdir -p "$(dir $@)"
 	cp "$<" "$@"
-src/oro-boot-limine/bootloader/limine-deploy: src/oro-boot-limine/bootloader/limine-deploy.c
-	$(MAKE) -C src/oro-boot-limine/bootloader limine-deploy
-src/oro-boot-limine/bootloader/limine-deploy.c:
-	git submodule update --init --recursive --depth=1 src/oro-boot-limine/bootloader
+oro-boot-limine/bootloader/limine-deploy: oro-boot-limine/bootloader/limine-deploy.c
+	$(MAKE) -C oro-boot-limine/bootloader limine-deploy
+oro-boot-limine/bootloader/limine-deploy.c:
+	git submodule update --init --recursive --depth=1 oro-boot-limine/bootloader
 
 # oro-x86_64-limine (run QEMU w/ ISO)
 x86_64-limine.qemu: x86_64-limine.iso
@@ -51,10 +51,10 @@ target/out/oro-$(ORO_VERSION)-x86_64-limine-$(RELEASE).iso: $(addprefix target/x
 	@mkdir -p "$(dir $@)"
 	xorriso -as mkisofs -b limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-cd-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label "target/x86_64/$(RELEASE)/.limine/iso" -o "$@"
 	target/x86_64/$(RELEASE)/.limine/limine-deploy "$@"
-target/x86_64/$(RELEASE)/.limine/iso/limine.cfg: src/oro-boot-limine/limine.cfg
+target/x86_64/$(RELEASE)/.limine/iso/limine.cfg: oro-boot-limine/limine.cfg
 	@mkdir -p "$(dir $@)"
 	cp "$<" "$@"
-target/x86_64/$(RELEASE)/.limine/iso/%: src/oro-boot-limine/bootloader/%
+target/x86_64/$(RELEASE)/.limine/iso/%: oro-boot-limine/bootloader/%
 	@mkdir -p "$(dir $@)"
 	cp "$<" "$@"
 target/x86_64/$(RELEASE)/.limine/iso/oro-kernel: target/x86_64/$(RELEASE)/oro-kernel
@@ -66,7 +66,7 @@ target/x86_64/$(RELEASE)/.limine/iso/oro-boot-limine: target/x86_64/$(RELEASE)/o
 
 # oro x86_64-limine (PXE/UEFI bootable)
 x86_64-limine.pxe-uefi: x86_64 x86_64-limine $(addprefix target/x86_64/$(RELEASE)/pxe-uefi/,oro-boot-limine oro-kernel limine.cfg BOOTX64.EFI)
-target/x86_64/$(RELEASE)/pxe-uefi/limine.cfg: src/oro-boot-limine/limine.cfg
+target/x86_64/$(RELEASE)/pxe-uefi/limine.cfg: oro-boot-limine/limine.cfg
 	@mkdir -p "$(dir $@)"
 	cp "$<" "$@"
 target/x86_64/$(RELEASE)/pxe-uefi/oro-boot-limine: target/x86_64/$(RELEASE)/oro-boot-limine
@@ -75,6 +75,6 @@ target/x86_64/$(RELEASE)/pxe-uefi/oro-boot-limine: target/x86_64/$(RELEASE)/oro-
 target/x86_64/$(RELEASE)/pxe-uefi/oro-kernel: target/x86_64/$(RELEASE)/oro-kernel
 	@mkdir -p "$(dir $@)"
 	cp "$<" "$@"
-target/x86_64/$(RELEASE)/pxe-uefi/%: src/oro-boot-limine/bootloader/%
+target/x86_64/$(RELEASE)/pxe-uefi/%: oro-boot-limine/bootloader/%
 	@mkdir -p "$(dir $@)"
 	cp "$<" "$@"
