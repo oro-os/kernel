@@ -47,9 +47,9 @@ x86_64-limine.qemu: x86_64-limine.iso
 
 # oro x86_64-limine (ISO)
 x86_64-limine.iso: x86_64 target/out/oro-$(ORO_VERSION)-x86_64-limine-$(RELEASE).iso
-target/out/oro-$(ORO_VERSION)-x86_64-limine-$(RELEASE).iso: $(addprefix target/x86_64/$(RELEASE)/.limine/,iso/oro-kernel iso/oro-boot-limine iso/limine-cd-efi.bin iso/limine-cd.bin iso/limine.sys iso/limine.cfg limine)
+target/out/oro-$(ORO_VERSION)-x86_64-limine-$(RELEASE).iso: $(addprefix target/x86_64/$(RELEASE)/.limine/,iso/oro-kernel iso/oro-boot-limine iso/limine-uefi-cd.bin iso/limine-bios-cd.bin iso/limine-bios.sys iso/limine.cfg limine)
 	@mkdir -p "$(dir $@)"
-	xorriso -as mkisofs -b limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-cd-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label "target/x86_64/$(RELEASE)/.limine/iso" -o "$@"
+	xorriso -as mkisofs -b limine-bios-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-uefi-cd.bin -efi-boot-part --efi-boot-image --protective-msdos-label "target/x86_64/$(RELEASE)/.limine/iso" -o "$@"
 	target/x86_64/$(RELEASE)/.limine/limine bios-install "$@"
 target/x86_64/$(RELEASE)/.limine/iso/limine.cfg: oro-boot-limine/limine.cfg
 	@mkdir -p "$(dir $@)"
