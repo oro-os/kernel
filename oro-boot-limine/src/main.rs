@@ -6,10 +6,10 @@ use core::{arch::asm, ffi::CStr};
 use elf::{endian::AnyEndian, ElfBytes, ParseError};
 use lazy_static::lazy_static;
 #[cfg(debug_assertions)]
-use limine::LimineStackSizeRequest;
+use limine::StackSizeRequest;
 use limine::{
-	LimineBootTimeRequest, LimineHhdmRequest, LimineMemmapEntry, LimineMemmapRequest,
-	LimineMemoryMapEntryType, LimineModuleRequest, LiminePtr, NonNullPtr,
+	BootTimeRequest, HhdmRequest, MemmapEntry, MemmapRequest, MemoryMapEntryType, ModuleRequest,
+	NonNullPtr, Ptr,
 };
 use oro_boot::{
 	x86_64::{
@@ -55,23 +55,23 @@ extern "C" {
 }
 
 #[used]
-static HHDM_REQUEST: LimineHhdmRequest = LimineHhdmRequest::new(0);
+static HHDM_REQUEST: HhdmRequest = HhdmRequest::new(0);
 #[used]
-static MMAP_REQUEST: LimineMemmapRequest = LimineMemmapRequest::new(0);
+static MMAP_REQUEST: MemmapRequest = MemmapRequest::new(0);
 #[used]
-static MOD_REQUEST: LimineModuleRequest = LimineModuleRequest::new(0);
+static MOD_REQUEST: ModuleRequest = ModuleRequest::new(0);
 #[used]
-static TIME_REQUEST: LimineBootTimeRequest = LimineBootTimeRequest::new(0);
+static TIME_REQUEST: BootTimeRequest = BootTimeRequest::new(0);
 
 #[cfg(debug_assertions)]
 #[used]
-static STKSZ_REQUEST: LimineStackSizeRequest = LimineStackSizeRequest::new(0).stack_size(64 * 1024);
+static STKSZ_REQUEST: StackSizeRequest = StackSizeRequest::new(0).stack_size(64 * 1024);
 
-fn map_limine_to_oro_region(kind: &LimineMemoryMapEntryType) -> MemoryRegionKind {
+fn map_limine_to_oro_region(kind: &MemoryMapEntryType) -> MemoryRegionKind {
 	match kind {
-		LimineMemoryMapEntryType::Usable => MemoryRegionKind::Usable,
-		LimineMemoryMapEntryType::KernelAndModules => MemoryRegionKind::Modules,
-		LimineMemoryMapEntryType::BootloaderReclaimable => MemoryRegionKind::Usable,
+		MemoryMapEntryType::Usable => MemoryRegionKind::Usable,
+		MemoryMapEntryType::KernelAndModules => MemoryRegionKind::Modules,
+		MemoryMapEntryType::BootloaderReclaimable => MemoryRegionKind::Usable,
 		_ => MemoryRegionKind::Reserved,
 	}
 }
@@ -81,7 +81,7 @@ fn is_oro_region_allocatable(kind: &MemoryRegionKind) -> bool {
 }
 
 struct LiminePageFrameAllocator {
-	bios_mapping: &'static [NonNullPtr<LimineMemmapEntry>],
+	bios_mapping: &'static [NonNullPtr<MemmapEntry>],
 	bios_mapping_offset: usize,
 	byte_offset: u64,
 	byte_offset_max: u64,
@@ -89,7 +89,7 @@ struct LiminePageFrameAllocator {
 }
 
 impl LiminePageFrameAllocator {
-	fn new(bios_mapping: &'static [NonNullPtr<LimineMemmapEntry>]) -> Self {
+	fn new(bios_mapping: &'static [NonNullPtr<MemmapEntry>]) -> Self {
 		// get byte offset of first mapping (doesn't need to be usable, just the valid base offset)
 		let (byte_offset, byte_offset_max) = if bios_mapping.is_empty() {
 			(0, 0)
@@ -187,7 +187,7 @@ impl DebugPrint for &core::ffi::CStr {
 	}
 }
 
-impl DebugPrint for LiminePtr<i8> {
+impl DebugPrint for Ptr<i8> {
 	fn dbgprint(&self) {
 		self.to_str().unwrap().dbgprint();
 	}
