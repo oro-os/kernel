@@ -33,12 +33,12 @@ x86_64-limine: x86_64 target/x86_64/$(RELEASE)/oro-boot-limine
 .PHONY: target/x86_64/$(RELEASE)/oro-boot-limine
 target/x86_64/$(RELEASE)/oro-boot-limine:
 	env RUSTFLAGS="-Z macro-backtrace" cargo build -p oro-boot-limine --target=./triple/x86_64.json -Zunstable-options -Zbuild-std=core,compiler_builtins -Zbuild-std-features=compiler-builtins-mem $(CARGO_FLAGS)
-target/x86_64/$(RELEASE)/.limine/limine-deploy: oro-boot-limine/bootloader/limine-deploy
+target/x86_64/$(RELEASE)/.limine/limine: oro-boot-limine/bootloader/limine
 	@mkdir -p "$(dir $@)"
 	cp "$<" "$@"
-oro-boot-limine/bootloader/limine-deploy: oro-boot-limine/bootloader/limine-deploy.c
-	$(MAKE) -C oro-boot-limine/bootloader limine-deploy
-oro-boot-limine/bootloader/limine-deploy.c:
+oro-boot-limine/bootloader/limine: oro-boot-limine/bootloader/limine.c
+	$(MAKE) -C oro-boot-limine/bootloader limine
+oro-boot-limine/bootloader/limine.c:
 	git submodule update --init --recursive --depth=1 oro-boot-limine/bootloader
 
 # oro-x86_64-limine (run QEMU w/ ISO)
@@ -47,10 +47,10 @@ x86_64-limine.qemu: x86_64-limine.iso
 
 # oro x86_64-limine (ISO)
 x86_64-limine.iso: x86_64 target/out/oro-$(ORO_VERSION)-x86_64-limine-$(RELEASE).iso
-target/out/oro-$(ORO_VERSION)-x86_64-limine-$(RELEASE).iso: $(addprefix target/x86_64/$(RELEASE)/.limine/,iso/oro-kernel iso/oro-boot-limine iso/limine-cd-efi.bin iso/limine-cd.bin iso/limine.sys iso/limine.cfg limine-deploy)
+target/out/oro-$(ORO_VERSION)-x86_64-limine-$(RELEASE).iso: $(addprefix target/x86_64/$(RELEASE)/.limine/,iso/oro-kernel iso/oro-boot-limine iso/limine-cd-efi.bin iso/limine-cd.bin iso/limine.sys iso/limine.cfg limine)
 	@mkdir -p "$(dir $@)"
 	xorriso -as mkisofs -b limine-cd.bin -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot limine-cd-efi.bin -efi-boot-part --efi-boot-image --protective-msdos-label "target/x86_64/$(RELEASE)/.limine/iso" -o "$@"
-	target/x86_64/$(RELEASE)/.limine/limine-deploy "$@"
+	target/x86_64/$(RELEASE)/.limine/limine bios-install "$@"
 target/x86_64/$(RELEASE)/.limine/iso/limine.cfg: oro-boot-limine/limine.cfg
 	@mkdir -p "$(dir $@)"
 	cp "$<" "$@"
