@@ -1,4 +1,4 @@
-.PHONY: all clean fmt lint clippy x86_64 x86_64-limine x86_64-limine.iso x86_64-limine.qemu x86_64-limine.pxe-uefi
+.PHONY: all clean fmt lint clippy x86_64 x86_64-limine x86_64-limine.iso x86_64-limine.qemu x86_64-limine.pxe
 
 ORO_VERSION = $(shell cargo metadata --format-version=1 | jq -r '.packages | map(select(.name == "oro-kernel")) | .[].version')
 
@@ -9,7 +9,7 @@ override RELEASE = release
 CARGO_FLAGS += --release
 endif
 
-all: x86_64 x86_64-limine.iso x86_64-limine.pxe-uefi
+all: x86_64 x86_64-limine.iso x86_64-limine.pxe
 
 clean:
 	rm -rf target
@@ -64,17 +64,17 @@ target/x86_64/$(RELEASE)/.limine/iso/oro-boot-limine: target/x86_64/$(RELEASE)/o
 	@mkdir -p "$(dir $@)"
 	cp "$<" "$@"
 
-# oro x86_64-limine (PXE/UEFI bootable)
-x86_64-limine.pxe-uefi: x86_64 x86_64-limine $(addprefix target/x86_64/$(RELEASE)/pxe-uefi/,oro-boot-limine oro-kernel limine.cfg BOOTX64.EFI)
-target/x86_64/$(RELEASE)/pxe-uefi/limine.cfg: oro-boot-limine/limine.cfg
+# oro x86_64-limine (PXE BIOS/UEFI bootable)
+x86_64-limine.pxe: x86_64 x86_64-limine $(addprefix target/x86_64/$(RELEASE)/pxe/,oro-boot-limine oro-kernel limine.cfg BOOTX64.EFI limine-bios.sys limine-bios-pxe.bin)
+target/x86_64/$(RELEASE)/pxe/limine.cfg: oro-boot-limine/limine.cfg
 	@mkdir -p "$(dir $@)"
 	cp "$<" "$@"
-target/x86_64/$(RELEASE)/pxe-uefi/oro-boot-limine: target/x86_64/$(RELEASE)/oro-boot-limine
+target/x86_64/$(RELEASE)/pxe/oro-boot-limine: target/x86_64/$(RELEASE)/oro-boot-limine
 	@mkdir -p "$(dir $@)"
 	cp "$<" "$@"
-target/x86_64/$(RELEASE)/pxe-uefi/oro-kernel: target/x86_64/$(RELEASE)/oro-kernel
+target/x86_64/$(RELEASE)/pxe/oro-kernel: target/x86_64/$(RELEASE)/oro-kernel
 	@mkdir -p "$(dir $@)"
 	cp "$<" "$@"
-target/x86_64/$(RELEASE)/pxe-uefi/%: oro-boot-limine/bootloader/%
+target/x86_64/$(RELEASE)/pxe/%: oro-boot-limine/bootloader/%
 	@mkdir -p "$(dir $@)"
 	cp "$<" "$@"
