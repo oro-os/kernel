@@ -1,6 +1,6 @@
 [package]
-name = "oro-boot-limine"
-description = "Limine bootloader support for the Oro Operating System"
+name = "oro-boot-limine-x64"
+description = "Limine bootloader support for the Oro Operating System on the x86_64"
 version = { workspace = true }
 authors = { workspace = true }
 repository = { workspace = true }
@@ -10,13 +10,13 @@ edition = { workspace = true }
 build = "build.rs"
 
 [[bin]]
-name = "oro-boot-limine"
+name = "oro-boot-limine-x64"
 path = "./src/main.rs"
 test = false
 bench = false
 
 [dependencies]
-oro-boot = { path = "../oro-boot" }
+oro-arch-x64 = { path = "../oro-arch-x64" }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 spin = "0.9.8"
 limine = "0.1.11"

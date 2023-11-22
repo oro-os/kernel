@@ -117,20 +117,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab250442c86f1850815b5d268639dff018c0627022bc1940eb2d642ca1ce12f0"
 
 [[package]]
-name = "oro-boot"
+name = "oro-arch-x64"
 version = "0.0.0"
 dependencies = [
  "oro-ser2mem",
 ]
 
 [[package]]
-name = "oro-boot-limine"
+name = "oro-boot-limine-x64"
 version = "0.0.0"
 dependencies = [
  "elf",
  "lazy_static",
  "limine",
- "oro-boot",
+ "oro-arch-x64",
  "spin 0.9.8",
  "uart_16550",
  "x86_64",
@@ -142,7 +142,7 @@ version = "0.0.0"
 dependencies = [
  "buddy_system_allocator",
  "lazy_static",
- "oro-boot",
+ "oro-arch-x64",
  "rusty-hook",
  "spin 0.9.8",
  "uart_16550",

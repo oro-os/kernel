@@ -3,13 +3,10 @@ use alloc::alloc::Layout;
 use buddy_system_allocator::{Heap, LockedHeapWithRescue};
 use core::mem::MaybeUninit;
 use lazy_static::lazy_static;
-use oro_boot::{
-	x86_64::{
-		l4_mkvirtaddr, l4_to_range_48, l4_to_recursive_table, MemoryRegionKind,
-		KERNEL_SECRET_HEAP_PAGE_TABLE_INDICES, ORO_BOOT_PAGE_TABLE_INDEX,
-		RECURSIVE_PAGE_TABLE_INDEX,
-	},
-	Fake, Proxy, BOOT_MAGIC,
+use oro_arch_x64::{
+	l4_mkvirtaddr, l4_to_range_48, l4_to_recursive_table, Fake, MemoryRegionKind, Proxy,
+	BOOT_MAGIC, KERNEL_SECRET_HEAP_PAGE_TABLE_INDICES, ORO_BOOT_PAGE_TABLE_INDEX,
+	RECURSIVE_PAGE_TABLE_INDEX,
 };
 use spin::mutex::{spin::SpinMutex, TicketMutex};
 use uart_16550::SerialPort;
@@ -77,8 +74,8 @@ struct Selectors {
 	tss: SegmentSelector,
 }
 
-type BootConfig = Proxy![oro_boot::x86_64::BootConfig<Fake<oro_boot::x86_64::MemoryRegion>>];
-type MemoryRegion = Proxy![oro_boot::x86_64::MemoryRegion];
+type BootConfig = Proxy![oro_arch_x64::BootConfig<Fake<oro_arch_x64::MemoryRegion>>];
+type MemoryRegion = Proxy![oro_arch_x64::MemoryRegion];
 
 struct MemoryRegionIter {
 	mmap: &'static [MemoryRegion],

@@ -1,6 +1,6 @@
 [package]
-name = "oro-boot"
-description = "Oro kernel boot protocol structures"
+name = "oro-arch-x64"
+description = "Oro kernel boot protocol structures for the x86_64 architecture"
 version = { workspace = true }
 authors = { workspace = true }
 repository = { workspace = true }

@@ -16,7 +16,6 @@ test = false
 bench = false
 
 [dependencies]
-oro-boot = { path = "../oro-boot" }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 spin = { version = "0.9.8", features = ["mutex", "spin_mutex", "ticket_mutex"] }
 volatile = "0.4.6"
@@ -25,6 +24,7 @@ buddy_system_allocator = { version = "0.9.0", features = ["use_spin", "spin", "c
 [target.'cfg(target_arch="x86_64")'.dependencies]
 x86_64 = "0.14.10"
 uart_16550 = "0.2.18"
+oro-arch-x64 = { path = "../oro-arch-x64" }
 
 [build-dependencies]
 rusty-hook = "0.11.2"

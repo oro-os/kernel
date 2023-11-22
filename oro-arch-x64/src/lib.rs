@@ -5,9 +5,14 @@
 //! TODO     physical frames reclaimed (leave 0 for modules and other non-reclaimable
 //! TODO     memory)
 //! TODO - UNSTABLE ABI until later date
+#![no_std]
 
 use core::cmp::min;
+pub use oro_ser2mem::{Allocator, Fake, Proxy, Serialize};
 use oro_ser2mem::{CloneIterator, Ser2Mem};
+
+/// Magic number used to verify a proper boot structure
+pub const BOOT_MAGIC: u64 = u64::from_be_bytes(*b"ORO_BOOT");
 
 /// MUST NOT be 511! MUST correspond to the beginning of the private kernel stack space.
 /// MUST NOT BE IN LOWER HALF (<= 255)!
@@ -75,7 +80,7 @@ pub struct BootConfig<M>
 where
 	M: CloneIterator<Item = MemoryRegion>,
 {
-	/// Set to `oro_boot::BOOT_MAGIC`
+	/// Set to `BOOT_MAGIC`
 	pub magic: u64,
 	/// Set to a non-deterministic value, such as the current timestamp
 	pub nonce: u64,
@@ -108,7 +113,7 @@ where
 	) where
 		F: Fn(&MemoryRegionKind) -> bool,
 	{
-		let boot_config = unsafe { &mut *(base_addr as *mut super::Proxy![Self]) };
+		let boot_config = unsafe { &mut *(base_addr as *mut Proxy![Self]) };
 
 		let mut remaining = alloc_count;
 
@@ -124,11 +129,10 @@ where
 		//
 		// Please, please never do this in normal Rust code. This is not good
 		// Rust code. This is incredibly dangerous Rust code.
-		let memory_map: &'static mut [super::Proxy![MemoryRegion]] =
-			::core::slice::from_raw_parts_mut(
-				boot_config.memory_map.as_ptr() as u64 as *mut super::Proxy![MemoryRegion],
-				boot_config.memory_map.len(),
-			);
+		let memory_map: &'static mut [Proxy![MemoryRegion]] = ::core::slice::from_raw_parts_mut(
+			boot_config.memory_map.as_ptr() as u64 as *mut Proxy![MemoryRegion],
+			boot_config.memory_map.len(),
+		);
 
 		for region in memory_map {
 			if !is_relevant_page(&region.kind) {

@@ -11,12 +11,9 @@ use limine::{
 	BootTimeRequest, HhdmRequest, MemmapEntry, MemmapRequest, MemoryMapEntryType, ModuleRequest,
 	NonNullPtr, Ptr,
 };
-use oro_boot::{
-	x86_64::{
-		l4_to_range_48, BootConfig, MemoryRegion, MemoryRegionKind, KERNEL_STACK_PAGE_TABLE_INDEX,
-		ORO_BOOT_PAGE_TABLE_INDEX, RECURSIVE_PAGE_TABLE_INDEX,
-	},
-	Allocator, Serialize, BOOT_MAGIC,
+use oro_arch_x64::{
+	l4_to_range_48, Allocator, BootConfig, MemoryRegion, MemoryRegionKind, Serialize, BOOT_MAGIC,
+	KERNEL_STACK_PAGE_TABLE_INDEX, ORO_BOOT_PAGE_TABLE_INDEX, RECURSIVE_PAGE_TABLE_INDEX,
 };
 use spin::Mutex;
 use uart_16550::SerialPort;
