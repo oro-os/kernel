@@ -57,7 +57,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: kernel-pxe
-          path: target/x86_64/release/pxe
+          path: target/x64/release/pxe
   test-link:
     name: Test - Link
     runs-on: [self-hosted, oro, oro-link, x64]
