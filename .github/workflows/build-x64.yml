@@ -4,6 +4,8 @@ on:
     # FIXME(qix-): DRY this up when\b\bif actions/runner#1182 is ever fixed.
     paths:
       - '.github/workflows/build.yml'
+      - '.gitmodules'
+      - '.gitignore'
       - 'oro-*/**'
       - 'triple/**'
       - 'Cargo.toml'
@@ -13,6 +15,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/build.yml'
+      - '.gitmodules'
+      - '.gitignore'
       - 'oro-*/**'
       - 'triple/**'
       - 'Cargo.toml'
