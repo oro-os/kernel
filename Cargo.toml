@@ -1,3 +1,5 @@
+cargo-features = ["profile-rustflags"]
+
 [workspace.package]
 version = "0.0.0"
 publish = false
@@ -30,6 +32,9 @@ panic = "abort"            # Use "abort" panic strategy
 
 [profile.test-dev]
 inherits = "dev"
+rustflags = [
+	"--cfg", "oro_test"
+]
 
 [profile.test-release]
 inherits = "release"
@@ -37,6 +42,9 @@ opt-level = "s"            # Optimize for binary size
 debug = "line-tables-only" # Generate line/column tables only
 strip = "symbols"          # Don't strip symbols from binary
 debug-assertions = true    # Turn on debug assertions
+rustflags = [
+	"--cfg", "oro_test"
+]
 #overflow-checks = true  # Turn on overflow checks # FIXME(qix-): this causes a linker error on x64
 
 [profile.release]

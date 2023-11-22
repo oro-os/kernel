@@ -9,9 +9,6 @@ edition = { workspace = true }
 
 build = "build.rs"
 
-[features]
-oro_test = []
-
 [[bin]]
 name = "oro-boot-limine-x64"
 path = "./src/main.rs"

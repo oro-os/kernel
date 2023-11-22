@@ -5,7 +5,7 @@ ORO_VERSION = $(shell cargo metadata --format-version=1 | jq -r '.packages | map
 ifeq ($(DEBUG),1)
 	ifeq ($(TEST),1)
 		override RELEASE = test-dev
-		CARGO_FLAGS += --profile=test-dev --features oro_test
+		CARGO_FLAGS += --profile=test-dev
 	else
 		override RELEASE = debug
 		CARGO_FLAGS += --profile=dev
@@ -13,7 +13,7 @@ ifeq ($(DEBUG),1)
 else
 	ifeq ($(TEST),1)
 		override RELEASE = test-release
-		CARGO_FLAGS += --profile=test-release --features oro_test
+		CARGO_FLAGS += --profile=test-release
 	else
 		override RELEASE = release
 		CARGO_FLAGS += --release
