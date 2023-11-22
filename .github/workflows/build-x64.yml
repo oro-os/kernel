@@ -3,7 +3,7 @@ on:
   push:
     # FIXME(qix-): DRY this up when\b\bif actions/runner#1182 is ever fixed.
     paths:
-      - '.github/workflows/build.yml'
+      - '.github/workflows/build-x64.yml'
       - '.gitmodules'
       - '.gitignore'
       - 'oro-*/**'
@@ -14,7 +14,7 @@ on:
       - 'rust-toolchain.toml'
   pull_request:
     paths:
-      - '.github/workflows/build.yml'
+      - '.github/workflows/build-x64.yml'
       - '.gitmodules'
       - '.gitignore'
       - 'oro-*/**'
