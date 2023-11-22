@@ -3,10 +3,21 @@
 ORO_VERSION = $(shell cargo metadata --format-version=1 | jq -r '.packages | map(select(.name == "oro-kernel")) | .[].version')
 
 ifeq ($(DEBUG),1)
-override RELEASE = debug
+	ifeq ($(TEST),1)
+		override RELEASE = test-dev
+		CARGO_FLAGS += --profile=test-dev --features oro_test
+	else
+		override RELEASE = debug
+		CARGO_FLAGS += --profile=dev
+	endif
 else
-override RELEASE = release
-CARGO_FLAGS += --release
+	ifeq ($(TEST),1)
+		override RELEASE = test-release
+		CARGO_FLAGS += --profile=test-release --features oro_test
+	else
+		override RELEASE = release
+		CARGO_FLAGS += --release
+	endif
 endif
 
 all: x64 x64-limine.iso x64-limine.pxe
@@ -24,6 +35,7 @@ clippy:
 	env cargo clippy $(CARGO_FLAGS) --target=./triple/x64.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem --all -- -D clippy::all
 
 # oro x64
+x64: target/x64/$(RELEASE)/oro-kernel
 .PHONY: target/x64/$(RELEASE)/oro-kernel
 target/x64/$(RELEASE)/oro-kernel:
 	env RUSTFLAGS="-Z macro-backtrace" cargo build -p oro-kernel --target=./triple/x64.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem $(CARGO_FLAGS)

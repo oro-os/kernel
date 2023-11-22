@@ -46,9 +46,13 @@ jobs:
           path: target/
           key: x64-kernel-build-target
       - name: Build <D>
-        run: make DEBUG=1 all
+        run: make all DEBUG=1
       - name: Build <R>
-        run: make all x64-limine.pxe
+        run: make all
+      - name: Build <D-T>
+        run: make all TEST=1 DEBUG=1
+      - name: Build <R-T>
+        run: make all x64-limine.pxe TEST=1
       - name: Lint
         run: make lint
       - name: Clippy
@@ -57,7 +61,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: kernel-pxe
-          path: target/x64/release/pxe
+          path: target/x64/test-release/pxe
   test-link:
     name: Test - Link
     runs-on: [self-hosted, oro, oro-link, x64]

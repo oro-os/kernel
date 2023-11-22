@@ -18,8 +18,51 @@ default-members = [
 	"oro-kernel"
 ]
 
+[profile.dev]
+opt-level = 1           # Basic optimizations
+debug = "full"          # Generate full debug information
+debug-assertions = true # Turn on debug assertions
+overflow-checks = true  # Turn on overflow checks
+incremental = true      # Enable incremental building
+strip = false           # Don't strip symbols from the binary
+lto = false             # perform "thin local" LTO
+panic = "abort"         # Use "abort" panic strategy
+
+[profile.test-dev]
+inherits = "dev"
+
+[profile.test-release]
+inherits = "release"
+opt-level = "s"         # Optimize for binary size
+debug = 1               # Generate minimal debug information
+strip = false           # Don't strip symbols from binary
+debug-assertions = true # Turn on debug assertions
+#overflow-checks = true  # Turn on overflow checks # FIXME(qix-): this causes a linker error on x64
+
 [profile.release]
-opt-level = 3       # Maximum optimizations
-lto = "fat"         # Perform LTO across all crates
-codegen-units = 1   # Reduce number of codegen units to increase optimizations.
-strip = true        # Strip symbols from binary
+opt-level = 3           # Maximum optimizations
+lto = "fat"             # Perform LTO across all crates
+codegen-units = 1       # Reduce number of codegen units to increase optimizations.
+strip = true            # Strip symbols from binary
+incremental = false     # Disable incremental building
+panic = "abort"         # Use "abort" panic strategy
+debug = 0               # Do not generate debug information
+
+# Speed up build programs
+[profile.test.build-override]
+opt-level = 0
+codegen-units = 256
+debug = false
+
+[profile.test-release.build-override]
+opt-level = 0
+codegen-units = 256
+
+[profile.dev.build-override]
+opt-level = 0
+codegen-units = 256
+debug = false
+
+[profile.release.build-override]
+opt-level = 0
+codegen-units = 256

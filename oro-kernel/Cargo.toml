@@ -9,6 +9,9 @@ edition = { workspace = true }
 
 build = "build.rs"
 
+[features]
+oro_test = []
+
 [[bin]]
 name = "oro-kernel"
 path = "./src/main.rs"

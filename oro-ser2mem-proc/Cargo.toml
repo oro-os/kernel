@@ -9,6 +9,8 @@ edition = { workspace = true }
 
 [lib]
 proc-macro = true
+test = false
+bench = false
 
 [dependencies]
 proc-macro2 = "1.0.56"

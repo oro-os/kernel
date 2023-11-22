@@ -7,5 +7,9 @@ repository = { workspace = true }
 publish = { workspace = true }
 edition = { workspace = true }
 
+[lib]
+test = false
+bench = false
+
 [dependencies]
 oro-ser2mem-proc = { path = "../oro-ser2mem-proc" }
