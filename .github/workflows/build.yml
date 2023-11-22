@@ -1,5 +1,32 @@
-name: Build
-on: [push, pull_request]
+name: Build & Test (x86_64)
+on:
+  push:
+    # FIXME(qix-): DRY this up when\b\bif actions/runner#1182 is ever fixed.
+    paths:
+      - '.github/workflows/build.yml'
+      - 'oro-boot/**'
+      - 'oro-boot-limine/**'
+      - 'oro-kernel/**'
+      - 'oro-ser2mem/**'
+      - 'oro-ser2mem-proc/**'
+      - 'triple/x86_64.json'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'Makefile'
+      - 'rust-toolchain.toml'
+  pull_request:
+    paths:
+      - '.github/workflows/build.yml'
+      - 'oro-boot/**'
+      - 'oro-boot-limine/**'
+      - 'oro-kernel/**'
+      - 'oro-ser2mem/**'
+      - 'oro-ser2mem-proc/**'
+      - 'triple/x86_64.json'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'Makefile'
+      - 'rust-toolchain.toml'
 
 jobs:
   build-x86_64:
@@ -17,11 +44,47 @@ jobs:
           toolchain: nightly-x86_64-unknown-linux-gnu
           components: rustfmt, clippy, llvm-tools-preview, rust-src
           default: true
+      - name: Cache build artifacts
+        uses: actions/cache@v3
+        with:
+          path: target/
+          key: ${{ runner.os }}-kernel-build-target
       - name: Build <D>
-        run: make DEBUG=1
+        run: make DEBUG=1 all
       - name: Build <R>
-        run: make
+        run: make all x86_64-limine.pxe
       - name: Lint
         run: make lint
       - name: Clippy
         run: make clippy DEBUG=1
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: kernel-pxe
+          path: target/x86_64/release/pxe
+  test-link-x86_64:
+    name: Test (x86_64 / Link)
+    runs-on: [self-hosted, oro, oro-link, x86_64]
+    needs: build-x86_64
+    steps:
+      - name: Download build
+        uses: actions/download-artifact@v3
+        with:
+          name: kernel-pxe
+          path: /oro
+      - name: Test kernel
+        env:
+          TITLE: ${{ github.event.pull_request.title || github.event.push.head_commit.message || github.event.workflow_run.head_commit.message || github.event.head_commit.message }}
+          REF: ${{ github.ref_name || github.ref }}
+          AUTHOR: ${{ github.actor }}
+        run: >-
+          link-test
+          --pxe-uefi BOOTX64.EFI
+          --pxe-bios limine-bios-pxe.bin
+          --name "$TITLE"
+          --ref "$REF"
+          --author "$AUTHOR"
+          --num-tests 42
+          --github-actions
+          --
+          /usr/bin/env bash -c 'sleep 720'
