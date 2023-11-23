@@ -44,7 +44,14 @@ pub const ORO_BOOT_PAGE_TABLE_INDEX: u16 = 258;
 ///
 /// Boot stages MUST NOT populate any memory in this region. The kernel
 /// expects this region is completely empty.
+#[cfg(not(oro_test))]
 pub const KERNEL_SECRET_HEAP_PAGE_TABLE_INDICES: (u16, u16) = (259, 383);
+#[cfg(oro_test)]
+pub const KERNEL_SECRET_HEAP_PAGE_TABLE_INDICES: (u16, u16) = (259, 382);
+/// During kernel tests, bootloader and kernel shared memory lives here
+/// and must NOT be reclaimed or unmapped.
+#[cfg(oro_test)]
+pub const KERNEL_TEST_SHM_PAGE_TABLE_INDEX: u16 = 383;
 /// All public heap allocations can be safely put here; inclusive.
 ///
 /// Boot stages MUST NOT populate any memory in this region. The kernel
@@ -56,6 +63,8 @@ pub const KERNEL_PUBLIC_HEAP_PAGE_TABLE_INDICES: (u16, u16) = (384, 447);
 /// initializing. Boot stages SHOULD utilize this region for any temporary
 /// trampolines, memory maps, etc.
 pub const USER_PAGE_TABLE_INDICES: (u16, u16) = (2, 255);
+/// All kernel modules and code shall exist in this region.
+pub const KERNEL_MODULE_PAGE_TABLE_INDICES: (u16, u16) = (448, 511);
 
 #[derive(Ser2Mem, Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u8)]

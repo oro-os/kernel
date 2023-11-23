@@ -1,6 +1,12 @@
 #![no_std]
 #![no_main]
-#![feature(naked_functions, core_intrinsics, more_qualified_paths)]
+#![feature(
+	naked_functions,
+	core_intrinsics,
+	more_qualified_paths,
+	never_type,
+	asm_const
+)]
 
 use core::{arch::asm, ffi::CStr};
 use elf::{endian::AnyEndian, ElfBytes, ParseError};
@@ -11,12 +17,16 @@ use limine::{
 	BootTimeRequest, HhdmRequest, MemmapEntry, MemmapRequest, MemoryMapEntryType, ModuleRequest,
 	NonNullPtr, Ptr,
 };
+#[cfg(oro_test)]
+use oro_arch_x64::KERNEL_TEST_SHM_PAGE_TABLE_INDEX;
 use oro_arch_x64::{
 	l4_to_range_48, Allocator, BootConfig, MemoryRegion, MemoryRegionKind, Serialize, BOOT_MAGIC,
 	KERNEL_STACK_PAGE_TABLE_INDEX, ORO_BOOT_PAGE_TABLE_INDEX, RECURSIVE_PAGE_TABLE_INDEX,
 };
 use spin::Mutex;
 use uart_16550::SerialPort;
+#[cfg(oro_test)]
+use x86_64::structures::paging::mapper::CleanUp;
 use x86_64::{
 	addr::{PhysAddr, VirtAddr},
 	structures::paging::{
@@ -24,12 +34,14 @@ use x86_64::{
 		mapper::{MapToError, OffsetPageTable},
 		page::{Page, PageSize, Size4KiB},
 		page_table::{PageTable, PageTableFlags},
-		FrameAllocator, Mapper, Translate,
+		FrameAllocator, FrameDeallocator, Mapper, Translate,
 	},
 };
 
+#[cfg(not(target_arch = "x86_64"))]
+compile_error!("oro-limine-boot-x64 can only be built for x86_64 targets");
+
 lazy_static! {
-	#[cfg(target_arch = "x86_64")]
 	static ref SERIAL: Mutex<SerialPort> = {
 		let mut serial_port = unsafe { SerialPort::new(0x3F8) };
 		serial_port.init();
@@ -39,7 +51,13 @@ lazy_static! {
 
 /// We can put it here since all memory in the lower half are
 /// unmapped in the kernel upon boot, and all pages are reclaimed.
+///
+/// During tests, this becomes a higher-half address, such that the
+/// kernel and bootloader have a means of passing execution back and forth.
+#[cfg(not(oro_test))]
 const STUBS_ADDR: u64 = 0x0000_6000_0000_0000;
+#[cfg(oro_test)]
+const STUBS_ADDR: u64 = l4_to_range_48(KERNEL_TEST_SHM_PAGE_TABLE_INDEX).0;
 
 // These are linked via the linker script colocated
 // with this crate. The u8 is just a dummy type;
@@ -68,11 +86,17 @@ fn map_limine_to_oro_region(kind: &MemoryMapEntryType) -> MemoryRegionKind {
 	match kind {
 		MemoryMapEntryType::Usable => MemoryRegionKind::Usable,
 		MemoryMapEntryType::KernelAndModules => MemoryRegionKind::Modules,
+		// We don't tell the kernel it can reclaim bootloader frames
+		// if we're running the test suite because we need to be able to loop
+		// back to the bootloader to re-initialize the kernel and run the next
+		// test.
+		#[cfg(not(oro_test))]
 		MemoryMapEntryType::BootloaderReclaimable => MemoryRegionKind::Usable,
 		_ => MemoryRegionKind::Reserved,
 	}
 }
 
+#[inline]
 fn is_oro_region_allocatable(kind: &MemoryRegionKind) -> bool {
 	kind == &MemoryRegionKind::Usable
 }
@@ -83,6 +107,8 @@ struct LiminePageFrameAllocator {
 	byte_offset: u64,
 	byte_offset_max: u64,
 	total_allocations: u64,
+	#[cfg(oro_test)]
+	hhdm_offset: u64,
 }
 
 impl LiminePageFrameAllocator {
@@ -103,6 +129,8 @@ impl LiminePageFrameAllocator {
 			byte_offset,
 			byte_offset_max,
 			total_allocations: 0,
+			#[cfg(oro_test)]
+			hhdm_offset: 0,
 		}
 	}
 }
@@ -144,6 +172,22 @@ unsafe impl FrameAllocator<Size4KiB> for LiminePageFrameAllocator {
 		let offset = self.byte_offset;
 		self.byte_offset += Size4KiB::SIZE;
 		self.total_allocations += 1;
+
+		#[cfg(oro_test)]
+		{
+			// If we're in a test mode, we zero the page before returning it.
+			// This is to make sure that no test leaks memory.
+			assert!(self.hhdm_offset != 0);
+			let virt_addr = offset + self.hhdm_offset;
+			unsafe {
+				::core::intrinsics::volatile_set_memory(
+					virt_addr as *mut u8,
+					0u8,
+					Size4KiB::SIZE as usize,
+				)
+			};
+		}
+
 		Some(unsafe { PhysFrame::from_start_address_unchecked(PhysAddr::new_unsafe(offset)) })
 	}
 }
@@ -197,7 +241,6 @@ macro_rules! dbg {
 	}
 }
 
-#[cfg(target_arch = "x86_64")]
 unsafe fn halt() -> ! {
 	asm!("cli");
 	loop {
@@ -277,10 +320,12 @@ where
 		flags: PageTableFlags,
 		allocator: &mut A,
 	) {
+		let page = page.into_page();
+
 		// Note that bit 9 indicates to the kernel that these pages can be re-claimed if need be.
 		// We mark any allocated physical frames used for page tables as such.
 		match self.map_to_with_table_flags(
-			page.into_page(),
+			page,
 			frame.into_frame(),
 			flags,
 			PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::BIT_9,
@@ -397,7 +442,7 @@ macro_rules! map_stubs {
 						halt();
 					}
 				},
-				PageTableFlags::PRESENT | PageTableFlags::NO_CACHE,
+				PageTableFlags::PRESENT,
 				&mut $pfa,
 			);
 		}
@@ -517,6 +562,12 @@ unsafe fn load_kernel_elf_err<M: Mapper<Size4KiB>, A: FrameAllocator<Size4KiB>>(
 	Ok(elf.ehdr.e_entry)
 }
 
+struct NoopDeallocator;
+
+impl FrameDeallocator<Size4KiB> for NoopDeallocator {
+	unsafe fn deallocate_frame(&mut self, _frame: PhysFrame<Size4KiB>) {}
+}
+
 /// # Safety
 /// Among other things, this is the most naive, trusting implementation
 /// of an ELF loader probably to ever exist. It *does not* perform
@@ -544,7 +595,6 @@ unsafe fn load_kernel_elf<M: Mapper<Size4KiB>, A: FrameAllocator<Size4KiB>>(
 
 /// # Safety
 /// Do not call directly; only meant to be called by the Limine bootloader!
-#[cfg(target_arch = "x86_64")]
 #[inline(never)]
 #[no_mangle]
 pub unsafe fn _start() -> ! {
@@ -591,192 +641,332 @@ pub unsafe fn _start() -> ! {
 		dbg!("warn::preboot::the best case being a reboot or stall (triple-fault).");
 	}
 
-	// The limine page frame allocator is a simple, temporary page frame allocator
-	// that uses the memory map Limine gives us directly, used to allocate the Oro
-	// boot protocol structures as well as the physical frames for the boot stubs.
-	// The frames that get used here, sans boot stub page table frames, are marked
-	// as "Oro boot protocol reclaimable" frames that the OS is free to reclaim if
-	// it can.
-	let mut pfa = LiminePageFrameAllocator::new(mmap);
+	#[cfg_attr(not(oro_test), allow(clippy::never_loop))]
+	loop {
+		// The limine page frame allocator is a simple, temporary page frame allocator
+		// that uses the memory map Limine gives us directly, used to allocate the Oro
+		// boot protocol structures as well as the physical frames for the boot stubs.
+		// The frames that get used here, sans boot stub page table frames, are marked
+		// as "Oro boot protocol reclaimable" frames that the OS is free to reclaim if
+		// it can.
+		let mut pfa = LiminePageFrameAllocator::new(mmap);
 
-	// Make the OS's root page table.
-	let (oro_l4_page_table, oro_l4_page_table_phys_addr): (&mut PageTable, u64) = unsafe {
-		let phys_addr = match pfa.allocate_frame() {
-			Some(frame) => frame.start_address().as_u64(),
-			None => {
-				dbg!("error::preboot::cannot allocate Oro L4 page table; out of memory");
-				halt();
-			}
-		};
-
-		let mapped_addr = phys_addr + hhdm.offset;
-		let pt = &mut *(mapped_addr as *mut PageTable);
-		pt.zero();
-		(pt, phys_addr)
-	};
-
-	// Make the resulting page table recursive. We can't use a recursive page
-	// table _now_ because the page table must be loaded in CR3 in order to
-	// use the x86_64 crate's RecursivePageTable structure.
-	//
-	// Must be done before we pass the mutable reference to the mapper.
-	oro_l4_page_table[RECURSIVE_PAGE_TABLE_INDEX as usize].set_addr(
-		PhysAddr::new_unsafe(oro_l4_page_table_phys_addr),
-		PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
-	);
-
-	// Use it to make an offset page table, since our memory
-	// is direct-mapped at the moment.
-	let mut oro_mapper = OffsetPageTable::new(oro_l4_page_table, VirtAddr::new_unsafe(hhdm.offset));
-
-	// Set up the stack space. We'll give it 64KiB to start with (the kernel
-	// may choose to grow the stack, as per oro_boot's specification of the
-	// kernel stack index value).
-	let (_, stack_last_addr) = l4_to_range_48(KERNEL_STACK_PAGE_TABLE_INDEX);
-	let stack_init_addr = stack_last_addr & (!0xFFF); // used by the stubs to set the kernel stack
-	let stack_page_end = stack_last_addr >> 12;
-	let stack_page_start = stack_page_end - 16; // 16 * 4KiB = 64KiB initial kernel stack size
-
-	// Note that the .. is deliberate (over ..=); we do NOT want to use
-	// the last stack page, but instead keep it unused as a guard page.
-	for stack_page in stack_page_start..stack_page_end {
-		// Allocate and map in the stack
-		let stack_frame = match pfa.allocate_frame() {
-			Some(frame) => frame,
-			None => {
-				dbg!("error::preboot::failed to allocate kernel stack; out of memory");
-				halt();
-			}
-		};
-
-		oro_mapper.map_or_die(
-			stack_page << 12,
-			stack_frame,
-			PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE,
-			&mut pfa,
-		);
-	}
-
-	// Now, attempt to find the kernel "module" and load it.
-	let kernel_entry_point: u64;
-	'load_kernel: {
-		for module in mods {
-			if cstr_eq(module.path.to_str().unwrap(), b"/oro-kernel\0") {
-				kernel_entry_point = load_kernel_elf(
-					core::slice::from_raw_parts(
-						module.base.as_ptr().unwrap(),
-						module.length as usize,
-					),
-					hhdm.offset,
-					&mut oro_mapper,
-					&mut pfa,
-				);
-				break 'load_kernel;
-			} else {
-				dbg!(
-					"warn::preboot::unused module (unrecognized path): ",
-					module.path
-				);
-			}
+		// If we're in a test mode, we write the offset address to the PFA so that it can
+		// zero each allocated page. We do this to make sure that no test leaks memory.
+		#[cfg(oro_test)]
+		{
+			pfa.hhdm_offset = hhdm.offset;
 		}
 
-		dbg!("error::preboot::'/oro-kernel' module not found on boot medium");
-		halt();
+		// Make the OS's root page table.
+		let (oro_l4_page_table, oro_l4_page_table_phys_addr): (&mut PageTable, u64) = unsafe {
+			let phys_addr = match pfa.allocate_frame() {
+				Some(frame) => frame.start_address().as_u64(),
+				None => {
+					dbg!("error::preboot::cannot allocate Oro L4 page table; out of memory");
+					halt();
+				}
+			};
+
+			let mapped_addr = phys_addr + hhdm.offset;
+			let pt = &mut *(mapped_addr as *mut PageTable);
+			pt.zero();
+			(pt, phys_addr)
+		};
+
+		// Make the resulting page table recursive. We can't use a recursive page
+		// table _now_ because the page table must be loaded in CR3 in order to
+		// use the x86_64 crate's RecursivePageTable structure.
+		//
+		// Must be done before we pass the mutable reference to the mapper.
+		oro_l4_page_table[RECURSIVE_PAGE_TABLE_INDEX as usize].set_addr(
+			PhysAddr::new_unsafe(oro_l4_page_table_phys_addr),
+			PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+		);
+
+		// Use it to make an offset page table, since our memory
+		// is direct-mapped at the moment.
+		let mut oro_mapper =
+			OffsetPageTable::new(oro_l4_page_table, VirtAddr::new_unsafe(hhdm.offset));
+
+		// Set up the stack space. We'll give it 64KiB to start with (the kernel
+		// may choose to grow the stack, as per oro_boot's specification of the
+		// kernel stack index value).
+		let (_, stack_last_addr) = l4_to_range_48(KERNEL_STACK_PAGE_TABLE_INDEX);
+		let stack_init_addr = stack_last_addr & (!0xFFF); // used by the stubs to set the kernel stack
+		let stack_page_end = stack_last_addr >> 12;
+		let stack_page_start = stack_page_end - 16; // 16 * 4KiB = 64KiB initial kernel stack size
+
+		// Note that the .. is deliberate (over ..=); we do NOT want to use
+		// the last stack page, but instead keep it unused as a guard page.
+		for stack_page in stack_page_start..stack_page_end {
+			// Allocate and map in the stack
+			let stack_frame = match pfa.allocate_frame() {
+				Some(frame) => frame,
+				None => {
+					dbg!("error::preboot::failed to allocate kernel stack; out of memory");
+					halt();
+				}
+			};
+
+			oro_mapper.map_or_die(
+				stack_page << 12,
+				stack_frame,
+				PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE,
+				&mut pfa,
+			);
+		}
+
+		// Now, attempt to find the kernel "module" and load it.
+		let kernel_entry_point: u64;
+		'load_kernel: {
+			for module in mods {
+				if cstr_eq(module.path.to_str().unwrap(), b"/oro-kernel\0") {
+					kernel_entry_point = load_kernel_elf(
+						core::slice::from_raw_parts(
+							module.base.as_ptr().unwrap(),
+							module.length as usize,
+						),
+						hhdm.offset,
+						&mut oro_mapper,
+						&mut pfa,
+					);
+					break 'load_kernel;
+				} else {
+					dbg!(
+						"warn::preboot::unused module (unrecognized path): ",
+						module.path
+					);
+				}
+			}
+
+			dbg!("error::preboot::'/oro-kernel' module not found on boot medium");
+			halt();
+		}
+
+		if kernel_entry_point == 0 {
+			// Should never happen but good to check just to
+			// safeguard against bugs above.
+			dbg!("error::preboot::oro kernel entry point is null");
+			halt();
+		}
+
+		// Get the current page tables and create an offset mapper;
+		// this is normally not great to do given the Limine page tables
+		// but since it's done last, directly before Limine is torn down,
+		// we don't care if something becomes mangled in the process.
+		// We need to do this to map the execution control switch stubs
+		// into a Well Known place.
+		let (limine_page_table_frame, _) = x86_64::registers::control::Cr3::read();
+		let limine_l4_page_table: &mut PageTable = unsafe {
+			&mut *((hhdm.offset + limine_page_table_frame.start_address().as_u64())
+				as *mut PageTable)
+		};
+		let mut limine_mapper =
+			OffsetPageTable::new(limine_l4_page_table, VirtAddr::new_unsafe(hhdm.offset));
+
+		// Serialize the boot configuration to memory for the kernel to pick up
+		// once we switch to it.
+		let boot_config = BootConfig {
+			magic: BOOT_MAGIC,
+			nonce: boot_time as u64,
+			nonce_xor_magic: BOOT_MAGIC ^ (boot_time as u64),
+			memory_map: mmap.iter().map(|limine_region| MemoryRegion {
+				base: limine_region.base,
+				length: limine_region.len,
+				kind: map_limine_to_oro_region(&limine_region.typ),
+			}),
+		};
+
+		// Now we map in the stubs to the same address as where they'll exist
+		// after the CR3 switch. We can use the page frame allocator still since
+		// these stubs are reclaimable.
+		map_stubs!(limine_mapper, oro_mapper, pfa);
+		map_stubs!(limine_mapper, limine_mapper, pfa);
+
+		boot_config.serialize(&mut OroBootAllocator::new(
+			&mut pfa,
+			&mut limine_mapper, // mapped as RW
+			&mut oro_mapper,    // mapped as RO
+		));
+
+		boot_config.fast_forward_memory_map(
+			l4_to_range_48(ORO_BOOT_PAGE_TABLE_INDEX).0,
+			pfa.total_allocations,
+			is_oro_region_allocatable,
+		);
+
+		// TODO Fast-forward the memory map provided to the kernel based on
+		// TODO number of pages we've allocated here; for each page used,
+		// TODO increase the base address and deduct the length. This still
+		// TODO guarantees that physical memory regions are still sorted,
+		// TODO and that the kernel can reliably use only unused physical
+		// TODO memory, without needing to pass any additional information
+		// TODO in the boot protocol structures.
+
+		dbg!("ok::preboot");
+
+		// Now that it's all mapped, we want to push our important stuff to registers
+		// and jump to the stub
+		#[cfg(not(oro_test))]
+		{
+			asm!(
+				"jmp r11",
+				in("r8") oro_l4_page_table_phys_addr,
+				in("r9") stack_init_addr,
+				in("r10") kernel_entry_point,
+				in("r11") STUBS_ADDR,
+				options(noreturn)
+			);
+		}
+
+		#[cfg(oro_test)]
+		{
+			x86_64::instructions::tlb::flush_all();
+
+			asm!(
+				"and rsp, -16",
+				"call r11",
+				in("r8") oro_l4_page_table_phys_addr,
+				in("r9") stack_init_addr,
+				in("r10") kernel_entry_point,
+				in("r11") STUBS_ADDR,
+			);
+
+			asm!(
+				"nop",
+				out("r8") _,
+				out("r9") _,
+				out("r10") _,
+				out("r11") _,
+				out("r12") _,
+				out("rax") _,
+			);
+
+			// Unmap the stubs from the limine_mapper
+			let start_page = (&_ORO_STUBS_START as *const u8 as u64) >> 12;
+			let end_page = (&_ORO_STUBS_END as *const u8 as u64) >> 12;
+			for page in start_page..end_page {
+				if limine_mapper
+					.unmap(Page::<Size4KiB>::from_start_address_unchecked(
+						VirtAddr::new_unsafe(STUBS_ADDR + ((page - start_page) << 12)),
+					))
+					.is_err()
+				{
+					dbg!("error::preboot::failed to unmap stubs from boot stage address space");
+					halt();
+				};
+			}
+
+			// Unmap the boot protocol structures from the limine_mapper by starting from
+			// the first page, checking to see if each successive page is mapped in, and unmapping it,
+			// looping until we hit the first page that's not mapped in.
+			let (boot_config_page, _) = l4_to_range_48(ORO_BOOT_PAGE_TABLE_INDEX);
+			let mut page = boot_config_page >> 12;
+			loop {
+				let page_addr = VirtAddr::new_unsafe(page << 12);
+				let page_addr = Page::<Size4KiB>::from_start_address_unchecked(page_addr);
+				if limine_mapper.translate_page(page_addr).is_ok() {
+					if limine_mapper.unmap(page_addr).is_err() {
+						dbg!(
+							"error::preboot::failed to unmap boot protocol structures from boot stage address space"
+						);
+						halt();
+					}
+					page += 1;
+				} else {
+					break;
+				}
+			}
+
+			limine_mapper.clean_up(&mut NoopDeallocator);
+
+			x86_64::instructions::tlb::flush_all();
+
+			dbg!("debug::preboot::kernel returned; restarting");
+		}
 	}
-
-	if kernel_entry_point == 0 {
-		// Should never happen but good to check just to
-		// safeguard against bugs above.
-		dbg!("error::preboot::oro kernel entry point is null");
-		halt();
-	}
-
-	// Get the current page tables and create an offset mapper;
-	// this is normally not great to do given the Limine page tables
-	// but since it's done last, directly before Limine is torn down,
-	// we don't care if something becomes mangled in the process.
-	// We need to do this to map the execution control switch stubs
-	// into a Well Known place.
-	let (limine_page_table_frame, _) = x86_64::registers::control::Cr3::read();
-	let limine_l4_page_table: &mut PageTable = unsafe {
-		&mut *((hhdm.offset + limine_page_table_frame.start_address().as_u64()) as *mut PageTable)
-	};
-	let mut limine_mapper =
-		OffsetPageTable::new(limine_l4_page_table, VirtAddr::new_unsafe(hhdm.offset));
-
-	// Serialize the boot configuration to memory for the kernel to pick up
-	// once we switch to it.
-	let boot_config = BootConfig {
-		magic: BOOT_MAGIC,
-		nonce: boot_time as u64,
-		nonce_xor_magic: BOOT_MAGIC ^ (boot_time as u64),
-		memory_map: mmap.iter().map(|limine_region| MemoryRegion {
-			base: limine_region.base,
-			length: limine_region.len,
-			kind: map_limine_to_oro_region(&limine_region.typ),
-		}),
-	};
-
-	// Now we map in the stubs to the same address as where they'll exist
-	// after the CR3 switch. We can use the page frame allocator still since
-	// these stubs are reclaimable.
-	map_stubs!(limine_mapper, oro_mapper, pfa);
-	map_stubs!(limine_mapper, limine_mapper, pfa);
-
-	boot_config.serialize(&mut OroBootAllocator::new(
-		&mut pfa,
-		&mut limine_mapper, // mapped as RW
-		&mut oro_mapper,    // mapped as RO
-	));
-
-	boot_config.fast_forward_memory_map(
-		l4_to_range_48(ORO_BOOT_PAGE_TABLE_INDEX).0,
-		pfa.total_allocations,
-		is_oro_region_allocatable,
-	);
-
-	// TODO Fast-forward the memory map provided to the kernel based on
-	// TODO number of pages we've allocated here; for each page used,
-	// TODO increase the base address and deduct the length. This still
-	// TODO guarantees that physical memory regions are still sorted,
-	// TODO and that the kernel can reliably use only unused physical
-	// TODO memory, without needing to pass any additional information
-	// TODO in the boot protocol structures.
-
-	// Now that it's all mapped, we want to push our important stuff to registers
-	// and jump to the stub
-	dbg!("ok::preboot");
-
-	asm!(
-		"push {L4_ADDR}",
-		"push {STACK_ADDR}",
-		"push {KERNEL_ENTRY}",
-		"jmp {STUBS_ADDR}",
-		L4_ADDR = in(reg) oro_l4_page_table_phys_addr,
-		STACK_ADDR = in(reg) stack_init_addr,
-		KERNEL_ENTRY = in(reg) kernel_entry_point,
-		STUBS_ADDR = in(reg) STUBS_ADDR,
-		options(noreturn)
-	);
 }
 
 /// # Safety
 /// DO NOT CALL. This is a trampoline stub that sets up
 /// the kernel's execution environment prior to transferring
 /// execution to the kernel.
-#[cfg(target_arch = "x86_64")]
+#[cfg(not(oro_test))]
 #[link_section = ".oro_stubs.entry"]
 #[no_mangle]
 #[naked]
 unsafe extern "C" fn _oro_boot_stub() -> ! {
 	asm!(
-		"pop r10",
-		"pop r9",
-		"pop r8",
 		"mov cr3, r8",
 		"mov rsp, r9",
 		"push 0", // Push a return value of 0 onto the stack to prevent accidental returns
 		"jmp r10",
+		options(noreturn)
+	);
+}
+
+/// A version of the boot stub used during tests.
+/// It's guaranteed NOT to be unmapped by the kernel,
+/// since in test modes we map this into a higher-half
+/// section guaranteed not to be touched by the kernel.
+///
+/// # Safety
+/// DO NOT CALL. This is a trampoline stub that sets up
+/// the kernel's execution environment prior to transferring
+/// execution to the kernel.
+#[cfg(oro_test)]
+#[link_section = ".oro_stubs.entry"]
+#[no_mangle]
+#[naked]
+unsafe extern "C" fn _oro_boot_stub_call() {
+	asm!(
+		"pushf",
+		"push rax",
+		"push rbx",
+		"push rcx",
+		"push rdx",
+		"push rsi",
+		"push rdi",
+		"push rbp",
+		"push r13",
+		"push r14",
+		"push r15",
+		"xor rax, rax",
+		"str ax",
+		"push rax",
+		"sub rsp, 20",
+		"sgdt [rsp]",
+		"sidt [rsp+10]",
+		"mov r11, cr3",
+		"mov cr3, r8",
+		"mov r12, rsp",
+		"mov rsp, r9",
+		"push r11",
+		"push r12",
+		"call r10",
+		"cli",
+		"pop r12",
+		"pop r11",
+		"mov rsp, r12",
+		"mov cr3, r11",
+		"lgdt [rsp]",
+		"lidt [rsp+10]",
+		"add rsp, 20",
+		"pop rax",
+		"ltr ax",
+		"pop r15",
+		"pop r14",
+		"pop r13",
+		"pop rbp",
+		"pop rdi",
+		"pop rsi",
+		"pop rdx",
+		"pop rcx",
+		"pop rbx",
+		"pop rax",
+		"popf",
+		"ret",
 		options(noreturn)
 	);
 }
