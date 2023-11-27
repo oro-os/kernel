@@ -19,7 +19,7 @@ bench = false
 oro-arch-x64 = { path = "../oro-arch-x64" }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 spin = "0.9.8"
-limine = "0.1.11"
+limine = "0.1.12"
 uart_16550 = "0.2.18"
 elf = { version = "0.7.2", default-features = false }
 
