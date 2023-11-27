@@ -24,4 +24,4 @@ uart_16550 = "0.2.18"
 elf = { version = "0.7.4", default-features = false }
 
 [target.'cfg(target_arch="x86_64")'.dependencies]
-x86_64 = "0.14.10"
+x86_64 = "0.14.11"
