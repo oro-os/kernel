@@ -40,9 +40,9 @@ dependencies = [
 
 [[package]]
 name = "elf"
-version = "0.7.2"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2b183d6ce6ca4cf30e3db37abf5b52568b5f9015c97d9fbdd7026aa5dcdd758"
+checksum = "4445909572dbd556c457c849c4ca58623d84b27c8fff1e74b0b4227d8b90d17b"
 
 [[package]]
 name = "envmnt"
