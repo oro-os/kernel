@@ -96,9 +96,9 @@ dependencies = [
 
 [[package]]
 name = "limine"
-version = "0.1.11"
+version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f45c67c512034e8eb0064556e1db5da671b3ef50791cd6ac6376e7aefc0ef27e"
+checksum = "02034f8f6b3e7bf050f310fbaf6db0018b8e54b75598d0a4c97172054752fede"
 
 [[package]]
 name = "lock_api"
