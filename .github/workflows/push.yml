@@ -23,6 +23,13 @@ jobs:
       - uses: ./.github/actions/rust
       - name: Lint (clippy)
         run: cargo oro-clippy
+  lint-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/rust
+      - name: Lint (rustdoc)
+        run: env RUSTFLAGS="-D warnings" cargo doc --all-features
   build-kernel-x86_64:
     runs-on: ubuntu-latest
     steps:
