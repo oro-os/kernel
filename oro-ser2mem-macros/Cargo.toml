@@ -1,0 +1,21 @@
+[package]
+name = "oro-ser2mem-macros"
+description = "Procedural macros for the Oro serialize-to-memory library"
+publish = false
+edition = "2021"
+authors = [
+	"Josh Junon (https//github.com/qix-)"
+]
+homepage = "https://oro.sh"
+repository = "https://github.com/oro-os/kernel"
+license = "MPL-2.0"
+
+[lib]
+proc-macro = true
+test = false
+bench = false
+
+[dependencies]
+proc-macro2 = "1.0.56"
+quote = "1.0.26"
+syn = { version = "2.0.15", features = ["full"] }

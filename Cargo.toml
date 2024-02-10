@@ -11,7 +11,9 @@ members = [
 	"oro-bootloader-common",
 	"oro-bootloader-limine",
 	"oro-common",
-	"oro-kernel"
+	"oro-kernel",
+	"oro-ser2mem",
+	"oro-ser2mem-macros"
 ]
 
 [workspace.dependencies]
@@ -19,6 +21,8 @@ oro-arch-x86_64 = { path = "oro-arch-x86_64" }
 oro-bootloader-common = { path = "oro-bootloader-common" }
 oro-common = { path = "oro-common" }
 oro-kernel = { path = "oro-kernel" }
+oro-ser2mem = { path = "oro-ser2mem" }
+oro-ser2mem-macros = { path = "oro-ser2mem-macros" }
 
 [profile.dev]
 panic = "abort"            # Use "abort" panic strategy
