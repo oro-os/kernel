@@ -1,0 +1,33 @@
+[workspace.package]
+description = "The Oro Operating System kernel project"
+homepage = "https://oro.sh"
+repository = "https://github.com/oro-os/kernel"
+license = "MPL-2.0"
+
+[workspace]
+resolver = "2"
+members = [
+	"oro-arch-x86_64",
+	"oro-bootloader-common",
+	"oro-bootloader-limine",
+	"oro-common",
+	"oro-kernel"
+]
+
+[workspace.dependencies]
+oro-arch-x86_64 = { path = "oro-arch-x86_64" }
+oro-bootloader-common = { path = "oro-bootloader-common" }
+oro-common = { path = "oro-common" }
+oro-kernel = { path = "oro-kernel" }
+
+[profile.dev]
+panic = "abort"            # Use "abort" panic strategy
+
+[profile.release]
+opt-level = 3              # Maximum optimizations
+lto = "fat"                # Perform LTO across all crates
+codegen-units = 1          # Reduce number of codegen units to increase optimizations.
+strip = true               # Strip symbols from binary
+incremental = false        # Disable incremental building
+panic = "abort"            # Use "abort" panic strategy
+debug = 0                  # Do not generate debug information

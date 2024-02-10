@@ -1,0 +1,10 @@
+name: rust
+description: Prepares the runner to use the Rust toolchain
+runs:
+  using: "composite"
+  steps:
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: stable
+        components: rustfmt, clippy, rustc-dev, rust-src, llvm-tools-preview

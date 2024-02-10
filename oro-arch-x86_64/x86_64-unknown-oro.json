@@ -1,0 +1,19 @@
+{
+	"llvm-target": "x86_64-unknown-oro",
+	"data-layout": "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128",
+	"arch": "x86_64",
+	"target-endian": "little",
+	"target-pointer-width": "64",
+	"target-c-int-width": "32",
+	"os": "oro",
+	"linker-flavor": "ld.lld",
+	"linker": "rust-lld",
+	"position-independent-executables": false,
+	"panic-strategy": "abort",
+	"disable-redzone": true,
+	"features": "-mmx,-sse,-sse2,-sse3,-ssse3,+soft-float",
+	"code-model": "kernel",
+	"pre-link-args": {
+		"ld": ["--relax", "-static"]
+	}
+}

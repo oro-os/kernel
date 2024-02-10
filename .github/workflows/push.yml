@@ -1,0 +1,39 @@
+name: Build and Lint
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+env:
+  RUST_BACKTRACE: full
+
+jobs:
+  lint-rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/rust
+      - name: Lint (rustfmt)
+        run: cargo fmt --all -- --check
+  lint-clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/rust
+      - name: Lint (clippy)
+        run: cargo oro-clippy
+  build-kernel-x86_64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/rust
+      - name: Build
+        run: cargo kernel-x86_64
+  build-limine-x86_64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/rust
+      - name: Build
+        run: cargo limine-x86_64

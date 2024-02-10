@@ -1,0 +1,15 @@
+[package]
+name = "oro-arch-x86_64"
+description = "Oro operating system x86_64 architecture support"
+publish = false
+edition = "2021"
+authors = [
+	"Josh Junon (https//github.com/qix-)"
+]
+homepage = "https://oro.sh"
+repository = "https://github.com/oro-os/kernel"
+license = "MPL-2.0"
+
+
+[dependencies]
+oro-common.workspace = true

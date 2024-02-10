@@ -1,0 +1,4 @@
+[alias]
+kernel-x86_64 = "build --target oro-arch-x86_64/x86_64-unknown-oro.json --bin oro-kernel-x86_64 -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
+limine-x86_64 = "build --target oro-arch-x86_64/x86_64-unknown-oro.json --bin oro-limine-x86_64 -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
+oro-clippy = "clippy --target ./oro-arch-x86_64/x86_64-unknown-oro.json --all-features -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem -- -D warnings -D clippy::all"
