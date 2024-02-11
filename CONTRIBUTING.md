@@ -45,6 +45,39 @@ crate).
 
 Thus, use of `unsafe` will be scrutinized heavily. Please prepare for this.
 
+## Porting from Other Operating Systems
+The kernel project is not a dumping ground for code from other operating
+systems. However, some code may be ported from other operating systems
+if it is necessary, and **only if the code is licensed under an OSI-approved
+license compatible with the kernel project's** (see [LICENSE](LICENSE)).
+
+In such a case, the code must adhere to **all** guidelines in this document,
+must have proper attribution to the original authors in the form of a module-
+or item-level comment (depending on the breadth of the port), and must be
+accompanied by a clear explanation of why the code was ported and how it
+fits into the Oro kernel project.
+
+Code from the Linux kernel or any corporate-owned
+operating system (Windows, MacOS/Darwin, etc.) will not be accepted.
+
+**There are no exceptions.**
+
+## Documentation
+All new functions, traits, structs, and type aliases, as well as new modules,
+must be properly documented. CI will fail if this is not the case.
+Non-publicly-available items can have documentation omitted, but it is
+encouraged to document everything anyway (we might ask you to do this
+if the item is complex or non-obvious).
+
+Inline comments are encouraged, but not required. However, if you are
+writing a particularly complex algorithm or function, please consider
+adding comments to explain the code.
+
+Any use of `unsafe` must be accompanied by a `# Safety` section in the
+documentation, explaining why the `unsafe` is necessary and what invariants
+must be upheld for the `unsafe` code to be safe. This is also enforced
+by CI.
+
 ## Code Style
 The kernel project uses `rustfmt` to enforce a consistent code style.
 Please run `cargo fmt --all` prior to committing and pushing your changes.
