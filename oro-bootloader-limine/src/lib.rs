@@ -7,3 +7,24 @@
 //! See the `bin/` directory for architecture-specific entry points.
 #![no_std]
 #![deny(missing_docs)]
+
+use oro_common::Arch;
+
+/// Runs the Limine bootloader.
+///
+/// # Safety
+/// Do **NOT** call this function directly.
+/// It is only called by the architecture-specific binaries.
+pub unsafe fn init<A: Arch>() -> ! {
+	A::init();
+	A::halt()
+}
+
+/// Panic handler for the Limine bootloader stage.
+///
+/// # Safety
+/// Do **NOT** call this function directly.
+/// It is only called by the architecture-specific binaries.
+pub unsafe fn panic<A: Arch>(_info: &::core::panic::PanicInfo) -> ! {
+	A::halt()
+}
