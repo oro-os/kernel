@@ -21,5 +21,11 @@ unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 #[cold]
 #[no_mangle]
 pub unsafe fn _start() -> ! {
-	::oro_kernel::init::<Aarch64>()
+	// TODO(qix-): Temporary.
+	static BOOT_CONFIG: ::oro_common::BootConfig = ::oro_common::BootConfig {
+		instance_type: ::oro_common::BootInstanceType::Primary,
+		num_instances: 1,
+	};
+
+	::oro_kernel::boot::<Aarch64>(&BOOT_CONFIG)
 }

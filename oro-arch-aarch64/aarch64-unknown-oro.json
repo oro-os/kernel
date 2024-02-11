@@ -12,6 +12,7 @@
 	"disable-redzone": true,
 	"features": "+strict-align,+neon",
 	"max-atomic-width": 128,
+	"executables": true,
 	"pre-link-args": {
 		"ld": ["--relax", "-static"]
 	}

@@ -5,5 +5,9 @@
 #![deny(missing_docs)]
 
 mod arch;
+mod boot;
 
-pub use self::arch::Arch;
+pub use self::{
+	arch::Arch,
+	boot::{BootConfig, BootInstanceType},
+};

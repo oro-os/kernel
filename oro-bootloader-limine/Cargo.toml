@@ -11,6 +11,8 @@ repository = "https://github.com/oro-os/kernel"
 license = "MPL-2.0"
 autobins = false
 
+build = "build.rs"
+
 [[bin]]
 name = "oro-limine-x86_64"
 path = "bin/x86_64.rs"

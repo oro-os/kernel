@@ -16,8 +16,14 @@ use oro_common::Arch;
 /// Do **NOT** call this function directly.
 /// It is only called by the architecture-specific binaries.
 pub unsafe fn init<A: Arch>() -> ! {
-	A::init();
-	A::halt()
+	// We know that there is only one CPU being used
+	// in the bootloader stage.
+	A::init_shared();
+	A::init_local();
+
+	A::log(format_args!("Hello from Oro+Limine"));
+
+	A::halt() // TODO(qix-): Temporary.
 }
 
 /// Panic handler for the Limine bootloader stage.

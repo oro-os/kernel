@@ -26,6 +26,8 @@ oro-kernel = { path = "oro-kernel" }
 oro-ser2mem = { path = "oro-ser2mem" }
 oro-ser2mem-macros = { path = "oro-ser2mem-macros" }
 
+spin = { version = "0.9.8", features = ["barrier"] }
+
 [profile.dev]
 panic = "abort"            # Use "abort" panic strategy
 
