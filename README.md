@@ -23,12 +23,14 @@ To build the kernel itself:
 
 ```shell
 cargo kernel-x86_64
+cargo kernel-aarch64
 ```
 
 To build a bootloader:
 
 ```shell
 cargo limine-x86_64
+cargo limine-aarch64
 ```
 
 ## Documentation
@@ -36,7 +38,7 @@ The Oro kernel is thoroughly documented. You may generate a local copy of
 the documentation with:
 
 ```shell
-cargo doc --all-features --open
+cargo doc --all-features --lib --open
 ```
 
 ## Security

@@ -9,13 +9,21 @@ authors = [
 homepage = "https://oro.sh"
 repository = "https://github.com/oro-os/kernel"
 license = "MPL-2.0"
+autobins = false
 
 [[bin]]
 name = "oro-kernel-x86_64"
 path = "bin/x86_64.rs"
+
+[[bin]]
+name = "oro-kernel-aarch64"
+path = "bin/aarch64.rs"
 
 [dependencies]
 oro-common.workspace = true
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 oro-arch-x86_64.workspace = true
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+oro-arch-aarch64.workspace = true

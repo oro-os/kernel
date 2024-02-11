@@ -1,6 +1,6 @@
 [package]
-name = "oro-arch-x86_64"
-description = "Oro operating system x86_64 architecture support"
+name = "oro-arch-aarch64"
+description = "Oro operating system aarch64 architecture support"
 publish = false
 edition = "2021"
 authors = [

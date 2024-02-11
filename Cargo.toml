@@ -7,6 +7,7 @@ license = "MPL-2.0"
 [workspace]
 resolver = "2"
 members = [
+	"oro-arch-aarch64",
 	"oro-arch-x86_64",
 	"oro-bootloader-common",
 	"oro-bootloader-limine",
@@ -17,6 +18,7 @@ members = [
 ]
 
 [workspace.dependencies]
+oro-arch-aarch64 = { path = "oro-arch-aarch64" }
 oro-arch-x86_64 = { path = "oro-arch-x86_64" }
 oro-bootloader-common = { path = "oro-bootloader-common" }
 oro-common = { path = "oro-common" }

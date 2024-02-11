@@ -3,6 +3,13 @@
 version = 3
 
 [[package]]
+name = "oro-arch-aarch64"
+version = "0.0.0"
+dependencies = [
+ "oro-common",
+]
+
+[[package]]
 name = "oro-arch-x86_64"
 version = "0.0.0"
 dependencies = [
@@ -17,6 +24,7 @@ version = "0.0.0"
 name = "oro-bootloader-limine"
 version = "0.0.0"
 dependencies = [
+ "oro-arch-aarch64",
  "oro-arch-x86_64",
  "oro-bootloader-common",
  "oro-common",
@@ -30,6 +38,7 @@ version = "0.0.0"
 name = "oro-kernel"
 version = "0.0.0"
 dependencies = [
+ "oro-arch-aarch64",
  "oro-arch-x86_64",
  "oro-common",
 ]

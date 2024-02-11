@@ -21,15 +21,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/rust
-      - name: Lint (clippy)
-        run: cargo oro-clippy
+      - name: Lint (clippy) [common]
+        run: cargo oro-clippy-common
+      - name: Lint (clippy) [x86_64]
+        run: cargo oro-clippy-x86_64
+      - name: Lint (clippy) [aarch64]
+        run: cargo oro-clippy-aarch64
   lint-docs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/rust
       - name: Lint (rustdoc)
-        run: env RUSTFLAGS="-D warnings" cargo doc --all-features
+        run: env RUSTFLAGS="-D warnings" cargo doc --all-features --lib
   build-kernel-x86_64:
     runs-on: ubuntu-latest
     steps:
