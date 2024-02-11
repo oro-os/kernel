@@ -30,5 +30,8 @@ pub trait Arch {
 	///
 	/// The message should be newline-terminated for streams,
 	/// or otherwise 'chunked' as a single message for non-streams.
+	///
+	/// This should NOT be used directly; instead, use the `dbg!` et al
+	/// macros from the [`oro-common`] crate.
 	fn log(message: fmt::Arguments);
 }

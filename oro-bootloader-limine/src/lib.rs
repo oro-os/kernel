@@ -8,7 +8,7 @@
 #![no_std]
 #![deny(missing_docs)]
 
-use oro_common::Arch;
+use oro_common::{dbg, dbg_err, dbg_warn, Arch};
 
 /// Runs the Limine bootloader.
 ///
@@ -21,7 +21,9 @@ pub unsafe fn init<A: Arch>() -> ! {
 	A::init_shared();
 	A::init_local();
 
-	A::log(format_args!("Hello from Oro+Limine"));
+	dbg!(A, "limine", "general");
+	dbg_warn!(A, "limine", "warning");
+	dbg_err!(A, "limine", "error");
 
 	A::halt() // TODO(qix-): Temporary.
 }

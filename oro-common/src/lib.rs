@@ -6,6 +6,7 @@
 
 mod arch;
 mod boot;
+mod dbg;
 
 pub use self::{
 	arch::Arch,
