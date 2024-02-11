@@ -2,13 +2,12 @@
 #![no_main]
 
 use oro_arch_aarch64::Aarch64;
-use oro_common::Arch;
 
 #[inline(never)]
 #[cold]
 #[panic_handler]
-unsafe fn panic(_info: &::core::panic::PanicInfo) -> ! {
-	Aarch64::halt()
+unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
+	::oro_kernel::panic::<Aarch64>(info)
 }
 
 /// Main entry point for the Oro kernel. Bootloaders jump

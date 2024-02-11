@@ -18,3 +18,12 @@ pub unsafe fn init<A: Arch>() -> ! {
 	A::init();
 	A::halt()
 }
+
+/// Panic handler for the kernel.
+///
+/// # Safety
+/// Do **NOT** call this function directly.
+/// It is only called by the architecture-specific binaries.
+pub unsafe fn panic<A: Arch>(_info: &::core::panic::PanicInfo) -> ! {
+	A::halt()
+}
