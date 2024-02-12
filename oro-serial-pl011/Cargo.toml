@@ -1,6 +1,6 @@
 [package]
-name = "oro-arch-aarch64"
-description = "Oro operating system aarch64 architecture support"
+name = "oro-serial-pl011"
+description = "PL011 UART driver for memory-mapped serial devices, used for Oro kernel debug output"
 publish = false
 edition = "2021"
 authors = [
@@ -9,8 +9,3 @@ authors = [
 homepage = "https://oro.sh"
 repository = "https://github.com/oro-os/kernel"
 license = "MPL-2.0"
-
-[dependencies]
-oro-common.workspace = true
-oro-serial-pl011.workspace = true
-spin.workspace = true

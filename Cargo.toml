@@ -14,7 +14,8 @@ members = [
 	"oro-common",
 	"oro-kernel",
 	"oro-ser2mem",
-	"oro-ser2mem-macros"
+	"oro-ser2mem-macros",
+	"oro-serial-pl011",
 ]
 
 [workspace.dependencies]
@@ -25,6 +26,7 @@ oro-common = { path = "oro-common" }
 oro-kernel = { path = "oro-kernel" }
 oro-ser2mem = { path = "oro-ser2mem" }
 oro-ser2mem-macros = { path = "oro-ser2mem-macros" }
+oro-serial-pl011 = { path = "oro-serial-pl011" }
 
 spin = { version = "0.9.8", features = ["barrier"] }
 

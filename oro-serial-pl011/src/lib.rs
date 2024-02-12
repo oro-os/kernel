@@ -1,3 +1,10 @@
+//! PL011 UART support used for debugging output on certain architectures/platforms.
+//!
+//! Note that this is a very primitive implementation, suitable for only what
+//! the Oro kernel needs.
+#![no_std]
+#![deny(missing_docs)]
+
 const DR_OFFSET: usize = 0x00;
 const FR_OFFSET: usize = 0x18;
 const IBRD_OFFSET: usize = 0x24;

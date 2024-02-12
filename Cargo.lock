@@ -50,6 +50,7 @@ name = "oro-arch-aarch64"
 version = "0.0.0"
 dependencies = [
  "oro-common",
+ "oro-serial-pl011",
  "spin",
 ]
 
@@ -109,6 +110,10 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "oro-serial-pl011"
+version = "0.0.0"
 
 [[package]]
 name = "proc-macro2"

@@ -4,15 +4,13 @@
 #![no_std]
 #![deny(missing_docs)]
 
-mod pl011;
-
-use self::pl011::PL011;
 use core::{
 	arch::asm,
 	fmt::{self, Write},
 	mem::MaybeUninit,
 };
 use oro_common::Arch;
+use oro_serial_pl011::PL011;
 use spin::Mutex;
 
 static mut SERIAL: MaybeUninit<Mutex<self::PL011>> = MaybeUninit::uninit();
