@@ -57,7 +57,7 @@ impl PL011 {
 	}
 
 	/// Resets the UART
-	fn reset(&self) {
+	pub fn reset(&self) {
 		// Disable the UART
 		self.write(CR_OFFSET, self.read(CR_OFFSET) & CR_UARTEN);
 
@@ -108,7 +108,7 @@ impl PL011 {
 	}
 
 	/// Waits for any pending transmissions to be cleared
-	fn flush(&self) {
+	pub fn flush(&self) {
 		while self.read(FR_OFFSET) & FR_BUSY != 0 {
 			::core::hint::spin_loop();
 		}
