@@ -38,7 +38,8 @@ The Oro kernel is thoroughly documented. You may generate a local copy of
 the documentation with:
 
 ```shell
-cargo doc --all-features --lib --open
+cargo oro-doc-x86_64 --open
+cargo oro-doc-aarch64 --open
 ```
 
 ## Security
