@@ -3,6 +3,7 @@
 //! kernel.
 #![no_std]
 #![deny(missing_docs)]
+#![cfg(not(all(doc, not(target_arch = "aarch64"))))]
 
 use core::{
 	arch::asm,
