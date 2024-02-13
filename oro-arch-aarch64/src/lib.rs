@@ -38,6 +38,18 @@ impl Arch for Aarch64 {
 		}
 	}
 
+	fn disable_interrupts() {
+		unsafe {
+			asm!("msr daifset, #2", options(nomem, nostack));
+		}
+	}
+
+	fn enable_interrupts() {
+		unsafe {
+			asm!("msr daifclr, #2", options(nomem, nostack));
+		}
+	}
+
 	fn log(message: fmt::Arguments) {
 		unsafe {
 			writeln!(SERIAL.assume_init_ref().lock(), "{message}").unwrap();

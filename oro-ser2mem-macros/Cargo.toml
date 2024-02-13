@@ -14,6 +14,8 @@ license = "MPL-2.0"
 proc-macro = true
 test = false
 bench = false
+# FIXME(qix-): workaround for bug: https://github.com/rust-lang/cargo/issues/10368
+doc = false
 
 [dependencies]
 proc-macro2 = "1.0.56"

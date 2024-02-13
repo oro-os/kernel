@@ -35,6 +35,18 @@ impl Arch for X86_64 {
 		}
 	}
 
+	fn disable_interrupts() {
+		unsafe {
+			asm!("cli", options(nostack, preserves_flags));
+		}
+	}
+
+	fn enable_interrupts() {
+		unsafe {
+			asm!("sti", options(nostack, preserves_flags));
+		}
+	}
+
 	fn log(message: fmt::Arguments) {
 		unsafe {
 			writeln!(SERIAL.assume_init_ref().lock(), "{message}").unwrap();

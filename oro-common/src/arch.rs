@@ -26,6 +26,12 @@ pub trait Arch {
 	/// Halts the CPU.
 	fn halt() -> !;
 
+	/// Disables interrupts for the CPU.
+	fn disable_interrupts();
+
+	/// Enables interrupts for the CPU.
+	fn enable_interrupts();
+
 	/// Logs a message to the debug logger (typically a serial port).
 	///
 	/// The message should be newline-terminated for streams,

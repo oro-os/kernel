@@ -14,10 +14,12 @@ autobins = false
 [[bin]]
 name = "oro-kernel-x86_64"
 path = "bin/x86_64.rs"
+doc = false
 
 [[bin]]
 name = "oro-kernel-aarch64"
 path = "bin/aarch64.rs"
+doc = false
 
 [dependencies]
 oro-common.workspace = true

@@ -29,6 +29,10 @@ pub unsafe fn init<A: Arch>() -> ! {
 	A::init_shared();
 	A::init_local();
 
+	A::disable_interrupts();
+
+	dbg!(A, "limine", "boot");
+
 	let module_response = match REQ_MODULES.get_response() {
 		Some(modules) => modules,
 		None => {
