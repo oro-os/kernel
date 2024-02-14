@@ -9,14 +9,45 @@
 #![deny(missing_docs)]
 
 use core::ffi::CStr;
-use limine::{modules::InternalModule, request::ModuleRequest};
+#[cfg(debug_assertions)]
+use limine::request::StackSizeRequest;
+use limine::{
+	modules::InternalModule,
+	request::{BootTimeRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, SmpRequest},
+};
 use oro_common::{dbg, dbg_err, Arch};
 
 const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel");
 
 #[used]
-static REQ_MODULES: ModuleRequest =
-	ModuleRequest::new().with_internal_modules(&[&InternalModule::new().with_path(KERNEL_PATH)]);
+static REQ_MODULES: ModuleRequest = ModuleRequest::with_revision(0)
+	.with_internal_modules(&[&InternalModule::new().with_path(KERNEL_PATH)]);
+#[used]
+static REQ_HHDM: HhdmRequest = HhdmRequest::with_revision(0);
+#[used]
+static REQ_MMAP: MemoryMapRequest = MemoryMapRequest::with_revision(0);
+#[used]
+static REQ_TIME: BootTimeRequest = BootTimeRequest::with_revision(0);
+#[used]
+static REQ_SMP: SmpRequest = SmpRequest::with_revision(0);
+#[cfg(debug_assertions)]
+#[used]
+static REQ_STKSZ: StackSizeRequest = StackSizeRequest::with_revision(0).with_size(64 * 1024);
+
+macro_rules! get_response {
+	($A:ty, $req:ident, $label:literal) => {
+		match $req.get_response() {
+			Some(r) => {
+				dbg!($A, "limine", concat!("got ", $label));
+				r
+			}
+			None => {
+				dbg_err!($A, "limine", concat!($label, " failed"));
+				<$A>::halt();
+			}
+		}
+	};
+}
 
 /// Runs the Limine bootloader.
 ///
@@ -33,13 +64,13 @@ pub unsafe fn init<A: Arch>() -> ! {
 
 	dbg!(A, "limine", "boot");
 
-	let module_response = match REQ_MODULES.get_response() {
-		Some(modules) => modules,
-		None => {
-			dbg_err!(A, "limine", "module request failed");
-			A::halt()
-		}
-	};
+	let module_response = get_response!(A, REQ_MODULES, "module listing");
+	let _hhdm_response = get_response!(A, REQ_HHDM, "hhdm offset");
+	let _mmap_response = get_response!(A, REQ_MMAP, "memory mapping");
+	let _time_response = get_response!(A, REQ_TIME, "bios timestamp response");
+	let _smp_response = get_response!(A, REQ_SMP, "symmetric");
+	#[cfg(debug_assertions)]
+	let _stksz_response = get_response!(A, REQ_STKSZ, "debug stack size adjustment");
 
 	let kernel_module = module_response
 		.modules()
@@ -54,7 +85,6 @@ pub unsafe fn init<A: Arch>() -> ! {
 	};
 
 	dbg!(A, "limine", "kernel module found");
-
 	A::halt() // TODO(qix-): Temporary.
 }
 
