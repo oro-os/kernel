@@ -12,10 +12,11 @@ use core::ffi::CStr;
 #[cfg(debug_assertions)]
 use limine::request::StackSizeRequest;
 use limine::{
+	memory_map::EntryType,
 	modules::InternalModule,
 	request::{BootTimeRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, SmpRequest},
 };
-use oro_common::{dbg, dbg_err, Arch};
+use oro_common::{dbg, dbg_err, Arch, BootConfig, MemoryRegion, MemoryRegionType};
 
 const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel");
 
@@ -66,9 +67,9 @@ pub unsafe fn init<A: Arch>() -> ! {
 
 	let module_response = get_response!(A, REQ_MODULES, "module listing");
 	let _hhdm_response = get_response!(A, REQ_HHDM, "hhdm offset");
-	let _mmap_response = get_response!(A, REQ_MMAP, "memory mapping");
+	let mmap_response = get_response!(A, REQ_MMAP, "memory mapping");
 	let _time_response = get_response!(A, REQ_TIME, "bios timestamp response");
-	let _smp_response = get_response!(A, REQ_SMP, "symmetric");
+	let smp_response = get_response!(A, REQ_SMP, "symmetric");
 	#[cfg(debug_assertions)]
 	let _stksz_response = get_response!(A, REQ_STKSZ, "debug stack size adjustment");
 
@@ -76,6 +77,7 @@ pub unsafe fn init<A: Arch>() -> ! {
 		.modules()
 		.iter()
 		.find(|module| module.path() == KERNEL_PATH.to_bytes());
+
 	let _kernel_module = match kernel_module {
 		Some(module) => module,
 		None => {
@@ -85,6 +87,28 @@ pub unsafe fn init<A: Arch>() -> ! {
 	};
 
 	dbg!(A, "limine", "kernel module found");
+
+	let memory_regions = mmap_response.entries().iter().map(|entry| {
+		let ty = match entry.entry_type {
+			EntryType::BOOTLOADER_RECLAIMABLE | EntryType::KERNEL_AND_MODULES => {
+				MemoryRegionType::Boot
+			}
+			EntryType::USABLE => MemoryRegionType::Usable,
+			_ => MemoryRegionType::Unusable,
+		};
+
+		MemoryRegion {
+			base: entry.base,
+			length: entry.length,
+			ty,
+		}
+	});
+
+	let _boot_config = BootConfig {
+		num_instances: smp_response.cpus().len() as u32,
+		memory_regions,
+	};
+
 	A::halt() // TODO(qix-): Temporary.
 }
 

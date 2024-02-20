@@ -2,6 +2,7 @@
 #![no_main]
 
 use oro_arch_x86_64::X86_64;
+use oro_common::{BootInstanceType, KernelBootConfig};
 
 #[inline(never)]
 #[cold]
@@ -21,10 +22,10 @@ unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 #[cold]
 #[no_mangle]
 pub unsafe fn _start() -> ! {
-	static BOOT_CONFIG: ::oro_common::BootConfig = ::oro_common::BootConfig {
-		instance_type: ::oro_common::BootInstanceType::Primary,
+	static BOOT_CONFIG: KernelBootConfig = KernelBootConfig {
 		num_instances: 1,
+		memory_regions: &[],
 	};
 
-	::oro_kernel::boot::<X86_64>(&BOOT_CONFIG)
+	::oro_kernel::boot::<X86_64>(&BOOT_CONFIG, BootInstanceType::Primary)
 }

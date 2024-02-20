@@ -9,7 +9,7 @@ use core::{
 	mem::MaybeUninit,
 	sync::atomic::{AtomicBool, Ordering},
 };
-use oro_common::{Arch, BootConfig, BootInstanceType};
+use oro_common::{Arch, BootInstanceType, KernelBootConfig};
 use spin::Barrier;
 
 /// Runs the kernel.
@@ -22,11 +22,14 @@ use spin::Barrier;
 ///
 /// Further, all architecture-specific setup MUST have completed
 /// on ALL CORES before calling this function.
-pub unsafe fn boot<A: Arch>(boot_config: &'static BootConfig) -> ! {
+pub unsafe fn boot<A: Arch>(
+	boot_config: &'static KernelBootConfig,
+	boot_instance_type: BootInstanceType,
+) -> ! {
 	static BARRIER_INIT: AtomicBool = AtomicBool::new(false);
 	static mut BARRIER: MaybeUninit<Barrier> = MaybeUninit::uninit();
 
-	if boot_config.instance_type == BootInstanceType::Primary {
+	if boot_instance_type == BootInstanceType::Primary {
 		BARRIER.write(Barrier::new(boot_config.num_instances as usize));
 		BARRIER_INIT.store(true, Ordering::Relaxed);
 

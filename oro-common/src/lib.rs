@@ -10,5 +10,5 @@ mod dbg;
 
 pub use self::{
 	arch::Arch,
-	boot::{BootConfig, BootInstanceType},
+	boot::{BootConfig, BootInstanceType, KernelBootConfig, MemoryRegion, MemoryRegionType},
 };
