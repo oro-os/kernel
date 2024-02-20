@@ -64,17 +64,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "oro-bootloader-common"
-version = "0.0.0"
-
-[[package]]
 name = "oro-bootloader-limine"
 version = "0.0.0"
 dependencies = [
  "limine",
  "oro-arch-aarch64",
  "oro-arch-x86_64",
- "oro-bootloader-common",
  "oro-common",
 ]
 

@@ -7,7 +7,7 @@ use oro_ser2mem::{CloneIterator, Fake, Proxy, Ser2Mem};
 /// prior to jumping to _start().
 ///
 /// For more information, see the documentation for the
-/// [`oro-ser2mem`] and [`oro-bootloader-common`] crates.
+/// [`oro-ser2mem`] crate.
 #[derive(Ser2Mem)]
 #[repr(C)]
 pub struct BootConfig<M>

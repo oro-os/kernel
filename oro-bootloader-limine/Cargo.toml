@@ -25,7 +25,6 @@ doc = false
 
 [dependencies]
 oro-common.workspace = true
-oro-bootloader-common.workspace = true
 limine = "0.2.0"
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
