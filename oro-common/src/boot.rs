@@ -77,17 +77,30 @@ pub struct MemoryRegion {
 	pub ty: MemoryRegionType,
 }
 
-impl MemoryRegion {
+/// An extension trait for [`MemoryRegion`] and its proxy.
+pub trait MemoryRegionEx: Sized {
+	/// Gets the base address.
+	fn base(&self) -> u64;
+
+	/// Gets the length of the region.
+	fn length(&self) -> u64;
+
+	/// Gets the type of the region.
+	fn ty(&self) -> MemoryRegionType;
+
+	/// Creates a new region given a base, length and type
+	fn new(base: u64, length: u64, ty: MemoryRegionType) -> Self;
+
 	/// Gets the last address in the range (inclusive).
 	#[inline]
-	pub fn last(&self) -> u64 {
-		self.base + self.length - 1
+	fn last(&self) -> u64 {
+		self.base() + self.length() - 1
 	}
 
 	/// Gets the end address of the range (exclusive).
 	#[inline]
-	pub fn end(&self) -> u64 {
-		self.base + self.length
+	fn end(&self) -> u64 {
+		self.base() + self.length()
 	}
 
 	/// Gets a new range that is aligned to the given size,
@@ -97,14 +110,54 @@ impl MemoryRegion {
 	/// down to the previous multiple of `align` after adjusting
 	/// for the new base.
 	#[cold]
-	pub fn aligned(&self, align: u64) -> MemoryRegion {
-		let base = (self.base + (align - 1)) & !(align - 1);
-		let length = self.length - (base - self.base);
+	fn aligned(&self, align: u64) -> Self {
+		let base = (self.base() + (align - 1)) & !(align - 1);
+		let length = self.length() - (base - self.base());
 		let length = length & !(align - 1);
-		MemoryRegion {
-			base,
-			length,
-			ty: self.ty,
-		}
+		Self::new(base, length, self.ty())
+	}
+}
+
+impl MemoryRegionEx for MemoryRegion {
+	#[inline]
+	fn base(&self) -> u64 {
+		self.base
+	}
+
+	#[inline]
+	fn length(&self) -> u64 {
+		self.length
+	}
+
+	#[inline]
+	fn ty(&self) -> MemoryRegionType {
+		self.ty
+	}
+
+	#[inline]
+	fn new(base: u64, length: u64, ty: MemoryRegionType) -> Self {
+		Self { base, length, ty }
+	}
+}
+
+impl MemoryRegionEx for Proxy![MemoryRegion] {
+	#[inline]
+	fn base(&self) -> u64 {
+		self.base
+	}
+
+	#[inline]
+	fn length(&self) -> u64 {
+		self.length
+	}
+
+	#[inline]
+	fn ty(&self) -> MemoryRegionType {
+		self.ty
+	}
+
+	#[inline]
+	fn new(base: u64, length: u64, ty: MemoryRegionType) -> Self {
+		Self { base, length, ty }
 	}
 }

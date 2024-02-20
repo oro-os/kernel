@@ -16,7 +16,7 @@ use limine::{
 	modules::InternalModule,
 	request::{BootTimeRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, SmpRequest},
 };
-use oro_common::{dbg, dbg_err, Arch, BootConfig, MemoryRegion, MemoryRegionType};
+use oro_common::{dbg, dbg_err, Arch, BootConfig, MemoryRegion, MemoryRegionEx, MemoryRegionType};
 
 const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel");
 
@@ -88,21 +88,26 @@ pub unsafe fn init<A: Arch>() -> ! {
 
 	dbg!(A, "limine", "kernel module found");
 
-	let memory_regions = mmap_response.entries().iter().map(|entry| {
-		let ty = match entry.entry_type {
-			EntryType::BOOTLOADER_RECLAIMABLE | EntryType::KERNEL_AND_MODULES => {
-				MemoryRegionType::Boot
-			}
-			EntryType::USABLE => MemoryRegionType::Usable,
-			_ => MemoryRegionType::Unusable,
-		};
+	let memory_regions = mmap_response
+		.entries()
+		.iter()
+		.map(|entry| {
+			let ty = match entry.entry_type {
+				EntryType::BOOTLOADER_RECLAIMABLE | EntryType::KERNEL_AND_MODULES => {
+					MemoryRegionType::Boot
+				}
+				EntryType::USABLE => MemoryRegionType::Usable,
+				_ => MemoryRegionType::Unusable,
+			};
 
-		MemoryRegion {
-			base: entry.base,
-			length: entry.length,
-			ty,
-		}
-	});
+			MemoryRegion {
+				base: entry.base,
+				length: entry.length,
+				ty,
+			}
+			.aligned(4096)
+		})
+		.filter(|region| region.length() > 0);
 
 	let _boot_config = BootConfig {
 		num_instances: smp_response.cpus().len() as u32,
