@@ -3,6 +3,7 @@ description = "The Oro Operating System kernel project"
 homepage = "https://oro.sh"
 repository = "https://github.com/oro-os/kernel"
 license = "MPL-2.0"
+version = "0.0.0"
 
 [workspace]
 resolver = "2"

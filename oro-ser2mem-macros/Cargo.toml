@@ -1,5 +1,6 @@
 [package]
 name = "oro-ser2mem-macros"
+version.workspace = true
 description = "Procedural macros for the Oro serialize-to-memory library"
 publish = false
 edition = "2021"

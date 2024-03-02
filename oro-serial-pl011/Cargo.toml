@@ -1,5 +1,6 @@
 [package]
 name = "oro-serial-pl011"
+version.workspace = true
 description = "PL011 UART driver for memory-mapped serial devices, used for Oro kernel debug output"
 publish = false
 edition = "2021"

@@ -1,5 +1,6 @@
 [package]
 name = "oro-bootloader-limine"
+version.workspace = true
 description = "Oro operating system Limine bootloader support"
 publish = false
 edition = "2021"

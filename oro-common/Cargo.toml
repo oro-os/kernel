@@ -1,5 +1,6 @@
 [package]
 name = "oro-common"
+version.workspace = true
 description = "Common functionality for the Oro kernel crates"
 publish = false
 edition = "2021"

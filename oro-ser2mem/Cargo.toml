@@ -1,5 +1,6 @@
 [package]
 name = "oro-ser2mem"
+version.workspace = true
 description = "The Oro serialize-to-memory library for the kernel boot protocol"
 publish = false
 edition = "2021"

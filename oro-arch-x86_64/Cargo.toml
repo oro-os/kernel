@@ -1,5 +1,6 @@
 [package]
 name = "oro-arch-x86_64"
+version.workspace = true
 description = "Oro operating system x86_64 architecture support"
 publish = false
 edition = "2021"
