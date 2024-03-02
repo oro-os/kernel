@@ -18,6 +18,6 @@ unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 #[inline(never)]
 #[cold]
 #[no_mangle]
-pub unsafe fn _start() -> ! {
+pub unsafe extern "C" fn _start() -> ! {
 	::oro_bootloader_limine::init::<X86_64>()
 }

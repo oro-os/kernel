@@ -27,6 +27,9 @@ A few guidelines when introducing or interacting with dependencies:
   kernel project.
 - All libraries must be well-maintained and have a clear path for
   security updates and bug fixes.
+- All libraries must be listed in the workspace (root) `Cargo.toml`
+  file and must be pinned to a specific version. Workspace crates that
+  then use the dependency must have them listed as `dependency.workspace = true`.
 - No library shall be exposed directly outside of the crate within which
   it is used. Corollary: all third-party libraries must have Oro-specific
   abstractions, and must be written in a way that they may be replaced

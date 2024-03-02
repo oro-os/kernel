@@ -1,4 +1,4 @@
-#![allow(unused_macros)]
+#![allow(unused_macros, clippy::module_name_repetitions)]
 
 /// Sends a general debug message to the archiecture-specific debug endpoint.
 #[macro_export]

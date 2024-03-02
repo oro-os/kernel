@@ -1,4 +1,4 @@
-//! x86_64 architecture support crate for the
+//! `x86_64` architecture support crate for the
 //! [Oro Operating System](https://github.com/oro-os/kernel)
 //! kernel.
 #![no_std]
@@ -16,7 +16,7 @@ use uart_16550::SerialPort;
 
 static mut SERIAL: MaybeUninit<Mutex<SerialPort>> = MaybeUninit::uninit();
 
-/// x86_64 architecture support implementation for the Oro kernel.
+/// `x86_64` architecture support implementation for the Oro kernel.
 pub struct X86_64;
 
 impl Arch for X86_64 {

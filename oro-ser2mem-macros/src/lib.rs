@@ -42,6 +42,7 @@ impl Parse for StructOrEnum {
 	}
 }
 
+#[allow(clippy::too_many_lines)]
 fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 	'find_repr: {
 		for attr in &structure.attrs {
@@ -76,7 +77,7 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 	{
 		let gen = &structure.generics;
 
-		for param in gen.params.iter() {
+		for param in &gen.params {
 			match param {
 				GenericParam::Lifetime(lt) => {
 					return Error::new(
@@ -121,7 +122,7 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 
 		// Attempt to enrich any generic types with the where clause.
 		if let Some(wh) = &gen.where_clause {
-			for predicate in wh.predicates.iter() {
+			for predicate in &wh.predicates {
 				match predicate {
 					WherePredicate::Lifetime(lt) => {
 						return Error::new(
@@ -201,6 +202,7 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 				match generic_map.get(ident) {
 					None => None,
 					Some(Some(TypeParamBound::Trait(pt))) => {
+						#[allow(clippy::match_wildcard_for_single_variants)]
 						match pt.modifier {
 							TraitBoundModifier::None => {}
 							_ => {
@@ -274,7 +276,7 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 	});
 
 	let orig_ident = structure.ident;
-	let proxy_ident = Ident::new(&format!("{}Proxy", orig_ident), orig_ident.span());
+	let proxy_ident = Ident::new(&format!("{orig_ident}Proxy"), orig_ident.span());
 	structure.ident = proxy_ident.clone();
 	let orig_generics = structure.generics.clone();
 	let (impl_generics, ty_generics, where_clause) = orig_generics.split_for_impl();

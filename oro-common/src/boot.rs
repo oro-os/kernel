@@ -4,6 +4,7 @@
 //! The boot protocol is a set of structures that are passed to the kernel by the
 //! bootloader, and are used to configure the kernel and provide information about
 //! the system's hardware and other resources.
+#![allow(clippy::module_name_repetitions)]
 
 use crate::mem::region::{MemoryRegion, MemoryRegionType};
 use oro_ser2mem::{CloneIterator, Fake, Proxy, Ser2Mem};
@@ -12,7 +13,7 @@ use oro_ser2mem::{CloneIterator, Fake, Proxy, Ser2Mem};
 ///
 /// This structure is passed to the kernel via the bootloader,
 /// where it is placed in a well-known location in memory
-/// prior to jumping to _start().
+/// prior to jumping to `_start()`.
 ///
 /// For more information, see the documentation for the
 /// [`oro-ser2mem`] crate.

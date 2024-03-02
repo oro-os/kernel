@@ -81,12 +81,9 @@ pub unsafe fn init<A: Arch>() -> ! {
 		.iter()
 		.find(|module| module.path() == KERNEL_PATH.to_bytes());
 
-	let _kernel_module = match kernel_module {
-		Some(module) => module,
-		None => {
-			dbg_err!(A, "limine", "failed to find kernel module: {KERNEL_PATH:?}");
-			A::halt()
-		}
+	let Some(_kernel_module) = kernel_module else {
+		dbg_err!(A, "limine", "failed to find kernel module: {KERNEL_PATH:?}");
+		A::halt()
 	};
 
 	dbg!(A, "limine", "kernel module found");
@@ -113,7 +110,15 @@ pub unsafe fn init<A: Arch>() -> ! {
 		.filter(|region| region.length() > 0);
 
 	let _boot_config = BootConfig {
-		num_instances: smp_response.cpus().len() as u32,
+		num_instances: {
+			let total = smp_response.cpus().len();
+			#[allow(clippy::cast_possible_truncation)]
+			if total > u32::MAX as usize {
+				u32::MAX
+			} else {
+				total as u32
+			}
+		},
 		memory_regions,
 	};
 

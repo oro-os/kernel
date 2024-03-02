@@ -88,8 +88,11 @@ where
 
 /// Serialize (with ser2mem) an iterator to a new memory region and return the slice
 ///
-/// # Safety
+/// # Panics
+/// This function will panic if an array layout for the given type and count cannot
+/// be formulated.
 ///
+/// # Safety
 /// DO NOT CALL. This is for use by auto-generated implementations by the ser2mem
 /// procedural macros.
 ///
@@ -109,7 +112,7 @@ where
 	alloc.allocate(layout.size() as u64);
 
 	for (i, item) in iter.enumerate() {
-		item.serialize_to(&mut base[i] as *mut T::Target, alloc);
+		item.serialize_to(::core::ptr::from_mut::<T::Target>(&mut base[i]), alloc);
 	}
 
 	base

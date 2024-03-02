@@ -1,3 +1,5 @@
+#![allow(clippy::module_name_repetitions)]
+
 use oro_ser2mem::Ser2Mem;
 
 /// Defines the type of a memory region.
@@ -51,6 +53,7 @@ pub trait MemoryRegion: Sized {
 	/// down to the previous multiple of `align` after adjusting
 	/// for the new base.
 	#[cold]
+	#[must_use]
 	fn aligned(&self, align: u64) -> Self {
 		let base = (self.base() + (align - 1)) & !(align - 1);
 		let length = self.length() - (base - self.base());

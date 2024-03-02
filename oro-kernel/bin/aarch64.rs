@@ -21,7 +21,7 @@ unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 #[inline(never)]
 #[cold]
 #[no_mangle]
-pub unsafe fn _start() -> ! {
+pub unsafe extern "C" fn _start() -> ! {
 	static BOOT_CONFIG: KernelBootConfig = KernelBootConfig {
 		num_instances: 1,
 		memory_regions: &[],

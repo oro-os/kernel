@@ -25,7 +25,9 @@ impl Arch for Aarch64 {
 		// TODO(qix-): This will need to be adapted to handle
 		// TODO(qix-): different UART types and a configurable
 		// TODO(qix-): base address / settings in the future.
-		SERIAL.write(Mutex::new(PL011::new(0x9000000, 24000000, 115200, 8, 1)));
+		SERIAL.write(Mutex::new(PL011::new(
+			0x900_0000, 24_000_000, 115_200, 8, 1,
+		)));
 	}
 
 	unsafe fn init_local() {}

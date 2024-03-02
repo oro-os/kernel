@@ -27,6 +27,11 @@ oro-ser2mem-macros = { path = "oro-ser2mem-macros" }
 oro-serial-pl011 = { path = "oro-serial-pl011" }
 
 spin = { version = "0.9.8", features = ["barrier"] }
+proc-macro2 = "1.0.56"
+quote = "1.0.26"
+syn = "2.0.15"
+limine = "0.2.0"
+uart_16550 = "0.3.0"
 
 [profile.dev]
 panic = "abort"            # Use "abort" panic strategy

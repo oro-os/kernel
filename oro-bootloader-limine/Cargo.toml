@@ -25,7 +25,7 @@ doc = false
 
 [dependencies]
 oro-common.workspace = true
-limine = "0.2.0"
+limine.workspace = true
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 oro-arch-x86_64.workspace = true

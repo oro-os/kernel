@@ -37,6 +37,7 @@ impl PL011 {
 	///
 	/// To find which base address, run `info qtree` in a QEMU
 	/// monitor and look for the `pl011` device's `mmio` property.
+	#[must_use]
 	pub fn new(
 		base: usize,
 		base_clock: u32,
@@ -119,7 +120,7 @@ impl ::core::fmt::Write for PL011 {
 	fn write_str(&mut self, s: &str) -> ::core::fmt::Result {
 		for byte in s.bytes() {
 			self.flush();
-			self.write(DR_OFFSET, byte as u32);
+			self.write(DR_OFFSET, u32::from(byte));
 		}
 		Ok(())
 	}
