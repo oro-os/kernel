@@ -2,7 +2,7 @@
 #![no_main]
 
 use oro_arch_x86_64::X86_64;
-use oro_common::{BootInstanceType, KernelBootConfig};
+use oro_common::boot::{BootInstanceType, KernelBootConfig};
 
 #[inline(never)]
 #[cold]

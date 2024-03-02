@@ -9,7 +9,10 @@ use core::{
 	mem::MaybeUninit,
 	sync::atomic::{AtomicBool, Ordering},
 };
-use oro_common::{Arch, BootInstanceType, KernelBootConfig};
+use oro_common::{
+	boot::{BootInstanceType, KernelBootConfig},
+	Arch,
+};
 use spin::Barrier;
 
 /// Runs the kernel.

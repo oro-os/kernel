@@ -4,14 +4,16 @@
 #![no_std]
 #![deny(missing_docs)]
 
-mod arch;
-mod boot;
-mod dbg;
+pub(crate) mod arch;
+pub mod boot;
+pub(crate) mod dbg;
+pub(crate) mod mem;
 
 pub use self::{
 	arch::Arch,
-	boot::{
-		BootConfig, BootInstanceType, KernelBootConfig, MemoryRegion, MemoryRegionEx,
-		MemoryRegionType,
+	mem::{
+		pfa::PageFrameAllocator,
+		pfa_filo::{FiloPageFrameAllocator, FiloPageFrameManager},
+		region::{MemoryRegion, MemoryRegionType},
 	},
 };

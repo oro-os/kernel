@@ -16,7 +16,10 @@ use limine::{
 	modules::InternalModule,
 	request::{BootTimeRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, SmpRequest},
 };
-use oro_common::{dbg, dbg_err, Arch, BootConfig, MemoryRegion, MemoryRegionEx, MemoryRegionType};
+use oro_common::{
+	boot::{BootConfig, BootMemoryRegion},
+	dbg, dbg_err, Arch, MemoryRegion, MemoryRegionType,
+};
 
 const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel");
 
@@ -100,7 +103,7 @@ pub unsafe fn init<A: Arch>() -> ! {
 				_ => MemoryRegionType::Unusable,
 			};
 
-			MemoryRegion {
+			BootMemoryRegion {
 				base: entry.base,
 				length: entry.length,
 				ty,
