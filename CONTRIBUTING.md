@@ -101,7 +101,8 @@ pull request.
 
 ## Warnings, Lints, etc.
 The kernel project uses `clippy` to enforce a consistent code style.
-Please run `cargo oro-clippy` prior to committing and pushing your changes.
+Please run `cargo oro-clippy-x86_64` and `cargo oro-clippy-aarch64`
+prior to committing and pushing your changes.
 
 ## Continuous Integration (CI)
 The kernel project uses GitHub Actions for continuous integration.
