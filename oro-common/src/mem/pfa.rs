@@ -17,13 +17,39 @@ pub unsafe trait PageFrameAllocator {
 	/// Allocates a new page frame, returning the physical address of the page frame
 	/// that was allocated. If `None` is returned, the system is out of memory.
 	///
-	fn allocate(&mut self) -> Option<u64>;
+	/// # Safety
+	/// Implementors **must** ensure that the returned frame address is page-aligned.
+	/// Implementors **must** ensure that the returned frame address is not already in use.
+	/// Implementors **must** ensure that the returned frame address is not in a reserved
+	/// or unusable memory region.
+	///
+	/// Any and all bookkeeping operations must be safe.
+	///
+	/// Callers must only call this method if the implementing allocator is known to be
+	/// in a "good state", for whatever definition of "good" the allocator specifies.
+	/// For example, for the `FiloPageFrameAllocator`, this method potentially brings in and
+	/// out physical pages from a memory map, and so the caller must ensure that the memory
+	/// map is in a consistent state before calling this method.
+	unsafe fn allocate(&mut self) -> Option<u64>;
 
 	/// Frees a page frame.
 	///
 	/// # Panics
 	/// Implementors **must** panic if the passed frame address is not page-aligned.
-	fn free(&mut self, frame: u64);
+	///
+	/// # Safety
+	/// Callers **must** ensure the passed frame address is valid and not already freed.
+	/// Callers **must** ensure the passed frame address is not in a reserved or unusable
+	/// memory region.
+	///
+	/// Any and all bookkeeping operations must be safe.
+	///
+	/// Callers must only call this method if the implementing allocator is known to be
+	/// in a "good state", for whatever definition of "good" the allocator specifies.
+	/// For example, for the `FiloPageFrameAllocator`, this method potentially brings in and
+	/// out physical pages from a memory map, and so the caller must ensure that the memory
+	/// map is in a consistent state before calling this method.
+	unsafe fn free(&mut self, frame: u64);
 
 	/// Gets the number of bytes of memory that are currently in use by the system.
 	fn used_memory(&self) -> u64;

@@ -33,7 +33,7 @@ where
 	/// The memory map used to allocate new system memory.
 	memory_regions: &'static [R],
 	/// The current memory region index.
-	current_region: u64,
+	current_region: usize,
 	/// The current offset in the current memory region.
 	current_offset: u64,
 	/// The currently allocated number of bytes.
@@ -118,6 +118,34 @@ where
 			total_bad_memory,
 		}
 	}
+
+	/// Allocates a page from, guaranteeing that the page is coming
+	/// from the the system regions as opposed to reusing freed
+	/// pages. **This method does not use the page frame manager**,
+	/// which makes it suitable for early-stage memory table setups
+	/// whereby virtual memory is not yet modifiable.
+	///
+	/// Note that this function _may_ return `None` even if there are
+	/// still pages available for allocation via [`PageFrameAllocator::allocate`], since
+	/// it only allocates from memory map regions that haven't been
+	/// allocated yet.
+	pub fn allocate_without_manager(&mut self) -> Option<u64> {
+		if self.current_region >= self.memory_regions.len() {
+			return None;
+		}
+
+		let region = &self.memory_regions[self.current_region];
+		let page_frame = region.base() + self.current_offset;
+		self.current_offset += 4096;
+		self.used_bytes += 4096;
+
+		if self.current_offset >= region.length() {
+			self.current_region += 1;
+			self.current_offset = 0;
+		}
+
+		Some(page_frame)
+	}
 }
 
 unsafe impl<M, R> PageFrameAllocator for FiloPageFrameAllocator<M, R>
@@ -127,37 +155,22 @@ where
 {
 	#[inline]
 	#[allow(clippy::cast_possible_truncation)]
-	fn allocate(&mut self) -> Option<u64> {
+	unsafe fn allocate(&mut self) -> Option<u64> {
 		if self.last_free == u64::MAX {
-			// Allocate a new page frame.
-			let region = &self.memory_regions[self.current_region as usize];
-			let page_frame = region.base() + self.current_offset;
-			self.current_offset += 4096;
-			self.used_bytes += 4096;
-
-			if self.current_offset >= region.length() {
-				self.current_region += 1;
-				self.current_offset = 0;
-			}
-
-			Some(page_frame)
+			self.allocate_without_manager()
 		} else {
 			// Bring in the last-free page frame.
 			let page_frame = self.last_free;
-			unsafe {
-				self.last_free = self.manager.read_u64(page_frame);
-			}
+			self.last_free = self.manager.read_u64(page_frame);
 			Some(page_frame)
 		}
 	}
 
 	#[inline]
-	fn free(&mut self, frame: u64) {
+	unsafe fn free(&mut self, frame: u64) {
 		assert_eq!(frame % 4096, 0, "frame is not page-aligned");
 
-		unsafe {
-			self.manager.write_u64(frame, self.last_free);
-		}
+		self.manager.write_u64(frame, self.last_free);
 		self.last_free = frame;
 	}
 
