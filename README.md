@@ -15,6 +15,10 @@
 This is the home of the Oro Operating System kernel and bootloader crates.
 All code necessary to build and run the kernel is provided in this repository.
 
+> [!CAUTION]
+> The Oro Operating System is currently in the early stages of development.
+> It is not yet suitable for use in a production environment.
+
 ## Building
 The kernel is built standalone and used as a module for a bootloader
 entry point. The kernel does not support being booted to directly.
