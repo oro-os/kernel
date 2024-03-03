@@ -9,6 +9,8 @@ pub struct PageTable {
 	entries: [PageTableEntry; 512],
 }
 
+static_assertions::const_assert_eq!(::core::mem::size_of::<PageTable>(), 4096);
+
 impl IndexMut<usize> for PageTable {
 	#[inline]
 	fn index_mut(&mut self, index: usize) -> &mut Self::Output {
@@ -41,6 +43,8 @@ impl PageTable {
 #[derive(Debug, Clone, Copy)]
 #[repr(C, align(8))]
 pub struct PageTableEntry(u64);
+
+static_assertions::const_assert_eq!(::core::mem::size_of::<PageTableEntry>(), 8);
 
 /// Represents a page table entry.
 ///
