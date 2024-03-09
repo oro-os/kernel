@@ -157,11 +157,13 @@ where
 	#[allow(clippy::cast_possible_truncation)]
 	unsafe fn allocate(&mut self) -> Option<u64> {
 		if self.last_free == u64::MAX {
+			// This call already increments the `used_bytes` so we don't do it here.
 			self.allocate_without_manager()
 		} else {
 			// Bring in the last-free page frame.
 			let page_frame = self.last_free;
 			self.last_free = self.manager.read_u64(page_frame);
+			self.used_bytes += 4096;
 			Some(page_frame)
 		}
 	}
@@ -172,6 +174,7 @@ where
 
 		self.manager.write_u64(frame, self.last_free);
 		self.last_free = frame;
+		self.used_bytes -= 4096;
 	}
 
 	#[inline]

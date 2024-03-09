@@ -38,11 +38,15 @@ pub unsafe trait PageFrameAllocator {
 	/// Implementors **must** panic if the passed frame address is not page-aligned.
 	///
 	/// # Safety
-	/// Callers **must** ensure the passed frame address is valid and not already freed.
-	/// Callers **must** ensure the passed frame address is not in a reserved or unusable
+	/// The following **must absolutely remain true**:
+	///
+	/// 1. Callers **must** ensure the passed frame address is valid and allocated, not in active
+	/// use, and is not already freed.
+	///
+	/// 2. Callers **must** ensure the passed frame address is not in a reserved or unusable
 	/// memory region.
 	///
-	/// Any and all bookkeeping operations must be safe.
+	/// 3. Any and all bookkeeping operations must be safe.
 	///
 	/// Callers must only call this method if the implementing allocator is known to be
 	/// in a "good state", for whatever definition of "good" the allocator specifies.

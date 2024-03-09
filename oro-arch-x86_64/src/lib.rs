@@ -3,9 +3,11 @@
 //! kernel.
 #![no_std]
 #![deny(missing_docs)]
+#![feature(const_mut_refs)]
 #![cfg(not(all(doc, not(target_arch = "x86_64"))))]
 
 pub(crate) mod arch;
+pub(crate) mod asm;
 pub(crate) mod mem;
 
 pub use self::{

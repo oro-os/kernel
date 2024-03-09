@@ -67,6 +67,12 @@ impl PageTableEntry {
 		Self(0)
 	}
 
+	/// Sets the page table entry to the given value.
+	#[inline]
+	pub fn set(&mut self, value: PageTableEntry) {
+		self.0 = value.0;
+	}
+
 	/// Checks if the page table entry is present.
 	#[inline]
 	#[must_use]
@@ -349,7 +355,7 @@ impl PageTableEntry {
 	/// Sets the physical address of the page table entry.
 	#[inline]
 	pub fn set_address(&mut self, address: u64) {
-		self.0 = (self.0 & 0xFFF_0000000000_FFF) | (address & 0xFFF_0000000000_FFF);
+		unsafe { self.set_address_unchecked(address & 0xFFF_0000000000_FFF) }
 	}
 
 	/// Sets the physical address of the page table entry, without truncating bits.
@@ -367,7 +373,7 @@ impl PageTableEntry {
 	#[inline]
 	#[must_use]
 	pub const fn with_address(self, address: u64) -> Self {
-		Self((self.0 & 0xFFF_0000000000_FFF) | (address & 0xFFF_0000000000_FFF))
+		Self((self.0 & 0xFFF_0000000000_FFF) | (address & 0x000_FFFFFFFFFF_000))
 	}
 
 	/// Gets the physical address of the page table entry.
