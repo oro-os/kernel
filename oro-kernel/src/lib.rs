@@ -25,6 +25,12 @@ use spin::Barrier;
 ///
 /// Further, all architecture-specific setup MUST have completed
 /// on ALL CORES before calling this function.
+///
+/// # Panics
+/// Will panic if the number of CPU instances exceeds `usize::MAX`.
+/// This depends entirely on the size of `usize` on the target architecture,
+/// and will likely never be the case (if it _is_ the case, please email us;
+/// we'd love to hear about it).
 pub unsafe fn boot<A: Arch>(
 	boot_config: &'static KernelBootConfig,
 	boot_instance_type: BootInstanceType,
@@ -33,6 +39,14 @@ pub unsafe fn boot<A: Arch>(
 	static mut BARRIER: MaybeUninit<Barrier> = MaybeUninit::uninit();
 
 	if boot_instance_type == BootInstanceType::Primary {
+		assert!(
+			usize::try_from(boot_config.num_instances).is_ok(),
+			"too many cpu instances; max is usize::MAX = {}; number specified = {}",
+			usize::MAX,
+			boot_config.num_instances
+		);
+
+		#[allow(clippy::cast_possible_truncation)]
 		BARRIER.write(Barrier::new(boot_config.num_instances as usize));
 		BARRIER_INIT.store(true, Ordering::Relaxed);
 

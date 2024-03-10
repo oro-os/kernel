@@ -7,17 +7,20 @@
 //! See the `bin/` directory for architecture-specific entry points.
 #![no_std]
 #![deny(missing_docs)]
+#![feature(type_alias_impl_trait)]
 
-use core::ffi::CStr;
+use core::{ffi::CStr, mem::MaybeUninit};
 #[cfg(debug_assertions)]
 use limine::request::StackSizeRequest;
 use limine::{
 	memory_map::EntryType,
 	modules::InternalModule,
 	request::{BootTimeRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, SmpRequest},
+	response::SmpResponse,
+	smp::Cpu,
 };
 use oro_common::{
-	boot::{BootConfig, BootMemoryRegion},
+	boot::{BootConfig, BootInstanceType, BootMemoryRegion, CloneIterator},
 	dbg, dbg_err, Arch, MemoryRegion, MemoryRegionType,
 };
 
@@ -33,24 +36,54 @@ static REQ_MMAP: MemoryMapRequest = MemoryMapRequest::with_revision(0);
 #[used]
 static REQ_TIME: BootTimeRequest = BootTimeRequest::with_revision(0);
 #[used]
-static REQ_SMP: SmpRequest = SmpRequest::with_revision(0);
+static mut REQ_SMP: SmpRequest = SmpRequest::with_revision(0);
 #[cfg(debug_assertions)]
 #[used]
 static REQ_STKSZ: StackSizeRequest = StackSizeRequest::with_revision(0).with_size(64 * 1024);
 
+type ImplMemoryIterator = impl CloneIterator<Item = BootMemoryRegion>;
+type LimineBootConfig = BootConfig<ImplMemoryIterator>;
+static mut BOOT_CONFIG: MaybeUninit<LimineBootConfig> = MaybeUninit::uninit();
+
 macro_rules! get_response {
-	($A:ty, $req:ident, $label:literal) => {
-		match $req.get_response() {
-			Some(r) => {
-				dbg!($A, "limine", concat!("got ", $label));
-				r
-			}
-			None => {
-				dbg_err!($A, "limine", concat!($label, " failed"));
-				<$A>::halt();
-			}
-		}
-	};
+	($req:ident, $label:literal) => {{
+		let Some(r) = $req.get_response() else {
+			panic!(concat!($label, " failed"));
+		};
+
+		r
+	}};
+
+	(mut $req:ident, $label:literal) => {{
+		let Some(r) = $req.get_response_mut() else {
+			panic!(concat!($label, " failed"));
+		};
+
+		r
+	}};
+}
+
+/// Allows the extraction of a CPU ID from the [`Cpu`] structure
+/// and for the identification of the bootstrap CPU.
+///
+/// This must be implemented by each architecture binary.
+pub trait CpuId {
+	/// Extracts the CPU ID from the [`Cpu`] structure.
+	///
+	/// # Safety
+	/// The returned ID **must** be unique for each CPU.
+	unsafe fn cpu_id(smp: &Cpu) -> u64;
+
+	/// Returns the bootstrap CPU ID. This must match the exact,
+	/// unique ID returned by `cpu_id` for the bootstrap CPU.
+	///
+	/// If no CPU is the bootstrap CPU, this function must return `None`.
+	/// The bootloader will panic in this case.
+	///
+	/// # Safety
+	/// This function MUST return the `cpu_id` for the bootstrap CPU,
+	/// and for no others.
+	unsafe fn bootstrap_cpu_id(response: &SmpResponse) -> Option<u64>;
 }
 
 /// Runs the Limine bootloader.
@@ -58,7 +91,10 @@ macro_rules! get_response {
 /// # Safety
 /// Do **NOT** call this function directly.
 /// It is only called by the architecture-specific binaries.
-pub unsafe fn init<A: Arch>() -> ! {
+///
+/// # Panics
+/// Panics if a bootstrap CPU is not found.
+pub unsafe fn init<A: Arch, C: CpuId>() -> ! {
 	// We know that there is only one CPU being used
 	// in the bootloader stage.
 	A::init_shared();
@@ -68,13 +104,34 @@ pub unsafe fn init<A: Arch>() -> ! {
 
 	dbg!(A, "limine", "boot");
 
-	let module_response = get_response!(A, REQ_MODULES, "module listing");
-	let _hhdm_response = get_response!(A, REQ_HHDM, "hhdm offset");
-	let mmap_response = get_response!(A, REQ_MMAP, "memory mapping");
-	let _time_response = get_response!(A, REQ_TIME, "bios timestamp response");
-	let smp_response = get_response!(A, REQ_SMP, "symmetric");
+	let smp_response = get_response!(mut REQ_SMP, "symmetric");
+
+	let boot_config = generate_boot_config(smp_response);
+	BOOT_CONFIG.write(boot_config);
+	dbg!(A, "limine", "boot configuration generated");
+
+	// Find the primary CPU first, and error if we don't have it.
+	let primary_cpu_id = C::bootstrap_cpu_id(smp_response).expect("no bootstrap CPU found");
+
+	for cpu in smp_response.cpus_mut() {
+		if C::cpu_id(cpu) != primary_cpu_id {
+			dbg!(A, "limine", "booting seconary cpu: {}", C::cpu_id(cpu));
+			cpu.goto_address.write(trampoline_to_init::<A, C>);
+		}
+	}
+
+	// Finally, jump the bootstrap core to the kernel.
+	dbg!(A, "limine", "booting primary cpu: {primary_cpu_id}");
+	initialize_kernel::<A>(primary_cpu_id, BootInstanceType::Primary)
+}
+
+unsafe fn generate_boot_config(smp_response: &SmpResponse) -> LimineBootConfig {
+	let module_response = get_response!(REQ_MODULES, "module listing");
+	let _hhdm_response = get_response!(REQ_HHDM, "hhdm offset");
+	let mmap_response = get_response!(REQ_MMAP, "memory mapping");
+	let _time_response = get_response!(REQ_TIME, "bios timestamp response");
 	#[cfg(debug_assertions)]
-	let _stksz_response = get_response!(A, REQ_STKSZ, "debug stack size adjustment");
+	let _stksz_response = get_response!(REQ_STKSZ, "debug stack size adjustment");
 
 	let kernel_module = module_response
 		.modules()
@@ -82,13 +139,10 @@ pub unsafe fn init<A: Arch>() -> ! {
 		.find(|module| module.path() == KERNEL_PATH.to_bytes());
 
 	let Some(_kernel_module) = kernel_module else {
-		dbg_err!(A, "limine", "failed to find kernel module: {KERNEL_PATH:?}");
-		A::halt()
+		panic!("failed to find kernel module: {KERNEL_PATH:?}");
 	};
 
-	dbg!(A, "limine", "kernel module found");
-
-	let memory_regions = mmap_response
+	let memory_regions: ImplMemoryIterator = mmap_response
 		.entries()
 		.iter()
 		.map(|entry| {
@@ -109,20 +163,28 @@ pub unsafe fn init<A: Arch>() -> ! {
 		})
 		.filter(|region| region.length() > 0);
 
-	let _boot_config = BootConfig {
-		num_instances: {
-			let total = smp_response.cpus().len();
-			#[allow(clippy::cast_possible_truncation)]
-			if total > u32::MAX as usize {
-				u32::MAX
-			} else {
-				total as u32
-			}
-		},
+	LimineBootConfig {
+		num_instances: smp_response.cpus().len() as u64,
 		memory_regions,
-	};
+	}
+}
 
-	A::halt() // TODO(qix-): Temporary.
+/// # Safety
+/// Must ONLY be called ONCE by SECONDARY cores. DO NOT CALL FROM PRIMARY.
+/// Call `initialize_kernel` directly from the bootstrap (primary) core instead.
+unsafe extern "C" fn trampoline_to_init<A: Arch, C: CpuId>(smp: &Cpu) -> ! {
+	initialize_kernel::<A>(C::cpu_id(smp), BootInstanceType::Secondary)
+}
+
+/// # Safety
+/// MUST be called EXACTLY ONCE per core.
+#[allow(improper_ctypes_definitions)]
+unsafe extern "C" fn initialize_kernel<A: Arch>(
+	core_id: u64,
+	boot_instance_type: BootInstanceType,
+) -> ! {
+	let boot_config = BOOT_CONFIG.assume_init_ref();
+	oro_common::boot_to_kernel::<A, _>(boot_config, core_id, boot_instance_type);
 }
 
 /// Panic handler for the Limine bootloader stage.

@@ -7,7 +7,11 @@
 #![allow(clippy::module_name_repetitions)]
 
 use crate::mem::region::{MemoryRegion, MemoryRegionType};
-use oro_ser2mem::{CloneIterator, Fake, Proxy, Ser2Mem};
+use oro_ser2mem::{Fake, Proxy, Ser2Mem};
+
+/// Useful for bootloaders to use type alias impl declarations
+/// for iterator types.
+pub use oro_ser2mem::CloneIterator;
 
 /// The Oro boot protocol main configuration structure.
 ///
@@ -26,7 +30,7 @@ where
 	/// The number of instances that are being booted.
 	/// Note that this _may not_ match the number of CPUs
 	/// in the system.
-	pub num_instances: u32,
+	pub num_instances: u64,
 	/// The list of memory regions made available to the machine.
 	pub memory_regions: M,
 }

@@ -19,5 +19,19 @@ unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 #[cold]
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {
-	::oro_bootloader_limine::init::<X86_64>()
+	::oro_bootloader_limine::init::<X86_64, LapicCpuId>()
+}
+
+struct LapicCpuId;
+
+impl ::oro_bootloader_limine::CpuId for LapicCpuId {
+	#[inline]
+	unsafe fn cpu_id(cpu: &::limine::smp::Cpu) -> u64 {
+		cpu.lapic_id.into()
+	}
+
+	#[inline]
+	unsafe fn bootstrap_cpu_id(response: &limine::response::SmpResponse) -> Option<u64> {
+		Some(response.bsp_lapic_id().into())
+	}
 }

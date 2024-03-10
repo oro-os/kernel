@@ -7,10 +7,12 @@
 pub(crate) mod arch;
 pub mod boot;
 pub(crate) mod dbg;
+pub(crate) mod init;
 pub(crate) mod mem;
 
 pub use self::{
 	arch::Arch,
+	init::boot_to_kernel,
 	mem::{
 		pfa::PageFrameAllocator,
 		pfa_filo::{FiloPageFrameAllocator, FiloPageFrameManager},
