@@ -24,7 +24,7 @@ use oro_common::{
 const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel");
 
 #[used]
-static REQ_MODULES: ModuleRequest = ModuleRequest::with_revision(0)
+static REQ_MODULES: ModuleRequest = ModuleRequest::with_revision(1)
 	.with_internal_modules(&[&InternalModule::new().with_path(KERNEL_PATH)]);
 #[used]
 static REQ_HHDM: HhdmRequest = HhdmRequest::with_revision(0);
