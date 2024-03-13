@@ -40,10 +40,12 @@ pub unsafe fn boot_to_kernel<A: Arch, M: CloneIterator<Item = BootMemoryRegion> 
 	instance_type: BootInstanceType,
 ) -> ! {
 	A::disable_interrupts();
+
 	crate::dbg!(
 		A,
 		"boot_to_kernel",
 		"booting to kernel (core_id = {core_id}, instance_type = {instance_type:?})"
 	);
+
 	A::halt()
 }

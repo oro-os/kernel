@@ -5,7 +5,15 @@ use core::fmt;
 /// are architecture-specific. It itself is not an object, and an
 /// object implementing this is never actually passed on the stack.
 /// Instead, all methods are called statically.
-pub trait Arch {
+///
+/// # Safety
+/// No method in this trait should ever panic unless it's explicitly
+/// documented as safe to do so.
+pub unsafe trait Arch {
+	/// The type of the interrupt state returned by `fetch_interrupts`
+	/// and expected by `restore_interrupts`.
+	type InterruptState: Sized + Copy;
+
 	/// Initializes shared resources the target CPU.
 	///
 	/// # Safety
@@ -29,8 +37,12 @@ pub trait Arch {
 	/// Disables interrupts for the CPU.
 	fn disable_interrupts();
 
-	/// Enables interrupts for the CPU.
-	fn enable_interrupts();
+	/// Fetches the current interrupt state.
+	fn fetch_interrupts() -> Self::InterruptState;
+
+	/// Restores the current interrupt state, re-enabling
+	/// interrupts if they were enabled before.
+	fn restore_interrupts(state: Self::InterruptState);
 
 	/// Logs a message to the debug logger (typically a serial port).
 	///
@@ -39,5 +51,34 @@ pub trait Arch {
 	///
 	/// This should NOT be used directly; instead, use the `dbg!` et al
 	/// macros from the [`oro-common`] crate.
+	///
+	/// May panic.
+	///
+	/// # Safety
+	/// Only call this function when you are certain that it is safe
+	/// to do so. You should probably be using the [`crate::dbg!`] macro instead.
+	///
+	/// Implementations must ensure
+	///
+	/// 1. the shared resource, if any, is properly guarded.
+	/// 2. no recursive calls to `log` are made (e.g. by calling `dbg!` from within `log`).
 	fn log(message: fmt::Arguments);
+}
+
+/// Performs a critical section, disabling interrupts for the
+/// duration of the block.
+///
+/// # Safety
+/// The block **MUST NOT** panic under ANY circumstances.
+#[macro_export]
+macro_rules! critical_section {
+	($Arch:ty, $body:block) => {{
+		$crate::assert_unsafe!();
+
+		let state = <$Arch>::fetch_interrupts();
+		<$Arch>::disable_interrupts();
+		let result = { $body };
+		<$Arch>::restore_interrupts(state);
+		result
+	}};
 }

@@ -10,24 +10,26 @@ use core::{
 	fmt::{self, Write},
 	mem::MaybeUninit,
 };
-use oro_common::Arch;
+use oro_common::{lock::UnfairSpinlock, Arch};
 use oro_serial_pl011::PL011;
-use spin::Mutex;
 
-static mut SERIAL: MaybeUninit<Mutex<self::PL011>> = MaybeUninit::uninit();
+static mut SERIAL: UnfairSpinlock<Aarch64, MaybeUninit<PL011>> =
+	UnfairSpinlock::new(MaybeUninit::uninit());
 
 /// aarch64 architecture support implementation for the Oro kernel.
 pub struct Aarch64;
 
-impl Arch for Aarch64 {
+unsafe impl Arch for Aarch64 {
+	type InterruptState = usize;
+
 	unsafe fn init_shared() {
 		// TODO(qix-): This is set up specifically for QEMU.
 		// TODO(qix-): This will need to be adapted to handle
 		// TODO(qix-): different UART types and a configurable
 		// TODO(qix-): base address / settings in the future.
-		SERIAL.write(Mutex::new(PL011::new(
-			0x900_0000, 24_000_000, 115_200, 8, 1,
-		)));
+		SERIAL
+			.lock()
+			.write(PL011::new(0x900_0000, 24_000_000, 115_200, 8, 1));
 	}
 
 	unsafe fn init_local() {}
@@ -40,21 +42,38 @@ impl Arch for Aarch64 {
 		}
 	}
 
+	#[allow(clippy::inline_always)]
+	#[inline(always)]
 	fn disable_interrupts() {
 		unsafe {
-			asm!("msr daifset, #2", options(nomem, nostack));
+			asm!("msr daifset, 0xf", options(nostack, nomem, preserves_flags));
 		}
 	}
 
-	fn enable_interrupts() {
+	#[allow(clippy::inline_always)]
+	#[inline(always)]
+	fn fetch_interrupts() -> Self::InterruptState {
+		let flags: usize;
 		unsafe {
-			asm!("msr daifclr, #2", options(nomem, nostack));
+			asm!("mrs {}, daif", out(reg) flags, options(nostack, nomem));
+		}
+		flags
+	}
+
+	#[allow(clippy::inline_always)]
+	#[inline(always)]
+	fn restore_interrupts(state: Self::InterruptState) {
+		unsafe {
+			asm!("msr daif, {}", in(reg) state, options(nostack, nomem));
 		}
 	}
 
 	fn log(message: fmt::Arguments) {
+		// NOTE(qix-): This unsafe block MUST NOT PANIC.
 		unsafe {
-			writeln!(SERIAL.assume_init_ref().lock(), "{message}").unwrap();
+			let mut lock = SERIAL.lock();
+			writeln!(lock.assume_init_mut(), "{message}")
 		}
+		.unwrap();
 	}
 }

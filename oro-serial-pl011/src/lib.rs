@@ -111,13 +111,13 @@ impl PL011 {
 	/// Waits for any pending transmissions to be cleared
 	pub fn flush(&self) {
 		while self.read(FR_OFFSET) & FR_BUSY != 0 {
-			::core::hint::spin_loop();
+			core::hint::spin_loop();
 		}
 	}
 }
 
-impl ::core::fmt::Write for PL011 {
-	fn write_str(&mut self, s: &str) -> ::core::fmt::Result {
+impl core::fmt::Write for PL011 {
+	fn write_str(&mut self, s: &str) -> core::fmt::Result {
 		for byte in s.bytes() {
 			self.flush();
 			self.write(DR_OFFSET, u32::from(byte));
