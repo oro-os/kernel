@@ -1,5 +1,4 @@
-//! A set of locks used by the kernel. For now, only an [`UnfairSpinlock`] is
-//! implemented.
+#![allow(clippy::module_name_repetitions)]
 
 use crate::Arch;
 use core::{

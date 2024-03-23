@@ -10,7 +10,7 @@ use core::{
 	fmt::{self, Write},
 	mem::MaybeUninit,
 };
-use oro_common::{lock::UnfairSpinlock, Arch};
+use oro_common::{sync::UnfairSpinlock, Arch};
 use oro_serial_pl011 as pl011;
 
 static mut SERIAL: UnfairSpinlock<Aarch64, MaybeUninit<pl011::PL011>> =

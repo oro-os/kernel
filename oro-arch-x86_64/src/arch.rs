@@ -3,7 +3,7 @@ use core::{
 	fmt::{self, Write},
 	mem::MaybeUninit,
 };
-use oro_common::{lock::UnfairSpinlock, Arch};
+use oro_common::{sync::UnfairSpinlock, Arch};
 use uart_16550::SerialPort;
 
 static SERIAL: UnfairSpinlock<X86_64, MaybeUninit<SerialPort>> =

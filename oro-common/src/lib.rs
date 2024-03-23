@@ -5,7 +5,7 @@
 #![deny(missing_docs)]
 
 pub mod boot;
-pub mod lock;
+pub mod sync;
 
 pub(crate) mod arch;
 pub(crate) mod dbg;
