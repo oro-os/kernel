@@ -1,7 +1,8 @@
 {
-	"llvm-target": "aarch64-unknown-none",
+	"llvm-target": "aarch64-unknown-none-softfloat",
 	"data-layout": "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128",
 	"arch": "aarch64",
+	"abi": "softfloat",
 	"target-endian": "little",
 	"target-pointer-width": "64",
 	"target-c-int-width": "32",
@@ -10,7 +11,7 @@
 	"linker": "rust-lld",
 	"panic-strategy": "abort",
 	"disable-redzone": true,
-	"features": "+strict-align,+neon",
+	"features": "+v8a,+strict-align,-neon,-fp-armv8",
 	"max-atomic-width": 128,
 	"executables": true,
 	"pre-link-args": {
