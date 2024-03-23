@@ -11,6 +11,7 @@ pub(crate) mod arch;
 pub(crate) mod dbg;
 pub(crate) mod init;
 pub(crate) mod mem;
+pub(crate) mod unsafe_macros;
 
 pub use self::{
 	arch::Arch,
@@ -21,13 +22,3 @@ pub use self::{
 		region::{MemoryRegion, MemoryRegionType},
 	},
 };
-
-/// Utility macro that requires that it's present inside of an
-/// unsafe block.
-#[macro_export]
-macro_rules! assert_unsafe {
-	() => {{
-		let _ptr = 0 as *const ();
-		let _this_macro_must_be_used_in_an_unsafe_context = *_ptr;
-	}};
-}

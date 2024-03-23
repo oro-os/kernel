@@ -34,6 +34,7 @@ syn = "2.0.15"
 limine = "0.2.0"
 uart_16550 = "0.3.0"
 static_assertions = "1.1.0"
+volatile-register = "0.2.2"
 
 [profile.dev]
 panic = "abort"            # Use "abort" panic strategy

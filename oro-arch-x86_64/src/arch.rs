@@ -12,6 +12,7 @@ static SERIAL: UnfairSpinlock<X86_64, MaybeUninit<SerialPort>> =
 /// `x86_64` architecture support implementation for the Oro kernel.
 pub struct X86_64;
 
+#[allow(clippy::inline_always)]
 unsafe impl Arch for X86_64 {
 	type InterruptState = usize;
 
@@ -22,6 +23,7 @@ unsafe impl Arch for X86_64 {
 
 	unsafe fn init_local() {}
 
+	#[cold]
 	fn halt() -> ! {
 		loop {
 			unsafe {
@@ -30,7 +32,6 @@ unsafe impl Arch for X86_64 {
 		}
 	}
 
-	#[allow(clippy::inline_always)]
 	#[inline(always)]
 	fn disable_interrupts() {
 		unsafe {
@@ -38,7 +39,6 @@ unsafe impl Arch for X86_64 {
 		}
 	}
 
-	#[allow(clippy::inline_always)]
 	#[inline(always)]
 	fn fetch_interrupts() -> Self::InterruptState {
 		let flags: usize;
@@ -48,7 +48,6 @@ unsafe impl Arch for X86_64 {
 		flags
 	}
 
-	#[allow(clippy::inline_always)]
 	#[inline(always)]
 	fn restore_interrupts(state: Self::InterruptState) {
 		unsafe {

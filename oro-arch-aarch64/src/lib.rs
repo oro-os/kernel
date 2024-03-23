@@ -11,14 +11,15 @@ use core::{
 	mem::MaybeUninit,
 };
 use oro_common::{lock::UnfairSpinlock, Arch};
-use oro_serial_pl011::PL011;
+use oro_serial_pl011 as pl011;
 
-static mut SERIAL: UnfairSpinlock<Aarch64, MaybeUninit<PL011>> =
+static mut SERIAL: UnfairSpinlock<Aarch64, MaybeUninit<pl011::PL011>> =
 	UnfairSpinlock::new(MaybeUninit::uninit());
 
 /// aarch64 architecture support implementation for the Oro kernel.
 pub struct Aarch64;
 
+#[allow(clippy::inline_always)]
 unsafe impl Arch for Aarch64 {
 	type InterruptState = usize;
 
@@ -27,13 +28,19 @@ unsafe impl Arch for Aarch64 {
 		// TODO(qix-): This will need to be adapted to handle
 		// TODO(qix-): different UART types and a configurable
 		// TODO(qix-): base address / settings in the future.
-		SERIAL
-			.lock()
-			.write(PL011::new(0x900_0000, 24_000_000, 115_200, 8, 1));
+		SERIAL.lock().write(pl011::PL011::new::<Self>(
+			0x900_0000,
+			24_000_000,
+			115_200,
+			pl011::DataBits::Eight,
+			pl011::StopBits::One,
+			pl011::Parity::None,
+		));
 	}
 
 	unsafe fn init_local() {}
 
+	#[cold]
 	fn halt() -> ! {
 		loop {
 			unsafe {
@@ -42,7 +49,6 @@ unsafe impl Arch for Aarch64 {
 		}
 	}
 
-	#[allow(clippy::inline_always)]
 	#[inline(always)]
 	fn disable_interrupts() {
 		unsafe {
@@ -50,7 +56,6 @@ unsafe impl Arch for Aarch64 {
 		}
 	}
 
-	#[allow(clippy::inline_always)]
 	#[inline(always)]
 	fn fetch_interrupts() -> Self::InterruptState {
 		let flags: usize;
@@ -60,7 +65,6 @@ unsafe impl Arch for Aarch64 {
 		flags
 	}
 
-	#[allow(clippy::inline_always)]
 	#[inline(always)]
 	fn restore_interrupts(state: Self::InterruptState) {
 		unsafe {

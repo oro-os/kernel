@@ -18,6 +18,7 @@ use limine::{
 	request::{BootTimeRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, SmpRequest},
 	response::SmpResponse,
 	smp::Cpu,
+	BaseRevision,
 };
 use oro_common::{
 	boot::{BootConfig, BootInstanceType, BootMemoryRegion, CloneIterator},
@@ -26,6 +27,8 @@ use oro_common::{
 
 const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel");
 
+#[used]
+static BASE_REVISION: BaseRevision = BaseRevision::new();
 #[used]
 static REQ_MODULES: ModuleRequest = ModuleRequest::with_revision(1)
 	.with_internal_modules(&[&InternalModule::new().with_path(KERNEL_PATH)]);

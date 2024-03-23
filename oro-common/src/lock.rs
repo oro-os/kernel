@@ -89,8 +89,7 @@ impl<A: Arch, T> UnfairSpinlock<A, T> {
 	/// # Safety
 	/// This method is unsafe because the code that acquires the lock **must not panic**.
 	/// Further, interrupts should be properly fetched prior to disabling them.
-	#[allow(clippy::inline_always)]
-	#[inline(always)]
+	#[inline]
 	#[must_use]
 	unsafe fn try_lock_with_interrupt_state(
 		&self,
