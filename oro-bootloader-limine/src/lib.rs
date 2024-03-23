@@ -184,6 +184,8 @@ unsafe fn generate_boot_config(smp_response: &SmpResponse) -> LimineBootConfig {
 /// Must ONLY be called ONCE by SECONDARY cores. DO NOT CALL FROM PRIMARY.
 /// Call `initialize_kernel` directly from the bootstrap (primary) core instead.
 unsafe extern "C" fn trampoline_to_init<A: Arch, C: CpuId>(smp: &Cpu) -> ! {
+	A::init_local();
+
 	let hhdm_res = get_response!(REQ_HHDM, "hhdm offset");
 
 	initialize_kernel::<A>(&PrebootConfig {
