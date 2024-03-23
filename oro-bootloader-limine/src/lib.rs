@@ -22,7 +22,7 @@ use limine::{
 };
 use oro_common::{
 	boot::{BootConfig, BootInstanceType, BootMemoryRegion, CloneIterator},
-	dbg, dbg_err, Arch, MemoryRegion, MemoryRegionType,
+	dbg, dbg_err, Arch, MemoryLayoutType, MemoryRegion, MemoryRegionType, PrebootConfig,
 };
 
 const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel");
@@ -124,13 +124,21 @@ pub unsafe fn init<A: Arch, C: CpuId>() -> ! {
 	}
 
 	// Finally, jump the bootstrap core to the kernel.
+	let hhdm_response = get_response!(REQ_HHDM, "hhdm offset");
+
 	dbg!(A, "limine", "booting primary cpu: {primary_cpu_id}");
-	initialize_kernel::<A>(primary_cpu_id, BootInstanceType::Primary)
+	initialize_kernel::<A>(&PrebootConfig {
+		core_id: primary_cpu_id,
+		instance_type: BootInstanceType::Primary,
+		#[allow(clippy::cast_possible_truncation)]
+		memory_layout_type: MemoryLayoutType::LinearMapped {
+			offset: hhdm_response.offset() as usize,
+		},
+	})
 }
 
 unsafe fn generate_boot_config(smp_response: &SmpResponse) -> LimineBootConfig {
 	let module_response = get_response!(REQ_MODULES, "module listing");
-	let _hhdm_response = get_response!(REQ_HHDM, "hhdm offset");
 	let mmap_response = get_response!(REQ_MMAP, "memory mapping");
 	let _time_response = get_response!(REQ_TIME, "bios timestamp response");
 	#[cfg(debug_assertions)]
@@ -176,18 +184,24 @@ unsafe fn generate_boot_config(smp_response: &SmpResponse) -> LimineBootConfig {
 /// Must ONLY be called ONCE by SECONDARY cores. DO NOT CALL FROM PRIMARY.
 /// Call `initialize_kernel` directly from the bootstrap (primary) core instead.
 unsafe extern "C" fn trampoline_to_init<A: Arch, C: CpuId>(smp: &Cpu) -> ! {
-	initialize_kernel::<A>(C::cpu_id(smp), BootInstanceType::Secondary)
+	let hhdm_res = get_response!(REQ_HHDM, "hhdm offset");
+
+	initialize_kernel::<A>(&PrebootConfig {
+		core_id: C::cpu_id(smp),
+		instance_type: BootInstanceType::Secondary,
+		#[allow(clippy::cast_possible_truncation)]
+		memory_layout_type: MemoryLayoutType::LinearMapped {
+			offset: hhdm_res.offset() as usize,
+		},
+	})
 }
 
 /// # Safety
 /// MUST be called EXACTLY ONCE per core.
 #[allow(improper_ctypes_definitions)]
-unsafe extern "C" fn initialize_kernel<A: Arch>(
-	core_id: u64,
-	boot_instance_type: BootInstanceType,
-) -> ! {
+unsafe extern "C" fn initialize_kernel<A: Arch>(preboot_config: &PrebootConfig) -> ! {
 	let boot_config = BOOT_CONFIG.assume_init_ref();
-	oro_common::boot_to_kernel::<A, _>(boot_config, core_id, boot_instance_type);
+	oro_common::boot_to_kernel::<A, _>(boot_config, preboot_config);
 }
 
 /// Panic handler for the Limine bootloader stage.

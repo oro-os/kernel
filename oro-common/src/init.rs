@@ -1,5 +1,7 @@
 use crate::{
 	boot::{BootConfig, BootInstanceType, BootMemoryRegion},
+	dbg,
+	sync::SpinBarrier,
 	Arch,
 };
 use oro_ser2mem::CloneIterator;
@@ -35,17 +37,68 @@ use oro_ser2mem::CloneIterator;
 /// There are debug assertions in place to catch these conditions during development,
 /// but they are not guaranteed to catch all cases.
 pub unsafe fn boot_to_kernel<A: Arch, M: CloneIterator<Item = BootMemoryRegion> + Clone>(
-	_config: &'static BootConfig<M>,
-	core_id: u64,
-	instance_type: BootInstanceType,
+	config: &'static BootConfig<M>,
+	preboot_config: &PrebootConfig,
 ) -> ! {
 	A::disable_interrupts();
 
-	crate::dbg!(
+	dbg!(
 		A,
 		"boot_to_kernel",
-		"booting to kernel (core_id = {core_id}, instance_type = {instance_type:?})"
+		"booting to kernel (core_id = {}, instance_type = {:?})",
+		preboot_config.core_id,
+		preboot_config.instance_type
 	);
 
+	// Wait for all cores to come online
+	{
+		static BARRIER: SpinBarrier = SpinBarrier::new();
+		if preboot_config.instance_type == BootInstanceType::Primary {
+			BARRIER.set_total::<A>(config.num_instances);
+		}
+		BARRIER.wait();
+		if preboot_config.instance_type == BootInstanceType::Primary {
+			dbg!(A, "boot_to_kernel", "all cores online");
+		}
+	}
+
 	A::halt()
+}
+
+/// Configures how the boot initialization sequence should proceed
+/// based on the environment set up by the bootloader.
+#[derive(Debug, Clone)]
+pub struct PrebootConfig {
+	/// The unique identifier for this core.
+	///
+	/// # Safety
+	/// Must be unique between all cores.
+	pub core_id: u64,
+	/// The type of instance this core is.
+	///
+	/// # Safety
+	/// Only one core may specify itself as the [`BootInstanceType::Primary`].
+	/// All others must specify themselves as [`BootInstanceType::Secondary`].
+	pub instance_type: BootInstanceType,
+	/// Memory layout of the pre-boot environment.
+	///
+	/// # Safety
+	/// This MUST be correct as it is used to reference physical pages
+	/// and other memory regions in order to map them to the new kernel
+	/// virtual memory map.
+	pub memory_layout_type: MemoryLayoutType,
+}
+
+/// The type of memory layout of the pre-boot environment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MemoryLayoutType {
+	/// The pre-boot environment has mapped all physical memory
+	/// regions to a contiguous virtual address space starting
+	/// at the given offset.
+	LinearMapped {
+		/// This offset is added to all physical addresses to find
+		/// the corresponding virtual address mapped into linear memory
+		/// by the bootloader when performing reads and writes.
+		offset: usize,
+	},
 }

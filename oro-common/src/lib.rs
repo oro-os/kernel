@@ -15,7 +15,7 @@ pub(crate) mod unsafe_macros;
 
 pub use self::{
 	arch::Arch,
-	init::boot_to_kernel,
+	init::{boot_to_kernel, MemoryLayoutType, PrebootConfig},
 	mem::{
 		pfa::PageFrameAllocator,
 		pfa_filo::{FiloPageFrameAllocator, FiloPageFrameManager},
