@@ -18,16 +18,16 @@ pub unsafe trait Arch {
 	///
 	/// # Safety
 	/// This method must be called **exactly once** at the
-	/// beginning of the kernel's execution, and **only**
-	/// by the primary CPU instance.
+	/// beginning of an execution context (boot stage or kernel),
+	/// and **only** by the primary CPU instance.
 	unsafe fn init_shared();
 
 	/// Initializes instance-local resources the target CPU.
 	///
 	/// # Safety
 	/// This method must be called **exactly once** at the
-	/// beginning of the kernel's execution, for **all**
-	/// instances, **only after** `init_shared` has been
+	/// beginning of an execution context (boot stage or kernel),
+	/// for **all** instances, **only after** `init_shared` has been
 	/// called by the primary CPU instance.
 	unsafe fn init_local();
 
