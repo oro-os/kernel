@@ -13,6 +13,5 @@ license = "MPL-2.0"
 
 [dependencies]
 oro-common.workspace = true
-spin.workspace = true
 uart_16550.workspace = true
 static_assertions.workspace = true

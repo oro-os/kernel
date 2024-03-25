@@ -14,4 +14,3 @@ license = "MPL-2.0"
 [dependencies]
 oro-common.workspace = true
 oro-serial-pl011.workspace = true
-spin.workspace = true

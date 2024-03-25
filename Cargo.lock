@@ -51,7 +51,6 @@ version = "0.0.0"
 dependencies = [
  "oro-common",
  "oro-serial-pl011",
- "spin",
 ]
 
 [[package]]
@@ -59,7 +58,6 @@ name = "oro-arch-x86_64"
 version = "0.0.0"
 dependencies = [
  "oro-common",
- "spin",
  "static_assertions",
  "uart_16550",
 ]
