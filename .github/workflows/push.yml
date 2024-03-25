@@ -41,38 +41,54 @@ jobs:
     strategy:
       matrix:
         profile: ["dev", "release"]
+        flags: [
+          "--all-features",
+          "--no-default-features"
+        ]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/rust
       - name: Build
-        run: cargo kernel-x86_64 --profile ${{ matrix.profile }}
+        run: cargo kernel-x86_64 --profile ${{ matrix.profile }} ${{ matrix.flags }}
   build-limine-x86_64:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         profile: ["dev", "release"]
+        flags: [
+          "--all-features",
+          "--no-default-features"
+        ]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/rust
       - name: Build
-        run: cargo limine-x86_64 --profile ${{ matrix.profile }}
+        run: cargo limine-x86_64 --profile ${{ matrix.profile }} ${{ matrix.flags }}
   build-kernel-aarch64:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         profile: ["dev", "release"]
+        flags: [
+          "--all-features",
+          "--no-default-features"
+        ]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/rust
       - name: Build
-        run: cargo kernel-aarch64 --profile ${{ matrix.profile }}
+        run: cargo kernel-aarch64 --profile ${{ matrix.profile }} ${{ matrix.flags }}
   build-limine-aarch64:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         profile: ["dev", "release"]
+        flags: [
+          "--all-features",
+          "--no-default-features"
+        ]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/rust
       - name: Build
-        run: cargo limine-aarch64 --profile ${{ matrix.profile }}
+        run: cargo limine-aarch64 --profile ${{ matrix.profile }} ${{ matrix.flags }}
