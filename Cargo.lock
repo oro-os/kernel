@@ -51,6 +51,7 @@ version = "0.0.0"
 dependencies = [
  "oro-common",
  "oro-serial-pl011",
+ "static_assertions",
 ]
 
 [[package]]

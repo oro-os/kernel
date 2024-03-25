@@ -18,7 +18,7 @@ macro_rules! unsafe_precondition {
 
 		#[cfg(debug_assertions)]
 		if !$cond {
-			<$Arch>::halt();
+			<$Arch as $crate::Arch>::halt();
 		}
 
 		#[cfg(not(debug_assertions))]
@@ -27,7 +27,7 @@ macro_rules! unsafe_precondition {
 			// We do this so that $A is always used and
 			// doesn't get a compiler error when it's coming
 			// from a template parameter.
-			<$Arch>::halt();
+			<$Arch as $crate::Arch>::halt();
 		}
 	};
 }

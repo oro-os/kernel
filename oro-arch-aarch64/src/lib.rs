@@ -6,5 +6,12 @@
 #![cfg(not(all(doc, not(target_arch = "aarch64"))))]
 
 pub(crate) mod arch;
+pub(crate) mod mem;
 
-pub use self::arch::Aarch64;
+pub use self::{
+	arch::Aarch64,
+	mem::paging::{
+		L012PageTableBlock, L012PageTableDescriptor, L3PageTableBlock, PageTable, PageTableEntry,
+		PageTableEntryType,
+	},
+};
