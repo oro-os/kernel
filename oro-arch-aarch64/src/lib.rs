@@ -14,12 +14,16 @@ pub use self::{
 	mem::paging::{
 		L0PageTableDescriptor, L1PageTableBlockDescriptor, L1PageTableDescriptor,
 		L2PageTableBlockDescriptor, L2PageTableDescriptor, L3PageTableBlockDescriptor, PageTable,
-		PageTableEntry, PageTableEntryAddress, PageTableEntryNextLevelAttr, PageTableEntrySubtype,
-		PageTableEntryTableAccessPerm, PageTableEntryType, PageTableEntryValidAttr,
+		PageTableEntry, PageTableEntryAddress, PageTableEntryBlockAccessPerm,
+		PageTableEntryBlockDescriptorAttr, PageTableEntryNoExecAttr, PageTableEntryShareability,
+		PageTableEntrySubtype, PageTableEntryTableAccessPerm, PageTableEntryTableDescriptorAttr,
+		PageTableEntryType, PageTableEntryValidAttr,
 	},
 };
 
 #[cfg(feature = "unstable")]
 pub use self::mem::paging::{
-	PageTableEntryAddressConst, PageTableEntryNextLevelAttrConst, PageTableEntryValidAttrConst,
+	PageTableEntryAddressConst, PageTableEntryBlockDescriptorAttrConst,
+	PageTableEntryNoExecAttrConst, PageTableEntryTableDescriptorAttrConst,
+	PageTableEntryValidAttrConst,
 };

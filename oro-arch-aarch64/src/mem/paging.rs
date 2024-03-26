@@ -16,6 +16,11 @@
 //!   no considerations were made about how these structures may be
 //!   used in stage 2 translations.
 //!
+//! - The terms "block" and "page" are used interchangeably in the
+//!   implementation, but typically they're referred to as "block"
+//!   descriptors so as to make physical page types and operations
+//!   a bit more pronounced.
+//!
 //! For future reference, check D5.2.3 of the ARMv8-A Architecture
 //! Reference Manual (ARM DDI 0487A.a) for more information.
 //!
@@ -241,8 +246,18 @@ pub trait PageTableEntrySubtype {
 		((1 << (Self::ADDR_MASK_HIGH_BIT + 1)) - 1) & !((1 << (Self::ADDR_MASK_LOW_BIT)) - 1);
 }
 
+macro_rules! descriptor_init_value {
+	(table) => {
+		!0b1 | 0b10 | PageTableEntryTableAccessPerm::default_const() as u64
+	};
+	(block) => {
+		!0b1 | PageTableEntryShareability::default_const() as u64
+			| PageTableEntryBlockAccessPerm::default_const() as u64
+	};
+}
+
 macro_rules! define_descriptor {
-	($name:ident, $init:expr, $addr_mask_high:expr, $addr_mask_low:expr) => {
+	($implty:tt $name:ident, $addr_mask_high:expr, $addr_mask_low:expr) => {
 		/// A single page table entry subtype.
 		#[derive(Debug, Clone, Copy)]
 		#[repr(C, align(8))]
@@ -268,13 +283,13 @@ macro_rules! define_descriptor {
 			#[inline(always)]
 			#[must_use]
 			pub const fn new() -> Self {
-				Self($init & !0b1)
+				Self(descriptor_init_value!($implty))
 			}
 
 			/// Resets the page table entry to its initial state.
 			#[inline(always)]
 			pub fn reset(&mut self) {
-				self.0 = $init & !0b1;
+				self.0 = descriptor_init_value!($implty);
 			}
 		}
 
@@ -305,14 +320,13 @@ macro_rules! define_descriptor {
 	};
 }
 
-define_descriptor!(L0PageTableDescriptor, 0b10, 47, 12);
-define_descriptor!(L1PageTableDescriptor, 0b10, 47, 12);
-define_descriptor!(L2PageTableDescriptor, 0b10, 47, 12);
+define_descriptor!(table L0PageTableDescriptor, 47, 12);
+define_descriptor!(table L1PageTableDescriptor, 47, 12);
+define_descriptor!(table L2PageTableDescriptor, 47, 12);
 
-define_descriptor!(L1PageTableBlockDescriptor, 0, 47, 30);
-define_descriptor!(L2PageTableBlockDescriptor, 0, 47, 21);
-
-define_descriptor!(L3PageTableBlockDescriptor, 0b10, 47, 12);
+define_descriptor!(block L1PageTableBlockDescriptor, 47, 30);
+define_descriptor!(block L2PageTableBlockDescriptor, 47, 21);
+define_descriptor!(block L3PageTableBlockDescriptor, 47, 12);
 
 impl<T> From<T> for PageTableEntry
 where
@@ -402,9 +416,9 @@ pub trait PageTableEntryValidAttrConst: GetRawConst {
 #[cfg(feature = "unstable")]
 impl<T> const PageTableEntryValidAttrConst for T where T: PageTableEntryValidAttr + GetRawConst {}
 
-/// Provides access to the next-level bits of the upper attributes
+/// Provides access to the table descriptor bits of the upper attributes
 /// of page table descriptors.
-pub trait PageTableEntryNextLevelAttr: GetRaw {
+pub trait PageTableEntryTableDescriptorAttr: GetRaw {
 	/// Returns the [`PageTableEntryTableAccessPerm`] of the page table entry.
 	#[inline(always)]
 	fn table_access_permissions(&self) -> PageTableEntryTableAccessPerm {
@@ -425,123 +439,259 @@ pub trait PageTableEntryNextLevelAttr: GetRaw {
 	unsafe fn set_table_access_permissions(&mut self, perm: PageTableEntryTableAccessPerm) {
 		*self.get_raw_mut() = (self.get_raw() & !(0b11 << 61)) | perm as u64;
 	}
-
-	/// Checks if the unprivileged (EL0) no-execute bit is set.
-	/// If true, translations made during instruction fetching
-	/// in the EL0 privilege level will fail.
-	#[inline(always)]
-	#[must_use]
-	fn user_no_exec(&self) -> bool {
-		self.get_raw() & (1 << 60) != 0
-	}
-
-	/// Sets the unprivileged (EL0) no-execute bit.
-	///
-	/// Requires a course-grained TLB invalidation of
-	/// any and all page table entries that may have been
-	/// affected by this change (including those in subsequent
-	/// levels).
-	///
-	/// # Safety
-	/// See _D5.5 Access controls and memory region attributes_
-	/// in the ARMv8-A Architecture Reference Manual (ARM DDI 0487A.a).
-	#[inline(always)]
-	unsafe fn set_user_no_exec(&mut self) {
-		*self.get_raw_mut() |= 1 << 60;
-	}
-
-	/// Clears the unprivileged (EL0) no-execute bit.
-	///
-	/// # Safety
-	/// See [`PageTableEntryNextLevelAttr::set_user_no_exec`] for information
-	/// about proper TLB invalidation.
-	#[inline(always)]
-	unsafe fn clear_user_no_exec(&mut self) {
-		*self.get_raw_mut() &= !(1 << 60);
-	}
-
-	/// Checks if the privileged (EL1) no-execute bit is set.
-	/// If true, translations made during instruction fetching
-	/// in the EL1 privilege level will fail.
-	///
-	/// Note that unprivileged (EL0) access is not affected by this bit.
-	#[inline(always)]
-	#[must_use]
-	fn kernel_no_exec(&self) -> bool {
-		self.get_raw() & (1 << 59) != 0
-	}
-
-	/// Sets the privileged (EL1) no-execute bit.
-	/// Note that unprivileged (EL0) access is not affected by this bit.
-	///
-	/// # Safety
-	/// Requires a course-grained TLB invalidation of
-	/// any and all page table entries that may have been
-	/// affected by this change (including those in subsequent
-	/// levels).
-	#[inline(always)]
-	unsafe fn set_kernel_no_exec(&mut self) {
-		*self.get_raw_mut() |= 1 << 59;
-	}
-
-	/// Clears the privileged (EL1) no-execute bit.
-	/// Note that unprivileged (EL0) access is not affected by this bit.
-	///
-	/// # Safety
-	/// See [`PageTableEntryNextLevelAttr::set_kernel_no_exec`] for information
-	/// about proper TLB invalidation.
-	#[inline(always)]
-	unsafe fn clear_kernel_no_exec(&mut self) {
-		*self.get_raw_mut() &= !(1 << 59);
-	}
 }
 
-impl PageTableEntryNextLevelAttr for L0PageTableDescriptor {}
-impl PageTableEntryNextLevelAttr for L1PageTableDescriptor {}
-impl PageTableEntryNextLevelAttr for L2PageTableDescriptor {}
+impl PageTableEntryTableDescriptorAttr for L0PageTableDescriptor {}
+impl PageTableEntryTableDescriptorAttr for L1PageTableDescriptor {}
+impl PageTableEntryTableDescriptorAttr for L2PageTableDescriptor {}
 
 /// Provides access to the next-level bits of the upper attributes
 /// of page table descriptors via `const` methods.
 #[cfg(feature = "unstable")]
-pub trait PageTableEntryNextLevelAttrConst: GetRawConst {
+pub trait PageTableEntryTableDescriptorAttrConst: GetRawConst {
 	/// Replaces the [`PageTableEntryTableAccessPerm`] of the page table entry.
 	///
 	/// # Safety
-	/// See [`PageTableEntryNextLevelAttr::set_table_access_permissions`] for information
+	/// See [`PageTableEntryTableDescriptorAttr::set_table_access_permissions`] for information
 	/// about proper TLB invalidation.
 	#[inline(always)]
 	#[must_use]
 	unsafe fn with_table_access_permissions(self, perm: PageTableEntryTableAccessPerm) -> Self {
 		Self::with((self.to_raw() & !(0b11 << 61)) | perm as u64)
 	}
+}
 
-	/// Replaces the unprivileged (EL0) no-execute bit of the page table entry.
-	///
-	/// # Safety
-	/// See [`PageTableEntryNextLevelAttr::set_user_no_exec`] for information
-	/// about proper TLB invalidation.
+#[cfg(feature = "unstable")]
+impl<T> const PageTableEntryTableDescriptorAttrConst for T where
+	T: PageTableEntryTableDescriptorAttr + GetRawConst
+{
+}
+
+/// Provides access to the block descriptor attributes.
+pub trait PageTableEntryBlockDescriptorAttr: GetRaw {
+	/// Checks if the page table entry is a contiguous block.
 	#[inline(always)]
 	#[must_use]
-	unsafe fn with_user_no_exec(self) -> Self {
-		Self::with(self.to_raw() | (1 << 60))
+	fn contiguous(&self) -> bool {
+		self.get_raw() & (1 << 52) != 0
 	}
 
-	/// Replaces the privileged (EL1) no-execute bit of the page table entry.
-	/// Note that unprivileged (EL0) access is not affected by this bit.
+	/// Sets the page table entry as a contiguous block.
 	///
 	/// # Safety
-	/// See [`PageTableEntryNextLevelAttr::set_kernel_no_exec`] for information
-	/// about proper TLB invalidation.
+	/// Caller must ensure that the page table entry is actually contiguous.
+	#[inline(always)]
+	unsafe fn set_contiguous(&mut self) {
+		*self.get_raw_mut() |= 1 << 52;
+	}
+
+	/// Clears the page table entry as a contiguous block.
+	///
+	/// # Safety
+	/// Caller must ensure that the page table entry is not contiguous,
+	/// and that other entries will not adversely affect memory management.
+	#[inline(always)]
+	unsafe fn clear_contiguous(&mut self) {
+		*self.get_raw_mut() &= !(1 << 52);
+	}
+
+	/// Checks if the page is **not** global.
+	///
+	/// **NOTE:** This bit is an inverse bit; if it is **high**,
+	/// then the page is **not global**. If it is **low**,
+	/// then the page **is global**.
 	#[inline(always)]
 	#[must_use]
-	unsafe fn with_kernel_no_exec(self) -> Self {
-		Self::with(self.to_raw() | (1 << 59))
+	fn not_global(&self) -> bool {
+		self.get_raw() & (1 << 11) != 0
+	}
+
+	/// Sets the page as **not** global.
+	///
+	/// **NOTE:** This bit is an inverse bit; if it is **high**,
+	/// then the page is **not global**. If it is **low**,
+	/// then the page **is global**.
+	///
+	/// By calling this method, the page is marked as **not global**,
+	#[inline(always)]
+	fn set_not_global(&mut self) {
+		*self.get_raw_mut() |= 1 << 11;
+	}
+
+	/// Clears the page as **not** global.
+	///
+	/// **NOTE:** This bit is an inverse bit; if it is **high**,
+	/// then the page is **not global**. If it is **low**,
+	/// then the page **is global**.
+	///
+	/// By calling this method, the page is marked as **global**.
+	#[inline(always)]
+	fn clear_not_global(&mut self) {
+		*self.get_raw_mut() &= !(1 << 11);
+	}
+
+	/// Checks if the page is **not** secure.
+	///
+	/// **NOTE:** This bit is an inverse bit; if it is **high**,
+	/// then the page is **not secure**. If it is **low**,
+	/// then the page **is secure**.
+	#[inline(always)]
+	#[must_use]
+	fn not_secure(&self) -> bool {
+		self.get_raw() & (1 << 5) != 0
+	}
+
+	/// Sets the page as **not** secure.
+	///
+	/// **NOTE:** This bit is an inverse bit; if it is **high**,
+	/// then the page is **not secure**. If it is **low**,
+	/// then the page **is secure**.
+	///
+	/// By calling this method, the page is marked as **not secure**,
+	#[inline(always)]
+	fn set_not_secure(&mut self) {
+		*self.get_raw_mut() |= 1 << 5;
+	}
+
+	/// Clears the page as **not** secure.
+	///
+	/// **NOTE:** This bit is an inverse bit; if it is **high**,
+	/// then the page is **not secure**. If it is **low**,
+	/// then the page **is secure**.
+	///
+	/// By calling this method, the page is marked as **secure**.
+	#[inline(always)]
+	fn clear_not_secure(&mut self) {
+		*self.get_raw_mut() &= !(1 << 5);
+	}
+
+	/// Gets the access flag of the block entry.
+	///
+	/// **NOTE:** This entry is not held in the TLB if it is set to `0`.
+	///
+	/// Important note from the ARMv8-A Architecture Reference Manual:
+	///
+	/// > The Access flag mechanism expects that, when an Access flag fault occurs,
+	/// > software resets the Access flag to 1 in the translation table entry that
+	/// > caused the fault. This prevents the fault occurring the next time that
+	/// > memory location is accessed. Entries with the Access flag set to 0 are
+	/// > never held in the TLB, meaning software does not have to flush the entry
+	/// > from the TLB after setting the flag.
+	#[inline(always)]
+	#[must_use]
+	fn access_flag(&self) -> bool {
+		self.get_raw() & (1 << 10) != 0
+	}
+
+	/// Sets the access flag of the block entry.
+	///
+	/// **You probably don't want to be setting this manually.**
+	///
+	/// **NOTE:** This entry is not held in the TLB if it is set to `0`.
+	///
+	/// See [`PageTableEntryBlockDescriptorAttr::access_flag`] for more information
+	/// regarding the proper management of this bit.
+	///
+	/// # Safety
+	/// Caller must ensure that the page table entry is properly managed.
+	///
+	/// **You probably don't want to be setting this manually.** Make sure to
+	/// understand the effects of setting this bit before using it.
+	#[inline(always)]
+	unsafe fn set_access_flag(&mut self) {
+		*self.get_raw_mut() |= 1 << 10;
+	}
+
+	/// Clears the access flag of the block entry.
+	///
+	/// **NOTE:** This entry is not held in the TLB if it is set to `0`.
+	///
+	/// See [`PageTableEntryBlockDescriptorAttr::access_flag`] for more information
+	/// regarding the proper management of this bit.
+	///
+	/// # Safety
+	/// Caller must ensure that the page table entry is properly managed.
+	/// Namely, clearing this bit probably means that the page table entry
+	/// was held in the TLB and thus the TLB entry should be invalidated.
+	#[inline(always)]
+	unsafe fn clear_access_flag(&mut self) {
+		*self.get_raw_mut() &= !(1 << 10);
+	}
+
+	/// Gets the MAIR index of the block entry.
+	#[inline(always)]
+	fn mair_index(&self) -> u64 {
+		(self.get_raw() & (0b111 << 2)) >> 2
+	}
+
+	/// Sets the MAIR index of the block entry,
+	/// without masking bits.
+	///
+	/// **You probably shouldn't use this method unless
+	/// you're passing a literal or can guarantee that the
+	/// MAIR index is `0..=7`.**
+	///
+	/// # Safety
+	/// Caller must ensure that the MAIR index refers to
+	/// a properly set up MAIR register attribute.
+	///
+	/// Further, caller must NOT pass a value above 7.
+	#[inline(always)]
+	unsafe fn set_mair_index_unchecked(&mut self, index: u64) {
+		unsafe_precondition!(crate::Aarch64, index <= 7, "index must be 0..=7");
+		*self.get_raw_mut() = (self.get_raw() & !(0b111 << 2)) | (index << 2);
+	}
+
+	/// Sets the MAIR index of the block entry.
+	///
+	/// Values above 7 are masked to the lowest
+	/// 3 bits.
+	#[inline(always)]
+	fn set_mair_index(&mut self, index: u64) {
+		unsafe { self.set_mair_index_unchecked(index & 0b111) }
+	}
+}
+
+impl PageTableEntryBlockDescriptorAttr for L1PageTableBlockDescriptor {}
+impl PageTableEntryBlockDescriptorAttr for L2PageTableBlockDescriptor {}
+impl PageTableEntryBlockDescriptorAttr for L3PageTableBlockDescriptor {}
+
+/// Provides access to the block descriptor attributes
+/// via `const` methods.
+#[cfg(feature = "unstable")]
+pub trait PageTableEntryBlockDescriptorAttrConst: GetRawConst {
+	/// Replaces the contiguous bit of the page table entry.
+	///
+	/// # Safety
+	/// Caller must ensure that the page table entry is actually contiguous.
+	#[inline(always)]
+	#[must_use]
+	unsafe fn with_contiguous(self) -> Self {
+		Self::with(self.to_raw() | 1 << 52)
+	}
+
+	/// Replaces the not-global bit of the page table entry.
+	///
+	/// See [`PageTableEntryBlockDescriptorAttr::set_not_global`] for more information.
+	#[inline(always)]
+	#[must_use]
+	fn with_not_global(self) -> Self {
+		Self::with(self.to_raw() | 1 << 11)
+	}
+
+	/// Replaces the not-secure bit of the page table entry.
+	///
+	/// See [`PageTableEntryBlockDescriptorAttr::set_not_secure`] for more information.
+	#[inline(always)]
+	#[must_use]
+	fn with_not_secure(self) -> Self {
+		Self::with(self.to_raw() | 1 << 5)
 	}
 }
 
 #[cfg(feature = "unstable")]
-impl<T> const PageTableEntryNextLevelAttrConst for T where
-	T: PageTableEntryNextLevelAttr + GetRawConst
+impl<T> const PageTableEntryBlockDescriptorAttrConst for T where
+	T: PageTableEntryBlockDescriptorAttr + GetRawConst
 {
 }
 
@@ -596,19 +746,157 @@ pub trait PageTableEntryAddressConst: GetRawConst + PageTableEntrySubtype {
 }
 
 #[cfg(feature = "unstable")]
-impl<T> PageTableEntryAddressConst for T where T: PageTableEntrySubtype + GetRawConst {}
+impl<T> const PageTableEntryAddressConst for T where T: PageTableEntrySubtype + GetRawConst {}
 
-/// Access protection bits for a page table entry.
+/// Provides access to the no-execute bits of a page table entry.
+pub trait PageTableEntryNoExecAttr: GetRaw {
+	/// The bit offset of the unprivileged (EL0) no-execute bit (UXN).
+	const NO_EXEC_USER_BIT_OFFSET: u64;
+	/// The bit offset of the privileged (EL1) no-execute bit (PXN).
+	const NO_EXEC_KERNEL_BIT_OFFSET: u64;
+
+	/// Checks if the unprivileged (EL0) no-execute bit is set.
+	/// If true, translations made during instruction fetching
+	/// in the EL0 privilege level will fail.
+	#[must_use]
+	#[inline(always)]
+	fn user_no_exec(&self) -> bool {
+		self.get_raw() & (1 << Self::NO_EXEC_USER_BIT_OFFSET) != 0
+	}
+
+	/// Sets the unprivileged (EL0) no-execute bit.
+	///
+	/// Requires a course-grained TLB invalidation of
+	/// any and all page table entries that may have been
+	/// affected by this change (including those in subsequent
+	/// levels).
+	///
+	/// # Safety
+	/// See _D5.5 Access controls and memory region attributes_
+	/// in the ARMv8-A Architecture Reference Manual (ARM DDI 0487A.a).
+	#[inline(always)]
+	unsafe fn set_user_no_exec(&mut self) {
+		*self.get_raw_mut() |= 1 << Self::NO_EXEC_USER_BIT_OFFSET;
+	}
+
+	/// Clears the unprivileged (EL0) no-execute bit.
+	///
+	/// # Safety
+	/// See [`PageTableEntryNoExecAttr::set_user_no_exec`] for information
+	/// about proper TLB invalidation.
+	#[inline(always)]
+	unsafe fn clear_user_no_exec(&mut self) {
+		*self.get_raw_mut() &= !(1 << Self::NO_EXEC_USER_BIT_OFFSET);
+	}
+
+	/// Checks if the privileged (EL1) no-execute bit is set.
+	/// If true, translations made during instruction fetching
+	/// in the EL1 privilege level will fail.
+	///
+	/// Note that unprivileged (EL0) access is not affected by this bit.
+	#[inline(always)]
+	#[must_use]
+	fn kernel_no_exec(&self) -> bool {
+		self.get_raw() & (1 << Self::NO_EXEC_KERNEL_BIT_OFFSET) != 0
+	}
+
+	/// Sets the privileged (EL1) no-execute bit.
+	/// Note that unprivileged (EL0) access is not affected by this bit.
+	///
+	/// # Safety
+	/// Requires a course-grained TLB invalidation of
+	/// any and all page table entries that may have been
+	/// affected by this change (including those in subsequent
+	/// levels).
+	#[inline(always)]
+	unsafe fn set_kernel_no_exec(&mut self) {
+		*self.get_raw_mut() |= 1 << Self::NO_EXEC_KERNEL_BIT_OFFSET;
+	}
+
+	/// Clears the privileged (EL1) no-execute bit.
+	/// Note that unprivileged (EL0) access is not affected by this bit.
+	///
+	/// # Safety
+	/// See [`PageTableEntryNoExecAttr::set_kernel_no_exec`] for information
+	/// about proper TLB invalidation.
+	#[inline(always)]
+	unsafe fn clear_kernel_no_exec(&mut self) {
+		*self.get_raw_mut() &= !(1 << Self::NO_EXEC_KERNEL_BIT_OFFSET);
+	}
+}
+
+// FIXME(qix-): Remove this when trait negations ever land.
+// FIXME(qix-): https://github.com/rust-lang/rust/issues/42721
+macro_rules! impl_no_exec {
+	(user_offset = $user_off:literal, kernel_offset = $kernel_off:literal, $( $t:ty ),*) => {
+		$(impl PageTableEntryNoExecAttr for $t {
+			const NO_EXEC_USER_BIT_OFFSET: u64 = $user_off;
+			const NO_EXEC_KERNEL_BIT_OFFSET: u64 = $kernel_off;
+		})*
+	};
+}
+
+impl_no_exec!(
+	user_offset = 60,
+	kernel_offset = 59,
+	L0PageTableDescriptor,
+	L1PageTableDescriptor,
+	L2PageTableDescriptor
+);
+impl_no_exec!(
+	user_offset = 54,
+	kernel_offset = 53,
+	L1PageTableBlockDescriptor,
+	L2PageTableBlockDescriptor,
+	L3PageTableBlockDescriptor
+);
+
+/// Provides access to the no-execute bits of a page table entry
+/// via `const` methods.
+#[cfg(feature = "unstable")]
+pub trait PageTableEntryNoExecAttrConst: GetRawConst + PageTableEntryNoExecAttr {
+	/// Replaces the unprivileged (EL0) no-execute bit of the page table entry.
+	///
+	/// # Safety
+	/// See [`PageTableEntryNoExecAttr::set_user_no_exec`] for information
+	/// about proper TLB invalidation.
+	#[must_use]
+	unsafe fn with_user_no_exec(self) -> Self {
+		Self::with(self.to_raw() | (1 << Self::NO_EXEC_USER_BIT_OFFSET))
+	}
+
+	/// Replaces the privileged (EL1) no-execute bit of the page table entry.
+	/// Note that unprivileged (EL0) access is not affected by this bit.
+	///
+	/// # Safety
+	/// See [`PageTableEntryNoExecAttr::set_kernel_no_exec`] for information
+	/// about proper TLB invalidation.
+	#[must_use]
+	unsafe fn with_kernel_no_exec(self) -> Self {
+		Self::with(self.to_raw() | (1 << Self::NO_EXEC_KERNEL_BIT_OFFSET))
+	}
+}
+
+#[cfg(feature = "unstable")]
+const _: () = {
+	impl const PageTableEntryNoExecAttrConst for L0PageTableDescriptor {}
+	impl const PageTableEntryNoExecAttrConst for L1PageTableDescriptor {}
+	impl const PageTableEntryNoExecAttrConst for L2PageTableDescriptor {}
+	impl const PageTableEntryNoExecAttrConst for L1PageTableBlockDescriptor {}
+	impl const PageTableEntryNoExecAttrConst for L2PageTableBlockDescriptor {}
+	impl const PageTableEntryNoExecAttrConst for L3PageTableBlockDescriptor {}
+};
+
+/// Access protection bits for a page table descriptor entry.
 /// These permissions are adhered to even if subsequent
 /// levels have less restrictive permissions.
 ///
 /// Note that these are different from the AP flags
-/// for L3 block entry access permission bits.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// for block entry access permission bits ([`PageTableEntryBlockAccessPerm`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u64)]
 pub enum PageTableEntryTableAccessPerm {
 	/// No effect on subsequent lookups
-	#[default]
 	NoEffect = 0b00 << 61,
 	/// No access from EL0 (kernel only)
 	KernelOnly = 0b01 << 61,
@@ -616,4 +904,91 @@ pub enum PageTableEntryTableAccessPerm {
 	ReadOnly = 0b10 << 61,
 	/// Read-only, but not accessible from EL0 (kernel only)
 	KernelReadOnly = 0b11 << 61,
+}
+
+impl PageTableEntryTableAccessPerm {
+	/// Returns the default access permissions of the page table entry.
+	#[inline(always)]
+	#[must_use]
+	pub const fn default_const() -> Self {
+		Self::NoEffect
+	}
+}
+
+impl Default for PageTableEntryTableAccessPerm {
+	#[inline(always)]
+	fn default() -> Self {
+		Self::default_const()
+	}
+}
+
+/// Shareability of normal memory pages (stage 1).
+///
+/// More information:
+/// <https://developer.arm.com/documentation/den0024/a/Memory-Ordering/Memory-attributes/Cacheable-and-shareable-memory-attributes>
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u64)]
+pub enum PageTableEntryShareability {
+	/// Non-shareable
+	None = 0b00 << 8,
+	/// Outer shareable
+	Outer = 0b10 << 8,
+	/// Inner shareable (the default)
+	Inner = 0b11 << 8,
+}
+
+impl PageTableEntryShareability {
+	/// Returns the default shareability of the page table entry.
+	#[inline(always)]
+	#[must_use]
+	pub const fn default_const() -> Self {
+		Self::Inner
+	}
+}
+
+impl Default for PageTableEntryShareability {
+	#[inline(always)]
+	fn default() -> Self {
+		Self::default_const()
+	}
+}
+
+/// Access protection bits for a paget table block entry.
+/// These permissions are adhered to even if subsequent
+/// levels have less restrictive permissions.
+///
+/// Note that these are different from the AP flags
+/// for table descriptor entry access permission bits
+/// ([`PageTableEntryTableAccessPerm`]).
+///
+/// # Safety
+/// By default, all memory is marked as inaccessible from EL0
+/// (unprivileged code), but read/write from EL1 (kernel code).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u64)]
+pub enum PageTableEntryBlockAccessPerm {
+	/// EL1 (kernel) read/write, EL0 (user) no access
+	KernelRWUserNoAccess = 0b00 << 6,
+	/// EL1 (kernel) read/write, EL0 (user) read/write
+	KernelRWUserRW = 0b01 << 6,
+	/// EL1 (kernel) read-only, EL0 (user) no access
+	KernelROUserNoAccess = 0b10 << 6,
+	/// EL1 (kernel) read-only, EL0 (user) read-only
+	KernelROUserRO = 0b11 << 6,
+}
+
+impl PageTableEntryBlockAccessPerm {
+	/// Returns the default access permissions of the page table entry.
+	#[inline(always)]
+	#[must_use]
+	pub const fn default_const() -> Self {
+		Self::KernelRWUserNoAccess
+	}
+}
+
+impl Default for PageTableEntryBlockAccessPerm {
+	#[inline(always)]
+	fn default() -> Self {
+		Self::default_const()
+	}
 }
