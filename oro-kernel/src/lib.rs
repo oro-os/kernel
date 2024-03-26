@@ -5,15 +5,12 @@
 #![no_std]
 #![deny(missing_docs)]
 
-use core::{
-	mem::MaybeUninit,
-	sync::atomic::{AtomicBool, Ordering},
-};
 use oro_common::{
 	boot::{BootInstanceType, KernelBootConfig},
+	dbg,
+	sync::SpinBarrier,
 	Arch,
 };
-use spin::Barrier;
 
 /// Runs the kernel.
 ///
@@ -25,40 +22,33 @@ use spin::Barrier;
 ///
 /// Further, all architecture-specific setup MUST have completed
 /// on ALL CORES before calling this function.
-///
-/// # Panics
-/// Will panic if the number of CPU instances exceeds `usize::MAX`.
-/// This depends entirely on the size of `usize` on the target architecture,
-/// and will likely never be the case (if it _is_ the case, please email us;
-/// we'd love to hear about it).
 pub unsafe fn boot<A: Arch>(
 	boot_config: &'static KernelBootConfig,
 	boot_instance_type: BootInstanceType,
 ) -> ! {
-	static BARRIER_INIT: AtomicBool = AtomicBool::new(false);
-	static mut BARRIER: MaybeUninit<Barrier> = MaybeUninit::uninit();
+	A::disable_interrupts();
 
-	if boot_instance_type == BootInstanceType::Primary {
-		assert!(
-			usize::try_from(boot_config.num_instances).is_ok(),
-			"too many cpu instances; max is usize::MAX = {}; number specified = {}",
-			usize::MAX,
-			boot_config.num_instances
-		);
+	// Bring all cores online
+	{
+		static BARRIER: SpinBarrier = SpinBarrier::new();
 
-		#[allow(clippy::cast_possible_truncation)]
-		BARRIER.write(Barrier::new(boot_config.num_instances as usize));
-		BARRIER_INIT.store(true, Ordering::Relaxed);
+		if boot_instance_type == BootInstanceType::Primary {
+			A::init_shared();
+			A::init_local();
 
-		A::init_shared();
-	} else {
-		while !BARRIER_INIT.load(Ordering::Relaxed) {
-			::core::hint::spin_loop();
+			// Just to be on the safe side, we initialize
+			// the barrier only after we've initialized the core.
+			BARRIER.set_total::<A>(boot_config.num_instances);
+		} else {
+			A::init_local();
+		}
+
+		BARRIER.wait();
+
+		if boot_instance_type == BootInstanceType::Primary {
+			dbg!(A, "boot", "all cores online");
 		}
 	}
-
-	A::init_local();
-	BARRIER.assume_init_ref().wait();
 
 	A::halt()
 }
