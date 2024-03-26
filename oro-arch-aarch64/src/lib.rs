@@ -11,13 +11,19 @@ pub(crate) mod mem;
 
 pub use self::{
 	arch::Aarch64,
-	mem::paging::{
-		L0PageTableDescriptor, L1PageTableBlockDescriptor, L1PageTableDescriptor,
-		L2PageTableBlockDescriptor, L2PageTableDescriptor, L3PageTableBlockDescriptor, PageTable,
-		PageTableEntry, PageTableEntryAddress, PageTableEntryBlockAccessPerm,
-		PageTableEntryBlockDescriptorAttr, PageTableEntryNoExecAttr, PageTableEntryShareability,
-		PageTableEntrySubtype, PageTableEntryTableAccessPerm, PageTableEntryTableDescriptorAttr,
-		PageTableEntryType, PageTableEntryValidAttr,
+	mem::{
+		mair::{
+			MairAttributes, MairCacheability, MairDeviceAttribute, MairMemoryAttributes,
+			MairRegister,
+		},
+		paging::{
+			L0PageTableDescriptor, L1PageTableBlockDescriptor, L1PageTableDescriptor,
+			L2PageTableBlockDescriptor, L2PageTableDescriptor, L3PageTableBlockDescriptor,
+			PageTable, PageTableEntry, PageTableEntryAddress, PageTableEntryBlockAccessPerm,
+			PageTableEntryBlockDescriptorAttr, PageTableEntryNoExecAttr,
+			PageTableEntryShareability, PageTableEntrySubtype, PageTableEntryTableAccessPerm,
+			PageTableEntryTableDescriptorAttr, PageTableEntryType, PageTableEntryValidAttr,
+		},
 	},
 };
 
