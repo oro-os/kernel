@@ -256,9 +256,28 @@ macro_rules! descriptor_init_value {
 	};
 }
 
+// FIXME(qix-): Workaround for a rustfmt bug where, when inlined
+// FIXME(qix-): with the #[doc = ...] attribute on the subtype's
+// FIXME(qix-): ::new() function, the doc comment keeps getting
+// FIXME(qix-): indented whenever rustfmt runs.
+macro_rules! descriptor_doc {
+	($doc:literal) => {
+		concat!(
+			"Creates a new ",
+			$doc,
+			" with an initialization value.\n\n",
+			"This constructor marks the descriptor as invalid, ",
+			"but might set other default bits as necessary.\n\n",
+			"# Safety\n",
+			"Caller must ensure that the descriptor subtype is being used ",
+			"at the correct level in the correct manner."
+		)
+	};
+}
+
 macro_rules! define_descriptor {
-	($implty:tt $name:ident, $addr_mask_high:expr, $addr_mask_low:expr) => {
-		/// A single page table entry subtype.
+	($implty:tt $name:ident, $addr_mask_high:expr, $addr_mask_low:expr, $doc:literal) => {
+		#[doc = concat!("An ", $doc, ".")]
 		#[derive(Debug, Clone, Copy)]
 		#[repr(C, align(8))]
 		pub struct $name(u64);
@@ -271,15 +290,7 @@ macro_rules! define_descriptor {
 		}
 
 		impl $name {
-			/// Creates a new page table subtype entry with its initialization value
-			/// (different for each subtype).
-			///
-			/// This constructor marks the descriptor as invalid,
-			/// but might set other bits as necessary.
-			///
-			/// # Safety
-			/// Caller must ensure that the descriptor subtype is being used
-			/// at the correct level in the correct manner.
+			#[doc = descriptor_doc!($doc)]
 			#[inline(always)]
 			#[must_use]
 			pub const fn new() -> Self {
@@ -320,13 +331,14 @@ macro_rules! define_descriptor {
 	};
 }
 
-define_descriptor!(table L0PageTableDescriptor, 47, 12);
-define_descriptor!(table L1PageTableDescriptor, 47, 12);
-define_descriptor!(table L2PageTableDescriptor, 47, 12);
+define_descriptor!(table L0PageTableDescriptor, 47, 12, "L0 page table descriptor entry");
 
-define_descriptor!(block L1PageTableBlockDescriptor, 47, 30);
-define_descriptor!(block L2PageTableBlockDescriptor, 47, 21);
-define_descriptor!(block L3PageTableBlockDescriptor, 47, 12);
+define_descriptor!(table L1PageTableDescriptor, 47, 12, "L1 page table descriptor entry");
+define_descriptor!(table L2PageTableDescriptor, 47, 12, "L2 page table descriptor entry");
+
+define_descriptor!(block L1PageTableBlockDescriptor, 47, 30, "L1 page table block entry");
+define_descriptor!(block L2PageTableBlockDescriptor, 47, 21, "L2 page table block entry");
+define_descriptor!(block L3PageTableBlockDescriptor, 47, 12, "L3 page table block entry");
 
 impl<T> From<T> for PageTableEntry
 where
