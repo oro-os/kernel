@@ -135,9 +135,8 @@ pub unsafe fn init<A: Arch, C: CpuId>() -> ! {
 	initialize_kernel::<A>(&PrebootConfig {
 		core_id: primary_cpu_id,
 		instance_type: BootInstanceType::Primary,
-		#[allow(clippy::cast_possible_truncation)]
 		memory_layout_type: MemoryLayoutType::LinearMapped {
-			offset: hhdm_response.offset() as usize,
+			offset: hhdm_response.offset(),
 		},
 	})
 }
@@ -197,7 +196,7 @@ unsafe extern "C" fn trampoline_to_init<A: Arch, C: CpuId>(smp: &Cpu) -> ! {
 		instance_type: BootInstanceType::Secondary,
 		#[allow(clippy::cast_possible_truncation)]
 		memory_layout_type: MemoryLayoutType::LinearMapped {
-			offset: hhdm_res.offset() as usize,
+			offset: hhdm_res.offset(),
 		},
 	})
 }

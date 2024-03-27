@@ -99,6 +99,6 @@ pub enum MemoryLayoutType {
 		/// This offset is added to all physical addresses to find
 		/// the corresponding virtual address mapped into linear memory
 		/// by the bootloader when performing reads and writes.
-		offset: usize,
+		offset: u64,
 	},
 }
