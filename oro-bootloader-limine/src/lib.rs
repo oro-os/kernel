@@ -109,8 +109,11 @@ pub unsafe fn init<A: Arch, C: CpuId>() -> ! {
 
 	dbg!(A, "limine", "boot");
 
-	let smp_response = get_response!(mut REQ_SMP, "symmetric");
+	let smp_response = get_response!(mut REQ_SMP, "smp");
 
+	// Generate the kernel's configuration, written to memory
+	// by the `oro-common` initialization routine and used by
+	// each of the processor's cores.
 	let boot_config = generate_boot_config(smp_response);
 	BOOT_CONFIG.write(boot_config);
 	dbg!(A, "limine", "boot configuration generated");
