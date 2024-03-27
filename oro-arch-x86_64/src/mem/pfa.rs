@@ -1,5 +1,5 @@
 use crate::PageTableEntry;
-use oro_common::FiloPageFrameManager;
+use oro_common::mem::FiloPageFrameManager;
 
 /// A [`FiloPageFrameManager`] that loads page frames at a fixed address.
 ///

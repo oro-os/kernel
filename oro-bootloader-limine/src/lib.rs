@@ -22,7 +22,9 @@ use limine::{
 };
 use oro_common::{
 	boot::{BootConfig, BootInstanceType, BootMemoryRegion, CloneIterator},
-	dbg, dbg_err, Arch, MemoryLayoutType, MemoryRegion, MemoryRegionType, PrebootConfig,
+	dbg, dbg_err,
+	mem::{MemoryRegion, MemoryRegionType},
+	Arch, MemoryLayoutType, PrebootConfig,
 };
 
 const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel");
@@ -170,7 +172,6 @@ unsafe fn generate_boot_config(smp_response: &SmpResponse) -> LimineBootConfig {
 				length: entry.length,
 				ty,
 			}
-			.aligned(4096)
 		})
 		.filter(|region| region.length() > 0);
 

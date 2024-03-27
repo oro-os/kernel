@@ -6,7 +6,7 @@
 //! the system's hardware and other resources.
 #![allow(clippy::module_name_repetitions)]
 
-use crate::mem::region::{MemoryRegion, MemoryRegionType};
+use crate::mem::{MemoryRegion, MemoryRegionType};
 use oro_ser2mem::{Fake, Proxy, Ser2Mem};
 
 /// Useful for bootloaders to use type alias impl declarations

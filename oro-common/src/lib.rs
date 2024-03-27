@@ -6,22 +6,15 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod boot;
+pub mod mem;
 pub mod sync;
 
 pub(crate) mod arch;
 pub(crate) mod dbg;
 pub(crate) mod init;
-pub(crate) mod mem;
 pub(crate) mod unsafe_macros;
 
 pub use self::{
 	arch::Arch,
 	init::{boot_to_kernel, MemoryLayoutType, PrebootConfig},
-	mem::{
-		pfa::{
-			filo::{FiloPageFrameAllocator, FiloPageFrameManager},
-			PageFrameAllocator,
-		},
-		region::{MemoryRegion, MemoryRegionType},
-	},
 };
