@@ -28,7 +28,7 @@
 //! specification; it is not a general comment about the overall
 //! security of the Oro kernel.</sub>
 //!
-//! Note that the address and type bits encoding for a [`L3PageTableBlock`]
+//! Note that the address and type bits encoding for a [`L3PageTableBlockDescriptor`]
 //! _is the same†_ as [`L0PageTableDescriptor`], [`L1PageTableDescriptor`] and
 //! [`L2PageTableDescriptor`], but the semantics of the address bits is different.
 //!
