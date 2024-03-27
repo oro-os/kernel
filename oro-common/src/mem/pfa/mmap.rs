@@ -31,6 +31,20 @@ where
 			current_offset: 0,
 		}
 	}
+
+	/// Consumes this allocator and returns the remaining memory regions:
+	///
+	/// - The unconsumed memory regions iterator.
+	/// - The current memory region, if any.
+	/// - The current offset into the current memory region,
+	///   or _an undefined value_ if there is none.
+	pub fn into_inner(self) -> (I, Option<R>, u64) {
+		(
+			self.memory_regions,
+			self.current_region,
+			self.current_offset,
+		)
+	}
 }
 
 unsafe impl<R, I, const BOOT_IS_USABLE: bool> PageFrameAllocate
