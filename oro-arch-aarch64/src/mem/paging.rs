@@ -37,7 +37,10 @@
 
 #![allow(clippy::inline_always, private_bounds)]
 
-use core::ops::{Index, IndexMut};
+use core::{
+	fmt,
+	ops::{Index, IndexMut},
+};
 use oro_common::unsafe_precondition;
 
 /// A single page table entry.
@@ -78,6 +81,7 @@ impl PageTable {
 }
 
 /// Describes the type of a page table entry, based on its level.
+#[derive(Debug)]
 pub enum PageTableEntryType<'a> {
 	/// An invalid page table entry (bit 0 is not set).
 	/// Note that this does _not_ mean the page table entry
@@ -111,7 +115,7 @@ pub enum PageTableEntryType<'a> {
 }
 
 /// A single page table entry.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 #[repr(C, align(8))]
 pub struct PageTableEntry(u64);
 
@@ -230,6 +234,16 @@ impl PageTableEntry {
 	}
 }
 
+impl fmt::Debug for PageTableEntry {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("PageTableEntry")
+			.field("raw", &format_args!("{:016X?}", &self.0))
+			.field("valid", &self.valid())
+			.field("table", &self.table())
+			.finish_non_exhaustive()
+	}
+}
+
 /// A single page table entry subtype.
 ///
 /// # Safety
@@ -275,10 +289,48 @@ macro_rules! descriptor_doc {
 	};
 }
 
+macro_rules! impl_descriptor_debug {
+	(table $name:ident) => {
+		impl fmt::Debug for $name {
+			fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+				f.debug_struct(stringify!($name))
+					.field("raw", &format_args!("{:016X}", &self.0))
+					.field("addr", &format_args!("{:016X}", &self.address()))
+					.field("valid", &self.valid())
+					.field("table", &self.table_access_permissions())
+					.field("pxe", &self.kernel_no_exec())
+					.field("uxe", &self.user_no_exec())
+					.field("ap", &self.table_access_permissions())
+					.finish()
+			}
+		}
+	};
+
+	(block $name:ident) => {
+		impl fmt::Debug for $name {
+			fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+				f.debug_struct(stringify!($name))
+					.field("raw", &format_args!("{:016X}", &self.0))
+					.field("addr", &format_args!("{:016X}", &self.address()))
+					.field("valid", &self.valid())
+					.field("pxe", &self.kernel_no_exec())
+					.field("uxe", &self.user_no_exec())
+					.field("ap", &self.block_access_permissions())
+					.field("cont", &self.contiguous())
+					.field("ng", &self.not_global())
+					.field("ns", &self.not_secure())
+					.field("acc", &self.accessed())
+					.field("mair", &self.mair_index())
+					.finish()
+			}
+		}
+	};
+}
+
 macro_rules! define_descriptor {
 	($implty:tt $name:ident, $addr_mask_high:expr, $addr_mask_low:expr, $doc:literal) => {
 		#[doc = concat!("An ", $doc, ".")]
-		#[derive(Debug, Clone, Copy)]
+		#[derive(Clone, Copy)]
 		#[repr(C, align(8))]
 		pub struct $name(u64);
 
@@ -328,6 +380,8 @@ macro_rules! define_descriptor {
 				self.0
 			}
 		}
+
+		impl_descriptor_debug!($implty $name);
 	};
 }
 
@@ -591,7 +645,7 @@ pub trait PageTableEntryBlockDescriptorAttr: GetRaw {
 	/// > from the TLB after setting the flag.
 	#[inline(always)]
 	#[must_use]
-	fn access_flag(&self) -> bool {
+	fn accessed(&self) -> bool {
 		self.get_raw() & (1 << 10) != 0
 	}
 
@@ -601,7 +655,7 @@ pub trait PageTableEntryBlockDescriptorAttr: GetRaw {
 	///
 	/// **NOTE:** This entry is not held in the TLB if it is set to `0`.
 	///
-	/// See [`PageTableEntryBlockDescriptorAttr::access_flag`] for more information
+	/// See [`PageTableEntryBlockDescriptorAttr::accessed`] for more information
 	/// regarding the proper management of this bit.
 	///
 	/// # Safety
@@ -610,7 +664,7 @@ pub trait PageTableEntryBlockDescriptorAttr: GetRaw {
 	/// **You probably don't want to be setting this manually.** Make sure to
 	/// understand the effects of setting this bit before using it.
 	#[inline(always)]
-	unsafe fn set_access_flag(&mut self) {
+	unsafe fn set_accessed(&mut self) {
 		*self.get_raw_mut() |= 1 << 10;
 	}
 
@@ -618,7 +672,7 @@ pub trait PageTableEntryBlockDescriptorAttr: GetRaw {
 	///
 	/// **NOTE:** This entry is not held in the TLB if it is set to `0`.
 	///
-	/// See [`PageTableEntryBlockDescriptorAttr::access_flag`] for more information
+	/// See [`PageTableEntryBlockDescriptorAttr::accessed`] for more information
 	/// regarding the proper management of this bit.
 	///
 	/// # Safety
@@ -626,7 +680,7 @@ pub trait PageTableEntryBlockDescriptorAttr: GetRaw {
 	/// Namely, clearing this bit probably means that the page table entry
 	/// was held in the TLB and thus the TLB entry should be invalidated.
 	#[inline(always)]
-	unsafe fn clear_access_flag(&mut self) {
+	unsafe fn clear_accessed(&mut self) {
 		*self.get_raw_mut() &= !(1 << 10);
 	}
 
@@ -656,11 +710,23 @@ pub trait PageTableEntryBlockDescriptorAttr: GetRaw {
 
 	/// Sets the MAIR index of the block entry.
 	///
-	/// Values above 7 are masked to the lowest
-	/// 3 bits.
+	/// Values above 7 are masked to the lowest 3 bits.
 	#[inline(always)]
 	fn set_mair_index(&mut self, index: u64) {
 		unsafe { self.set_mair_index_unchecked(index & 0b111) }
+	}
+
+	/// Retrieves the block access permissions.
+	#[inline(always)]
+	#[must_use]
+	fn block_access_permissions(&self) -> PageTableEntryBlockAccessPerm {
+		unsafe { core::mem::transmute(self.get_raw() & (0b11 << 6)) }
+	}
+
+	/// Sets the block access permissions.
+	#[inline(always)]
+	fn set_block_access_permissions(&mut self, perm: PageTableEntryBlockAccessPerm) {
+		*self.get_raw_mut() = (self.get_raw() & !(0b11 << 6)) | perm as u64;
 	}
 }
 
@@ -698,6 +764,22 @@ pub trait PageTableEntryBlockDescriptorAttrConst: GetRawConst {
 	#[must_use]
 	fn with_not_secure(self) -> Self {
 		Self::with(self.to_raw() | 1 << 5)
+	}
+
+	/// Replaces the MAIR index of the page table entry.
+	///
+	/// Values above 7 are masked to the lowest 3 bits.
+	#[inline(always)]
+	#[must_use]
+	fn with_mair_index(self, index: u64) -> Self {
+		Self::with((self.to_raw() & !(0b111 << 2)) | ((index & 0b111) << 2))
+	}
+
+	/// Replaces the block acess permissions of the page table entry.
+	#[inline(always)]
+	#[must_use]
+	fn with_block_access_permissions(self, perm: PageTableEntryBlockAccessPerm) -> Self {
+		Self::with((self.to_raw() & !(0b11 << 6)) | perm as u64)
 	}
 }
 
