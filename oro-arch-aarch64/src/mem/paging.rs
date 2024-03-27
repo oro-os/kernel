@@ -168,6 +168,30 @@ impl PageTableEntry {
 		Self(self.0 | 0b1 << 1)
 	}
 
+	/// Gets the address of the page table entry.
+	/// If the page table is invalid or malformed, returns `None`.
+	///
+	/// **This is mostly for debugging purposes and should not be used
+	/// in production code.**
+	///
+	/// # Safety
+	/// Caller must ensure that `level` is `0..=3` and that it
+	/// is correctly specified. **Do not assume this value.**
+	#[must_use]
+	pub unsafe fn address(&mut self, level: u8) -> Option<u64> {
+		unsafe_precondition!(crate::Aarch64, level <= 3, "level must be 0..=3");
+
+		match self.entry_type(level) {
+			PageTableEntryType::Invalid(_) | PageTableEntryType::Malformed(_) => None,
+			PageTableEntryType::L0Descriptor(desc) => Some(desc.address()),
+			PageTableEntryType::L1Descriptor(desc) => Some(desc.address()),
+			PageTableEntryType::L2Descriptor(desc) => Some(desc.address()),
+			PageTableEntryType::L1Block(desc) => Some(desc.address()),
+			PageTableEntryType::L2Block(desc) => Some(desc.address()),
+			PageTableEntryType::L3Block(desc) => Some(desc.address()),
+		}
+	}
+
 	/// Returns the type of the page table entry based
 	/// on the level of the page table.
 	///
@@ -297,7 +321,6 @@ macro_rules! impl_descriptor_debug {
 					.field("raw", &format_args!("{:016X}", &self.0))
 					.field("addr", &format_args!("{:016X}", &self.address()))
 					.field("valid", &self.valid())
-					.field("table", &self.table_access_permissions())
 					.field("pxe", &self.kernel_no_exec())
 					.field("uxe", &self.user_no_exec())
 					.field("ap", &self.table_access_permissions())
