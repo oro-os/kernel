@@ -3,6 +3,7 @@
 //! kernel project.
 #![no_std]
 #![deny(missing_docs)]
+#![allow(clippy::module_name_repetitions)]
 
 pub mod boot;
 pub mod sync;
@@ -17,8 +18,10 @@ pub use self::{
 	arch::Arch,
 	init::{boot_to_kernel, MemoryLayoutType, PrebootConfig},
 	mem::{
-		pfa::PageFrameAllocator,
-		pfa_filo::{FiloPageFrameAllocator, FiloPageFrameManager},
+		pfa::{
+			filo::{FiloPageFrameAllocator, FiloPageFrameManager},
+			PageFrameAllocator,
+		},
 		region::{MemoryRegion, MemoryRegionType},
 	},
 };
