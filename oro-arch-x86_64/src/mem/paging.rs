@@ -352,6 +352,44 @@ impl PageTableEntry {
 		)
 	}
 
+	/// Checks if the page is a huge page.
+	///
+	/// # Safety
+	/// Must only be called on a PTPD or a PD entry.
+	#[inline]
+	#[must_use]
+	pub unsafe fn huge(&self) -> bool {
+		(self.0 & (1 << 7)) != 0
+	}
+
+	/// Sets the huge flag of the page table entry.
+	///
+	/// # Safety
+	/// Must only be called on a PTPD or a PD entry.
+	#[inline]
+	pub unsafe fn set_huge(&mut self) {
+		self.0 |= 1 << 7;
+	}
+
+	/// Clears the huge flag of the page table entry.
+	///
+	/// # Safety
+	/// Must only be called on a PTPD or a PD entry.
+	#[inline]
+	pub unsafe fn clear_huge(&mut self) {
+		self.0 &= !(1 << 7);
+	}
+
+	/// Replaces the huge flag, returning a new `PageTableEntry`.
+	///
+	/// # Safety
+	/// Must only be called on a PTPD or a PD entry.
+	#[inline]
+	#[must_use]
+	pub unsafe fn with_huge(self) -> Self {
+		Self(self.0 | (1 << 7))
+	}
+
 	/// Sets the physical address of the page table entry.
 	#[inline]
 	pub fn set_address(&mut self, address: u64) {
@@ -380,7 +418,7 @@ impl PageTableEntry {
 	#[inline]
 	#[must_use]
 	pub fn address(&self) -> u64 {
-		self.0 & 0xFFF_0000000000_FFF
+		self.0 & 0x000_FFFFFFFFFF_000
 	}
 }
 

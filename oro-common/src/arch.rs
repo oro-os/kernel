@@ -44,6 +44,12 @@ pub unsafe trait Arch {
 	/// interrupts if they were enabled before.
 	fn restore_interrupts(state: Self::InterruptState);
 
+	/// Performs the strongest memory barrier possible on the
+	/// target architecture. To the fullest extent possible,
+	/// this should ensure that all memory operations are
+	/// completed before the barrier returns.
+	fn strong_memory_barrier();
+
 	/// Logs a message to the debug logger (typically a serial port).
 	///
 	/// The message should be newline-terminated for streams,

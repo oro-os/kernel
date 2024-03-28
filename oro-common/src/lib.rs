@@ -5,7 +5,6 @@
 #![deny(missing_docs)]
 #![allow(clippy::module_name_repetitions)]
 
-pub mod boot;
 pub mod mem;
 pub mod sync;
 
@@ -16,5 +15,5 @@ pub(crate) mod unsafe_macros;
 
 pub use self::{
 	arch::Arch,
-	init::{boot_to_kernel, MemoryLayoutType, PrebootConfig},
+	init::{boot_to_kernel, PrebootConfig, PrebootPrimaryConfig},
 };

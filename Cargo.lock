@@ -62,6 +62,7 @@ name = "oro-common"
 version = "0.0.0"
 dependencies = [
  "oro-ser2mem",
+ "static_assertions",
 ]
 
 [[package]]

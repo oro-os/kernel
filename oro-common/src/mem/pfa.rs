@@ -1,4 +1,8 @@
-use crate::mem::{MemoryRegion, MemoryRegionType};
+use crate::{
+	dbg_warn,
+	mem::{MemoryRegion, MemoryRegionType},
+	Arch,
+};
 
 pub mod filo;
 pub mod mmap;
@@ -135,6 +139,7 @@ impl AllocatorStatsTracker {
 	/// in the memory map.
 	#[cold]
 	pub fn from_memory_map<
+		A: Arch,
 		M: MemoryRegion,
 		I: IntoIterator<Item = M>,
 		const BOOT_IS_USABLE: bool,
@@ -155,7 +160,7 @@ impl AllocatorStatsTracker {
 			total_memory += length;
 			let trimmed_memory = original_length - length;
 
-			match region.ty() {
+			match region.region_type() {
 				MemoryRegionType::Usable => {
 					total_usable_memory += length;
 					total_unusable_memory += trimmed_memory;
@@ -170,10 +175,15 @@ impl AllocatorStatsTracker {
 					}
 				}
 				MemoryRegionType::Bad => {
-					if total_bad_memory.is_some() {
-						total_bad_memory = Some(total_bad_memory.unwrap() + original_length);
+					if let Some(total_bad_memory) = total_bad_memory.as_mut() {
+						*total_bad_memory += original_length;
 					} else {
-						panic!("bad memory region provided, but bad memory is not supported");
+						dbg_warn!(
+							A,
+							"allocator_stats",
+							"bad memory region provided, but bad memory not marked as supported by bootloader; marking as unusable"
+						);
+						total_unusable_memory += original_length;
 					}
 				}
 			}

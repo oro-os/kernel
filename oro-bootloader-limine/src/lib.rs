@@ -9,7 +9,7 @@
 #![deny(missing_docs)]
 #![feature(type_alias_impl_trait)]
 
-use core::{ffi::CStr, mem::MaybeUninit};
+use core::ffi::CStr;
 #[cfg(debug_assertions)]
 use limine::request::StackSizeRequest;
 use limine::{
@@ -21,10 +21,9 @@ use limine::{
 	BaseRevision,
 };
 use oro_common::{
-	boot::{BootConfig, BootInstanceType, BootMemoryRegion, CloneIterator},
 	dbg, dbg_err,
-	mem::{MemoryRegion, MemoryRegionType},
-	Arch, MemoryLayoutType, PrebootConfig,
+	mem::{MemoryRegion, MemoryRegionType, OffsetPhysicalAddressTranslator},
+	Arch, PrebootConfig, PrebootPrimaryConfig,
 };
 
 const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel");
@@ -46,9 +45,7 @@ static mut REQ_SMP: SmpRequest = SmpRequest::with_revision(0);
 #[used]
 static REQ_STKSZ: StackSizeRequest = StackSizeRequest::with_revision(0).with_size(64 * 1024);
 
-type ImplMemoryIterator = impl CloneIterator<Item = BootMemoryRegion>;
-type LimineBootConfig = BootConfig<ImplMemoryIterator>;
-static mut BOOT_CONFIG: MaybeUninit<LimineBootConfig> = MaybeUninit::uninit();
+type LimineMemoryRegionIterator = impl Iterator<Item = LimineMemoryRegion> + Clone + 'static;
 
 macro_rules! get_response {
 	($req:ident, $label:literal) => {{
@@ -110,13 +107,23 @@ pub unsafe fn init<A: Arch, C: CpuId>() -> ! {
 	dbg!(A, "limine", "boot");
 
 	let smp_response = get_response!(mut REQ_SMP, "smp");
+	let module_response = get_response!(REQ_MODULES, "module listing");
+	let _time_response = get_response!(REQ_TIME, "bios timestamp response");
+	#[cfg(debug_assertions)]
+	let _stksz_response = get_response!(REQ_STKSZ, "debug stack size adjustment");
 
-	// Generate the kernel's configuration, written to memory
-	// by the `oro-common` initialization routine and used by
-	// each of the processor's cores.
-	let boot_config = generate_boot_config(smp_response);
-	BOOT_CONFIG.write(boot_config);
-	dbg!(A, "limine", "boot configuration generated");
+	let kernel_module = module_response
+		.modules()
+		.iter()
+		.find(|module| module.path() == KERNEL_PATH.to_bytes());
+
+	let Some(_kernel_module) = kernel_module else {
+		panic!("failed to find kernel module: {KERNEL_PATH:?}");
+	};
+
+	let num_instances = smp_response.cpus().len() as u64;
+
+	let memory_regions = make_memory_map_iterator();
 
 	// Find the primary CPU first, and error if we don't have it.
 	let primary_cpu_id = C::bootstrap_cpu_id(smp_response).expect("no bootstrap CPU found");
@@ -132,55 +139,34 @@ pub unsafe fn init<A: Arch, C: CpuId>() -> ! {
 	let hhdm_response = get_response!(REQ_HHDM, "hhdm offset");
 
 	dbg!(A, "limine", "booting primary cpu: {primary_cpu_id}");
-	initialize_kernel::<A>(&PrebootConfig {
+	initialize_kernel::<A>(PrebootConfig::<LiminePrimaryConfig>::Primary {
 		core_id: primary_cpu_id,
-		instance_type: BootInstanceType::Primary,
-		memory_layout_type: MemoryLayoutType::LinearMapped {
-			offset: hhdm_response.offset(),
-		},
+		num_instances,
+		#[allow(clippy::cast_possible_truncation)]
+		physical_address_translator: OffsetPhysicalAddressTranslator::new(
+			hhdm_response.offset() as usize
+		),
+		memory_regions,
 	})
 }
 
-unsafe fn generate_boot_config(smp_response: &SmpResponse) -> LimineBootConfig {
-	let module_response = get_response!(REQ_MODULES, "module listing");
+fn make_memory_map_iterator() -> LimineMemoryRegionIterator {
 	let mmap_response = get_response!(REQ_MMAP, "memory mapping");
-	let _time_response = get_response!(REQ_TIME, "bios timestamp response");
-	#[cfg(debug_assertions)]
-	let _stksz_response = get_response!(REQ_STKSZ, "debug stack size adjustment");
 
-	let kernel_module = module_response
-		.modules()
-		.iter()
-		.find(|module| module.path() == KERNEL_PATH.to_bytes());
-
-	let Some(_kernel_module) = kernel_module else {
-		panic!("failed to find kernel module: {KERNEL_PATH:?}");
-	};
-
-	let memory_regions: ImplMemoryIterator = mmap_response
+	mmap_response
 		.entries()
 		.iter()
-		.map(|entry| {
-			let ty = match entry.entry_type {
-				EntryType::BOOTLOADER_RECLAIMABLE | EntryType::KERNEL_AND_MODULES => {
-					MemoryRegionType::Boot
-				}
+		.map(|region| LimineMemoryRegion {
+			base: region.base,
+			length: region.length,
+			entry_type: match region.entry_type {
 				EntryType::USABLE => MemoryRegionType::Usable,
+				EntryType::BOOTLOADER_RECLAIMABLE => MemoryRegionType::Boot,
+				EntryType::BAD_MEMORY => MemoryRegionType::Bad,
 				_ => MemoryRegionType::Unusable,
-			};
-
-			BootMemoryRegion {
-				base: entry.base,
-				length: entry.length,
-				ty,
-			}
+			},
 		})
-		.filter(|region| region.length() > 0);
-
-	LimineBootConfig {
-		num_instances: smp_response.cpus().len() as u64,
-		memory_regions,
-	}
+		.filter(|region: &LimineMemoryRegion| region.length() > 0)
 }
 
 /// # Safety
@@ -191,22 +177,19 @@ unsafe extern "C" fn trampoline_to_init<A: Arch, C: CpuId>(smp: &Cpu) -> ! {
 
 	let hhdm_res = get_response!(REQ_HHDM, "hhdm offset");
 
-	initialize_kernel::<A>(&PrebootConfig {
+	initialize_kernel::<A>(PrebootConfig::Secondary {
 		core_id: C::cpu_id(smp),
-		instance_type: BootInstanceType::Secondary,
 		#[allow(clippy::cast_possible_truncation)]
-		memory_layout_type: MemoryLayoutType::LinearMapped {
-			offset: hhdm_res.offset(),
-		},
+		physical_address_translator: OffsetPhysicalAddressTranslator::new(
+			hhdm_res.offset() as usize
+		),
 	})
 }
 
 /// # Safety
 /// MUST be called EXACTLY ONCE per core.
-#[allow(improper_ctypes_definitions)]
-unsafe extern "C" fn initialize_kernel<A: Arch>(preboot_config: &PrebootConfig) -> ! {
-	let boot_config = BOOT_CONFIG.assume_init_ref();
-	oro_common::boot_to_kernel::<A, _>(boot_config, preboot_config);
+unsafe fn initialize_kernel<A: Arch>(preboot_config: PrebootConfig<LiminePrimaryConfig>) -> ! {
+	oro_common::boot_to_kernel::<A, _>(preboot_config);
 }
 
 /// Panic handler for the Limine bootloader stage.
@@ -217,4 +200,44 @@ unsafe extern "C" fn initialize_kernel<A: Arch>(preboot_config: &PrebootConfig) 
 pub unsafe fn panic<A: Arch>(info: &::core::panic::PanicInfo) -> ! {
 	dbg_err!(A, "limine", "panic: {:?}", info);
 	A::halt()
+}
+
+struct LiminePrimaryConfig;
+
+impl PrebootPrimaryConfig for LiminePrimaryConfig {
+	type MemoryRegion = LimineMemoryRegion;
+	type MemoryRegionIterator = LimineMemoryRegionIterator;
+	type PhysicalAddressTranslator = OffsetPhysicalAddressTranslator;
+	const BAD_MEMORY_REPORTED: bool = true;
+}
+
+struct LimineMemoryRegion {
+	base: u64,
+	length: u64,
+	entry_type: MemoryRegionType,
+}
+
+impl MemoryRegion for LimineMemoryRegion {
+	#[inline]
+	fn base(&self) -> u64 {
+		self.base
+	}
+
+	#[inline]
+	fn length(&self) -> u64 {
+		self.length
+	}
+
+	#[inline]
+	fn region_type(&self) -> MemoryRegionType {
+		self.entry_type
+	}
+
+	fn new_with(&self, base: u64, length: u64) -> Self {
+		Self {
+			base,
+			length,
+			entry_type: self.entry_type,
+		}
+	}
 }

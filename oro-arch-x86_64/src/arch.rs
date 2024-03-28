@@ -1,18 +1,19 @@
+#![allow(clippy::inline_always)]
+
 use core::{
 	arch::asm,
 	fmt::{self, Write},
 	mem::MaybeUninit,
 };
-use oro_common::{sync::UnfairSpinlock, Arch};
+use oro_common::{sync::UnfairCriticalSpinlock, Arch};
 use uart_16550::SerialPort;
 
-static SERIAL: UnfairSpinlock<X86_64, MaybeUninit<SerialPort>> =
-	UnfairSpinlock::new(MaybeUninit::uninit());
+static SERIAL: UnfairCriticalSpinlock<X86_64, MaybeUninit<SerialPort>> =
+	UnfairCriticalSpinlock::new(MaybeUninit::uninit());
 
 /// `x86_64` architecture support implementation for the Oro kernel.
 pub struct X86_64;
 
-#[allow(clippy::inline_always)]
 unsafe impl Arch for X86_64 {
 	type InterruptState = usize;
 
@@ -62,5 +63,12 @@ unsafe impl Arch for X86_64 {
 			writeln!(lock.assume_init_mut(), "{message}")
 		}
 		.unwrap();
+	}
+
+	#[inline(always)]
+	fn strong_memory_barrier() {
+		unsafe {
+			core::arch::asm!("mfence", options(nostack, preserves_flags),);
+		}
 	}
 }

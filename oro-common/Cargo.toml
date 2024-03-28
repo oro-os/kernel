@@ -13,3 +13,4 @@ license = "MPL-2.0"
 
 [dependencies]
 oro-ser2mem.workspace = true
+static_assertions.workspace = true

@@ -2,7 +2,6 @@
 #![no_main]
 
 use oro_arch_aarch64::Aarch64;
-use oro_common::boot::{BootInstanceType, KernelBootConfig};
 
 #[inline(never)]
 #[cold]
@@ -22,10 +21,5 @@ unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 #[cold]
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {
-	static BOOT_CONFIG: KernelBootConfig = KernelBootConfig {
-		num_instances: 1,
-		memory_regions: &[],
-	};
-
-	::oro_kernel::boot::<Aarch64>(&BOOT_CONFIG, BootInstanceType::Primary)
+	::oro_kernel::boot::<Aarch64>()
 }

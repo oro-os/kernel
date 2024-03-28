@@ -6,5 +6,8 @@ pub(crate) mod spinlock;
 
 pub use self::{
 	barrier::SpinBarrier,
-	spinlock::{UnfairSpinlock, UnfairSpinlockGuard},
+	spinlock::{
+		unfair::{UnfairSpinlock, UnfairSpinlockGuard},
+		unfair_critical::{UnfairCriticalSpinlock, UnfairCriticalSpinlockGuard},
+	},
 };

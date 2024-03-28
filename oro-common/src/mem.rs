@@ -3,6 +3,7 @@
 
 mod pfa;
 mod region;
+mod translate;
 
 pub use self::{
 	pfa::{
@@ -11,4 +12,5 @@ pub use self::{
 		AllocatorStatsTracker, PageFrameAllocate, PageFrameAllocatorStats, PageFrameFree,
 	},
 	region::{MemoryRegion, MemoryRegionType},
+	translate::{OffsetPhysicalAddressTranslator, PhysicalAddressTranslator},
 };

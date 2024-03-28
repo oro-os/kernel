@@ -1,18 +1,19 @@
+#![allow(clippy::inline_always)]
+
 use core::{
 	arch::asm,
 	fmt::{self, Write},
 	mem::MaybeUninit,
 };
-use oro_common::{sync::UnfairSpinlock, Arch};
+use oro_common::{sync::UnfairCriticalSpinlock, Arch};
 use oro_serial_pl011 as pl011;
 
-static mut SERIAL: UnfairSpinlock<Aarch64, MaybeUninit<pl011::PL011>> =
-	UnfairSpinlock::new(MaybeUninit::uninit());
+static mut SERIAL: UnfairCriticalSpinlock<Aarch64, MaybeUninit<pl011::PL011>> =
+	UnfairCriticalSpinlock::new(MaybeUninit::uninit());
 
 /// aarch64 architecture support implementation for the Oro kernel.
 pub struct Aarch64;
 
-#[allow(clippy::inline_always)]
 unsafe impl Arch for Aarch64 {
 	type InterruptState = usize;
 
@@ -31,7 +32,9 @@ unsafe impl Arch for Aarch64 {
 		));
 	}
 
-	unsafe fn init_local() {}
+	unsafe fn init_local() {
+		// TODO(qix-): Assert that the granule size is 4KiB for both EL1 and EL0.
+	}
 
 	#[cold]
 	fn halt() -> ! {
@@ -62,6 +65,13 @@ unsafe impl Arch for Aarch64 {
 	fn restore_interrupts(state: Self::InterruptState) {
 		unsafe {
 			asm!("msr daif, {}", in(reg) state, options(nostack, nomem));
+		}
+	}
+
+	#[inline(always)]
+	fn strong_memory_barrier() {
+		unsafe {
+			core::arch::asm!("dsb sy", options(nostack, preserves_flags),);
 		}
 	}
 
