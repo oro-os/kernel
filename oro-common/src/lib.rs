@@ -4,6 +4,7 @@
 #![no_std]
 #![deny(missing_docs)]
 #![allow(clippy::module_name_repetitions)]
+#![feature(const_trait_impl)]
 
 pub mod mem;
 pub mod sync;

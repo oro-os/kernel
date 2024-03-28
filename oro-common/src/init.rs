@@ -31,12 +31,6 @@ static mut SHARED_PFA: AlignedPageBytes = AlignedPageBytes([0; 4096]);
 /// This function does not return. Calling this function will boot the
 /// Oro operating system kernel.
 ///
-/// # Panics
-///
-/// This function panics at runtime in the event the shared PFA is larger
-/// than 4KiB large. There doesn't seem to be a way to check this statically,
-/// so we have to resort to a runtime panic.
-///
 /// # Safety
 ///
 /// This function is probably the most heavily specified function in the entire
@@ -115,8 +109,19 @@ static mut SHARED_PFA: AlignedPageBytes = AlignedPageBytes([0; 4096]);
 /// the memory will be treated and counted as "unusable" memory, which is undesirable for the
 /// user.
 ///
-/// ## Type Coherence
+/// ## ABI
+/// The ABI of this function is strictly defined (aside from it using the Rust ABI).
+///
+/// ### Type Coherence
 /// The types provided to this function must be **identical** across all core invocations.
+///
+/// ### Linkage
+/// This function **must not** be invoked across a linker boundary.
+///
+/// Simply put, this function must be called from within the same binary that it is defined in.
+/// This means that e.g. bootloader crates **must** consume `oro-common` directly and not
+/// through a separate crate/module/shared library that links to `oro-common` or otherwise
+/// dynamically links to it.
 #[allow(clippy::needless_pass_by_value)]
 pub unsafe fn boot_to_kernel<A, P>(config: PrebootConfig<P>) -> !
 where
@@ -140,9 +145,31 @@ where
 	let pfa = {
 		/// A page-aligned page frame allocator wrapper.
 		#[repr(C, align(4096))]
-		struct AlignedPfa<A: Arch, I: Iterator<Item = IndexedMemoryRegion> + 'static>(
+		struct AlignedPfa<A, I>(
 			UnfairSpinlock<A, MmapPageFrameAllocator<A, IndexedMemoryRegion, I>>,
-		);
+		)
+		where
+			A: Arch,
+			I: Iterator<Item = IndexedMemoryRegion> + 'static;
+
+		/// Credit to @y21 for the elegant solution to compile-time size assertions.
+		trait AssertFitsInPage: Sized {
+			const ASSERT: () = assert!(
+				core::mem::size_of::<Self>() <= 4096,
+				"the PFA does not fit in a 4KiB page; reduce the size of your memory map iterator structure"
+			);
+
+			fn assert_fits_in_page(&self) {
+				let _: () = Self::ASSERT;
+			}
+		}
+
+		impl<A, I> const AssertFitsInPage for AlignedPfa<A, I>
+		where
+			A: Arch,
+			I: Iterator<Item = IndexedMemoryRegion> + 'static,
+		{
+		}
 
 		// This is an interesting yet seemingly necessary dance, needed
 		// to make Rust infer all of the types of both the incoming iterator
@@ -229,9 +256,7 @@ where
 			>::new(iterator)));
 
 			// Make sure that we're not exceeding our page size.
-			// Unfortunately, there doesn't seem to be a way to
-			// statically guarantee this.
-			assert!(core::mem::size_of_val(&shared_pfa) <= 4096);
+			shared_pfa.assert_fits_in_page();
 
 			// Store the PFA in the type inference helper then pop
 			// it back out again. This is a dance to get the type
@@ -239,7 +264,9 @@ where
 			// on, without having to name the concrete types of every
 			// iterator the bootloader/init routine uses.
 			temporary_pfa = Some(shared_pfa);
-			let shared_pfa = temporary_pfa.take().unwrap();
+			let Some(shared_pfa) = temporary_pfa.take() else {
+				unreachable!();
+			};
 
 			// Finally, write it to the shared PFA.
 			core::ptr::write_volatile(SHARED_PFA.0.as_mut_ptr().cast(), shared_pfa);
