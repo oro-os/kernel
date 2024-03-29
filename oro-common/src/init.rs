@@ -47,8 +47,8 @@ static mut SHARED_PFA: AlignedPageBytes = AlignedPageBytes([0; 4096]);
 /// ## SMP Invocations
 /// This function must be called **exactly once** per initialized core in the system.
 /// If this function is not called on a core, then the kernel will have absolutely no
-/// knowledge of that core's; the operating system will simply not report it, nor its
-/// count.
+/// knowledge of that core's existence; the operating system will simply not report it,
+/// nor will it contribute to the core count. The user _will not_ be able to use the core.
 ///
 /// All cores must be initialized at the same stage of the pre-boot process; that is,
 /// no CPU-wide altercations to any of its state may be made after the first invocation
@@ -71,7 +71,7 @@ static mut SHARED_PFA: AlignedPageBytes = AlignedPageBytes([0; 4096]);
 /// or desirable.
 ///
 /// ## Memory
-/// There are a number of critical memory considerations that must be taken into account
+/// There are a number of important memory considerations that must be taken into account
 /// before calling this function.
 ///
 /// ### Direct Mapping
@@ -93,7 +93,7 @@ static mut SHARED_PFA: AlignedPageBytes = AlignedPageBytes([0; 4096]);
 /// Put another way, the same physical address must always map to the same virtual address across
 /// all cores.
 ///
-/// ### Shared Memory Maps Between Cores
+/// ### Stack Memory
 /// All cores **must** share the same direct memory map described above, with the exception of
 /// stack memory. As long as it doesn't conflict with the direct memory map, the stack pointer
 /// (or whatever equivalent mechanism for the target architecture) may point to "private" page
@@ -102,18 +102,23 @@ static mut SHARED_PFA: AlignedPageBytes = AlignedPageBytes([0; 4096]);
 /// ### Bad Memory
 /// If the pre-boot environment is capable of detecting and reporting "bad" regions of memory,
 /// then the [`MemoryRegionType::Bad`] region can be reported by the memory map iterator.
-/// Even if no bad memory is reported, the [`PrebootPrimaryConfig::BAD_MEMORY_REPORTED`] field
-/// should be set to `true` if the environment is capable of reporting bad memory.
+/// Even if no bad memory is encountered, the [`PrebootPrimaryConfig::BAD_MEMORY_REPORTED`] field
+/// should be set to `true` if the environment is _capable_ of reporting bad memory.
 ///
 /// In the event that bad memory is reported by the aforementioned configuration field is `false`,
 /// the memory will be treated and counted as "unusable" memory, which is undesirable for the
 /// user.
 ///
+/// Pre-boot environments that skip over, or otherwise do not report bad memory should set
+/// the flag to `false` and refrain from producing `MemoryRegionType::Bad` variants for memory
+/// regions.
+///
 /// ## ABI
 /// The ABI of this function is strictly defined (aside from it using the Rust ABI).
 ///
 /// ### Type Coherence
-/// The types provided to this function must be **identical** across all core invocations.
+/// The types provided to this function by way of [`PrebootPrimaryConfig`] must be **identical**
+/// across all core invocations. This includes both types and configuration values.
 ///
 /// ### Linkage
 /// This function **must not** be invoked across a linker boundary.
@@ -122,6 +127,13 @@ static mut SHARED_PFA: AlignedPageBytes = AlignedPageBytes([0; 4096]);
 /// This means that e.g. bootloader crates **must** consume `oro-common` directly and not
 /// through a separate crate/module/shared library that links to `oro-common` or otherwise
 /// dynamically links to it.
+///
+/// A linker boundary can be crossed if the pre-boot environment has written adequate
+/// stubs or trampolines to call this function as part of the binary that houses it.
+///
+/// This is due to the size and bounds checking of the generics of this function, which
+/// cannot be enforced if the function is called dynamically (at runtime), especially
+/// with types that differ from when it was compiled.
 #[allow(clippy::needless_pass_by_value)]
 pub unsafe fn boot_to_kernel<A, P>(config: PrebootConfig<P>) -> !
 where
@@ -339,22 +351,22 @@ pub enum PrebootConfig<P>
 where
 	P: PrebootPrimaryConfig,
 {
-	/// The primary core configuration.
+	/// The primary core configuration
 	Primary {
-		/// The **unique** core ID of the core.
+		/// The **unique** core ID
 		core_id: u64,
-		/// The number of instances that are being booted.
+		/// The number of instances that are being booted
 		num_instances: u64,
-		/// An iterator over all memory regions available to the system.
+		/// An iterator over all memory regions available to the system
 		memory_regions: P::MemoryRegionIterator,
-		/// The physical-to-virtual address translator for the core.
+		/// The physical-to-virtual address translator for the core
 		physical_address_translator: P::PhysicalAddressTranslator,
 	},
-	/// A secondary core configuration.
+	/// A secondary core configuration
 	Secondary {
-		/// The **unique** core ID of the core.
+		/// The **unique** core ID
 		core_id: u64,
-		/// The physical-to-virtual address translator for the core.
+		/// The physical-to-virtual address translator for the core
 		physical_address_translator: P::PhysicalAddressTranslator,
 	},
 }
