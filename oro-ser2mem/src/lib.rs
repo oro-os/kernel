@@ -48,7 +48,7 @@
 //! Most of them are due to the nature of `#[repr(C)]` and its safety,
 //! such as not allowing Tuples or "fat pointers".
 #![no_std]
-#![deny(missing_docs)]
+#![deny(missing_docs, clippy::integer_division)]
 
 pub mod detail;
 

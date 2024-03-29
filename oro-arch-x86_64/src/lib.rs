@@ -2,7 +2,7 @@
 //! [Oro Operating System](https://github.com/oro-os/kernel)
 //! kernel.
 #![no_std]
-#![deny(missing_docs)]
+#![deny(missing_docs, clippy::integer_division)]
 #![feature(const_mut_refs)]
 #![cfg(not(all(doc, not(target_arch = "x86_64"))))]
 

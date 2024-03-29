@@ -2,7 +2,7 @@
 //! the [Oro Operating System](https://github.com/oro-os/kernel)
 //! kernel project.
 #![no_std]
-#![deny(missing_docs)]
+#![deny(missing_docs, clippy::integer_division)]
 #![allow(clippy::module_name_repetitions)]
 #![feature(const_trait_impl)]
 
