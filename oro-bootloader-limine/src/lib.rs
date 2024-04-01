@@ -43,7 +43,7 @@ static REQ_TIME: BootTimeRequest = BootTimeRequest::with_revision(0);
 static mut REQ_SMP: SmpRequest = SmpRequest::with_revision(0);
 #[cfg(debug_assertions)]
 #[used]
-static REQ_STKSZ: StackSizeRequest = StackSizeRequest::with_revision(0).with_size(64 * 1024);
+static REQ_STKSZ: StackSizeRequest = StackSizeRequest::with_revision(0).with_size(256 * 1024);
 
 type LimineMemoryRegionIterator = impl Iterator<Item = LimineMemoryRegion> + Clone + 'static;
 
