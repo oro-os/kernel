@@ -40,16 +40,15 @@ impl FixedAddressPageFrameManager {
 
 	fn load_page_frame(&mut self, address: u64) {
 		if self.currently_allocated != address {
-			unsafe {
-				self.page_table_entry.set(
-					PageTableEntry::new()
-						.with_present()
-						.with_writable()
-						.with_no_exec()
-						.with_address(address),
-				);
-				crate::asm::invlpg(self.virtual_address);
-			}
+			self.page_table_entry.set(
+				PageTableEntry::new()
+					.with_present()
+					.with_writable()
+					.with_no_exec()
+					.with_address(address),
+			);
+
+			crate::asm::invlpg(self.virtual_address);
 
 			self.currently_allocated = address;
 		}
