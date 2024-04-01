@@ -1,3 +1,6 @@
+//! Provides the [`UnfairSpinlock`] type, a simple spinlock that does not
+//! guarantee fairness and may result in starvation.
+
 #![allow(clippy::module_name_repetitions)]
 
 use core::{
@@ -16,8 +19,11 @@ use crate::Arch;
 /// If that behavior is desired, consider using an [`crate::sync::UnfairCriticalSpinlock`]
 /// instead.
 pub struct UnfairSpinlock<A: Arch, T> {
+	/// Whether the lock is currently owned.
 	owned: AtomicBool,
+	/// The value protected by the lock.
 	value: UnsafeCell<T>,
+	/// The architecture this spinlock is for.
 	_arch: PhantomData<A>,
 }
 
@@ -71,7 +77,9 @@ impl<A: Arch, T> UnfairSpinlock<A, T> {
 
 /// A lock held by an [`UnfairSpinlock`].
 pub struct UnfairSpinlockGuard<'a, T> {
+	/// A handle to the 'owned' flag in the spinlock.
 	lock: &'a AtomicBool,
+	/// A pointer to the value protected by the spinlock.
 	value: *mut T,
 }
 

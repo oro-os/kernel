@@ -1,3 +1,5 @@
+//! Memory address translation utilities for the pre-boot stage.
+
 #![allow(clippy::inline_always)]
 
 /// Translates a page frame to a virtual address, used in the pre-boot stage
@@ -17,6 +19,14 @@ pub unsafe trait PhysicalAddressTranslator {
 /// where all memory regions have been direct-mapped.
 #[derive(Clone)]
 pub struct OffsetPhysicalAddressTranslator {
+	/// The offset to apply to physical addresses
+	/// in order to get a valid virtual address.
+	///
+	/// # Safety
+	/// No checks are performed to ensure that the
+	/// offset is correct. Further, no additional
+	/// modification to the resulting address is made
+	/// (e.g. sign extension, etc).
 	offset: usize,
 }
 

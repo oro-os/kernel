@@ -1,3 +1,5 @@
+//! Barrier types, used to synchronize multiple cores in lockstep.
+
 #![allow(clippy::module_name_repetitions)]
 
 use core::sync::atomic::{AtomicU64, Ordering};

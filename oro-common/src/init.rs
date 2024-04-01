@@ -1,3 +1,15 @@
+//! Initialization sequence for the Oro kernel, including associated
+//! configuration types.
+//!
+//! The role of a bootloader implementation in Oro is to ultimately
+//! call this `init()` function with a proper configuration, which
+//! provides a clean and standardized way of initializing and booting
+//! into the Oro kernel without needing to know the specifics of the
+//! kernel's initialization process.
+//!
+//! There are a _lot_ of safety requirements for running the initialization
+//! sequence; please read _and understand_ the documentation for the
+//! [`boot_to_kernel`] function before calling it.
 use crate::{
 	dbg,
 	mem::{MemoryRegion, MemoryRegionType, MmapPageFrameAllocator, PhysicalAddressTranslator},
@@ -5,6 +17,7 @@ use crate::{
 	Arch,
 };
 
+/// Waits for all cores to reach a certain point in the initialization sequence.
 macro_rules! wait_for_all_cores {
 	($config:expr) => {{
 		static BARRIER: SpinBarrier = SpinBarrier::new();
@@ -16,15 +29,6 @@ macro_rules! wait_for_all_cores {
 		BARRIER.wait();
 	}};
 }
-
-/// A page-aligned page of bytes.
-#[repr(C, align(4096))]
-struct AlignedPageBytes([u8; 4096]);
-
-// Where the shared PFA lives; this is the memory referred to
-// by each of the cores, but downcasted as the PFA itself.
-#[used]
-static mut SHARED_PFA: AlignedPageBytes = AlignedPageBytes([0; 4096]);
 
 /// Initializes and transfers execution to the Oro kernel.
 ///
@@ -160,6 +164,15 @@ where
 
 	// Create the shared PFA between all cores.
 	let pfa = {
+		/// A page-aligned page of bytes.
+		#[repr(C, align(4096))]
+		struct AlignedPageBytes([u8; 4096]);
+
+		/// Where the shared PFA lives; this is the memory referred to
+		/// by each of the cores, but downcasted as the PFA itself.
+		#[used]
+		static mut SHARED_PFA: AlignedPageBytes = AlignedPageBytes([0; 4096]);
+
 		/// A page-aligned page frame allocator wrapper.
 		#[repr(C, align(4096))]
 		struct AlignedPfa<A, I>(
@@ -171,11 +184,16 @@ where
 
 		/// Credit to @y21 for the elegant solution to compile-time size assertions.
 		trait AssertFitsInPage: Sized {
+			/// Performs a compile-time assertion that the size of the implementing type
+			/// is less than or equal to a page size upon access. Typically not accessed
+			/// directly, but instead via the [`assert_fits_in_page`] method.
 			const ASSERT: () = assert!(
 				core::mem::size_of::<Self>() <= 4096,
 				"the PFA does not fit in a 4KiB page; reduce the size of your memory map iterator structure"
 			);
 
+			/// Performs the compile-time assertion. Can be called from non-const
+			/// contexts (results in a no-op), as the assertion is performed at compile-time.
 			fn assert_fits_in_page(&self) {
 				let _: () = Self::ASSERT;
 			}
@@ -396,9 +414,14 @@ where
 
 /// See usage in `boot_to_kernel` for information about this structure.
 struct IndexedMemoryRegion {
+	/// The index of the memory region in the original memory region list.
+	/// This is **before** any filtering of the memory regions.
 	index: usize,
+	/// The base address of the memory region.
 	base: u64,
+	/// The size of the memory region, in bytes.
 	size: u64,
+	/// The type of the memory region.
 	region_type: MemoryRegionType,
 }
 

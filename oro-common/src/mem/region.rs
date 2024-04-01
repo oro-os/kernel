@@ -1,3 +1,18 @@
+//! Memory region definitions and utilities.
+//!
+//! The Oro kernel (and pre-boot stage) abstracts over the architecture's
+//! memory structures using these traits and structures, and generally
+//! leaves the exact representation up to the architecture-specific implementation.
+//!
+//! These types specify specific regions of interest to the kernel, designed
+//! as logical areas whereby the kernel, userspace, and other parts of memory
+//! are segmented, as well as functions for mapping allocated physical frames
+//! and creating copies for e.g. userspace programs.
+//!
+//! It also specifies interfaces for the kernel for bringing in and out different
+//! memory maps and regions into the "current" execution context, making them
+//! usable by the CPU.
+
 #![allow(clippy::module_name_repetitions, clippy::inline_always)]
 
 use oro_ser2mem::Ser2Mem;

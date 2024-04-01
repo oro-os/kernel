@@ -1,3 +1,9 @@
+//! The [`Arch`] trait is the main interface for architecture-specific
+//! implementations in Oro. It provides a set of methods that Oro can
+//! call to perform architecture-specific operations, such as disabling
+//! interrupts, halting the CPU, and logging messages, along with specifying
+//! types for interacting with underlying architecture-specific data (e.g.
+//! memory management facilities).
 use core::fmt;
 
 /// Every architecture that Oro supports must implement this trait.

@@ -1,3 +1,6 @@
+//! Provides debug output macros. These should be used over
+//! calling into the [`crate::Arch`] functions directly when
+//! logging output.
 #![allow(unused_macros, clippy::module_name_repetitions)]
 
 /// Sends a general debug message to the archiecture-specific debug endpoint.

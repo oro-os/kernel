@@ -1,3 +1,7 @@
+//! Provides the types for the First In, Last Out (FILO) page frame allocator,
+//! whereby page frames form a linked list of free pages. See [`FiloPageFrameAllocator`]
+//! for more information.
+
 use crate::mem::{AllocatorStatsTracker, PageFrameAllocate, PageFrameFree};
 
 /// The _first in, last out_ (FILO) page frame allocator is the default page frame allocator

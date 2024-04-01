@@ -1,3 +1,5 @@
+//! Page frame allocator traits and implementations.
+
 use crate::{
 	dbg_warn,
 	mem::{MemoryRegion, MemoryRegionType},

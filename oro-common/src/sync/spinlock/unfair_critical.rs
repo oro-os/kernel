@@ -1,3 +1,7 @@
+//! Provides the [`UnfairCriticalSpinlock`] type, a simple spinlock that does not
+//! guarantee fairness and may result in starvation, that also disables
+//! interrupts for the lifetime of an acquired lock.
+
 #![allow(clippy::module_name_repetitions)]
 
 use crate::Arch;
@@ -17,8 +21,11 @@ use core::{
 /// Thus, its locking methods are marked `unsafe`, as the code that acquires
 /// the lock **must not panic** while the lock is held.
 pub struct UnfairCriticalSpinlock<A: Arch, T> {
+	/// Whether the lock is currently owned.
 	owned: AtomicBool,
+	/// The value protected by the lock.
 	value: UnsafeCell<T>,
+	/// The architecture this spinlock is for.
 	_arch: PhantomData<A>,
 }
 
@@ -112,9 +119,14 @@ impl<A: Arch, T> UnfairCriticalSpinlock<A, T> {
 
 /// A lock held by an [`UnfairCriticalSpinlock`].
 pub struct UnfairCriticalSpinlockGuard<'a, A: Arch, T> {
+	/// The interrupt state before the lock was acquired.
 	interrupt_state: A::InterruptState,
+	/// A handle to the `owned` flag in the spinlock.
 	lock: &'a AtomicBool,
+	/// The value protected by the lock.
 	value: *mut T,
+	/// The architecture this spinlock guard is for.
+	/// Used to restore interrupts on drop.
 	_arch: PhantomData<A>,
 }
 

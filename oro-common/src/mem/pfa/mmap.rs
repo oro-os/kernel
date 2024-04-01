@@ -1,3 +1,6 @@
+//! Provides a low-level page frame allocator based on a memory map
+//! iterator. See [`MmapPageFrameAllocator`] for more information.
+
 use crate::{
 	mem::{MemoryRegion, PageFrameAllocate},
 	Arch,
@@ -14,9 +17,15 @@ where
 	R: MemoryRegion + Sized + 'static,
 	I: Iterator<Item = R>,
 {
+	/// An iterator over **usable** memory regions.
 	memory_regions: I,
+	/// The current memory region from which pages
+	/// are being allocated, if any.
 	current_region: Option<R>,
+	/// The current offset into the current memory region,
+	/// from which the next page frame will be allocated.
 	current_offset: u64,
+	/// The architecture type.
 	_arch: core::marker::PhantomData<A>,
 }
 

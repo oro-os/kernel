@@ -1,3 +1,5 @@
+//! A set of macros useful for working with unsafe code.
+
 /// Utility macro that requires that it's present inside of an
 /// unsafe block. Useful for other macros that must only be
 /// used in an unsafe context.
