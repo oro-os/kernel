@@ -1,5 +1,3 @@
-use core::panic;
-
 fn main() {
 	let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
 
@@ -17,7 +15,7 @@ fn main() {
 			);
 		}
 		_ => {
-			panic!("unsupported target architecture: {}", target_arch);
+			panic!("unsupported target architecture: {target_arch}");
 		}
 	}
 }
