@@ -17,6 +17,8 @@
 )]
 #![allow(clippy::module_name_repetitions)]
 #![feature(const_trait_impl)]
+#![cfg_attr(feature = "unstable", feature(core_intrinsics))]
+#![cfg_attr(feature = "unstable", allow(internal_features))]
 
 pub mod mem;
 pub mod sync;
@@ -24,6 +26,7 @@ pub mod sync;
 pub(crate) mod arch;
 pub(crate) mod dbg;
 pub(crate) mod init;
+pub(crate) mod macros;
 pub(crate) mod unsafe_macros;
 
 pub use self::{

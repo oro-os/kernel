@@ -9,6 +9,8 @@
 )]
 #![feature(const_mut_refs)]
 #![cfg(not(all(doc, not(target_arch = "x86_64"))))]
+#![cfg_attr(feature = "unstable", feature(core_intrinsics))]
+#![cfg_attr(feature = "unstable", allow(internal_features))]
 
 pub(crate) mod arch;
 pub(crate) mod asm;

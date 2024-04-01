@@ -8,7 +8,8 @@
 	clippy::missing_docs_in_private_items
 )]
 #![cfg(not(all(doc, not(target_arch = "aarch64"))))]
-#![cfg_attr(feature = "unstable", feature(const_trait_impl))]
+#![cfg_attr(feature = "unstable", feature(const_trait_impl, core_intrinsics))]
+#![cfg_attr(feature = "unstable", allow(internal_features))]
 
 pub(crate) mod arch;
 pub(crate) mod mem;

@@ -19,7 +19,7 @@ macro_rules! unsafe_precondition {
 		$crate::assert_unsafe!();
 
 		#[cfg(debug_assertions)]
-		if !$cond {
+		if $crate::unlikely!(!$cond) {
 			<$Arch as $crate::Arch>::halt();
 		}
 
