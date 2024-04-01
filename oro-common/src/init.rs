@@ -134,6 +134,11 @@ static mut SHARED_PFA: AlignedPageBytes = AlignedPageBytes([0; 4096]);
 /// This is due to the size and bounds checking of the generics of this function, which
 /// cannot be enforced if the function is called dynamically (at runtime), especially
 /// with types that differ from when it was compiled.
+///
+/// ## Architecture Specific Requirements
+/// Please consult the documentation for the architecture-specific entry-points
+/// in `oro-kernel/src/bin/*.rs` for any additional requirements or constraints
+/// that may be placed on this function by specific architectures.
 #[allow(clippy::needless_pass_by_value)]
 pub unsafe fn boot_to_kernel<A, P>(config: PrebootConfig<P>) -> !
 where
