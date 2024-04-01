@@ -1,6 +1,9 @@
 #![allow(clippy::unusual_byte_groupings)]
 
-use core::ops::{Index, IndexMut};
+use core::{
+	fmt,
+	ops::{Index, IndexMut},
+};
 
 /// A page table for the `x86_64` architecture.
 #[derive(Debug, Clone)]
@@ -67,11 +70,35 @@ impl PageTable {
 }
 
 /// A single page table entry.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 #[repr(C, align(8))]
 pub struct PageTableEntry(u64);
 
 static_assertions::const_assert_eq!(::core::mem::size_of::<PageTableEntry>(), 8);
+
+impl fmt::Debug for PageTableEntry {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		if self.present() {
+			f.debug_struct("PageTableEntry")
+				.field("address", &format_args!("{:016X}", self.address()))
+				.field("present", &self.present())
+				.field("writable", &self.writable())
+				.field("user", &self.user())
+				.field("no_exec", &self.no_exec())
+				.field("write_through", &self.write_through())
+				.field("cache_disable", &self.cache_disable())
+				.field("accessed", &self.accessed())
+				.field("dirty", &self.dirty())
+				.field("huge", &unsafe { self.huge() })
+				.field("global", &self.global())
+				.finish()
+		} else {
+			f.debug_struct("PageTableEntry")
+				.field("present", &self.present())
+				.finish()
+		}
+	}
+}
 
 /// Represents a page table entry.
 ///
