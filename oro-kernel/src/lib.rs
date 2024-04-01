@@ -3,7 +3,11 @@
 //! This crate includes both a library, with code common to all architectures,
 //! and individual, architecture-specific binaries located in `bin/`.
 #![no_std]
-#![deny(missing_docs, clippy::integer_division)]
+#![deny(
+	missing_docs,
+	clippy::integer_division,
+	clippy::missing_docs_in_private_items
+)]
 
 use oro_common::Arch;
 
