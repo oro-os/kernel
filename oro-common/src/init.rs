@@ -253,19 +253,9 @@ where
 			//
 			// The spinlocked PFA is stored inside of a page aligned structure to ensure
 			// alignment requirements are met with the type-erased `SHARED_PFA`.
-			//
-			// !!-> DANGER <--!!
-			// For some reason, moving the `UnfairSpinlock::new(...)` expression out to
-			// its own variable and then passing that back into `AlignedPfa()` causes
-			// x86_64 to crash. Don't ask me why. It took me an hour and a half of
-			// stepping through ~7 hours of undo edits and testing on QEMU over and
-			// over again to figure it out. Please don't touch this. I'm somewhat convinced
-			// it's a bug in the codegen.
-			let shared_pfa = AlignedPfa(UnfairSpinlock::new(MmapPageFrameAllocator::<
-				A,
-				IndexedMemoryRegion,
-				_,
-			>::new(iterator)));
+			let shared_pfa = MmapPageFrameAllocator::<A, IndexedMemoryRegion, _>::new(iterator);
+			let shared_pfa = UnfairSpinlock::new(shared_pfa);
+			let shared_pfa = AlignedPfa(shared_pfa);
 
 			// Make sure that we're not exceeding our page size.
 			shared_pfa.assert_fits_in_page();
