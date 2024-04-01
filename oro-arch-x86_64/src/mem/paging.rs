@@ -361,32 +361,6 @@ impl PageTableEntry {
 		Self(self.0 | (1 << 4))
 	}
 
-	/// Checks if the page table entry is supervisor-only.
-	#[inline]
-	#[must_use]
-	pub fn supervisor(&self) -> bool {
-		(self.0 & (1 << 2)) != 0
-	}
-
-	/// Sets the supervisor flag of the page table entry.
-	#[inline]
-	pub fn set_supervisor(&mut self) {
-		self.0 &= !(1 << 2);
-	}
-
-	/// Clears the supervisor flag of the page table entry.
-	#[inline]
-	pub fn clear_supervisor(&mut self) {
-		self.0 |= 1 << 2;
-	}
-
-	/// Replaces the supervisor flag, returning a new `PageTableEntry`.
-	#[inline]
-	#[must_use]
-	pub const fn with_supervisor(self) -> Self {
-		Self(self.0 & !(1 << 2))
-	}
-
 	/// Gets a manipulator for the "available" fields of the page table entry.
 	#[inline]
 	#[must_use]
