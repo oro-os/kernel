@@ -48,6 +48,22 @@ crate).
 
 Thus, use of `unsafe` will be scrutinized heavily. Please prepare for this.
 
+### Use in Traits vs Functions
+The kernel project has a clear standarization on where `unsafe` is used
+with regards to traits:
+
+- When an **implementation** must adhere to a safety invariant, the trait
+  must be marked as an `unsafe trait` and a `# Safety` doc comment must
+  be included. This is true even if a safety requirement pertains to a subset
+  of methods.
+- When the **caller** must adhere to a safety invariant, the method
+  must be marked `unsafe`. This is true regardless of if the trait itself
+  is marked as `unsafe trait`.
+
+## Use of `usize`
+For now, the kernel project standardizes that page frames are `u64` and
+virtual addresses are `usize`. This may change in the future.
+
 ## Porting from Other Operating Systems
 The kernel project is not a dumping ground for code from other operating
 systems. However, some code may be ported from other operating systems
