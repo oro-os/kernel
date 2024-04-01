@@ -6,7 +6,7 @@ use oro_common::mem::FiloPageFrameManager;
 /// Note that this struct is **VERY** `unsafe` to use unless used correctly.
 /// Please check the safety notes on the `new` method before using this struct.
 pub struct FixedAddressPageFrameManager {
-	virtual_address: u64,
+	virtual_address: usize,
 	page_table_entry: &'static mut PageTableEntry,
 	currently_allocated: u64,
 }
@@ -28,7 +28,7 @@ impl FixedAddressPageFrameManager {
 	#[inline]
 	#[must_use]
 	pub const unsafe fn new(
-		virtual_address: u64,
+		virtual_address: usize,
 		page_table_entry: &'static mut PageTableEntry,
 	) -> Self {
 		Self {

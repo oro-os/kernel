@@ -5,7 +5,7 @@ use core::arch::asm;
 /// Invalidates a single page in the Translation Lookaside Buffer (TLB)
 /// given a `virtual_address`.
 #[inline(always)]
-pub fn invlpg(virtual_address: u64) {
+pub fn invlpg(virtual_address: usize) {
 	unsafe {
 		asm!(
 			"invlpg [{}]",
