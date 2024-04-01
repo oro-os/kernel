@@ -24,7 +24,7 @@ doc = false
 
 [features]
 default = ["unstable"]
-unstable = ["oro-arch-aarch64/unstable"]
+unstable = ["oro-arch-aarch64/unstable", "oro-arch-x86_64/unstable"]
 
 [dependencies]
 oro-common.workspace = true
