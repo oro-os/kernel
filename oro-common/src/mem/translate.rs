@@ -2,14 +2,14 @@
 
 /// Translates a page frame to a virtual address, used in the pre-boot stage
 /// to write kernel configuration structures.
-pub trait PhysicalAddressTranslator {
+///
+/// # Safety
+/// Implementors must be aware that physical addresses
+/// **may not** be page aligned.
+pub unsafe trait PhysicalAddressTranslator {
 	/// Translates a physical frame address to a virtual address.
-	///
-	/// # Safety
-	/// Implementors must be aware that physical addresses
-	/// **may not** be page aligned.
 	#[must_use]
-	unsafe fn to_virtual_addr(&self, physical_addr: u64) -> usize;
+	fn to_virtual_addr(&self, physical_addr: u64) -> usize;
 }
 
 /// An offset-based [`PhysicalAddressTranslator`] that applies an offset
@@ -34,10 +34,10 @@ impl OffsetPhysicalAddressTranslator {
 	}
 }
 
-impl PhysicalAddressTranslator for OffsetPhysicalAddressTranslator {
+unsafe impl PhysicalAddressTranslator for OffsetPhysicalAddressTranslator {
 	#[allow(clippy::cast_possible_truncation)]
 	#[inline(always)]
-	unsafe fn to_virtual_addr(&self, physical_addr: u64) -> usize {
+	fn to_virtual_addr(&self, physical_addr: u64) -> usize {
 		physical_addr as usize + self.offset
 	}
 }
