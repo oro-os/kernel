@@ -21,7 +21,7 @@ impl Default for PageTable {
 impl IndexMut<usize> for PageTable {
 	#[inline]
 	fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-		debug_assert!(index < 512, "index out of bounds (max 511)");
+		debug_assert!(index < 512, "index out of bounds (max 511): {index}");
 		&mut self.entries[index]
 	}
 }
@@ -31,7 +31,7 @@ impl Index<usize> for PageTable {
 
 	#[inline]
 	fn index(&self, index: usize) -> &Self::Output {
-		debug_assert!(index < 512, "index out of bounds (max 511)");
+		debug_assert!(index < 512, "index out of bounds (max 511): {index}");
 		&self.entries[index]
 	}
 }
