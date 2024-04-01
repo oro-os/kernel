@@ -15,6 +15,7 @@ pub unsafe trait PhysicalAddressTranslator {
 /// An offset-based [`PhysicalAddressTranslator`] that applies an offset
 /// to physical frames resulting in a valid virtual address. Used in cases
 /// where all memory regions have been direct-mapped.
+#[derive(Clone)]
 pub struct OffsetPhysicalAddressTranslator {
 	offset: usize,
 }
