@@ -1,3 +1,5 @@
+//! Implements the [`Arch`] architecture trait for the `x86_64` architecture.
+
 #![allow(clippy::inline_always)]
 
 use core::{
@@ -8,6 +10,10 @@ use core::{
 use oro_common::{sync::UnfairCriticalSpinlock, Arch};
 use uart_16550::SerialPort;
 
+/// The shared serial port for the system.
+///
+/// **NOTE:** This is a temporary solution until pre-boot module loading
+/// is implemented.
 static SERIAL: UnfairCriticalSpinlock<X86_64, MaybeUninit<SerialPort>> =
 	UnfairCriticalSpinlock::new(MaybeUninit::uninit());
 

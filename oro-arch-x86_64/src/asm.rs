@@ -1,3 +1,5 @@
+//! Assembly instruction stubs for the `x86_64` architecture.
+
 #![allow(clippy::inline_always)]
 
 use core::arch::asm;

@@ -1,3 +1,6 @@
+//! Architecture-specific page frame allocator implementations
+//! for the `x86_64` architecture.
+
 use crate::PageTableEntry;
 use oro_common::mem::FiloPageFrameManager;
 
@@ -6,8 +9,12 @@ use oro_common::mem::FiloPageFrameManager;
 /// Note that this struct is **VERY** `unsafe` to use unless used correctly.
 /// Please check the safety notes on the `new` method before using this struct.
 pub struct FixedAddressPageFrameManager {
+	/// The virtual address at which page tables are loaded.
+	/// Used for accesses and invalidations.
 	virtual_address: usize,
+	/// The page table entry corresponding to `virtual_address`.
 	page_table_entry: &'static mut PageTableEntry,
+	/// The currently allocated page frame.
 	currently_allocated: u64,
 }
 
@@ -38,6 +45,8 @@ impl FixedAddressPageFrameManager {
 		}
 	}
 
+	/// Loads a page frame at the FILO address specified by `virtual_address`.
+	/// No-op if the page frame is already loaded.
 	fn load_page_frame(&mut self, address: u64) {
 		if self.currently_allocated != address {
 			self.page_table_entry.set(

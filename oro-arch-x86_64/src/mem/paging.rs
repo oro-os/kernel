@@ -1,3 +1,6 @@
+//! Memory paging (page tables, etc.) structures and implementations
+//! for the `x86_64` architecture.
+
 #![allow(clippy::unusual_byte_groupings)]
 
 use core::{
@@ -9,6 +12,7 @@ use core::{
 #[derive(Debug, Clone)]
 #[repr(C, align(4096))]
 pub struct PageTable {
+	/// The underlying page table entries. Aligned to a page boundary.
 	entries: [PageTableEntry; 512],
 }
 
