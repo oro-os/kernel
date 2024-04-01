@@ -1,3 +1,5 @@
+//! Main [`Arch`] implementation for the Aarch64 architecture.
+
 #![allow(clippy::inline_always)]
 
 use core::{
@@ -8,6 +10,9 @@ use core::{
 use oro_common::{sync::UnfairCriticalSpinlock, Arch};
 use oro_serial_pl011 as pl011;
 
+/// The shared serial port for the system.
+///
+/// **NOTE:** This is a temporary solution until pre-boot module loading
 static mut SERIAL: UnfairCriticalSpinlock<Aarch64, MaybeUninit<pl011::PL011>> =
 	UnfairCriticalSpinlock::new(MaybeUninit::uninit());
 

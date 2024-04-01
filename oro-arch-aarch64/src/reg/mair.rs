@@ -1,3 +1,6 @@
+//! MAIR register implementation for Aarch64.
+//!
+//! # Notes
 //! Some notes on the implementation of the aarch64 MAIR register
 //! types:
 //!
@@ -185,7 +188,9 @@ impl Default for MairAttributes {
 /// The type of memory a specific set of [`MairAttributes`] represents.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum AttributesType {
+	/// The attribute is a device attribute (as opposed to a memory attribute).
 	Device(MairDeviceAttribute),
+	/// The attribute is a memory attribute (as opposed to a device attribute).
 	Memory(MairMemoryAttributes),
 }
 

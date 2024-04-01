@@ -1,3 +1,6 @@
+//! Aarch64 page table structures and manipulators.
+//!
+//! # Notes
 //! Some notes on the implementation of the aarch64 memory model
 //! as it relates to the Oro kernel:
 //!
@@ -47,6 +50,12 @@ use oro_common::unsafe_precondition;
 #[derive(Debug, Clone)]
 #[repr(C, align(4096))]
 pub struct PageTable {
+	/// The underlying page table entries.
+	///
+	/// # Safety
+	/// Under certin granule sizes, the page table entry
+	/// count changes. This type will need to be adjusted
+	/// accordingly in the future.
 	entries: [PageTableEntry; 512],
 }
 
@@ -284,6 +293,8 @@ pub trait PageTableEntrySubtype {
 		((1 << (Self::ADDR_MASK_HIGH_BIT + 1)) - 1) & !((1 << (Self::ADDR_MASK_LOW_BIT)) - 1);
 }
 
+/// Calculates an initial value for page table entries based
+/// on the type of the descriptor (block vs table).
 macro_rules! descriptor_init_value {
 	(table) => {
 		!0b1 | 0b10 | PageTableEntryTableAccessPerm::default_const() as u64
@@ -298,6 +309,7 @@ macro_rules! descriptor_init_value {
 // FIXME(qix-): with the #[doc = ...] attribute on the subtype's
 // FIXME(qix-): ::new() function, the doc comment keeps getting
 // FIXME(qix-): indented whenever rustfmt runs.
+#[allow(clippy::missing_docs_in_private_items)]
 macro_rules! descriptor_doc {
 	($doc:literal) => {
 		concat!(
@@ -313,6 +325,7 @@ macro_rules! descriptor_doc {
 	};
 }
 
+/// Implements the `Debug` trait for a descriptor type.
 macro_rules! impl_descriptor_debug {
 	(table $name:ident) => {
 		impl fmt::Debug for $name {
@@ -350,6 +363,7 @@ macro_rules! impl_descriptor_debug {
 	};
 }
 
+/// Defines a new page table descriptor type and implementations for a specific level and descriptor type.
 macro_rules! define_descriptor {
 	($implty:tt $name:ident, $addr_mask_high:expr, $addr_mask_low:expr, $doc:literal) => {
 		#[doc = concat!("An ", $doc, ".")]
@@ -427,17 +441,30 @@ where
 	}
 }
 
+/// A generalized accessor trait for page table entries,
+/// used by the various descriptor types.
 trait GetRaw: Sized {
+	/// Retrieves a copy of the raw `u64` value.
 	#[must_use]
 	fn get_raw(&self) -> u64;
+
+	/// Retrieves a mutable reference to the raw `u64` value.
 	#[must_use]
 	fn get_raw_mut(&mut self) -> &mut u64;
 }
 
+/// A generalized accessor trait for page table entries,
+/// used by the various descriptor types, with `const` methods
+/// for const-time page table flag building.
 #[cfg(feature = "unstable")]
 trait GetRawConst: Sized {
+	/// Replaces the raw `u64` value with a new one
+	/// and returns a new instance of the type.
 	#[must_use]
 	fn with(value: u64) -> Self;
+
+	/// Retrieves a copy of the raw `u64` value,
+	/// consuming `self`.
 	#[must_use]
 	fn to_raw(self) -> u64;
 }
@@ -944,6 +971,7 @@ pub trait PageTableEntryNoExecAttr: GetRaw {
 
 // FIXME(qix-): Remove this when trait negations ever land.
 // FIXME(qix-): https://github.com/rust-lang/rust/issues/42721
+#[allow(clippy::missing_docs_in_private_items)]
 macro_rules! impl_no_exec {
 	(user_offset = $user_off:literal, kernel_offset = $kernel_off:literal, $( $t:ty ),*) => {
 		$(impl PageTableEntryNoExecAttr for $t {
@@ -994,6 +1022,7 @@ pub trait PageTableEntryNoExecAttrConst: GetRawConst + PageTableEntryNoExecAttr 
 	}
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 #[cfg(feature = "unstable")]
 const _: () = {
 	impl const PageTableEntryNoExecAttrConst for L0PageTableDescriptor {}
