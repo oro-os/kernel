@@ -22,7 +22,10 @@ unsafe impl Arch for X86_64 {
 		SERIAL.lock().write(SerialPort::new(0x3F8));
 	}
 
-	unsafe fn init_local() {}
+	unsafe fn init_local() {
+		// TODO(qix-): Ensure that the CPU has page execution protection
+		// TODO(qix-): enabled. Ref 3.1.7, NX bit.
+	}
 
 	#[cold]
 	fn halt() -> ! {
