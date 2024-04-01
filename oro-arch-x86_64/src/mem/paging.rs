@@ -44,6 +44,26 @@ impl PageTable {
 			entry.reset();
 		}
 	}
+
+	/// Checks if the page table is empty - specifically, if
+	/// **all** entries are **not** present.
+	#[must_use]
+	pub fn empty(&self) -> bool {
+		!self.iter().any(PageTableEntry::present)
+	}
+
+	/// Returns an iterator over the entries in the page table.
+	#[inline]
+	pub fn iter(&self) -> impl Iterator<Item = &PageTableEntry> {
+		self.entries.iter()
+	}
+
+	/// Returns an iterator over mutable references to entries
+	/// in the page table.
+	#[inline]
+	pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut PageTableEntry> {
+		self.entries.iter_mut()
+	}
 }
 
 /// A single page table entry.
