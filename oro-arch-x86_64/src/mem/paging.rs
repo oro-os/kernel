@@ -11,6 +11,13 @@ pub struct PageTable {
 
 static_assertions::const_assert_eq!(::core::mem::size_of::<PageTable>(), 4096);
 
+impl Default for PageTable {
+	#[inline]
+	fn default() -> Self {
+		unsafe { core::mem::zeroed() }
+	}
+}
+
 impl IndexMut<usize> for PageTable {
 	#[inline]
 	fn index_mut(&mut self, index: usize) -> &mut Self::Output {
