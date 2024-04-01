@@ -108,11 +108,13 @@ impl<A: Arch, T> UnfairCriticalSpinlock<A, T> {
 		self.owned
 			.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
 			.ok()
-			.map(|_| UnfairCriticalSpinlockGuard {
-				lock: &self.owned,
-				value: self.value.get(),
-				interrupt_state,
-				_arch: PhantomData,
+			.map(|_| {
+				UnfairCriticalSpinlockGuard {
+					lock: &self.owned,
+					value: self.value.get(),
+					interrupt_state,
+					_arch: PhantomData,
+				}
 			})
 	}
 }

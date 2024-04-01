@@ -1,2 +1,87 @@
-hard_tabs = true
 version = "Two"
+unstable_features = true
+
+# Non-default settings
+combine_control_expr = false
+hex_literal_case = "Upper"
+enum_discrim_align_threshold = 30
+force_multiline_blocks = true
+format_code_in_doc_comments = true
+format_generated_files = false
+format_macro_matchers = true
+format_strings = true
+hard_tabs = true
+imports_granularity = "Crate"
+newline_style = "Unix"
+normalize_comments = true
+reorder_impl_items = true
+group_imports = "One"
+struct_field_align_threshold = 10
+use_field_init_shorthand = true
+use_try_shorthand = true
+
+# Default settings
+#
+# We duplicate these in most cases from the defaults
+# just so changes to the defaults don't affect CI
+# or cause clutter in commits.
+#
+# If you've noticed a default has changed and should
+# be updated here to match it, open a PR with both
+# the change as well as the re-formatted codebase.
+# No initial issue is necessary.
+array_width = 60
+attr_fn_like_width = 70
+binop_separator = "Front"
+blank_lines_lower_bound = 0
+blank_lines_upper_bound = 1
+brace_style = "SameLineWhere"
+chain_width = 60
+# color is skipped; we don't care about this default
+# comment_width is skipped; we disable wrap_comments
+condense_wildcard_suffixes = false
+control_brace_style = "AlwaysSameLine"
+# disable_all_formatting is skipped; this is slated for removal and is useless to us
+# edition is skipped; it should be picked up by Cargo.toml files
+empty_item_single_line = true
+error_on_line_overflow = false
+error_on_unformatted = false
+# fn_args_layout is skipped; it is deprecated and renamed to fn_params_layout
+fn_call_width = 60
+fn_params_layout = "Tall"
+fn_single_line = false
+force_explicit_abi = true
+doc_comment_code_block_width = 100
+format_macro_bodies = true
+skip_macro_invocations = []
+ignore = []
+imports_indent = "Block"
+imports_layout = "Mixed"
+indent_style = "Block"
+inline_attribute_width = 0
+match_arm_blocks = true
+match_arm_leading_pipes = "Never"
+match_block_trailing_comma = false
+merge_derives = true
+normalize_doc_attributes = false
+overflow_delimited_expr = false
+remove_nested_parens = true
+reorder_imports = true
+reorder_modules = true
+short_array_element_width_threshold = 10
+skip_children = false
+single_line_if_else_max_width = 50
+single_line_let_else_max_width = 50
+space_after_colon = true
+space_before_colon = false
+spaces_around_ranges = false
+struct_lit_single_line = true
+struct_lit_width = 18
+struct_variant_width = 35
+tab_spaces = 4
+trailing_comma = "Vertical"
+trailing_semicolon = true
+type_punctuation_density = "Wide"
+use_small_heuristics = "Default"
+where_single_line = false
+wrap_comments = false

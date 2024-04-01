@@ -189,7 +189,8 @@ where
 			/// directly, but instead via the [`assert_fits_in_page`] method.
 			const ASSERT: () = assert!(
 				core::mem::size_of::<Self>() <= 4096,
-				"the PFA does not fit in a 4KiB page; reduce the size of your memory map iterator structure"
+				"the PFA does not fit in a 4KiB page; reduce the size of your memory map iterator \
+				 structure"
 			);
 
 			/// Performs the compile-time assertion. Can be called from non-const
@@ -260,11 +261,13 @@ where
 			let iterator = memory_regions
 				.clone()
 				.enumerate()
-				.map(|(index, region)| IndexedMemoryRegion {
-					index,
-					base: region.base(),
-					size: region.length(),
-					region_type: region.region_type(),
+				.map(|(index, region)| {
+					IndexedMemoryRegion {
+						index,
+						base: region.base(),
+						size: region.length(),
+						region_type: region.region_type(),
+					}
 				})
 				.filter(is_usable_region);
 
@@ -416,11 +419,11 @@ where
 struct IndexedMemoryRegion {
 	/// The index of the memory region in the original memory region list.
 	/// This is **before** any filtering of the memory regions.
-	index: usize,
+	index:       usize,
 	/// The base address of the memory region.
-	base: u64,
+	base:        u64,
 	/// The size of the memory region, in bytes.
-	size: u64,
+	size:        u64,
 	/// The type of the memory region.
 	region_type: MemoryRegionType,
 }

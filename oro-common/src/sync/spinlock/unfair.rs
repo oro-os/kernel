@@ -3,13 +3,12 @@
 
 #![allow(clippy::module_name_repetitions)]
 
+use crate::Arch;
 use core::{
 	cell::UnsafeCell,
 	marker::PhantomData,
 	sync::atomic::{AtomicBool, Ordering},
 };
-
-use crate::Arch;
 
 /// The unfair spinlock is a simple spinlock that does not guarantee
 /// fairness and may result in starvation. It is used in the kernel for its
@@ -54,9 +53,11 @@ impl<A: Arch, T> UnfairSpinlock<A, T> {
 		self.owned
 			.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
 			.ok()
-			.map(|_| UnfairSpinlockGuard {
-				lock: &self.owned,
-				value: self.value.get(),
+			.map(|_| {
+				UnfairSpinlockGuard {
+					lock:  &self.owned,
+					value: self.value.get(),
+				}
 			})
 	}
 
@@ -78,7 +79,7 @@ impl<A: Arch, T> UnfairSpinlock<A, T> {
 /// A lock held by an [`UnfairSpinlock`].
 pub struct UnfairSpinlockGuard<'a, T> {
 	/// A handle to the 'owned' flag in the spinlock.
-	lock: &'a AtomicBool,
+	lock:  &'a AtomicBool,
 	/// A pointer to the value protected by the spinlock.
 	value: *mut T,
 }

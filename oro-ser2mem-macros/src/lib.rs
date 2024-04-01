@@ -114,7 +114,17 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 					match gt.bounds.len() {
 						0 => generic_map.insert(gt.ident.clone(), None),
 						1 => generic_map.insert(gt.ident.clone(), Some(gt.bounds[0].clone())),
-						n => return Error::new(gt.bounds.span(), format!("ser2mem generic bounds can only contain a single bound (an `::oro_ser2mem::CloneIterator`); found {n}")).into_compile_error().into()
+						n => {
+							return Error::new(
+								gt.bounds.span(),
+								format!(
+									"ser2mem generic bounds can only contain a single bound (an \
+									 `::oro_ser2mem::CloneIterator`); found {n}"
+								),
+							)
+							.into_compile_error()
+							.into();
+						}
 					};
 				}
 			}
@@ -136,7 +146,8 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 						if gt.lifetimes.is_some() {
 							return Error::new(
 								gt.lifetimes.span(),
-								"ser2mem generic `where` predicates cannot contain `for<'_>` lifetimes",
+								"ser2mem generic `where` predicates cannot contain `for<'_>` \
+								 lifetimes",
 							)
 							.into_compile_error()
 							.into();
@@ -146,19 +157,39 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 							Type::Path(pth) => {
 								if let Some(qself) = &pth.qself {
 									// XXX: https://github.com/dtolnay/syn/issues/1465
-									return Error::new(qself.lt_token.span(), "ser2mem generic `where` predicates cannot use qualified type bounds").into_compile_error().into();
+									return Error::new(
+										qself.lt_token.span(),
+										"ser2mem generic `where` predicates cannot use qualified \
+										 type bounds",
+									)
+									.into_compile_error()
+									.into();
 								}
 
 								if pth.path.leading_colon.is_some() || pth.path.segments.len() > 1 {
-									return Error::new(pth.path.span(), "ser2mem generic `where` predicate paths must only refer to generic parameters").into_compile_error().into();
+									return Error::new(
+										pth.path.span(),
+										"ser2mem generic `where` predicate paths must only refer \
+										 to generic parameters",
+									)
+									.into_compile_error()
+									.into();
 								}
 
 								// Should never be 0, and we already checked above that it's not >1
 								debug_assert!(pth.path.segments.len() == 1);
 
 								pth.path.segments[0].ident.clone()
-							},
-							other => return Error::new(other.span(), "ser2mem generic `where` predicates may only bound generic paramters to `::oro_ser2mem::CloneIterator`").into_compile_error().into()
+							}
+							other => {
+								return Error::new(
+									other.span(),
+									"ser2mem generic `where` predicates may only bound generic \
+									 paramters to `::oro_ser2mem::CloneIterator`",
+								)
+								.into_compile_error()
+								.into();
+							}
 						};
 
 						if !generic_map.contains_key(&ident) {
@@ -168,9 +199,26 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 						}
 
 						match gt.bounds.len() {
-							0 => return Error::new(gt.bounds.span(), "ser2mem generic `where` predicates must have exactly 1 bound").into_compile_error().into(),
-							1 => {generic_map.insert(ident.clone(), Some(gt.bounds[0].clone()))},
-							n => return Error::new(gt.bounds.span(), format!("ser2mem generic bounds can only contain a single bound (an `::oro_ser2mem::CloneIterator`); found {n}")).into_compile_error().into()
+							0 => {
+								return Error::new(
+									gt.bounds.span(),
+									"ser2mem generic `where` predicates must have exactly 1 bound",
+								)
+								.into_compile_error()
+								.into();
+							}
+							1 => generic_map.insert(ident.clone(), Some(gt.bounds[0].clone())),
+							n => {
+								return Error::new(
+									gt.bounds.span(),
+									format!(
+										"ser2mem generic bounds can only contain a single bound \
+										 (an `::oro_ser2mem::CloneIterator`); found {n}"
+									),
+								)
+								.into_compile_error()
+								.into();
+							}
 						};
 					}
 					unknown => {
@@ -208,7 +256,8 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 							_ => {
 								return Error::new(
 									pt.modifier.span(),
-									"ser2mem structure generic parameter bounds cannot be modified (e.g. with `?`)",
+									"ser2mem structure generic parameter bounds cannot be \
+									 modified (e.g. with `?`)",
 								)
 								.into_compile_error()
 								.into();
@@ -233,7 +282,8 @@ fn derive_struct(mut structure: ItemStruct) -> proc_macro::TokenStream {
 					Some(Some(pt)) => {
 						return Error::new(
 							pt.span(),
-							"ser2mem generic parameters must be bounded only to `::oro_ser2mem::CloneIterator` traits",
+							"ser2mem generic parameters must be bounded only to \
+							 `::oro_ser2mem::CloneIterator` traits",
 						)
 						.into_compile_error()
 						.into();

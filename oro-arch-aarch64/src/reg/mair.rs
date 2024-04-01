@@ -221,11 +221,11 @@ pub enum MairDeviceAttribute {
 	/// Device non-Gathering, non-Reordering, No Early write acknowledgement.
 	DnGnRnE = 0b0000,
 	/// Device non-Gathering, non-Reordering, Early write acknowledgement.
-	DnGnRE = 0b0100,
+	DnGnRE  = 0b0100,
 	/// Device non-Gathering, Reordering, Early Write Acknowledgement.
-	DnGRE = 0b1000,
+	DnGRE   = 0b1000,
 	/// Device Gathering, Reordering, Early Write Acknowledgement.
-	DGRE = 0b1100,
+	DGRE    = 0b1100,
 }
 
 impl fmt::Debug for MairDeviceAttribute {
@@ -278,48 +278,48 @@ pub const INNER: u8 = 0;
 pub enum MairCacheability<const SHIFT: u8> {
 	/// Write-through transient
 	/// with read allocate policy
-	WriteThroughTransientR = 0b0010,
+	WriteThroughTransientR     = 0b0010,
 	/// Write-through transient
 	/// with write allocate policy
-	WriteThroughTransientW = 0b0001,
+	WriteThroughTransientW     = 0b0001,
 	/// Write-through transient
 	/// with both read and write allocate policy
-	WriteThroughTransientRW = 0b0011,
+	WriteThroughTransientRW    = 0b0011,
 	/// Non-Cacheable
-	NonCacheable = 0b0100,
+	NonCacheable               = 0b0100,
 	/// Outer Write-back transient
 	/// with read allocate policy
-	WriteBackTransientR = 0b0110,
+	WriteBackTransientR        = 0b0110,
 	/// Outer Write-back transient
 	/// with write allocate policy
-	WriteBackTransientW = 0b0101,
+	WriteBackTransientW        = 0b0101,
 	/// Outer Write-back transient
 	/// with both read and write allocate policy
-	WriteBackTransientRW = 0b0111,
+	WriteBackTransientRW       = 0b0111,
 	/// Write-through non-transient
 	/// with neither read nor write allocate policy
-	WriteThroughNonTransient = 0b1000,
+	WriteThroughNonTransient   = 0b1000,
 	/// Write-through non-transient
 	/// with read allocate policy
-	WriteThroughNonTransientR = 0b1010,
+	WriteThroughNonTransientR  = 0b1010,
 	/// Write-through non-transient
 	/// with write allocate policy
-	WriteThroughNonTransientW = 0b1001,
+	WriteThroughNonTransientW  = 0b1001,
 	/// Write-through non-transient
 	/// with both read and write allocate policy
 	WriteThroughNonTransientRW = 0b1011,
 	/// Write-back non-transient
 	/// with neither read nor write allocate policy
-	WriteBackNonTransient = 0b1100,
+	WriteBackNonTransient      = 0b1100,
 	/// Write-back non-transient
 	/// with read allocate policy
-	WriteBackNonTransientR = 0b1110,
+	WriteBackNonTransientR     = 0b1110,
 	/// Write-back non-transient
 	/// with write allocate policy
-	WriteBackNonTransientW = 0b1101,
+	WriteBackNonTransientW     = 0b1101,
 	/// Write-back non-transient
 	/// with both read and write allocate policy
-	WriteBackNonTransientRW = 0b1111,
+	WriteBackNonTransientRW    = 0b1111,
 }
 
 impl From<(MairCacheability<OUTER>, MairCacheability<INNER>)> for MairMemoryAttributes {

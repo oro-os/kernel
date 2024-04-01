@@ -70,14 +70,14 @@ pub trait MemoryRegion: Sized {
 #[non_exhaustive]
 pub enum MemoryRegionType {
 	/// The region is available for use by the kernel.
-	Usable = 0,
+	Usable   = 0,
 	/// The region is usable, but should only be used
 	/// after fully transitioning execution to the kernel.
-	Boot = 1,
+	Boot     = 1,
 	/// The region is not available for use.
 	Unusable = 2,
 	/// Bad memory; the region is not available for use,
 	/// as the memory is potentially faulty. Not all
 	/// bootloaders will provide this information.
-	Bad = 3,
+	Bad      = 3,
 }

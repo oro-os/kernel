@@ -1043,11 +1043,11 @@ const _: () = {
 #[repr(u64)]
 pub enum PageTableEntryTableAccessPerm {
 	/// No effect on subsequent lookups
-	NoEffect = 0b00 << 61,
+	NoEffect       = 0b00 << 61,
 	/// No access from EL0 (kernel only)
-	KernelOnly = 0b01 << 61,
+	KernelOnly     = 0b01 << 61,
 	/// Read-only, but accessible from EL0
-	ReadOnly = 0b10 << 61,
+	ReadOnly       = 0b10 << 61,
 	/// Read-only, but not accessible from EL0 (kernel only)
 	KernelReadOnly = 0b11 << 61,
 }
@@ -1076,7 +1076,7 @@ impl Default for PageTableEntryTableAccessPerm {
 #[repr(u64)]
 pub enum PageTableEntryShareability {
 	/// Non-shareable
-	None = 0b00 << 8,
+	None  = 0b00 << 8,
 	/// Outer shareable
 	Outer = 0b10 << 8,
 	/// Inner shareable (the default)
@@ -1116,11 +1116,11 @@ pub enum PageTableEntryBlockAccessPerm {
 	/// EL1 (kernel) read/write, EL0 (user) no access
 	KernelRWUserNoAccess = 0b00 << 6,
 	/// EL1 (kernel) read/write, EL0 (user) read/write
-	KernelRWUserRW = 0b01 << 6,
+	KernelRWUserRW       = 0b01 << 6,
 	/// EL1 (kernel) read-only, EL0 (user) no access
 	KernelROUserNoAccess = 0b10 << 6,
 	/// EL1 (kernel) read-only, EL0 (user) read-only
-	KernelROUserRO = 0b11 << 6,
+	KernelROUserRO       = 0b11 << 6,
 }
 
 impl PageTableEntryBlockAccessPerm {

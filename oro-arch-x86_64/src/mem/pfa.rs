@@ -11,9 +11,9 @@ use oro_common::mem::FiloPageFrameManager;
 pub struct FixedAddressPageFrameManager {
 	/// The virtual address at which page tables are loaded.
 	/// Used for accesses and invalidations.
-	virtual_address: usize,
+	virtual_address:     usize,
 	/// The page table entry corresponding to `virtual_address`.
-	page_table_entry: &'static mut PageTableEntry,
+	page_table_entry:    &'static mut PageTableEntry,
 	/// The currently allocated page frame.
 	currently_allocated: u64,
 }

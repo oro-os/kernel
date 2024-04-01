@@ -26,7 +26,7 @@ where
 	/// from which the next page frame will be allocated.
 	current_offset: u64,
 	/// The architecture type.
-	_arch: core::marker::PhantomData<A>,
+	_arch:          core::marker::PhantomData<A>,
 }
 
 impl<A, R, I> MmapPageFrameAllocator<A, R, I>

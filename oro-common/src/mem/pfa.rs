@@ -183,7 +183,8 @@ impl AllocatorStatsTracker {
 						dbg_warn!(
 							A,
 							"allocator_stats",
-							"bad memory region provided, but bad memory not marked as supported by bootloader; marking as unusable"
+							"bad memory region provided, but bad memory not marked as supported \
+							 by bootloader; marking as unusable"
 						);
 						total_unusable_memory += original_length;
 					}

@@ -29,11 +29,11 @@ where
 	frame_allocator: A,
 	/// The manager responsible for bringing in and out
 	/// physical pages from virtual memory.
-	manager: M,
+	manager:         M,
 	/// The last-free page frame address.
-	last_free: u64,
+	last_free:       u64,
 	/// The stats tracker this allocator uses.
-	tracker: AllocatorStatsTracker,
+	tracker:         AllocatorStatsTracker,
 }
 
 impl<A, M> FiloPageFrameAllocator<A, M>

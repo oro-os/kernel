@@ -53,7 +53,6 @@
 pub mod detail;
 
 use core::marker::PhantomData;
-
 pub use oro_ser2mem_macros::Ser2Mem;
 
 /// To be implemented by bootloaders in order to allocate linear
@@ -158,6 +157,7 @@ where
 	T: Sized + detail::Serializable,
 {
 	type Item = T;
+
 	fn next(&mut self) -> Option<Self::Item> {
 		panic!("do not actually iterate over a Fake iterator!");
 	}

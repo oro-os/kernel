@@ -207,15 +207,17 @@ fn make_memory_map_iterator() -> LimineMemoryRegionIterator {
 	mmap_response
 		.entries()
 		.iter()
-		.map(|region| LimineMemoryRegion {
-			base: region.base,
-			length: region.length,
-			entry_type: match region.entry_type {
-				EntryType::USABLE => MemoryRegionType::Usable,
-				EntryType::BOOTLOADER_RECLAIMABLE => MemoryRegionType::Boot,
-				EntryType::BAD_MEMORY => MemoryRegionType::Bad,
-				_ => MemoryRegionType::Unusable,
-			},
+		.map(|region| {
+			LimineMemoryRegion {
+				base:       region.base,
+				length:     region.length,
+				entry_type: match region.entry_type {
+					EntryType::USABLE => MemoryRegionType::Usable,
+					EntryType::BOOTLOADER_RECLAIMABLE => MemoryRegionType::Boot,
+					EntryType::BAD_MEMORY => MemoryRegionType::Bad,
+					_ => MemoryRegionType::Unusable,
+				},
+			}
 		})
 		.filter(|region: &LimineMemoryRegion| region.length() > 0)
 }
@@ -261,6 +263,7 @@ impl PrebootPrimaryConfig for LiminePrimaryConfig {
 	type MemoryRegion = LimineMemoryRegion;
 	type MemoryRegionIterator = LimineMemoryRegionIterator;
 	type PhysicalAddressTranslator = OffsetPhysicalAddressTranslator;
+
 	const BAD_MEMORY_REPORTED: bool = true;
 }
 
@@ -268,9 +271,9 @@ impl PrebootPrimaryConfig for LiminePrimaryConfig {
 /// memory region types by the [`make_memory_map_iterator`] function.
 struct LimineMemoryRegion {
 	/// The base address of the memory region.
-	base: u64,
+	base:       u64,
 	/// The length of the memory region.
-	length: u64,
+	length:     u64,
 	/// The Oro memory region type.
 	entry_type: MemoryRegionType,
 }
