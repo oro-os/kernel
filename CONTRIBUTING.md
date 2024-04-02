@@ -60,6 +60,27 @@ with regards to traits:
   must be marked `unsafe`. This is true regardless of if the trait itself
   is marked as `unsafe trait`.
 
+### Locality of Invariant Checks
+There are a few types of invariant testing that the kernel project performs;
+some cause runtime panics, others are compile-time checks, and some, such as
+`unsafe_precondition!()`, are a mixture of both.
+
+When a certain item has a safety constraint, any checks for these constraints
+that can be performed either in **debug builds** or at **compile-time** should be
+performed as close to their **usage** as possible.
+
+In contrast, invariant checks that are performed at **runtime** in **release**
+code should be performed as close to the **implementation** as well as
+**mutation** as possible.
+
+This is a bit of a broad piece of guidance that is quite context-dependent,
+so please use best judgement prior to submitting a pull request. If there are
+any issues with the placement of invariant checks, the maintainers will
+do their best to provide feedback.
+
+If there are any questions about invariant checks, please open an issue
+to discuss prior to opening a pull request.
+
 ## Use of `usize`
 For now, the kernel project standardizes that page frames are `u64` and
 virtual addresses are `usize`. This may change in the future.
