@@ -2,12 +2,13 @@
 
 #![allow(clippy::inline_always)]
 
+use crate::mem::{preboot_mapper::TranslatorMapper, recursive_mapper::RecursiveMapper};
 use core::{
 	arch::asm,
 	fmt::{self, Write},
 	mem::MaybeUninit,
 };
-use oro_common::{sync::UnfairCriticalSpinlock, Arch};
+use oro_common::{mem::PhysicalAddressTranslator, sync::UnfairCriticalSpinlock, Arch};
 use uart_16550::SerialPort;
 
 /// The shared serial port for the system.
@@ -22,6 +23,8 @@ pub struct X86_64;
 
 unsafe impl Arch for X86_64 {
 	type InterruptState = usize;
+	type PrebootAddressSpace<P: PhysicalAddressTranslator> = TranslatorMapper<P>;
+	type RuntimeAddressSpace = RecursiveMapper;
 
 	unsafe fn init_shared() {
 		// Initialize the serial port

@@ -81,16 +81,15 @@ where
 	A: PageFrameAllocate,
 	M: FiloPageFrameManager,
 {
-	#[inline]
 	#[allow(clippy::cast_possible_truncation)]
-	unsafe fn allocate(&mut self) -> Option<u64> {
+	fn allocate(&mut self) -> Option<u64> {
 		let page_frame = if self.last_free == u64::MAX {
 			// Allocate from the underlying memory map allocator
 			self.frame_allocator.allocate()
 		} else {
 			// Bring in the last-free page frame.
 			let page_frame = self.last_free;
-			self.last_free = self.manager.read_u64(page_frame);
+			self.last_free = unsafe { self.manager.read_u64(page_frame) };
 			Some(page_frame)
 		};
 

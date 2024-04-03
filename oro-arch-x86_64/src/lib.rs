@@ -12,9 +12,9 @@
 #![cfg_attr(feature = "unstable", feature(core_intrinsics))]
 #![cfg_attr(feature = "unstable", allow(internal_features))]
 
-pub(crate) mod arch;
-pub(crate) mod asm;
-pub(crate) mod mem;
+pub mod arch;
+pub mod asm;
+pub mod mem;
 
 pub use self::{
 	arch::X86_64,

@@ -4,6 +4,7 @@
 //! interrupts, halting the CPU, and logging messages, along with specifying
 //! types for interacting with underlying architecture-specific data (e.g.
 //! memory management facilities).
+use crate::mem::{PhysicalAddressTranslator, PrebootAddressSpace, RuntimeAddressSpace};
 use core::fmt;
 
 /// Every architecture that Oro supports must implement this trait.
@@ -19,6 +20,28 @@ pub unsafe trait Arch {
 	/// The type of the interrupt state returned by `fetch_interrupts`
 	/// and expected by `restore_interrupts`.
 	type InterruptState: Sized + Copy;
+
+	/// The type of [`crate::mem::AddressSpace`] that this architecture implements
+	/// for the preboot routine to construct the kernel address space(s).
+	///
+	/// May be constructed multiple times, one for each CPU core.
+	///
+	/// Must **not** refer to the current memory map; implementations
+	/// _must_ allocate a new memory map for each instance and use
+	/// the page frame allocator and translation facilities to create
+	/// a brand new address space.
+	type PrebootAddressSpace<P: PhysicalAddressTranslator>: PrebootAddressSpace<P> + Sized;
+
+	/// The type of [`crate::mem::AddressSpace`] that this architecture implements
+	/// for the kernel itself to mutate and otherwise interact with
+	/// the address space for the running execution context.
+	///
+	/// Constructed once per CPU core at beginning of kernel execution.
+	///
+	/// Must refer to the current memory map; implementations **must not**
+	/// switch the memory map context outside of this type; the kernel
+	/// uses this type for **ALL** address space switches.
+	type RuntimeAddressSpace: RuntimeAddressSpace + Sized;
 
 	/// Initializes shared resources the target CPU.
 	///
@@ -75,22 +98,4 @@ pub unsafe trait Arch {
 	/// 1. the shared resource, if any, is properly guarded.
 	/// 2. no recursive calls to `log` are made (e.g. by calling `dbg!` from within `log`).
 	fn log(message: fmt::Arguments);
-}
-
-/// Performs a critical section, disabling interrupts for the
-/// duration of the block.
-///
-/// # Safety
-/// The block **MUST NOT** panic under ANY circumstances.
-#[macro_export]
-macro_rules! critical_section {
-	($Arch:ty, $body:block) => {{
-		$crate::assert_unsafe!();
-
-		let state = <$Arch>::fetch_interrupts();
-		<$Arch>::disable_interrupts();
-		let result = { $body };
-		<$Arch>::restore_interrupts(state);
-		result
-	}};
 }

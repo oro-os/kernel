@@ -23,42 +23,31 @@ use core::fmt;
 /// thread safety.
 ///
 /// # Safety
-/// The page frame allocator must ensure that all memory accesses are safe and valid
-/// during any bookkeeping operations.
+/// Implementations **must** ensure that the returned frame address
 ///
-/// Further, it must ensure that page frame addresses are properly aligned and that
-/// no overlapping frames are allocated.
+/// - is page-aligned.
+/// - is not already in use.
+/// - is not in a reserved, bad, or unusable memory region.
+/// - not overlapping with any other allocated frame.
+///
+/// Any and all bookkeeping operations must be safe.
 pub unsafe trait PageFrameAllocate {
 	/// Allocates a new page frame, returning the physical address of the page frame
 	/// that was allocated. If `None` is returned, the system is out of memory.
-	///
-	/// # Safety
-	/// Implementors **must** ensure that the returned frame address
-	///
-	/// - is page-aligned.
-	/// - is not already in use.
-	/// - is not in a reserved, bad, or unusable memory region.
-	///
-	/// Any and all bookkeeping operations must be safe.
-	///
-	/// Callers must only call this method if the implementing allocator is known to be
-	/// in a "good state", for whatever definition of "good" the allocator specifies.
-	/// For example, for the `FiloPageFrameAllocator`, this method potentially brings in and
-	/// out physical pages from a memory map, and so the caller must ensure that the memory
-	/// map is in a consistent state before calling this method.
-	unsafe fn allocate(&mut self) -> Option<u64>;
+	fn allocate(&mut self) -> Option<u64>;
 }
 
 /// A page frame allocator that supports freeing page frames.
 ///
 /// # Safety
-/// Implementors of this trait must ensure that all memory accesses are safe and valid
+/// Implementations of this trait must ensure that all memory accesses are safe and valid
 /// during any bookkeeping operations.
+///
+/// Implementations **must** panic if the passed frame address is not page-aligned.
+///
+/// Any and all bookkeeping operations must be safe.
 pub unsafe trait PageFrameFree: PageFrameAllocate {
 	/// Frees a page frame.
-	///
-	/// # Panics
-	/// Implementors **must** panic if the passed frame address is not page-aligned.
 	///
 	/// # Safety
 	/// The following **must absolutely remain true**:
@@ -68,14 +57,6 @@ pub unsafe trait PageFrameFree: PageFrameAllocate {
 	///
 	/// 2. Callers **must** ensure the passed frame address is not in a reserved or unusable
 	/// memory region.
-	///
-	/// 3. Any and all bookkeeping operations must be safe.
-	///
-	/// Callers must only call this method if the implementing allocator is known to be
-	/// in a "good state", for whatever definition of "good" the allocator specifies.
-	/// For example, for the [`self::filo::FiloPageFrameAllocator`], this method potentially brings in and
-	/// out physical pages from a memory map, and so the caller must ensure that the memory
-	/// map is in a consistent state before calling this method.
 	unsafe fn free(&mut self, frame: u64);
 }
 

@@ -59,3 +59,21 @@ macro_rules! match_nonexhaustive {
 		}
 	}};
 }
+
+/// Performs a critical section, disabling interrupts for the
+/// duration of the block.
+///
+/// # Safety
+/// The block **MUST NOT** panic under ANY circumstances.
+#[macro_export]
+macro_rules! critical_section {
+	($Arch:ty, $body:block) => {{
+		$crate::assert_unsafe!();
+
+		let state = <$Arch as $crate::Arch>::fetch_interrupts();
+		<$Arch as $crate::Arch>::disable_interrupts();
+		let result = { $body };
+		<$Arch as $crate::Arch>::restore_interrupts(state);
+		result
+	}};
+}
