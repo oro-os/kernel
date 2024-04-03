@@ -8,7 +8,12 @@ use core::{
 	fmt::{self, Write},
 	mem::MaybeUninit,
 };
-use oro_common::{mem::PhysicalAddressTranslator, sync::UnfairCriticalSpinlock, Arch};
+use oro_common::{
+	elf::{ElfClass, ElfEndianness, ElfMachine},
+	mem::PhysicalAddressTranslator,
+	sync::UnfairCriticalSpinlock,
+	Arch,
+};
 use uart_16550::SerialPort;
 
 /// The shared serial port for the system.
@@ -25,6 +30,10 @@ unsafe impl Arch for X86_64 {
 	type InterruptState = usize;
 	type PrebootAddressSpace<P: PhysicalAddressTranslator> = TranslatorMapper<P>;
 	type RuntimeAddressSpace = RecursiveMapper;
+
+	const ELF_CLASS: ElfClass = ElfClass::Class64;
+	const ELF_ENDIANNESS: ElfEndianness = ElfEndianness::Little;
+	const ELF_MACHINE: ElfMachine = ElfMachine::X86_64;
 
 	unsafe fn init_shared() {
 		// Initialize the serial port

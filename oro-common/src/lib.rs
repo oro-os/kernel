@@ -20,6 +20,7 @@
 #![cfg_attr(feature = "unstable", feature(core_intrinsics))]
 #![cfg_attr(feature = "unstable", allow(internal_features))]
 
+pub mod elf;
 pub mod mem;
 pub mod sync;
 

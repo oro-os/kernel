@@ -4,7 +4,10 @@
 //! interrupts, halting the CPU, and logging messages, along with specifying
 //! types for interacting with underlying architecture-specific data (e.g.
 //! memory management facilities).
-use crate::mem::{PhysicalAddressTranslator, PrebootAddressSpace, RuntimeAddressSpace};
+use crate::{
+	elf::{ElfClass, ElfEndianness, ElfMachine},
+	mem::{PhysicalAddressTranslator, PrebootAddressSpace, RuntimeAddressSpace},
+};
 use core::fmt;
 
 /// Every architecture that Oro supports must implement this trait.
@@ -42,6 +45,15 @@ pub unsafe trait Arch {
 	/// switch the memory map context outside of this type; the kernel
 	/// uses this type for **ALL** address space switches.
 	type RuntimeAddressSpace: RuntimeAddressSpace + Sized;
+
+	/// The ELF class that this architecture uses.
+	const ELF_CLASS: ElfClass;
+
+	/// The endianness of the ELF file that this architecture uses.
+	const ELF_ENDIANNESS: ElfEndianness;
+
+	/// The ELF machine type that this architecture uses.
+	const ELF_MACHINE: ElfMachine;
 
 	/// Initializes shared resources the target CPU.
 	///
