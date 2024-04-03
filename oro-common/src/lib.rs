@@ -17,7 +17,7 @@
 )]
 #![allow(clippy::module_name_repetitions, clippy::missing_errors_doc)]
 #![feature(const_trait_impl)]
-#![cfg_attr(feature = "unstable", feature(core_intrinsics))]
+#![cfg_attr(feature = "unstable", feature(core_intrinsics, debug_closure_helpers))]
 #![cfg_attr(feature = "unstable", allow(internal_features))]
 
 pub mod elf;

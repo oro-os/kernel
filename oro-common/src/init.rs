@@ -12,7 +12,10 @@
 //! [`boot_to_kernel`] function before calling it.
 use crate::{
 	dbg,
-	mem::{MemoryRegion, MemoryRegionType, MmapPageFrameAllocator, PhysicalAddressTranslator},
+	mem::{
+		MemoryRegion, MemoryRegionType, MmapPageFrameAllocator, PanicOnFreeAllocator,
+		PhysicalAddressTranslator, PrebootAddressSpace,
+	},
 	sync::{SpinBarrier, UnfairSpinlock},
 	Arch,
 };
@@ -35,8 +38,11 @@ macro_rules! wait_for_all_cores {
 /// This function does not return. Calling this function will boot the
 /// Oro operating system kernel.
 ///
-/// # Safety
+/// # Panics
+/// Will panic if there is no memory available to allocate the initial
+/// kernel structures. This should be a rare case.
 ///
+/// # Safety
 /// This function is probably the most heavily specified function in the entire
 /// kernel. It is responsible for booting the kernel from the pre-boot environment
 /// and must be called with care. It is _heavily_ environment-sensitive and a number
@@ -176,7 +182,10 @@ where
 		/// A page-aligned page frame allocator wrapper.
 		#[repr(C, align(4096))]
 		struct AlignedPfa<A, I>(
-			UnfairSpinlock<A, MmapPageFrameAllocator<A, IndexedMemoryRegion, I>>,
+			UnfairSpinlock<
+				A,
+				PanicOnFreeAllocator<MmapPageFrameAllocator<A, IndexedMemoryRegion, I>>,
+			>,
 		)
 		where
 			A: Arch,
@@ -280,6 +289,7 @@ where
 			// The spinlocked PFA is stored inside of a page aligned structure to ensure
 			// alignment requirements are met with the type-erased `SHARED_PFA`.
 			let shared_pfa = MmapPageFrameAllocator::<A, IndexedMemoryRegion, _>::new(iterator);
+			let shared_pfa = PanicOnFreeAllocator(shared_pfa);
 			let shared_pfa = UnfairSpinlock::new(shared_pfa);
 			let shared_pfa = AlignedPfa(shared_pfa);
 
@@ -314,30 +324,23 @@ where
 	// Finally, for good measure, make sure that we barrier here so we're all on the same page.
 	wait_for_all_cores!(config);
 
-	// XXX DEBUG
-	{
-		use crate::mem::PageFrameAllocate;
+	// Create a preboot address space for the kernel and map it.
+	if let PrebootConfig::Primary { kernel_module, .. } = &config {
+		let mut pfa = pfa.lock();
 
-		// allocate a page frame on the secondaries
-		for i in 1..16 {
-			if matches!(config, PrebootConfig::Secondary { core_id, .. } if core_id == i) {
-				let f = pfa.lock().allocate();
-				dbg!(A, "DEBUG", "secondary {} allocated frame: {:X?}", i, f);
-			}
-		}
+		// Parse the kernel ELF module.
+		let kernel_elf_res = crate::elf::Elf::parse::<A>(kernel_module.base, kernel_module.length);
 
-		// allocate a page frame on the primary
-		if matches!(config, PrebootConfig::Primary { .. }) {
-			let f = pfa.lock().allocate();
-			dbg!(A, "DEBUG", "primary allocated frame: {:X?}", f);
-		}
+		// Create a new preboot page table mapper for the kernel.
+		// This will ultimately be cloned and used by all cores.
+		let Some(mut _kernel_mapper) =
+			A::PrebootAddressSpace::new(&mut *pfa, config.physical_address_translator().clone())
+		else {
+			panic!("failed to create preboot address space for kernel; out of memory");
+		};
 
-		if let PrebootConfig::Primary { kernel_module, .. } = &config {
-			let kernel_elf_res =
-				crate::elf::Elf::parse::<A>(kernel_module.base, kernel_module.length);
-
-			dbg!(A, "DEBUG", "kernel module: {:#?}", kernel_elf_res);
-		}
+		// XXX DEBUG
+		dbg!(A, "DEBUG", "kernel ELF: {:#X?}", kernel_elf_res);
 	}
 
 	// Wait for all cores to come online
@@ -359,7 +362,7 @@ pub trait PrebootPrimaryConfig {
 	type MemoryRegionIterator: Iterator<Item = Self::MemoryRegion> + Clone + 'static;
 
 	/// The type of physical-to-virtual address translator used by the pre-boot environment.
-	type PhysicalAddressTranslator: PhysicalAddressTranslator + Sized + 'static;
+	type PhysicalAddressTranslator: PhysicalAddressTranslator + Clone + Sized + 'static;
 
 	/// Whether or not "bad" memory regions are reported by the pre-boot environment.
 	const BAD_MEMORY_REPORTED: bool;

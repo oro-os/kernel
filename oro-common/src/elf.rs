@@ -6,6 +6,7 @@ use crate::Arch;
 use core::{
 	fmt,
 	mem::{transmute, ManuallyDrop},
+	ptr::from_ref,
 };
 
 /// Main entrypoint for an ELF file.
@@ -201,9 +202,51 @@ impl fmt::Debug for Elf {
 		s.field("ident", &self.ident);
 
 		match self.ident.class {
-			ElfClass::Class32 => s.field("elf32", unsafe { &self.endian.elf32 }).finish(),
-			ElfClass::Class64 => s.field("elf64", unsafe { &self.endian.elf64 }).finish(),
+			ElfClass::Class32 => {
+				let elfhdr = unsafe { &*self.endian.elf32 };
+				s.field("elf32", elfhdr);
+			}
+			ElfClass::Class64 => {
+				let elfhdr = unsafe { &*self.endian.elf64 };
+				s.field("elf64", elfhdr);
+			}
 		}
+
+		#[cfg(feature = "unstable")]
+		s.field_with("segments", |f| {
+			let mut segments = f.debug_list();
+
+			match self.ident.class {
+				ElfClass::Class32 => {
+					let elfhdr = unsafe { &self.endian.elf32 };
+					for i in 0..elfhdr.ph_entry_count {
+						let offset = (from_ref(self) as u32)
+							+ elfhdr.ph_offset + (u32::from(i)
+							* u32::from(elfhdr.ph_entry_size));
+
+						let segment = unsafe { &*(offset as *const ElfProgHeader32) };
+
+						segments.entry(segment);
+					}
+				}
+				ElfClass::Class64 => {
+					let elfhdr = unsafe { &self.endian.elf64 };
+					for i in 0..elfhdr.ph_entry_count {
+						let offset = (from_ref(self) as u64)
+							+ elfhdr.ph_offset + (u64::from(i)
+							* u64::from(elfhdr.ph_entry_size));
+
+						let segment = unsafe { &*(offset as *const ElfProgHeader64) };
+
+						segments.entry(segment);
+					}
+				}
+			}
+
+			segments.finish()
+		});
+
+		s.finish()
 	}
 }
 
@@ -321,6 +364,50 @@ pub enum ElfMachine {
 	X86_64  = 0x3E,
 	/// ARM Aarch64
 	Aarch64 = 0xB7,
+}
+
+/// A program header for 32-bit ELF files.
+#[derive(Debug, Clone, Copy)]
+#[repr(C, align(4))]
+pub struct ElfProgHeader32 {
+	/// The type of the program header.
+	ty:        u32,
+	/// The offset of the segment in the file.
+	offset:    u32,
+	/// The virtual address of the segment in memory.
+	virt:      u32,
+	/// The physical address of the segment in memory.
+	phys:      u32,
+	/// The size of the segment in the file.
+	file_size: u32,
+	/// The size of the segment in memory.
+	mem_size:  u32,
+	/// Flags.
+	flags:     u32,
+	/// The alignment of the segment.
+	align:     u32,
+}
+
+/// A program header for 64-bit ELF files.
+#[derive(Debug, Clone, Copy)]
+#[repr(C, align(4))]
+pub struct ElfProgHeader64 {
+	/// The type of the program header.
+	ty:        u32,
+	/// Flags.
+	flags:     u32,
+	/// The offset of the segment in the file.
+	offset:    u64,
+	/// The virtual address of the segment in memory.
+	virt:      u64,
+	/// The physical address of the segment in memory.
+	phys:      u64,
+	/// The size of the segment in the file.
+	file_size: u64,
+	/// The size of the segment in memory.
+	mem_size:  u64,
+	/// The alignment of the segment.
+	align:     u64,
 }
 
 /// Errors that can occur when parsing/validating an ELF file.

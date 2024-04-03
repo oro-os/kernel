@@ -6,6 +6,7 @@ mod pfa;
 mod region;
 mod translate;
 
+pub(crate) use self::pfa::pof_mmap::PanicOnFreeAllocator;
 pub use self::{
 	mapper::{
 		AddressSpace, AddressSpaceLayout, MapError, PrebootAddressSpace, RuntimeAddressSpace,

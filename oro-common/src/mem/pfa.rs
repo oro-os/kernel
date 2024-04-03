@@ -8,6 +8,7 @@ use crate::{
 
 pub mod filo;
 pub mod mmap;
+pub(crate) mod pof_mmap;
 
 use core::fmt;
 
