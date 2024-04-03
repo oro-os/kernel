@@ -27,7 +27,7 @@ use limine::{
 use oro_common::{
 	dbg, dbg_err,
 	mem::{MemoryRegion, MemoryRegionType, OffsetPhysicalAddressTranslator},
-	Arch, PrebootConfig, PrebootPrimaryConfig,
+	Arch, ModuleDef, PrebootConfig, PrebootPrimaryConfig,
 };
 
 /// The path to where the Oro kernel is expected.
@@ -163,7 +163,7 @@ pub unsafe fn init<A: Arch, C: CpuId>() -> ! {
 		.iter()
 		.find(|module| module.path() == KERNEL_PATH.to_bytes());
 
-	let Some(_kernel_module) = kernel_module else {
+	let Some(kernel_module) = kernel_module else {
 		panic!("failed to find kernel module: {KERNEL_PATH:?}");
 	};
 
@@ -193,6 +193,10 @@ pub unsafe fn init<A: Arch, C: CpuId>() -> ! {
 			hhdm_response.offset() as usize
 		),
 		memory_regions,
+		kernel_module: ModuleDef {
+			base:   kernel_module.addr() as usize,
+			length: kernel_module.size(),
+		},
 	})
 }
 

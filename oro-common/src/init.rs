@@ -331,6 +331,13 @@ where
 			let f = pfa.lock().allocate();
 			dbg!(A, "DEBUG", "primary allocated frame: {:X?}", f);
 		}
+
+		if let PrebootConfig::Primary { kernel_module, .. } = &config {
+			let kernel_elf_res =
+				crate::elf::Elf::parse::<A>(kernel_module.base, kernel_module.length);
+
+			dbg!(A, "DEBUG", "kernel module: {:#?}", kernel_elf_res);
+		}
 	}
 
 	// Wait for all cores to come online
@@ -377,6 +384,8 @@ where
 		memory_regions: P::MemoryRegionIterator,
 		/// The physical-to-virtual address translator for the core
 		physical_address_translator: P::PhysicalAddressTranslator,
+		/// The module definition for the Oro kernel itself.
+		kernel_module: ModuleDef,
 	},
 	/// A secondary core configuration
 	Secondary {
@@ -413,6 +422,23 @@ where
 			} => physical_address_translator,
 		}
 	}
+}
+
+/// A module definition, providing base locations, lengths, and
+/// per-module initialization configuration for both the kernel
+/// and root-ring modules.
+///
+/// Modules must be ELF files (see the [`crate::elf`] module for
+/// more information on what constitutes an ELF file valid for
+/// the Oro operating system).
+#[derive(Clone, Copy, Debug)]
+pub struct ModuleDef {
+	/// The base address of the module.
+	/// **MUST** be available in the pre-boot address space.
+	/// **MUST** be aligned to a 4-byte boundary.
+	pub base:   usize,
+	/// The length of the module in bytes.
+	pub length: u64,
 }
 
 /// See usage in `boot_to_kernel` for information about this structure.

@@ -32,5 +32,5 @@ pub(crate) mod unsafe_macros;
 
 pub use self::{
 	arch::Arch,
-	init::{boot_to_kernel, PrebootConfig, PrebootPrimaryConfig},
+	init::{boot_to_kernel, ModuleDef, PrebootConfig, PrebootPrimaryConfig},
 };
