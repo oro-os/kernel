@@ -53,15 +53,12 @@ impl Elf {
 	/// The parser will check that all data falls within
 	/// the length, but does not enforce that the ELF is
 	/// _exactly_ `length` bytes long.
-	pub unsafe fn parse<A: Arch>(
-		base_addr: usize,
-		length: usize,
-	) -> Result<&'static Self, ElfError> {
+	pub unsafe fn parse<A: Arch>(base_addr: usize, length: u64) -> Result<&'static Self, ElfError> {
 		if base_addr & 3 != 0 {
 			return Err(ElfError::UnalignedBaseAddr);
 		}
 
-		let end_excl: usize = base_addr + length;
+		let end_excl: u64 = base_addr as u64 + length;
 
 		let elf = &*(base_addr as *const Self);
 
@@ -129,23 +126,23 @@ impl Elf {
 					return Err(ElfError::InvalidVersion($hdr.version as u8));
 				}
 
-				if $hdr.ph_offset as usize >= $end_excl {
+				if u64::from($hdr.ph_offset) >= $end_excl {
 					return Err(ElfError::ProgHeaderOffsetOutOfBounds);
 				}
 
-				if $hdr.sh_offset as usize >= $end_excl {
+				if u64::from($hdr.sh_offset) >= $end_excl {
 					return Err(ElfError::SectHeaderOffsetOutOfBounds);
 				}
 
-				let ph_end = $hdr.ph_offset as usize
-					+ ($hdr.ph_entry_size as usize * $hdr.ph_entry_count as usize);
+				let ph_end = u64::from($hdr.ph_offset)
+					+ (u64::from($hdr.ph_entry_size) * u64::from($hdr.ph_entry_count));
 
 				if ph_end > $end_excl {
 					return Err(ElfError::ProgHeaderTooLong);
 				}
 
-				let sh_end = $hdr.sh_offset as usize
-					+ ($hdr.sh_entry_size as usize * $hdr.sh_entry_count as usize);
+				let sh_end = u64::from($hdr.sh_offset)
+					+ (u64::from($hdr.sh_entry_size) * u64::from($hdr.sh_entry_count));
 
 				if sh_end > $end_excl {
 					return Err(ElfError::SectHeaderTooLong);
@@ -327,6 +324,7 @@ pub enum ElfMachine {
 }
 
 /// Errors that can occur when parsing/validating an ELF file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ElfError {
 	/// The base address is not aligned to a 4-byte boundary.
 	UnalignedBaseAddr,
