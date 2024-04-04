@@ -387,6 +387,7 @@ impl<'a> ElfSegment for ElfSegmentHeader<'a> {
 	}
 
 	#[allow(clippy::similar_names, clippy::cast_possible_truncation)]
+	#[inline]
 	fn load_address(&self) -> usize {
 		match self {
 			ElfSegmentHeader::Elf32(elf, hdr) => from_ref(elf) as usize + hdr.offset as usize,
@@ -395,6 +396,7 @@ impl<'a> ElfSegment for ElfSegmentHeader<'a> {
 	}
 
 	#[allow(clippy::cast_possible_truncation)]
+	#[inline]
 	fn target_address(&self) -> usize {
 		match self {
 			ElfSegmentHeader::Elf32(_, hdr) => hdr.virt as usize,
@@ -403,6 +405,7 @@ impl<'a> ElfSegment for ElfSegmentHeader<'a> {
 	}
 
 	#[allow(clippy::cast_possible_truncation)]
+	#[inline]
 	fn mem_size(&self) -> usize {
 		match self {
 			ElfSegmentHeader::Elf32(_, hdr) => hdr.mem_size as usize,
