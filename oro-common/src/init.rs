@@ -329,7 +329,13 @@ where
 		let mut pfa = pfa.lock();
 
 		// Parse the kernel ELF module.
-		let kernel_elf_res = crate::elf::Elf::parse::<A>(kernel_module.base, kernel_module.length);
+		let kernel_elf = match crate::elf::Elf::parse::<A>(kernel_module.base, kernel_module.length)
+		{
+			Ok(elf) => elf,
+			Err(e) => {
+				panic!("failed to parse kernel ELF: {:?}", e);
+			}
+		};
 
 		// Create a new preboot page table mapper for the kernel.
 		// This will ultimately be cloned and used by all cores.
@@ -340,7 +346,11 @@ where
 		};
 
 		// XXX DEBUG
-		dbg!(A, "DEBUG", "kernel ELF: {:#X?}", kernel_elf_res);
+		dbg!(A, "DEBUG", "kernel ELF: {:#X?}", kernel_elf);
+
+		for segment in kernel_elf.segments() {
+			dbg!(A, "DEBUG", "mapping segment: {:#X?}", segment);
+		}
 	}
 
 	// Wait for all cores to come online

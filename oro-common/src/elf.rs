@@ -9,6 +9,9 @@ use core::{
 	ptr::from_ref,
 };
 
+/// Marks a segment header as a kernel code segment.
+const ORO_ELF_FLAGTYPE_KERNEL_CODE: u32 = 1 << 20;
+
 /// Main entrypoint for an ELF file.
 ///
 /// It expects that the ELF file is already loaded into memory.
@@ -160,6 +163,18 @@ impl Elf {
 
 		Ok(elf)
 	}
+
+	/// Returns an iterator over the segments of the ELF file.
+	///
+	/// This iterator will skip segments that are not supported
+	/// by Oro.
+	#[must_use]
+	pub fn segments(&self) -> SegmentIterator<'_> {
+		SegmentIterator {
+			elf:   self,
+			index: 0,
+		}
+	}
 }
 
 /// The identity section of an ELF file. Common
@@ -248,6 +263,176 @@ impl fmt::Debug for Elf {
 
 		s.finish()
 	}
+}
+
+/// A segment iterator over an [`Elf`] file.
+///
+/// Note that segment types that are unsupported
+/// are **skipped**.
+pub struct SegmentIterator<'a> {
+	/// Reference to the ELF file
+	elf:   &'a Elf,
+	/// The current segment index
+	index: u16,
+}
+
+impl<'a> Iterator for SegmentIterator<'a> {
+	type Item = ElfSegmentHeader<'a>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		let total_entries = match self.elf.ident.class {
+			ElfClass::Class32 => unsafe { self.elf.endian.elf32.ph_entry_count },
+			ElfClass::Class64 => unsafe { self.elf.endian.elf64.ph_entry_count },
+		};
+
+		let start_index = self.index;
+
+		for index in start_index..total_entries {
+			self.index = index + 1;
+
+			if index >= total_entries {
+				return None;
+			}
+
+			let result = match self.elf.ident.class {
+				ElfClass::Class32 => {
+					let elfhdr = unsafe { &self.elf.endian.elf32 };
+					let offset = (from_ref(self.elf) as u32)
+						+ elfhdr.ph_offset + (u32::from(index)
+						* u32::from(elfhdr.ph_entry_size));
+
+					let segment = unsafe { &*(offset as *const ElfProgHeader32) };
+
+					ElfSegmentHeader::Elf32(self.elf, segment)
+				}
+				ElfClass::Class64 => {
+					let elfhdr = unsafe { &self.elf.endian.elf64 };
+					let offset = (from_ref(self.elf) as u64)
+						+ elfhdr.ph_offset + (u64::from(index)
+						* u64::from(elfhdr.ph_entry_size));
+
+					let segment = unsafe { &*(offset as *const ElfProgHeader64) };
+
+					ElfSegmentHeader::Elf64(self.elf, segment)
+				}
+			};
+
+			if result.ty() == ElfSegmentType::Ignored {
+				continue;
+			}
+
+			return Some(result);
+		}
+
+		None
+	}
+}
+
+/// Allows the [`SegmentIterator`] to switch between
+/// the two segment types.
+pub enum ElfSegmentHeader<'a> {
+	/// 32-bit ELF segment.
+	Elf32(&'a Elf, &'a ElfProgHeader32),
+	/// 64-bit ELF segment.
+	Elf64(&'a Elf, &'a ElfProgHeader64),
+}
+
+/// Provides unified access over ELF segments.
+pub trait ElfSegment {
+	/// The type of the ELF segment.
+	fn ty(&self) -> ElfSegmentType;
+	/// Load base virtual address
+	fn load_address(&self) -> usize;
+	/// Target base virtual address
+	fn target_address(&self) -> usize;
+	/// Size of the segment in memory
+	fn mem_size(&self) -> usize;
+}
+
+impl<'a> fmt::Debug for ElfSegmentHeader<'a> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("ElfSegment")
+			.field("ty", &self.ty())
+			.field("load_address", &self.load_address())
+			.field("target_address", &self.target_address())
+			.field("mem_size", &self.mem_size())
+			.finish()
+	}
+}
+
+impl<'a> ElfSegment for ElfSegmentHeader<'a> {
+	fn ty(&self) -> ElfSegmentType {
+		let (flags, ptype) = match self {
+			ElfSegmentHeader::Elf32(_, hdr) => (hdr.flags, hdr.ty),
+			ElfSegmentHeader::Elf64(_, hdr) => (hdr.flags, hdr.ty),
+		};
+
+		if ptype != 1 {
+			return ElfSegmentType::Ignored;
+		}
+
+		let is_x = flags & 1 != 0;
+		let is_w = flags & 2 != 0;
+		let is_r = flags & 4 != 0;
+		let os_flags = flags & (0xFF << 20);
+
+		if os_flags & ORO_ELF_FLAGTYPE_KERNEL_CODE != 0 {
+			match (is_x, is_w, is_r) {
+				(true, false, true) => ElfSegmentType::KernelCode,
+				_ => ElfSegmentType::Invalid { flags, ptype },
+			}
+		} else {
+			ElfSegmentType::Ignored
+		}
+	}
+
+	#[allow(clippy::similar_names, clippy::cast_possible_truncation)]
+	fn load_address(&self) -> usize {
+		match self {
+			ElfSegmentHeader::Elf32(elf, hdr) => from_ref(elf) as usize + hdr.offset as usize,
+			ElfSegmentHeader::Elf64(elf, hdr) => from_ref(elf) as usize + hdr.offset as usize,
+		}
+	}
+
+	#[allow(clippy::cast_possible_truncation)]
+	fn target_address(&self) -> usize {
+		match self {
+			ElfSegmentHeader::Elf32(_, hdr) => hdr.virt as usize,
+			ElfSegmentHeader::Elf64(_, hdr) => hdr.virt as usize,
+		}
+	}
+
+	#[allow(clippy::cast_possible_truncation)]
+	fn mem_size(&self) -> usize {
+		match self {
+			ElfSegmentHeader::Elf32(_, hdr) => hdr.mem_size as usize,
+			ElfSegmentHeader::Elf64(_, hdr) => hdr.mem_size as usize,
+		}
+	}
+}
+
+/// The type of an ELF segment.
+///
+/// Note that these types **do not** map 1:1 to the
+/// actual ELF segment types. The iterator takes
+/// into account the OS-specific bits and returns
+/// Oro-specific segment types.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ElfSegmentType {
+	/// Ignored
+	Ignored,
+	/// Invalid segment. This is returned when
+	/// the segment uses OS flag bits but they're
+	/// either not supported or have the wrong
+	/// combination of permissions bits.
+	Invalid {
+		/// The flags of the segment
+		flags: u32,
+		/// The type of the segment
+		ptype: u32,
+	},
+	/// Kernel code segment
+	KernelCode,
 }
 
 /// An ELF64 header.
