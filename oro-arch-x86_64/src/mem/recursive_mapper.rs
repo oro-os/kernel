@@ -227,12 +227,16 @@ unsafe impl SupervisorAddressSegment for RecursiveSupervisorSegment {
 				if !l4_entry.present() {
 					let l3_phys = allocator.allocate().ok_or(MapError::OutOfMemory)?;
 					*l4_entry = self.descriptor.entry_template.with_address(l3_phys);
+					let l3_pt: &mut PageTable = unsafe { encode_to_entry_l4!(l4_idx, 0) };
+					l3_pt.reset();
 				}
 
 				let l3_entry: &mut PageTableEntry = unsafe { encode_to_entry_l4!(l4_idx, l3_idx) };
 				if !l3_entry.present() {
 					let l2_phys = allocator.allocate().ok_or(MapError::OutOfMemory)?;
 					*l3_entry = self.descriptor.entry_template.with_address(l2_phys);
+					let l2_pt: &mut PageTable = unsafe { encode_to_entry_l4!(l4_idx, l3_idx, 0) };
+					l2_pt.reset();
 				}
 
 				let l2_entry: &mut PageTableEntry =
@@ -240,6 +244,9 @@ unsafe impl SupervisorAddressSegment for RecursiveSupervisorSegment {
 				if !l2_entry.present() {
 					let l1_phys = allocator.allocate().ok_or(MapError::OutOfMemory)?;
 					*l2_entry = self.descriptor.entry_template.with_address(l1_phys);
+					let l1_pt: &mut PageTable =
+						unsafe { encode_to_entry_l4!(l4_idx, l3_idx, l2_idx, 0) };
+					l1_pt.reset();
 				}
 
 				let l1_entry: &mut PageTableEntry =
@@ -261,12 +268,16 @@ unsafe impl SupervisorAddressSegment for RecursiveSupervisorSegment {
 				if !l5_entry.present() {
 					let l4_phys = allocator.allocate().ok_or(MapError::OutOfMemory)?;
 					*l5_entry = self.descriptor.entry_template.with_address(l4_phys);
+					let l4_pt: &mut PageTable = unsafe { encode_to_entry_l5!(l5_idx, 0) };
+					l4_pt.reset();
 				}
 
 				let l4_entry: &mut PageTableEntry = unsafe { encode_to_entry_l5!(l5_idx, l4_idx) };
 				if !l4_entry.present() {
 					let l3_phys = allocator.allocate().ok_or(MapError::OutOfMemory)?;
 					*l4_entry = self.descriptor.entry_template.with_address(l3_phys);
+					let l3_pt: &mut PageTable = unsafe { encode_to_entry_l5!(l5_idx, l4_idx, 0) };
+					l3_pt.reset();
 				}
 
 				let l3_entry: &mut PageTableEntry =
@@ -274,6 +285,9 @@ unsafe impl SupervisorAddressSegment for RecursiveSupervisorSegment {
 				if !l3_entry.present() {
 					let l2_phys = allocator.allocate().ok_or(MapError::OutOfMemory)?;
 					*l3_entry = self.descriptor.entry_template.with_address(l2_phys);
+					let l2_pt: &mut PageTable =
+						unsafe { encode_to_entry_l5!(l5_idx, l4_idx, l3_idx, 0) };
+					l2_pt.reset();
 				}
 
 				let l2_entry: &mut PageTableEntry =
@@ -281,6 +295,9 @@ unsafe impl SupervisorAddressSegment for RecursiveSupervisorSegment {
 				if !l2_entry.present() {
 					let l1_phys = allocator.allocate().ok_or(MapError::OutOfMemory)?;
 					*l2_entry = self.descriptor.entry_template.with_address(l1_phys);
+					let l1_pt: &mut PageTable =
+						unsafe { encode_to_entry_l5!(l5_idx, l4_idx, l3_idx, l2_idx, 0) };
+					l1_pt.reset();
 				}
 
 				let l1_entry: &mut PageTableEntry =

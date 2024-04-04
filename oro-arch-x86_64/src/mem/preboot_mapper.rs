@@ -70,6 +70,10 @@ where
 		let page_table_phys = allocator.allocate()?;
 		let page_table_virt = translator.to_virtual_addr(page_table_phys);
 
+		unsafe {
+			core::slice::from_raw_parts_mut(page_table_virt as *mut u8, 4096).fill(0);
+		}
+
 		Some(Self {
 			translator,
 			page_table_virt,
@@ -128,7 +132,11 @@ where
 			} else {
 				let frame_phys_addr = allocator.allocate().ok_or(MapError::OutOfMemory)?;
 				*entry = self.descriptor.entry_template.with_address(frame_phys_addr);
-				self.translator.to_virtual_addr(frame_phys_addr)
+				let frame_virt_addr = self.translator.to_virtual_addr(frame_phys_addr);
+				unsafe {
+					core::slice::from_raw_parts_mut(frame_virt_addr as *mut u8, 4096).fill(0);
+				}
+				frame_virt_addr
 			};
 		}
 
