@@ -9,7 +9,7 @@
 	clippy::missing_docs_in_private_items
 )]
 
-use oro_common::Arch;
+use oro_common::{dbg, Arch};
 
 /// Runs the kernel.
 ///
@@ -23,6 +23,7 @@ use oro_common::Arch;
 /// on ALL CORES before calling this function.
 pub unsafe fn boot<A: Arch>() -> ! {
 	A::disable_interrupts();
+	dbg!(A, "kernel", "hello");
 	A::halt()
 }
 

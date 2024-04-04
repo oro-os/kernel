@@ -12,9 +12,11 @@
 //! [`boot_to_kernel`] function before calling it.
 use crate::{
 	dbg,
+	elf::{ElfSegment, ElfSegmentType},
 	mem::{
-		MemoryRegion, MemoryRegionType, MmapPageFrameAllocator, PanicOnFreeAllocator,
-		PhysicalAddressTranslator, PrebootAddressSpace,
+		MemoryRegion, MemoryRegionType, MmapPageFrameAllocator, PageFrameAllocate,
+		PanicOnFreeAllocator, PhysicalAddressTranslator, PrebootAddressSpace,
+		SupervisorAddressSegment, SupervisorAddressSpace,
 	},
 	sync::{SpinBarrier, UnfairSpinlock},
 	Arch,
@@ -149,7 +151,7 @@ macro_rules! wait_for_all_cores {
 /// Please consult the documentation for the architecture-specific entry-points
 /// in `oro-kernel/src/bin/*.rs` for any additional requirements or constraints
 /// that may be placed on this function by specific architectures.
-#[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::needless_pass_by_value, clippy::too_many_lines)]
 pub unsafe fn boot_to_kernel<A, P>(config: PrebootConfig<P>) -> !
 where
 	A: Arch,
@@ -339,17 +341,74 @@ where
 
 		// Create a new preboot page table mapper for the kernel.
 		// This will ultimately be cloned and used by all cores.
-		let Some(mut _kernel_mapper) =
+		let Some(kernel_mapper) =
 			A::PrebootAddressSpace::new(&mut *pfa, config.physical_address_translator().clone())
 		else {
 			panic!("failed to create preboot address space for kernel; out of memory");
 		};
 
-		// XXX DEBUG
-		dbg!(A, "DEBUG", "kernel ELF: {:#X?}", kernel_elf);
-
 		for segment in kernel_elf.segments() {
-			dbg!(A, "DEBUG", "mapping segment: {:#X?}", segment);
+			let mut mapper_segment = match segment.ty() {
+				ElfSegmentType::Ignored => continue,
+				ElfSegmentType::Invalid { flags, ptype } => {
+					panic!(
+						"invalid segment type for kernel ELF: flags={:#X}, type={:#X}",
+						flags, ptype
+					);
+				}
+				ElfSegmentType::KernelCode => kernel_mapper.kernel_code(),
+				ElfSegmentType::KernelData => kernel_mapper.kernel_data(),
+				ElfSegmentType::KernelRoData => kernel_mapper.kernel_rodata(),
+			};
+
+			// NOTE(qix-): This will almost definitely be improved in the future.
+			// NOTE(qix-): At the very least, hugepages will change this.
+			// NOTE(qix-): There will probably be some better machinery for
+			// NOTE(qix-): mapping ranges of memory in the future.
+			for page in 0..(segment.target_size().saturating_add(0xFFF) >> 12) {
+				let Some(phys_addr) = pfa.allocate() else {
+					panic!("failed to allocate page for kernel segment: out of memory");
+				};
+
+				let byte_offset = page << 12;
+				let load_size = (segment.load_size() - byte_offset).min(4096);
+				let load_virt = segment.load_address() + byte_offset;
+				let target_virt = segment.target_address() + byte_offset;
+
+				let local_page_virt = config
+					.physical_address_translator()
+					.to_virtual_addr(phys_addr);
+
+				let dest = core::slice::from_raw_parts_mut(local_page_virt as *mut u8, 4096);
+				let src = core::slice::from_raw_parts(load_virt as *const u8, load_size);
+
+				// copy data
+				if load_size > 0 {
+					dest[..load_size].copy_from_slice(&src[..load_size]);
+				}
+				// zero remaining
+				if load_size < 4096 {
+					dest[load_size..].fill(0);
+				}
+
+				if let Err(err) = mapper_segment.map(&mut *pfa, target_virt, phys_addr) {
+					panic!(
+						"failed to map kernel segment: {err:?}: ls={load_size} p={page} \
+						 po={page:X?} lv={load_virt:#016X} tv={target_virt:#016X} \
+						 s={segment:016X?}"
+					);
+				}
+			}
+
+			dbg!(
+				A,
+				"boot_to_kernel",
+				"mapped kernel segment: {:#016X?} <{:X?}> -> {:?} <{:X?}>",
+				segment.target_address(),
+				segment.target_size(),
+				segment.ty(),
+				segment.target_size(),
+			);
 		}
 	}
 

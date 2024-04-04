@@ -21,6 +21,9 @@ impl Layout {
 	pub const RECURSIVE_IDX: usize = 256;
 }
 
+/// The kernel executable range, shared by the RX, RO, and RW segments.
+const KERNEL_EXE: (usize, usize) = (511, 511);
+
 unsafe impl AddressSpaceLayout for Layout {
 	#![allow(clippy::missing_docs_in_private_items)]
 
@@ -29,11 +32,38 @@ unsafe impl AddressSpaceLayout for Layout {
 	#[inline(always)]
 	fn kernel_code() -> Self::Descriptor {
 		const DESCRIPTOR: Descriptor = Descriptor {
-			valid_range:    (511, 511),
+			valid_range:    KERNEL_EXE,
 			entry_template: PageTableEntry::new()
-				.with_present()
 				.with_user()
-				.with_global(),
+				.with_global()
+				.with_present(),
+		};
+
+		&DESCRIPTOR
+	}
+
+	#[inline(always)]
+	fn kernel_data() -> Self::Descriptor {
+		const DESCRIPTOR: Descriptor = Descriptor {
+			valid_range:    KERNEL_EXE,
+			entry_template: PageTableEntry::new()
+				.with_global()
+				.with_present()
+				.with_no_exec()
+				.with_writable(),
+		};
+
+		&DESCRIPTOR
+	}
+
+	#[inline(always)]
+	fn kernel_rodata() -> Self::Descriptor {
+		const DESCRIPTOR: Descriptor = Descriptor {
+			valid_range:    KERNEL_EXE,
+			entry_template: PageTableEntry::new()
+				.with_global()
+				.with_present()
+				.with_no_exec(),
 		};
 
 		&DESCRIPTOR

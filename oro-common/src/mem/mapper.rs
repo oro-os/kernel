@@ -23,7 +23,26 @@ pub unsafe trait AddressSpaceLayout {
 	type Descriptor: Sized + 'static;
 
 	/// Returns the layout descriptor for the kernel code segment.
+	///
+	/// This must be read-only, user accessible if the architecture
+	/// requires that e.g. interrupts have kernel access, and is executable.
 	fn kernel_code() -> Self::Descriptor;
+
+	/// Returns the layout descriptor for the kernel data segment.
+	///
+	/// This must be read-write, non-user accessible, and is
+	/// **not** executable.
+	///
+	/// **Must overlap with [`Self::kernel_code()`]**
+	fn kernel_data() -> Self::Descriptor;
+
+	/// Returns the layout descriptor for the kernel read-only data segment.
+	///
+	/// This must be read-only, non-user accessible, and is
+	/// **not** executable.
+	///
+	/// **Must overlap with [`Self::kernel_code()`]**
+	fn kernel_rodata() -> Self::Descriptor;
 }
 
 /// Base trait for all address space mappers.
@@ -55,6 +74,18 @@ pub trait SupervisorAddressSpace: AddressSpace {
 	#[inline(always)]
 	fn kernel_code(&self) -> Self::Segment<'_> {
 		self.for_supervisor_segment(Self::Layout::kernel_code())
+	}
+
+	/// Returns a supervisor segment for the kernel data segment.
+	#[inline(always)]
+	fn kernel_data(&self) -> Self::Segment<'_> {
+		self.for_supervisor_segment(Self::Layout::kernel_data())
+	}
+
+	/// Returns a supervisor segment for the kernel read-only data segment.
+	#[inline(always)]
+	fn kernel_rodata(&self) -> Self::Segment<'_> {
+		self.for_supervisor_segment(Self::Layout::kernel_rodata())
 	}
 }
 

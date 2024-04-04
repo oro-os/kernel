@@ -346,7 +346,13 @@ pub trait ElfSegment {
 	/// Target base virtual address
 	fn target_address(&self) -> usize;
 	/// Size of the segment in memory
-	fn mem_size(&self) -> usize;
+	/// (the number of bytes loaded)
+	fn load_size(&self) -> usize;
+	/// Size of the target segment in memory
+	/// (the number of bytes the segment occupies;
+	/// if larger than load size, the remaining
+	/// bytes are zeroed)
+	fn target_size(&self) -> usize;
 }
 
 impl<'a> fmt::Debug for ElfSegmentHeader<'a> {
@@ -355,7 +361,8 @@ impl<'a> fmt::Debug for ElfSegmentHeader<'a> {
 			.field("ty", &self.ty())
 			.field("load_address", &self.load_address())
 			.field("target_address", &self.target_address())
-			.field("mem_size", &self.mem_size())
+			.field("load_size", &self.load_size())
+			.field("target_size", &self.target_size())
 			.finish()
 	}
 }
@@ -379,6 +386,8 @@ impl<'a> ElfSegment for ElfSegmentHeader<'a> {
 		if os_flags & ORO_ELF_FLAGTYPE_KERNEL_CODE != 0 {
 			match (is_x, is_w, is_r) {
 				(true, false, true) => ElfSegmentType::KernelCode,
+				(false, true, true) => ElfSegmentType::KernelData,
+				(false, false, true) => ElfSegmentType::KernelRoData,
 				_ => ElfSegmentType::Invalid { flags, ptype },
 			}
 		} else {
@@ -406,7 +415,16 @@ impl<'a> ElfSegment for ElfSegmentHeader<'a> {
 
 	#[allow(clippy::cast_possible_truncation)]
 	#[inline]
-	fn mem_size(&self) -> usize {
+	fn load_size(&self) -> usize {
+		match self {
+			ElfSegmentHeader::Elf32(_, hdr) => hdr.file_size as usize,
+			ElfSegmentHeader::Elf64(_, hdr) => hdr.file_size as usize,
+		}
+	}
+
+	#[allow(clippy::cast_possible_truncation)]
+	#[inline]
+	fn target_size(&self) -> usize {
 		match self {
 			ElfSegmentHeader::Elf32(_, hdr) => hdr.mem_size as usize,
 			ElfSegmentHeader::Elf64(_, hdr) => hdr.mem_size as usize,
@@ -436,6 +454,10 @@ pub enum ElfSegmentType {
 	},
 	/// Kernel code segment
 	KernelCode,
+	/// Kernel data segment (read-write)
+	KernelData,
+	/// Kernel read-only data segment
+	KernelRoData,
 }
 
 /// An ELF64 header.
