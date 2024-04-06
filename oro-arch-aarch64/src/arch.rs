@@ -7,7 +7,11 @@ use core::{
 	fmt::{self, Write},
 	mem::MaybeUninit,
 };
-use oro_common::{sync::UnfairCriticalSpinlock, Arch};
+use oro_common::{
+	elf::{ElfClass, ElfEndianness, ElfMachine},
+	sync::UnfairCriticalSpinlock,
+	Arch,
+};
 use oro_serial_pl011 as pl011;
 
 /// The shared serial port for the system.
@@ -21,6 +25,10 @@ pub struct Aarch64;
 
 unsafe impl Arch for Aarch64 {
 	type InterruptState = usize;
+
+	const ELF_CLASS: ElfClass = ElfClass::Class64;
+	const ELF_ENDIANNESS: ElfEndianness = ElfEndianness::Little;
+	const ELF_MACHINE: ElfMachine = ElfMachine::Aarch64;
 
 	unsafe fn init_shared() {
 		// TODO(qix-): This is set up specifically for QEMU.
