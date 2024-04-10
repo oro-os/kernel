@@ -9,8 +9,8 @@ mod translate;
 pub(crate) use self::pfa::pof_mmap::PanicOnFreeAllocator;
 pub use self::{
 	mapper::{
-		AddressSpace, AddressSpaceLayout, MapError, PrebootAddressSpace, RuntimeAddressSpace,
-		SupervisorAddressSegment, SupervisorAddressSpace, UnmapError,
+		AddressSpace, AddressSpaceLayout, CloneToken, MapError, PrebootAddressSpace,
+		RuntimeAddressSpace, SupervisorAddressSegment, SupervisorAddressSpace, UnmapError,
 	},
 	pfa::{
 		filo::{FiloPageFrameAllocator, FiloPageFrameManager},

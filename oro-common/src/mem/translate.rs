@@ -8,7 +8,7 @@
 /// # Safety
 /// Implementors must be aware that physical addresses
 /// **may not** be page aligned.
-pub unsafe trait PhysicalAddressTranslator {
+pub unsafe trait PhysicalAddressTranslator: Clone + Sized + 'static {
 	/// Translates a physical frame address to a virtual address.
 	#[must_use]
 	fn to_virtual_addr(&self, physical_addr: u64) -> usize;

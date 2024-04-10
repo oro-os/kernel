@@ -6,7 +6,10 @@
 //! memory management facilities).
 use crate::{
 	elf::{ElfClass, ElfEndianness, ElfMachine},
-	mem::{PhysicalAddressTranslator, PrebootAddressSpace, RuntimeAddressSpace},
+	mem::{
+		PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator, PrebootAddressSpace,
+		RuntimeAddressSpace,
+	},
 };
 use core::fmt;
 
@@ -90,6 +93,58 @@ pub unsafe trait Arch {
 	/// this should ensure that all memory operations are
 	/// completed before the barrier returns.
 	fn strong_memory_barrier();
+
+	/// Prepares the CPU for an execution control transfer.
+	///
+	/// This is used only when the preboot stage is about to transfer
+	/// control to the kernel. It should perform any necessary
+	/// setup to the *existing* execution context to prepare for
+	/// the kernel to begin executing.
+	///
+	/// As such, this call is given a page frame allocator reference,
+	/// whereas the [`Arch::transfer()`] method is not.
+	///
+	/// # Safety
+	/// This method is called **exactly once** for each CPU core -
+	/// both primary and secondary. It is immediately followed by
+	/// a call to [`Arch::transfer()`].
+	///
+	/// Implementations MUST NOT affect ANY resources that are not
+	/// local to the CPU core being prepared.
+	///
+	/// However, it **MAY** affect the local memory map (e.g. to
+	/// map in transfer stubs), assuming it does not affect other cores
+	/// or the remaining execution of the preboot stage.
+	///
+	/// This method must ensure that the call to `transfer()` will
+	/// succeed.
+	///
+	/// This method **must not panic**.
+	unsafe fn prepare_transfer<P, A>(mapper: &Self::PrebootAddressSpace<P>, alloc: &mut A)
+	where
+		P: PhysicalAddressTranslator,
+		A: PageFrameAllocate + PageFrameFree;
+
+	/// Transfers control to the kernel.
+	///
+	/// The entry point is given as a virtual address in the target address
+	/// space.
+	///
+	/// # Safety
+	/// This method is called **exactly once** for each CPU core -
+	/// both primary and secondary. It is immediately preceded by
+	/// a call to [`Arch::prepare_transfer()`].
+	///
+	/// Implementations MUST NOT affect ANY resources that are not
+	/// local to the CPU core being prepared.
+	///
+	/// This method **must not panic**.
+	unsafe fn transfer<P>(
+		entry: usize,
+		mapper_token: <Self::PrebootAddressSpace<P> as PrebootAddressSpace<P>>::TransferToken,
+	) -> !
+	where
+		P: PhysicalAddressTranslator;
 
 	/// Logs a message to the debug logger (typically a serial port).
 	///

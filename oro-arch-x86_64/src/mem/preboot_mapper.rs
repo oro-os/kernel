@@ -16,20 +16,24 @@ use crate::{
 use core::ptr::from_ref;
 use oro_common::{
 	mem::{
-		AddressSpace, MapError, PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator,
-		PrebootAddressSpace, SupervisorAddressSegment, SupervisorAddressSpace, UnmapError,
+		AddressSpace, CloneToken, MapError, PageFrameAllocate, PageFrameFree,
+		PhysicalAddressTranslator, PrebootAddressSpace, SupervisorAddressSegment,
+		SupervisorAddressSpace, UnmapError,
 	},
 	unlikely,
 };
 
 /// A translator mapper that uses a physical address translator to map virtual addresses
 /// to physical addresses for the `x86_64` architecture.
+#[derive(Clone)]
 pub struct TranslatorMapper<P>
 where
 	P: PhysicalAddressTranslator,
 {
 	/// The physical address translator to use for this mapper.
 	translator:      P,
+	/// Physical address of the root page table entry.
+	page_table_phys: u64,
 	/// Base address of the page table.
 	page_table_virt: usize,
 	/// The paging level of the CPU
@@ -63,6 +67,10 @@ unsafe impl<P> PrebootAddressSpace<P> for TranslatorMapper<P>
 where
 	P: PhysicalAddressTranslator,
 {
+	// We just use ourselves since we're the only address space.
+	type CloneToken = PrebootAddressSpaceClone<P>;
+	type TransferToken = u64;
+
 	fn new<A>(allocator: &mut A, translator: P) -> Option<Self>
 	where
 		A: PageFrameAllocate,
@@ -76,11 +84,53 @@ where
 
 		Some(Self {
 			translator,
+			page_table_phys,
 			page_table_virt,
 			paging_level: PagingLevel::current_from_cpu(),
 		})
 	}
+
+	fn clone_token(&self) -> Self::CloneToken {
+		PrebootAddressSpaceClone {
+			translator:      self.translator.clone(),
+			page_table_phys: self.page_table_phys,
+		}
+	}
+
+	fn from_token<A>(token: Self::CloneToken, _alloc: &mut A) -> Self
+	where
+		A: PageFrameAllocate + PageFrameFree,
+	{
+		let page_table_virt = token.translator.to_virtual_addr(token.page_table_phys);
+
+		Self {
+			translator: token.translator,
+			page_table_phys: token.page_table_phys,
+			page_table_virt,
+			paging_level: PagingLevel::current_from_cpu(),
+		}
+	}
+
+	#[inline]
+	fn transfer_token(self) -> Self::TransferToken {
+		self.page_table_phys
+	}
 }
+
+/// A [`CloneToken`] for a preboot address space.
+#[repr(C, align(16))]
+#[derive(Clone)]
+pub struct PrebootAddressSpaceClone<P>
+where
+	P: PhysicalAddressTranslator,
+{
+	/// Clone of the physical address translator from the originating address space.
+	translator:      P,
+	/// Physical address of the root page table entry of the originating address space.
+	page_table_phys: u64,
+}
+
+impl<P> CloneToken for PrebootAddressSpaceClone<P> where P: PhysicalAddressTranslator {}
 
 /// A single segment in an address space. Segments are used to slice out
 /// the address space into logical, well-defined regions for the kernel

@@ -14,13 +14,14 @@ use crate::{
 	dbg,
 	elf::{ElfSegment, ElfSegmentType},
 	mem::{
-		MemoryRegion, MemoryRegionType, MmapPageFrameAllocator, PageFrameAllocate,
+		CloneToken, MemoryRegion, MemoryRegionType, MmapPageFrameAllocator, PageFrameAllocate,
 		PanicOnFreeAllocator, PhysicalAddressTranslator, PrebootAddressSpace,
 		SupervisorAddressSegment, SupervisorAddressSpace,
 	},
 	sync::{SpinBarrier, UnfairSpinlock},
 	Arch,
 };
+use core::mem::MaybeUninit;
 
 /// Waits for all cores to reach a certain point in the initialization sequence.
 macro_rules! wait_for_all_cores {
@@ -151,12 +152,21 @@ macro_rules! wait_for_all_cores {
 /// Please consult the documentation for the architecture-specific entry-points
 /// in `oro-kernel/src/bin/*.rs` for any additional requirements or constraints
 /// that may be placed on this function by specific architectures.
-#[allow(clippy::needless_pass_by_value, clippy::too_many_lines)]
+#[allow(
+	clippy::needless_pass_by_value,
+	clippy::too_many_lines,
+	clippy::missing_docs_in_private_items
+)]
 pub unsafe fn boot_to_kernel<A, P>(config: PrebootConfig<P>) -> !
 where
 	A: Arch,
 	P: PrebootPrimaryConfig,
 {
+	static mut KERNEL_ADDRESS_SPACE_TOKEN: MaybeUninit<CloneTokenProxy> = MaybeUninit::uninit();
+	static mut KERNEL_ENTRY_POINT: usize = 0;
+
+	static MAPPER_BARRIER: SpinBarrier = SpinBarrier::new();
+
 	A::disable_interrupts();
 
 	dbg!(
@@ -172,52 +182,6 @@ where
 
 	// Create the shared PFA between all cores.
 	let pfa = {
-		/// A page-aligned page of bytes.
-		#[repr(C, align(4096))]
-		struct AlignedPageBytes([u8; 4096]);
-
-		/// Where the shared PFA lives; this is the memory referred to
-		/// by each of the cores, but downcasted as the PFA itself.
-		#[used]
-		static mut SHARED_PFA: AlignedPageBytes = AlignedPageBytes([0; 4096]);
-
-		/// A page-aligned page frame allocator wrapper.
-		#[repr(C, align(4096))]
-		struct AlignedPfa<A, I>(
-			UnfairSpinlock<
-				A,
-				PanicOnFreeAllocator<MmapPageFrameAllocator<A, IndexedMemoryRegion, I>>,
-			>,
-		)
-		where
-			A: Arch,
-			I: Iterator<Item = IndexedMemoryRegion> + 'static;
-
-		/// Credit to @y21 for the elegant solution to compile-time size assertions.
-		trait AssertFitsInPage: Sized {
-			/// Performs a compile-time assertion that the size of the implementing type
-			/// is less than or equal to a page size upon access. Typically not accessed
-			/// directly, but instead via the [`assert_fits_in_page`] method.
-			const ASSERT: () = assert!(
-				core::mem::size_of::<Self>() <= 4096,
-				"the PFA does not fit in a 4KiB page; reduce the size of your memory map iterator \
-				 structure"
-			);
-
-			/// Performs the compile-time assertion. Can be called from non-const
-			/// contexts (results in a no-op), as the assertion is performed at compile-time.
-			fn assert_fits_in_page(&self) {
-				let _: () = Self::ASSERT;
-			}
-		}
-
-		impl<A, I> const AssertFitsInPage for AlignedPfa<A, I>
-		where
-			A: Arch,
-			I: Iterator<Item = IndexedMemoryRegion> + 'static,
-		{
-		}
-
 		// This is an interesting yet seemingly necessary dance, needed
 		// to make Rust infer all of the types of both the incoming iterator
 		// as well as whatever iterator we need to create for the PFA.
@@ -326,8 +290,12 @@ where
 	// Finally, for good measure, make sure that we barrier here so we're all on the same page.
 	wait_for_all_cores!(config);
 
-	// Create a preboot address space for the kernel and map it.
-	if let PrebootConfig::Primary { kernel_module, .. } = &config {
+	let kernel_mapper = if let PrebootConfig::Primary {
+		kernel_module,
+		num_instances,
+		..
+	} = &config
+	{
 		let mut pfa = pfa.lock();
 
 		// Parse the kernel ELF module.
@@ -410,7 +378,32 @@ where
 				segment.target_size(),
 			);
 		}
-	}
+
+		// Store the kernel address space token and entry point for cloning later.
+		let clone_token = kernel_mapper.clone_token();
+		KERNEL_ADDRESS_SPACE_TOKEN.write(CloneTokenProxy::from_token(clone_token));
+		KERNEL_ENTRY_POINT = kernel_elf.entry_point();
+
+		// Wait for all cores to see the write.
+		A::strong_memory_barrier();
+
+		// Let other cores take it.
+		MAPPER_BARRIER.set_total::<A>(*num_instances);
+		MAPPER_BARRIER.wait();
+
+		kernel_mapper
+	} else {
+		// Wait for the primary to tell us the mapper token
+		// is available.
+		MAPPER_BARRIER.wait();
+
+		// Clone the kernel address space token.
+		let kernel_address_space_token = KERNEL_ADDRESS_SPACE_TOKEN.assume_init_ref().as_token();
+
+		// Clone the kernel address space.
+		let mut pfa = pfa.lock();
+		A::PrebootAddressSpace::from_token(kernel_address_space_token, &mut *pfa)
+	};
 
 	// Wait for all cores to come online
 	wait_for_all_cores!(config);
@@ -418,7 +411,16 @@ where
 		dbg!(A, "boot_to_kernel", "all {} core(s) online", num_instances);
 	}
 
-	A::halt()
+	// Inform the architecture we are about to jump to the kernel.
+	// This allows for any architecture-specific, **potentially destructive**
+	// operations to be performed before the kernel is entered.
+	{
+		let mut pfa = pfa.lock();
+		A::prepare_transfer(&kernel_mapper, &mut *pfa);
+	}
+
+	// Finally, jump to the kernel entry point.
+	A::transfer(KERNEL_ENTRY_POINT, kernel_mapper.transfer_token())
 }
 
 /// Provides the types used by the primary core configuration values
@@ -560,4 +562,80 @@ impl MemoryRegion for IndexedMemoryRegion {
 #[inline]
 fn is_usable_region<R: MemoryRegion>(region: &R) -> bool {
 	region.region_type() == MemoryRegionType::Usable
+}
+
+// Create a preboot address space for the kernel and map it.
+#[repr(C, align(16))]
+
+/// An opaque proxy type for [`PrebootAddressSpace::CloneToken`] types.
+struct CloneTokenProxy([u8; 256]);
+
+impl CloneTokenProxy {
+	/// Creates a proxy token from a concrete token type.
+	fn from_token<T: CloneToken>(token: T) -> Self {
+		let mut bytes = [0; 256];
+		token.assert_size_and_alignment();
+		unsafe {
+			let ptr = bytes.as_mut_ptr().cast::<T>();
+			ptr.write(token);
+		}
+		Self(bytes)
+	}
+
+	/// Creates a concrete token from a proxy.
+	///
+	/// # Safety
+	/// Must be the same type passed to `from_token`.
+	/// This cannot be enforced at compile time due to
+	/// const generic limitations in Rust.
+	unsafe fn as_token<T: CloneToken>(&self) -> T {
+		let mut maybe_token = MaybeUninit::<T>::uninit();
+		maybe_token
+			.as_mut_ptr()
+			.copy_from_nonoverlapping(self.0.as_ptr().cast(), 1);
+		maybe_token.assume_init()
+	}
+}
+
+/// A page-aligned page of bytes.
+#[repr(C, align(4096))]
+struct AlignedPageBytes([u8; 4096]);
+
+/// Where the shared PFA lives; this is the memory referred to
+/// by each of the cores, but downcasted as the PFA itself.
+#[used]
+static mut SHARED_PFA: AlignedPageBytes = AlignedPageBytes([0; 4096]);
+
+/// A page-aligned page frame allocator wrapper.
+#[repr(C, align(4096))]
+struct AlignedPfa<A, I>(
+	UnfairSpinlock<A, PanicOnFreeAllocator<MmapPageFrameAllocator<A, IndexedMemoryRegion, I>>>,
+)
+where
+	A: Arch,
+	I: Iterator<Item = IndexedMemoryRegion> + 'static;
+
+/// Credit to @y21 for the elegant solution to compile-time size assertions.
+trait AssertFitsInPage: Sized {
+	/// Performs a compile-time assertion that the size of the implementing type
+	/// is less than or equal to a page size upon access. Typically not accessed
+	/// directly, but instead via the [`assert_fits_in_page`] method.
+	const ASSERT: () = assert!(
+		core::mem::size_of::<Self>() <= 4096,
+		"the PFA does not fit in a 4KiB page; reduce the size of your memory map iterator \
+		 structure"
+	);
+
+	/// Performs the compile-time assertion. Can be called from non-const
+	/// contexts (results in a no-op), as the assertion is performed at compile-time.
+	fn assert_fits_in_page(&self) {
+		() = Self::ASSERT;
+	}
+}
+
+impl<A, I> const AssertFitsInPage for AlignedPfa<A, I>
+where
+	A: Arch,
+	I: Iterator<Item = IndexedMemoryRegion> + 'static,
+{
 }

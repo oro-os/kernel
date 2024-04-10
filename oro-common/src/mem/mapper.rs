@@ -100,12 +100,72 @@ pub unsafe trait PrebootAddressSpace<P>: SupervisorAddressSpace + Sized
 where
 	P: PhysicalAddressTranslator,
 {
+	/// The [`CloneToken`] type that is used to create a copy of the address space.
+	type CloneToken: CloneToken;
+
+	/// Returns a token (some internal, opaque type) that is passed
+	/// to [`crate::Arch::transfer()`] when the core is ready to switch
+	/// execution contexts to the kernel. This is in lieu of passing
+	/// the entire preboot mapper, and is usually some value to be
+	/// set in a control register.
+	type TransferToken: Sized + 'static;
+
 	/// Allocates a new address space from the given page frame allocator and physical address translator.
 	///
 	/// Returns `None` if the page frame allocator is out of memory.
 	fn new<A>(allocator: &mut A, translator: P) -> Option<Self>
 	where
 		A: PageFrameAllocate;
+
+	/// Returns a [`CloneToken`] that can be used to create a copy of the address space.
+	fn clone_token(&self) -> Self::CloneToken;
+
+	/// Creates a cloned address space from the given token.
+	///
+	/// # Safety
+	/// Implementations must ensure that the clone is a valid copy of the
+	/// original address space, and that the clone is not made active.
+	///
+	/// Further, while the clone may choose to share pages with the original
+	/// address space, it must not share mappings that are otherwise local
+	/// to the core.
+	fn from_token<A>(token: Self::CloneToken, alloc: &mut A) -> Self
+	where
+		A: PageFrameAllocate + PageFrameFree;
+
+	/// Returns a transfer token that is used to switch execution contexts
+	/// to the kernel, passed to [`crate::Arch::transfer()`].
+	///
+	/// This method consumes the address space, as it is no longer needed
+	/// after the kernel has taken control.
+	fn transfer_token(self) -> Self::TransferToken;
+}
+
+/// A token (some internal, opaque type) that is used to create
+/// a copy of an address space from the primary.
+///
+/// A copy does NOT need to be a full copy; for example,
+/// if the architecture never needs to change out the kernel
+/// pages, then the copy can simply refer to the same pages.
+///
+/// A copy is made on each secondary core using this token.
+///
+/// **This type must fit within 256 bytes and have an alignment of 16.**
+pub trait CloneToken: Sized + Clone + 'static {
+	/// Assertion to ensure that the token is the correct size and alignment.
+	const ASSERT: () = assert!(
+		::core::mem::size_of::<Self>() <= 256 && ::core::mem::align_of::<Self>() == 16,
+		"PrebootAddressSpace::CloneToken must be <= 256 bytes and have an alignment of 16",
+	);
+
+	/// Asserts the size fits in 256 bytes and is
+	/// aligned to 16 bytes. Despite the signature,
+	/// this is a compile-time check performed
+	/// by `oro-common`. Implements need not to
+	/// call this themselves.
+	fn assert_size_and_alignment(&self) {
+		() = Self::ASSERT;
+	}
 }
 
 /// An [`AddressSpace`] used by the kernel at runtime to map and unmap virtual addresses

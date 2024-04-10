@@ -175,6 +175,17 @@ impl Elf {
 			index: 0,
 		}
 	}
+
+	/// Returns the entry point of the ELF file.
+	#[inline]
+	#[must_use]
+	#[allow(clippy::cast_possible_truncation)]
+	pub fn entry_point(&self) -> usize {
+		match self.ident.class {
+			ElfClass::Class32 => unsafe { self.endian.elf32.entry as usize },
+			ElfClass::Class64 => unsafe { self.endian.elf64.entry as usize },
+		}
+	}
 }
 
 /// The identity section of an ELF file. Common

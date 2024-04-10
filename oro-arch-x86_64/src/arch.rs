@@ -86,6 +86,26 @@ unsafe impl Arch for X86_64 {
 		.unwrap();
 	}
 
+	unsafe fn prepare_transfer<P, A>(_mapper: &Self::PrebootAddressSpace<P>, _alloc: &mut A)
+	where
+		P: PhysicalAddressTranslator,
+		A: oro_common::mem::PageFrameAllocate + oro_common::mem::PageFrameFree,
+	{
+		// TODO(qix-)
+		panic!("x86_64::prepare_transfer() is not implemented");
+	}
+
+	unsafe fn transfer<P>(
+		_entry: usize,
+		_mapper_token: <Self::PrebootAddressSpace<P> as oro_common::mem::PrebootAddressSpace<P>>::TransferToken,
+	) -> !
+	where
+		P: PhysicalAddressTranslator,
+	{
+		// TODO(qix-)
+		panic!("x86_64::transfer() is not implemented");
+	}
+
 	#[inline(always)]
 	fn strong_memory_barrier() {
 		unsafe {
