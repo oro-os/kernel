@@ -1,4 +1,4 @@
-//! Assembly instruction stubs for the `x86_64` architecture.
+//! Assembly instruction stubs for the x86_64 architecture.
 
 #![allow(clippy::inline_always)]
 

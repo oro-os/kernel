@@ -1,4 +1,4 @@
-//! An implementation of a recursive page table mapper for `x86_64`.
+//! An implementation of a recursive page table mapper for x86_64.
 #![allow(clippy::inline_always)]
 
 use crate::mem::{

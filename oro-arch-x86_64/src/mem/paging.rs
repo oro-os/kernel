@@ -1,5 +1,5 @@
 //! Memory paging (page tables, etc.) structures and implementations
-//! for the `x86_64` architecture.
+//! for the x86_64 architecture.
 
 #![allow(clippy::unusual_byte_groupings)]
 
@@ -8,7 +8,7 @@ use core::{
 	ops::{Index, IndexMut},
 };
 
-/// A page table for the `x86_64` architecture.
+/// A page table for the x86_64 architecture.
 #[derive(Debug, Clone)]
 #[repr(C, align(4096))]
 pub struct PageTable {

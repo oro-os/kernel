@@ -1,4 +1,4 @@
-//! Provides a translator mapper for the `x86_64` architecture
+//! Provides a translator mapper for the x86_64 architecture
 //! that constructs page tables for a given address space using
 //! physical -> virtual address translation.
 
@@ -24,7 +24,7 @@ use oro_common::{
 };
 
 /// A translator mapper that uses a physical address translator to map virtual addresses
-/// to physical addresses for the `x86_64` architecture.
+/// to physical addresses for the x86_64 architecture.
 #[derive(Clone)]
 pub struct TranslatorMapper<P>
 where

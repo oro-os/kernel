@@ -1,4 +1,4 @@
-//! `x86_64` architecture support crate for the
+//! x86_64 architecture support crate for the
 //! [Oro Operating System](https://github.com/oro-os/kernel)
 //! kernel.
 #![no_std]

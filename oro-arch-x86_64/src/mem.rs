@@ -1,4 +1,4 @@
-//! Memory management structures and implementations for the `x86_64` architecture.
+//! Memory management structures and implementations for the x86_64 architecture.
 
 pub mod layout;
 pub mod paging;

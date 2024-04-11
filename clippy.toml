@@ -1,0 +1,2 @@
+missing-docs-in-crate-items = true
+doc-valid-idents = ["..", "x86_64"]

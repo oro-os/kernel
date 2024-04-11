@@ -1,11 +1,11 @@
-//! Defines the Oro Operating System address space layout for `x86_64` CPUs.
+//! Defines the Oro Operating System address space layout for x86_64 CPUs.
 #![allow(clippy::inline_always)]
 
 use crate::mem::paging::PageTableEntry;
 use oro_common::mem::AddressSpaceLayout;
 
 /// Holds initialization and range information for an address space segment
-/// for the `x86_64` architecture address space.
+/// for the x86_64 architecture address space.
 pub struct Descriptor {
 	/// The valid range of L4/L5 indices for this segment.
 	pub valid_range:    (usize, usize),
@@ -13,7 +13,7 @@ pub struct Descriptor {
 	pub entry_template: PageTableEntry,
 }
 
-/// Defines the layout of the address space for the `x86_64` architecture.
+/// Defines the layout of the address space for the x86_64 architecture.
 pub struct Layout;
 
 impl Layout {

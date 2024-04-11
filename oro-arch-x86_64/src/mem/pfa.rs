@@ -1,5 +1,5 @@
 //! Architecture-specific page frame allocator implementations
-//! for the `x86_64` architecture.
+//! for the x86_64 architecture.
 
 use crate::PageTableEntry;
 use oro_common::mem::FiloPageFrameManager;

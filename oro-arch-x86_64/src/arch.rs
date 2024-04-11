@@ -1,4 +1,4 @@
-//! Implements the [`Arch`] architecture trait for the `x86_64` architecture.
+//! Implements the [`Arch`] architecture trait for the x86_64 architecture.
 
 #![allow(clippy::inline_always)]
 
@@ -23,7 +23,7 @@ use uart_16550::SerialPort;
 static SERIAL: UnfairCriticalSpinlock<X86_64, MaybeUninit<SerialPort>> =
 	UnfairCriticalSpinlock::new(MaybeUninit::uninit());
 
-/// `x86_64` architecture support implementation for the Oro kernel.
+/// x86_64 architecture support implementation for the Oro kernel.
 pub struct X86_64;
 
 unsafe impl Arch for X86_64 {

@@ -1,4 +1,4 @@
-//! The Oro kernel supports `x86_64`'s 4-level and 5-level paging modes,
+//! The Oro kernel supports x86_64's 4-level and 5-level paging modes,
 //! which are determined by the CPU flags and conveyed to certain algorithms
 //! with the [`PagingLevel`] enum.
 #![allow(clippy::inline_always)]
