@@ -238,7 +238,6 @@ impl fmt::Debug for Elf {
 			}
 		}
 
-		#[cfg(feature = "unstable")]
 		s.field_with("segments", |f| {
 			let mut segments = f.debug_list();
 
@@ -410,8 +409,20 @@ impl<'a> ElfSegment for ElfSegmentHeader<'a> {
 	#[inline]
 	fn load_address(&self) -> usize {
 		match self {
-			ElfSegmentHeader::Elf32(elf, hdr) => from_ref(elf) as usize + hdr.offset as usize,
-			ElfSegmentHeader::Elf64(elf, hdr) => from_ref(elf) as usize + hdr.offset as usize,
+			// `elf` in this match is a &&ELF. We have to de-ref it
+			// to get the actual ELF.
+			//
+			// (qix-) Time wasted debugging: 4 hours.
+			ElfSegmentHeader::Elf32(elf, hdr) => {
+				// Make sure we get the correct ref address.
+				let elf: &Elf = elf;
+				from_ref(elf) as usize + hdr.offset as usize
+			}
+			ElfSegmentHeader::Elf64(elf, hdr) => {
+				// Make sure we get the correct ref address.
+				let elf: &Elf = elf;
+				from_ref(elf) as usize + hdr.offset as usize
+			}
 		}
 	}
 

@@ -4,6 +4,8 @@
 //! the Oro kernel needs.
 #![no_std]
 #![deny(missing_docs)]
+#![allow(internal_features)]
+#![feature(core_intrinsics)]
 
 use oro_common::{unsafe_precondition, Arch};
 use volatile_register::{RO, RW, WO};

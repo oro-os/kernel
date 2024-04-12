@@ -15,10 +15,12 @@
 	clippy::integer_division,
 	clippy::missing_docs_in_private_items
 )]
-#![allow(clippy::module_name_repetitions, clippy::missing_errors_doc)]
-#![feature(const_trait_impl)]
-#![cfg_attr(feature = "unstable", feature(core_intrinsics, debug_closure_helpers))]
-#![cfg_attr(feature = "unstable", allow(internal_features))]
+#![allow(
+	clippy::module_name_repetitions,
+	clippy::missing_errors_doc,
+	internal_features
+)]
+#![feature(const_trait_impl, core_intrinsics, debug_closure_helpers)]
 
 pub mod elf;
 pub mod mem;

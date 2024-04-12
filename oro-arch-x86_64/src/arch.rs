@@ -7,12 +7,16 @@ use core::{
 	arch::asm,
 	fmt::{self, Write},
 	mem::MaybeUninit,
+	ptr::from_ref,
 };
 use oro_common::{
 	elf::{ElfClass, ElfEndianness, ElfMachine},
-	mem::PhysicalAddressTranslator,
+	mem::{
+		PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator, PrebootAddressSpace,
+		SupervisorAddressSegment, UnmapError,
+	},
 	sync::UnfairCriticalSpinlock,
-	Arch,
+	Arch, PrebootConfig, PrebootPrimaryConfig,
 };
 use uart_16550::SerialPort;
 
@@ -86,24 +90,117 @@ unsafe impl Arch for X86_64 {
 		.unwrap();
 	}
 
-	unsafe fn prepare_transfer<P, A>(_mapper: &Self::PrebootAddressSpace<P>, _alloc: &mut A)
-	where
+	unsafe fn prepare_transfer<P, A, C>(
+		mapper: &Self::PrebootAddressSpace<P>,
+		config: &PrebootConfig<C>,
+		alloc: &mut A,
+	) where
 		P: PhysicalAddressTranslator,
-		A: oro_common::mem::PageFrameAllocate + oro_common::mem::PageFrameFree,
+		A: PageFrameAllocate + PageFrameFree,
+		C: PrebootPrimaryConfig,
 	{
-		// TODO(qix-)
-		panic!("x86_64::prepare_transfer() is not implemented");
+		// offset starts at L4/L4 index 255.
+		let stubs_base = crate::xfer::target_address();
+
+		let stub_start = from_ref(&crate::xfer::_ORO_STUBS_START) as usize;
+		let stub_len = from_ref(&crate::xfer::_ORO_STUBS_LEN) as usize;
+
+		debug_assert!(
+			stub_start & 0xFFF == 0,
+			"transfer stubs must be 4KiB aligned: {stub_start:016X}",
+		);
+		debug_assert!(
+			stub_len & 0xFFF == 0,
+			"transfer stubs length must be a multiple of 4KiB: {stub_len:X}",
+		);
+		debug_assert!(
+			stub_len > 0,
+			"transfer stubs must have a length greater than 0: {stub_len:X}",
+		);
+
+		// map the stubs into lower memory.
+		let num_pages = (stub_len + 4095) >> 12;
+
+		if let PrebootConfig::Primary {
+			physical_address_translator,
+			..
+		} = config
+		{
+			let source = stub_start as *const u8;
+			let dest = stubs_base as *mut u8;
+
+			let current_mapper =
+				Self::PrebootAddressSpace::get_current(physical_address_translator.clone());
+
+			for page_offset in 0..num_pages {
+				let phys = alloc
+					.allocate()
+					.expect("failed to allocate page for transfer stubs (out of memory)");
+
+				let virt = stubs_base + page_offset * 4096;
+
+				// Map into the target kernel page tables
+				mapper
+					.stubs()
+					.map(alloc, virt, phys)
+					.expect("failed to map page for transfer stubs for kernel address space");
+
+				// Attempt to unmap it from the current address space.
+				// If it's not mapped, we can ignore the error.
+				current_mapper
+					.stubs()
+					.unmap(alloc, virt)
+					.or_else(|e| {
+						if e == UnmapError::NotMapped {
+							Ok(0)
+						} else {
+							Err(e)
+						}
+					})
+					.expect("failed to unmap page for transfer stubs from current address space");
+
+				// Now map it into the current mapper so we can access it.
+				current_mapper
+					.stubs()
+					.map(alloc, virt, phys)
+					.expect("failed to map page for transfer stubs in current address space");
+			}
+
+			dest.copy_from(source, stub_len);
+
+			Self::strong_memory_barrier();
+		} else {
+			// Simply invalidate the pages
+			for page_offset in 0..num_pages {
+				let virt = stubs_base + page_offset * 4096;
+				crate::asm::invlpg(virt);
+			}
+		}
 	}
 
 	unsafe fn transfer<P>(
-		_entry: usize,
-		_mapper_token: <Self::PrebootAddressSpace<P> as oro_common::mem::PrebootAddressSpace<P>>::TransferToken,
+		entry: usize,
+		mapper_token: <Self::PrebootAddressSpace<P> as PrebootAddressSpace<P>>::TransferToken,
 	) -> !
 	where
 		P: PhysicalAddressTranslator,
 	{
-		// TODO(qix-)
-		panic!("x86_64::transfer() is not implemented");
+		let page_table_phys: u64 = mapper_token;
+		let stack_addr: u64 = 0; // TODO(qix-): allocate stacks :D
+		let stubs_addr: usize = crate::xfer::target_address();
+
+		// Jump to stubs.
+		asm!(
+			"push {CR3_ADDR}",
+			"push {STACK_ADDR}",
+			"push {KERNEL_ENTRY}",
+			"jmp {STUBS_ADDR}",
+			CR3_ADDR = in(reg) page_table_phys,
+			STACK_ADDR = in(reg) stack_addr,
+			KERNEL_ENTRY = in(reg) entry,
+			STUBS_ADDR = in(reg) stubs_addr,
+			options(noreturn)
+		);
 	}
 
 	#[inline(always)]

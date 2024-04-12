@@ -6,14 +6,12 @@
 // TODO(qix-): not to have them conflict with the oro-common trait type
 // TODO(qix-): names. They might be renamed in the future.
 
-use crate::{
-	mem::{
-		layout::{Descriptor, Layout},
-		paging_level::PagingLevel,
-	},
-	PageTable,
+use crate::mem::{
+	layout::{Descriptor, Layout},
+	paging::PageTable,
+	paging_level::PagingLevel,
 };
-use core::ptr::from_ref;
+use core::{fmt, ptr::from_ref};
 use oro_common::{
 	mem::{
 		AddressSpace, CloneToken, MapError, PageFrameAllocate, PageFrameFree,
@@ -38,6 +36,51 @@ where
 	page_table_virt: usize,
 	/// The paging level of the CPU
 	paging_level:    PagingLevel,
+}
+
+impl<P> fmt::Debug for TranslatorMapper<P>
+where
+	P: PhysicalAddressTranslator,
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("TranslatorMapper")
+			.field("page_table_phys", &self.page_table_phys)
+			.field("page_table_virt", &self.page_table_virt)
+			.field("paging_level", &self.paging_level)
+			.field_with("page_table", |f| {
+				let table = unsafe { &*(self.page_table_virt as *const PageTable) };
+				table.fmt(f)
+			})
+			.finish_non_exhaustive()
+	}
+}
+
+impl<P> TranslatorMapper<P>
+where
+	P: PhysicalAddressTranslator,
+{
+	/// Constructs a new translator mapper using the current CPU's paging
+	/// table (CR3) and the given physical address translator.
+	///
+	/// # Safety
+	/// Calls to this function must not overlap lifetime-wise with any other
+	/// address space instances that use current CPU paging tables.
+	pub unsafe fn get_current(translator: P) -> Self {
+		let page_table_phys = crate::asm::cr3();
+		let page_table_virt = translator.to_virtual_addr(page_table_phys);
+
+		Self {
+			translator,
+			page_table_phys,
+			page_table_virt,
+			paging_level: PagingLevel::current_from_cpu(),
+		}
+	}
+
+	/// Returns the x86_64-specific stubs segment for this address space.
+	pub fn stubs(&self) -> <Self as SupervisorAddressSpace>::Segment<'_> {
+		self.for_supervisor_segment(Layout::stubs())
+	}
 }
 
 unsafe impl<P> AddressSpace for TranslatorMapper<P>
@@ -173,7 +216,7 @@ where
 
 		let mut current_page_table = self.base_table_virt;
 
-		for level in (1..self.paging_level.as_usize() - 1).rev() {
+		for level in (1..self.paging_level.as_usize()).rev() {
 			let index = (virt >> (12 + level * 9)) & 0x1FF;
 			let entry = unsafe { &mut (&mut *(current_page_table as *mut PageTable))[index] };
 
@@ -183,6 +226,8 @@ where
 				let frame_phys_addr = allocator.allocate().ok_or(MapError::OutOfMemory)?;
 				*entry = self.descriptor.entry_template.with_address(frame_phys_addr);
 				let frame_virt_addr = self.translator.to_virtual_addr(frame_phys_addr);
+				crate::asm::invlpg(frame_virt_addr);
+
 				unsafe {
 					core::slice::from_raw_parts_mut(frame_virt_addr as *mut u8, 4096).fill(0);
 				}
@@ -192,11 +237,13 @@ where
 
 		let entry =
 			unsafe { &mut (&mut *(current_page_table as *mut PageTable))[(virt >> 12) & 0x1FF] };
+
 		if entry.present() {
 			return Err(MapError::Exists);
 		}
 
 		*entry = self.descriptor.entry_template.with_address(phys);
+		crate::asm::invlpg(virt);
 
 		Ok(())
 	}

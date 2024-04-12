@@ -172,7 +172,7 @@ impl PageTableEntry {
 	/// Replaces the page table entry as a table descriptor.
 	#[inline(always)]
 	#[must_use]
-	#[cfg(feature = "unstable")]
+
 	pub const fn with_table(self) -> Self {
 		Self(self.0 | 0b1 << 1)
 	}
@@ -405,7 +405,7 @@ macro_rules! define_descriptor {
 			}
 		}
 
-		#[cfg(feature = "unstable")]
+
 		impl GetRawConst for $name {
 			#[inline(always)]
 			fn with(value: u64) -> Self {
@@ -456,7 +456,7 @@ trait GetRaw: Sized {
 /// A generalized accessor trait for page table entries,
 /// used by the various descriptor types, with `const` methods
 /// for const-time page table flag building.
-#[cfg(feature = "unstable")]
+
 trait GetRawConst: Sized {
 	/// Replaces the raw `u64` value with a new one
 	/// and returns a new instance of the type.
@@ -481,7 +481,6 @@ impl GetRaw for PageTableEntry {
 	}
 }
 
-#[cfg(feature = "unstable")]
 impl GetRawConst for PageTableEntry {
 	#[inline(always)]
 	fn with(value: u64) -> Self {
@@ -519,7 +518,7 @@ impl<T> PageTableEntryValidAttr for T where T: GetRaw {}
 
 /// Provides access to the valid bit of a page table entry
 /// via `const` methods.
-#[cfg(feature = "unstable")]
+
 pub trait PageTableEntryValidAttrConst: GetRawConst {
 	/// Replaces the valid bit of the page table entry.
 	#[inline(always)]
@@ -529,7 +528,6 @@ pub trait PageTableEntryValidAttrConst: GetRawConst {
 	}
 }
 
-#[cfg(feature = "unstable")]
 impl<T> const PageTableEntryValidAttrConst for T where T: PageTableEntryValidAttr + GetRawConst {}
 
 /// Provides access to the table descriptor bits of the upper attributes
@@ -563,7 +561,7 @@ impl PageTableEntryTableDescriptorAttr for L2PageTableDescriptor {}
 
 /// Provides access to the next-level bits of the upper attributes
 /// of page table descriptors via `const` methods.
-#[cfg(feature = "unstable")]
+
 pub trait PageTableEntryTableDescriptorAttrConst: GetRawConst {
 	/// Replaces the [`PageTableEntryTableAccessPerm`] of the page table entry.
 	///
@@ -577,7 +575,6 @@ pub trait PageTableEntryTableDescriptorAttrConst: GetRawConst {
 	}
 }
 
-#[cfg(feature = "unstable")]
 impl<T> const PageTableEntryTableDescriptorAttrConst for T where
 	T: PageTableEntryTableDescriptorAttr + GetRawConst
 {
@@ -786,7 +783,7 @@ impl PageTableEntryBlockDescriptorAttr for L3PageTableBlockDescriptor {}
 
 /// Provides access to the block descriptor attributes
 /// via `const` methods.
-#[cfg(feature = "unstable")]
+
 pub trait PageTableEntryBlockDescriptorAttrConst: GetRawConst {
 	/// Replaces the contiguous bit of the page table entry.
 	///
@@ -833,7 +830,6 @@ pub trait PageTableEntryBlockDescriptorAttrConst: GetRawConst {
 	}
 }
 
-#[cfg(feature = "unstable")]
 impl<T> const PageTableEntryBlockDescriptorAttrConst for T where
 	T: PageTableEntryBlockDescriptorAttr + GetRawConst
 {
@@ -879,7 +875,7 @@ impl<T> PageTableEntryAddress for T where T: PageTableEntrySubtype + GetRaw {}
 
 /// Provides access to the address bits of a page table entry
 /// via `const` methods.
-#[cfg(feature = "unstable")]
+
 pub trait PageTableEntryAddressConst: GetRawConst + PageTableEntrySubtype {
 	/// Replaces the address of the page table entry.
 	#[inline(always)]
@@ -889,7 +885,6 @@ pub trait PageTableEntryAddressConst: GetRawConst + PageTableEntrySubtype {
 	}
 }
 
-#[cfg(feature = "unstable")]
 impl<T> const PageTableEntryAddressConst for T where T: PageTableEntrySubtype + GetRawConst {}
 
 /// Provides access to the no-execute bits of a page table entry.
@@ -998,7 +993,7 @@ impl_no_exec!(
 
 /// Provides access to the no-execute bits of a page table entry
 /// via `const` methods.
-#[cfg(feature = "unstable")]
+
 pub trait PageTableEntryNoExecAttrConst: GetRawConst + PageTableEntryNoExecAttr {
 	/// Replaces the unprivileged (EL0) no-execute bit of the page table entry.
 	///
@@ -1023,7 +1018,7 @@ pub trait PageTableEntryNoExecAttrConst: GetRawConst + PageTableEntryNoExecAttr 
 }
 
 #[allow(clippy::missing_docs_in_private_items)]
-#[cfg(feature = "unstable")]
+
 const _: () = {
 	impl const PageTableEntryNoExecAttrConst for L0PageTableDescriptor {}
 	impl const PageTableEntryNoExecAttrConst for L1PageTableDescriptor {}

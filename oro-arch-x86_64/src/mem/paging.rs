@@ -56,7 +56,7 @@ impl PageTable {
 	/// **all** entries are **not** present.
 	#[must_use]
 	pub fn empty(&self) -> bool {
-		!self.iter().any(PageTableEntry::present)
+		!self.iter().any(|p| p.present())
 	}
 
 	/// Returns an iterator over the entries in the page table.
@@ -68,7 +68,7 @@ impl PageTable {
 	/// Returns an iterator over mutable references to entries
 	/// in the page table.
 	#[inline]
-	pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut PageTableEntry> {
+	pub fn _iter_mut(&mut self) -> impl Iterator<Item = &mut PageTableEntry> {
 		self.entries.iter_mut()
 	}
 }
@@ -134,7 +134,7 @@ impl PageTableEntry {
 	/// Checks if the page table entry is present.
 	#[inline]
 	#[must_use]
-	pub fn present(&self) -> bool {
+	pub fn present(self) -> bool {
 		(self.0 & 1) != 0
 	}
 
@@ -160,7 +160,7 @@ impl PageTableEntry {
 	/// Checks if the page table entry is writable.
 	#[inline]
 	#[must_use]
-	pub fn writable(&self) -> bool {
+	pub fn writable(self) -> bool {
 		(self.0 & (1 << 1)) != 0
 	}
 
@@ -186,7 +186,7 @@ impl PageTableEntry {
 	/// Checks if the page table entry is dirty.
 	#[inline]
 	#[must_use]
-	pub fn dirty(&self) -> bool {
+	pub fn dirty(self) -> bool {
 		(self.0 & (1 << 6)) != 0
 	}
 
@@ -212,7 +212,7 @@ impl PageTableEntry {
 	/// Checks if the page table entry has been accessed.
 	#[inline]
 	#[must_use]
-	pub fn accessed(&self) -> bool {
+	pub fn accessed(self) -> bool {
 		(self.0 & (1 << 5)) != 0
 	}
 
@@ -238,7 +238,7 @@ impl PageTableEntry {
 	/// Checks if the page table entry is user-accessible.
 	#[inline]
 	#[must_use]
-	pub fn user(&self) -> bool {
+	pub fn user(self) -> bool {
 		(self.0 & (1 << 2)) != 0
 	}
 
@@ -264,7 +264,7 @@ impl PageTableEntry {
 	/// Checks if the page table entry is non-executable.
 	#[inline]
 	#[must_use]
-	pub fn no_exec(&self) -> bool {
+	pub fn no_exec(self) -> bool {
 		(self.0 & (1 << 63)) != 0
 	}
 
@@ -290,7 +290,7 @@ impl PageTableEntry {
 	/// Checks if the page table entry is global.
 	#[inline]
 	#[must_use]
-	pub fn global(&self) -> bool {
+	pub fn global(self) -> bool {
 		(self.0 & (1 << 8)) != 0
 	}
 
@@ -316,7 +316,7 @@ impl PageTableEntry {
 	/// Checks if the page table entry has write-through caching enabled.
 	#[inline]
 	#[must_use]
-	pub fn write_through(&self) -> bool {
+	pub fn write_through(self) -> bool {
 		(self.0 & (1 << 3)) != 0
 	}
 
@@ -342,7 +342,7 @@ impl PageTableEntry {
 	/// Checks if the page table entry has caching disabled.
 	#[inline]
 	#[must_use]
-	pub fn cache_disable(&self) -> bool {
+	pub fn cache_disable(self) -> bool {
 		(self.0 & (1 << 4)) != 0
 	}
 
@@ -390,7 +390,7 @@ impl PageTableEntry {
 	/// Must only be called on a PTPD or a PD entry.
 	#[inline]
 	#[must_use]
-	pub unsafe fn huge(&self) -> bool {
+	pub unsafe fn huge(self) -> bool {
 		(self.0 & (1 << 7)) != 0
 	}
 
@@ -449,7 +449,7 @@ impl PageTableEntry {
 	/// Gets the physical address of the page table entry.
 	#[inline]
 	#[must_use]
-	pub fn address(&self) -> u64 {
+	pub fn address(self) -> u64 {
 		self.0 & 0x000_FFFFFFFFFF_000
 	}
 }

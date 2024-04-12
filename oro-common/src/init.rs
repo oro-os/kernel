@@ -57,12 +57,18 @@ macro_rules! wait_for_all_cores {
 ///
 /// Read the following sections **carefully** before calling this function.
 ///
+/// Further, for **each architecture** the preboot stage supports, you must also
+/// check any architecture-specific safety requirements in the architecture's
+/// crate documentation (e.g. `oro-arch-x86_64`) **carefully** before calling this
+/// function.
+///
 /// ## SMP Invocations
 /// This function must be called **exactly once** per initialized core in the system.
 /// If this function is not called on a core, then the kernel will have absolutely no
 /// knowledge of that core's existence; the operating system will simply not report it,
 /// nor will it contribute to the core count. The user _will not_ be able to use the core.
 ///
+/// ### Timing
 /// All cores must be initialized at the same stage of the pre-boot process; that is,
 /// no CPU-wide altercations to any of its state may be made after the first invocation
 /// to this function (on at least one of the cores).
@@ -339,7 +345,9 @@ where
 				};
 
 				let byte_offset = page << 12;
-				let load_size = (segment.load_size() - byte_offset).min(4096);
+				// Saturating sub here since the target size might exceed the file size,
+				// in which case we have to keep allocating those pages and zeroing them.
+				let load_size = segment.load_size().saturating_sub(byte_offset).min(4096);
 				let load_virt = segment.load_address() + byte_offset;
 				let target_virt = segment.target_address() + byte_offset;
 
@@ -414,10 +422,23 @@ where
 	// Inform the architecture we are about to jump to the kernel.
 	// This allows for any architecture-specific, **potentially destructive**
 	// operations to be performed before the kernel is entered.
-	{
+	// We start with the primary core, sync, and then let the secondaries
+	// go.
+	if matches!(config, PrebootConfig::Primary { .. }) {
 		let mut pfa = pfa.lock();
-		A::prepare_transfer(&kernel_mapper, &mut *pfa);
+		A::prepare_transfer(&kernel_mapper, &config, &mut *pfa);
 	}
+
+	wait_for_all_cores!(config);
+
+	if matches!(config, PrebootConfig::Secondary { .. }) {
+		let mut pfa = pfa.lock();
+		A::prepare_transfer(&kernel_mapper, &config, &mut *pfa);
+	}
+
+	// Wait for all cores to be ready to jump to the kernel.
+	// We do this here since allocations may fail, cores may panic, etc.
+	wait_for_all_cores!(config);
 
 	// Finally, jump to the kernel entry point.
 	A::transfer(KERNEL_ENTRY_POINT, kernel_mapper.transfer_token())

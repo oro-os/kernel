@@ -20,15 +20,6 @@ SECTIONS {
 
 	. = ALIGN(4096);
 
-	.oro_stubs : {
-		_ORO_STUBS_START = ALIGN(4096);
-		KEEP(*(.oro_stubs.entry));
-		KEEP(*(.oro_stubs .oro_stubs.*));
-		_ORO_STUBS_END = ALIGN(4096);
-	} :text
-
-	. = ALIGN(4096);
-
 	.rodata : {
 		*(.rodata .rodata.*)
 	} :rodata
@@ -40,9 +31,13 @@ SECTIONS {
 		*(.sdata .sdata.*)
 	} :data
 
+	. = ALIGN(4096);
+
     .dynamic : {
         *(.dynamic)
     } :data :dynamic
+
+	. = ALIGN(4096);
 
 	.bss : {
 		*(COMMON)

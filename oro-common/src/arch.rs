@@ -10,6 +10,7 @@ use crate::{
 		PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator, PrebootAddressSpace,
 		RuntimeAddressSpace,
 	},
+	PrebootConfig, PrebootPrimaryConfig,
 };
 use core::fmt;
 
@@ -109,6 +110,9 @@ pub unsafe trait Arch {
 	/// both primary and secondary. It is immediately followed by
 	/// a call to [`Arch::transfer()`].
 	///
+	/// It is always called for the primary _first_; other cores
+	/// must wait for the primary to finish before they are called.
+	///
 	/// Implementations MUST NOT affect ANY resources that are not
 	/// local to the CPU core being prepared.
 	///
@@ -119,11 +123,18 @@ pub unsafe trait Arch {
 	/// This method must ensure that the call to `transfer()` will
 	/// succeed.
 	///
-	/// This method **must not panic**.
-	unsafe fn prepare_transfer<P, A>(mapper: &Self::PrebootAddressSpace<P>, alloc: &mut A)
-	where
+	/// This method must not affect the commons library from writing
+	/// to the boot protocol area.
+	///
+	/// This method **may panic**.
+	unsafe fn prepare_transfer<P, A, C>(
+		mapper: &Self::PrebootAddressSpace<P>,
+		config: &PrebootConfig<C>,
+		alloc: &mut A,
+	) where
 		P: PhysicalAddressTranslator,
-		A: PageFrameAllocate + PageFrameFree;
+		A: PageFrameAllocate + PageFrameFree,
+		C: PrebootPrimaryConfig;
 
 	/// Transfers control to the kernel.
 	///

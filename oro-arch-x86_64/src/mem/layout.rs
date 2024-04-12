@@ -17,12 +17,23 @@ pub struct Descriptor {
 pub struct Layout;
 
 impl Layout {
+	/// The kernel executable range, shared by the RX, RO, and RW segments.
+	pub const KERNEL_EXE: (usize, usize) = (511, 511);
 	/// The recursive index for the page table.
 	pub const RECURSIVE_IDX: usize = 256;
-}
+	/// The index for kernel transfer stubs.
+	pub const STUBS_IDX: usize = 255;
 
-/// The kernel executable range, shared by the RX, RO, and RW segments.
-const KERNEL_EXE: (usize, usize) = (511, 511);
+	#[inline(always)]
+	pub fn stubs() -> &'static Descriptor {
+		const DESCRIPTOR: Descriptor = Descriptor {
+			valid_range:    (Layout::STUBS_IDX, Layout::STUBS_IDX),
+			entry_template: PageTableEntry::new().with_present().with_writable(),
+		};
+
+		&DESCRIPTOR
+	}
+}
 
 unsafe impl AddressSpaceLayout for Layout {
 	#![allow(clippy::missing_docs_in_private_items)]
@@ -32,7 +43,7 @@ unsafe impl AddressSpaceLayout for Layout {
 	#[inline(always)]
 	fn kernel_code() -> Self::Descriptor {
 		const DESCRIPTOR: Descriptor = Descriptor {
-			valid_range:    KERNEL_EXE,
+			valid_range:    Layout::KERNEL_EXE,
 			entry_template: PageTableEntry::new()
 				.with_user()
 				.with_global()
@@ -45,7 +56,7 @@ unsafe impl AddressSpaceLayout for Layout {
 	#[inline(always)]
 	fn kernel_data() -> Self::Descriptor {
 		const DESCRIPTOR: Descriptor = Descriptor {
-			valid_range:    KERNEL_EXE,
+			valid_range:    Layout::KERNEL_EXE,
 			entry_template: PageTableEntry::new()
 				.with_global()
 				.with_present()
@@ -59,7 +70,7 @@ unsafe impl AddressSpaceLayout for Layout {
 	#[inline(always)]
 	fn kernel_rodata() -> Self::Descriptor {
 		const DESCRIPTOR: Descriptor = Descriptor {
-			valid_range:    KERNEL_EXE,
+			valid_range:    Layout::KERNEL_EXE,
 			entry_template: PageTableEntry::new()
 				.with_global()
 				.with_present()

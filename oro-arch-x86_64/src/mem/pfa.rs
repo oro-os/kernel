@@ -1,7 +1,7 @@
 //! Architecture-specific page frame allocator implementations
 //! for the x86_64 architecture.
 
-use crate::PageTableEntry;
+use super::paging::PageTableEntry;
 use oro_common::mem::FiloPageFrameManager;
 
 /// A [`FiloPageFrameManager`] that loads page frames at a fixed address.
@@ -34,7 +34,7 @@ impl FixedAddressPageFrameManager {
 	/// The virtual address must also be page-aligned.
 	#[inline]
 	#[must_use]
-	pub const unsafe fn new(
+	pub const unsafe fn _new(
 		virtual_address: usize,
 		page_table_entry: &'static mut PageTableEntry,
 	) -> Self {
