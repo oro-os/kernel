@@ -18,7 +18,9 @@ pub struct Layout;
 
 impl Layout {
 	/// The kernel executable range, shared by the RX, RO, and RW segments.
-	pub const KERNEL_EXE: (usize, usize) = (511, 511);
+	pub const KERNEL_EXE_IDX: usize = 511;
+	/// The stack space range
+	pub const KERNEL_STACK_IDX: usize = 257;
 	/// The recursive index for the page table.
 	pub const RECURSIVE_IDX: usize = 256;
 	/// The index for kernel transfer stubs.
@@ -33,6 +35,19 @@ impl Layout {
 
 		&DESCRIPTOR
 	}
+
+	#[inline(always)]
+	pub fn kernel_stack() -> &'static Descriptor {
+		const DESCRIPTOR: Descriptor = Descriptor {
+			valid_range:    (Layout::KERNEL_STACK_IDX, Layout::KERNEL_STACK_IDX),
+			entry_template: PageTableEntry::new()
+				.with_present()
+				.with_writable()
+				.with_no_exec(),
+		};
+
+		&DESCRIPTOR
+	}
 }
 
 unsafe impl AddressSpaceLayout for Layout {
@@ -43,7 +58,7 @@ unsafe impl AddressSpaceLayout for Layout {
 	#[inline(always)]
 	fn kernel_code() -> Self::Descriptor {
 		const DESCRIPTOR: Descriptor = Descriptor {
-			valid_range:    Layout::KERNEL_EXE,
+			valid_range:    (Layout::KERNEL_EXE_IDX, Layout::KERNEL_EXE_IDX),
 			entry_template: PageTableEntry::new()
 				.with_user()
 				.with_global()
@@ -56,7 +71,7 @@ unsafe impl AddressSpaceLayout for Layout {
 	#[inline(always)]
 	fn kernel_data() -> Self::Descriptor {
 		const DESCRIPTOR: Descriptor = Descriptor {
-			valid_range:    Layout::KERNEL_EXE,
+			valid_range:    (Layout::KERNEL_EXE_IDX, Layout::KERNEL_EXE_IDX),
 			entry_template: PageTableEntry::new()
 				.with_global()
 				.with_present()
@@ -70,7 +85,7 @@ unsafe impl AddressSpaceLayout for Layout {
 	#[inline(always)]
 	fn kernel_rodata() -> Self::Descriptor {
 		const DESCRIPTOR: Descriptor = Descriptor {
-			valid_range:    Layout::KERNEL_EXE,
+			valid_range:    (Layout::KERNEL_EXE_IDX, Layout::KERNEL_EXE_IDX),
 			entry_template: PageTableEntry::new()
 				.with_global()
 				.with_present()

@@ -188,8 +188,13 @@ pub struct RecursiveSupervisorSegment {
 	descriptor:   &'static Descriptor,
 }
 
-unsafe impl SupervisorAddressSegment for RecursiveSupervisorSegment {
-	fn map<A>(&mut self, allocator: &mut A, virt: usize, phys: u64) -> Result<(), MapError>
+impl RecursiveSupervisorSegment {
+	fn maybe_remap<A, const REMAP: bool>(
+		&mut self,
+		allocator: &mut A,
+		virt: usize,
+		phys: u64,
+	) -> Result<(), MapError>
 	where
 		A: PageFrameAllocate + PageFrameFree,
 	{
@@ -251,7 +256,8 @@ unsafe impl SupervisorAddressSegment for RecursiveSupervisorSegment {
 
 				let l1_entry: &mut PageTableEntry =
 					unsafe { encode_to_entry_l4!(l4_idx, l3_idx, l2_idx, l1_idx) };
-				if l1_entry.present() {
+
+				if !REMAP && l1_entry.present() {
 					return Err(MapError::Exists);
 				}
 
@@ -302,7 +308,8 @@ unsafe impl SupervisorAddressSegment for RecursiveSupervisorSegment {
 
 				let l1_entry: &mut PageTableEntry =
 					unsafe { encode_to_entry_l5!(l5_idx, l4_idx, l3_idx, l2_idx, l1_idx) };
-				if l1_entry.present() {
+
+				if !REMAP && l1_entry.present() {
 					return Err(MapError::Exists);
 				}
 
@@ -311,6 +318,24 @@ unsafe impl SupervisorAddressSegment for RecursiveSupervisorSegment {
 		}
 
 		Ok(())
+	}
+}
+
+unsafe impl SupervisorAddressSegment for RecursiveSupervisorSegment {
+	#[inline]
+	fn map<A>(&mut self, allocator: &mut A, virt: usize, phys: u64) -> Result<(), MapError>
+	where
+		A: PageFrameAllocate + PageFrameFree,
+	{
+		self.maybe_remap::<A, false>(allocator, virt, phys)
+	}
+
+	#[inline]
+	fn remap<A>(&mut self, allocator: &mut A, virt: usize, phys: u64) -> Result<(), MapError>
+	where
+		A: PageFrameAllocate + PageFrameFree,
+	{
+		self.maybe_remap::<A, true>(allocator, virt, phys)
 	}
 
 	#[allow(clippy::too_many_lines)]

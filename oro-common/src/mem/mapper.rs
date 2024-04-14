@@ -103,13 +103,6 @@ where
 	/// The [`CloneToken`] type that is used to create a copy of the address space.
 	type CloneToken: CloneToken;
 
-	/// Returns a token (some internal, opaque type) that is passed
-	/// to [`crate::Arch::transfer()`] when the core is ready to switch
-	/// execution contexts to the kernel. This is in lieu of passing
-	/// the entire preboot mapper, and is usually some value to be
-	/// set in a control register.
-	type TransferToken: Sized + 'static;
-
 	/// Allocates a new address space from the given page frame allocator and physical address translator.
 	///
 	/// Returns `None` if the page frame allocator is out of memory.
@@ -132,13 +125,6 @@ where
 	fn from_token<A>(token: Self::CloneToken, alloc: &mut A) -> Self
 	where
 		A: PageFrameAllocate + PageFrameFree;
-
-	/// Returns a transfer token that is used to switch execution contexts
-	/// to the kernel, passed to [`crate::Arch::transfer()`].
-	///
-	/// This method consumes the address space, as it is no longer needed
-	/// after the kernel has taken control.
-	fn transfer_token(self) -> Self::TransferToken;
 }
 
 /// A token (some internal, opaque type) that is used to create
@@ -236,6 +222,15 @@ pub unsafe trait RuntimeAddressSpace: SupervisorAddressSpace + Sized {
 pub unsafe trait SupervisorAddressSegment {
 	/// Maps a virtual address to a physical address.
 	fn map<A>(&mut self, allocator: &mut A, virt: usize, phys: u64) -> Result<(), MapError>
+	where
+		A: PageFrameAllocate + PageFrameFree;
+
+	/// Re-maps a virtual address to a physical address.
+	///
+	/// This should be identical to `map` except that it does **not** fail
+	/// if the virtual address is already mapped, instead replacing the existing
+	/// mapping.
+	fn remap<A>(&mut self, allocator: &mut A, virt: usize, phys: u64) -> Result<(), MapError>
 	where
 		A: PageFrameAllocate + PageFrameFree;
 

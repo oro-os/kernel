@@ -81,6 +81,46 @@ where
 	pub fn stubs(&self) -> <Self as SupervisorAddressSpace>::Segment<'_> {
 		self.for_supervisor_segment(Layout::stubs())
 	}
+
+	/// Returns the x86_64-specific kernel stack segment for this address space.
+	pub fn kernel_stack(&self) -> <Self as SupervisorAddressSpace>::Segment<'_> {
+		self.for_supervisor_segment(Layout::kernel_stack())
+	}
+
+	/// Returns the physical address of the root page table entry.
+	pub fn page_table_phys(&self) -> u64 {
+		self.page_table_phys
+	}
+
+	/// Clones this mapper into a new instance, using the same layout but
+	/// cloning the top-level page table.
+	///
+	/// # Panics
+	/// May panic if allocation fails.
+	pub fn clone_top_level<A>(&self, alloc: &mut A) -> Self
+	where
+		A: PageFrameAllocate + PageFrameFree,
+	{
+		let page_table_phys = alloc
+			.allocate()
+			.expect("failed to allocate page for top-level table");
+		let page_table_virt = self.translator.to_virtual_addr(page_table_phys);
+
+		unsafe {
+			core::ptr::copy_nonoverlapping(
+				self.page_table_virt as *const u8,
+				page_table_virt as *mut u8,
+				4096,
+			);
+		}
+
+		Self {
+			translator: self.translator.clone(),
+			page_table_phys,
+			page_table_virt,
+			paging_level: self.paging_level,
+		}
+	}
 }
 
 unsafe impl<P> AddressSpace for TranslatorMapper<P>
@@ -112,7 +152,6 @@ where
 {
 	// We just use ourselves since we're the only address space.
 	type CloneToken = PrebootAddressSpaceClone<P>;
-	type TransferToken = u64;
 
 	fn new<A>(allocator: &mut A, translator: P) -> Option<Self>
 	where
@@ -153,11 +192,6 @@ where
 			paging_level: PagingLevel::current_from_cpu(),
 		}
 	}
-
-	#[inline]
-	fn transfer_token(self) -> Self::TransferToken {
-		self.page_table_phys
-	}
 }
 
 /// A [`CloneToken`] for a preboot address space.
@@ -192,11 +226,16 @@ where
 	descriptor:      &'static Descriptor,
 }
 
-unsafe impl<'a, P> SupervisorAddressSegment for TranslatorSupervisorSegment<'a, P>
+impl<'a, P> TranslatorSupervisorSegment<'a, P>
 where
 	P: PhysicalAddressTranslator,
 {
-	fn map<A>(&mut self, allocator: &mut A, virt: usize, phys: u64) -> Result<(), MapError>
+	fn maybe_remap<A, const REMAP: bool>(
+		&mut self,
+		allocator: &mut A,
+		virt: usize,
+		phys: u64,
+	) -> Result<(), MapError>
 	where
 		A: PageFrameAllocate + PageFrameFree,
 	{
@@ -238,7 +277,7 @@ where
 		let entry =
 			unsafe { &mut (&mut *(current_page_table as *mut PageTable))[(virt >> 12) & 0x1FF] };
 
-		if entry.present() {
+		if !REMAP && entry.present() {
 			return Err(MapError::Exists);
 		}
 
@@ -246,6 +285,27 @@ where
 		crate::asm::invlpg(virt);
 
 		Ok(())
+	}
+}
+
+unsafe impl<'a, P> SupervisorAddressSegment for TranslatorSupervisorSegment<'a, P>
+where
+	P: PhysicalAddressTranslator,
+{
+	#[inline]
+	fn map<A>(&mut self, allocator: &mut A, virt: usize, phys: u64) -> Result<(), MapError>
+	where
+		A: PageFrameAllocate + PageFrameFree,
+	{
+		self.maybe_remap::<A, false>(allocator, virt, phys)
+	}
+
+	#[inline]
+	fn remap<A>(&mut self, allocator: &mut A, virt: usize, phys: u64) -> Result<(), MapError>
+	where
+		A: PageFrameAllocate + PageFrameFree,
+	{
+		self.maybe_remap::<A, true>(allocator, virt, phys)
 	}
 
 	fn unmap<A>(&mut self, allocator: &mut A, virt: usize) -> Result<u64, UnmapError>

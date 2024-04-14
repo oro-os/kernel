@@ -50,6 +50,10 @@ pub unsafe trait Arch {
 	/// uses this type for **ALL** address space switches.
 	type RuntimeAddressSpace: RuntimeAddressSpace + Sized;
 
+	/// A token type for [`Self::prepare_transfer`] to return and [`Self::transfer`]
+	/// to consume.
+	type TransferToken: Sized;
+
 	/// The ELF class that this architecture uses.
 	const ELF_CLASS: ElfClass;
 
@@ -105,6 +109,8 @@ pub unsafe trait Arch {
 	/// As such, this call is given a page frame allocator reference,
 	/// whereas the [`Arch::transfer()`] method is not.
 	///
+	/// Returns a token that is passed to the transfer function.
+	///
 	/// # Safety
 	/// This method is called **exactly once** for each CPU core -
 	/// both primary and secondary. It is immediately followed by
@@ -128,10 +134,11 @@ pub unsafe trait Arch {
 	///
 	/// This method **may panic**.
 	unsafe fn prepare_transfer<P, A, C>(
-		mapper: &Self::PrebootAddressSpace<P>,
+		mapper: Self::PrebootAddressSpace<P>,
 		config: &PrebootConfig<C>,
 		alloc: &mut A,
-	) where
+	) -> Self::TransferToken
+	where
 		P: PhysicalAddressTranslator,
 		A: PageFrameAllocate + PageFrameFree,
 		C: PrebootPrimaryConfig;
@@ -150,12 +157,7 @@ pub unsafe trait Arch {
 	/// local to the CPU core being prepared.
 	///
 	/// This method **must not panic**.
-	unsafe fn transfer<P>(
-		entry: usize,
-		mapper_token: <Self::PrebootAddressSpace<P> as PrebootAddressSpace<P>>::TransferToken,
-	) -> !
-	where
-		P: PhysicalAddressTranslator;
+	unsafe fn transfer(entry: usize, transfer_token: Self::TransferToken) -> !;
 
 	/// Logs a message to the debug logger (typically a serial port).
 	///

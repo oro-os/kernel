@@ -172,6 +172,7 @@ where
 	static mut KERNEL_ENTRY_POINT: usize = 0;
 
 	static MAPPER_BARRIER: SpinBarrier = SpinBarrier::new();
+	static TRANSFER_BARRIER: SpinBarrier = SpinBarrier::new();
 
 	A::disable_interrupts();
 
@@ -424,24 +425,29 @@ where
 	// operations to be performed before the kernel is entered.
 	// We start with the primary core, sync, and then let the secondaries
 	// go.
-	if matches!(config, PrebootConfig::Primary { .. }) {
+	let transfer_token = if let PrebootConfig::Primary { num_instances, .. } = config {
 		let mut pfa = pfa.lock();
-		A::prepare_transfer(&kernel_mapper, &config, &mut *pfa);
-	}
+		let token = A::prepare_transfer(kernel_mapper, &config, &mut *pfa);
 
-	wait_for_all_cores!(config);
+		// Inform secondaries they can now prepare for transfer
+		TRANSFER_BARRIER.set_total::<A>(num_instances);
+		TRANSFER_BARRIER.wait();
 
-	if matches!(config, PrebootConfig::Secondary { .. }) {
+		token
+	} else {
+		// Wait for primary to finish preparing for transfer
+		TRANSFER_BARRIER.wait();
+
 		let mut pfa = pfa.lock();
-		A::prepare_transfer(&kernel_mapper, &config, &mut *pfa);
-	}
+		A::prepare_transfer(kernel_mapper, &config, &mut *pfa)
+	};
 
 	// Wait for all cores to be ready to jump to the kernel.
 	// We do this here since allocations may fail, cores may panic, etc.
 	wait_for_all_cores!(config);
 
 	// Finally, jump to the kernel entry point.
-	A::transfer(KERNEL_ENTRY_POINT, kernel_mapper.transfer_token())
+	A::transfer(KERNEL_ENTRY_POINT, transfer_token)
 }
 
 /// Provides the types used by the primary core configuration values

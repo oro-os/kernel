@@ -32,15 +32,15 @@ extern "C" {
 #[link_section = ".oro_xfer_stubs.entry"]
 pub unsafe extern "C" fn transfer_stubs() -> ! {
 	asm! {
-			"pop r10",
-			"pop r9",
-			"pop r8",
-			"mov cr3, r8",
-			"mov rsp, r9",
-	//		"push 0", // Push a return value of 0 onto the stack to prevent accidental returns
-			"jmp r10",
-			options(noreturn)
-		}
+		"pop r10",
+		"pop r9",
+		"pop r8",
+		"mov cr3, r8",
+		"mov rsp, r9",
+		"push 0", // Push a return value of 0 onto the stack to prevent accidental returns
+		"jmp r10",
+		options(noreturn)
+	}
 }
 
 /// Returns the target virtual address of the stubs based on
