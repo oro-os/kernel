@@ -13,7 +13,6 @@
 
 pub(crate) mod arch;
 pub(crate) mod mem;
+pub(crate) mod reg;
 
-pub mod reg;
-
-pub use self::{arch::Aarch64, mem::paging};
+pub use self::arch::Aarch64;

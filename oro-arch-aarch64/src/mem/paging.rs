@@ -561,7 +561,6 @@ impl PageTableEntryTableDescriptorAttr for L2PageTableDescriptor {}
 
 /// Provides access to the next-level bits of the upper attributes
 /// of page table descriptors via `const` methods.
-
 pub trait PageTableEntryTableDescriptorAttrConst: GetRawConst {
 	/// Replaces the [`PageTableEntryTableAccessPerm`] of the page table entry.
 	///

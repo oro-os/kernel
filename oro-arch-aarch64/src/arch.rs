@@ -2,6 +2,7 @@
 
 #![allow(clippy::inline_always)]
 
+use crate::mem::mapper::{kernel::KernelMapper, preboot::PrebootMapper};
 use core::{
 	arch::asm,
 	fmt::{self, Write},
@@ -9,8 +10,9 @@ use core::{
 };
 use oro_common::{
 	elf::{ElfClass, ElfEndianness, ElfMachine},
+	mem::{PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator},
 	sync::UnfairCriticalSpinlock,
-	Arch,
+	Arch, PrebootConfig, PrebootPrimaryConfig,
 };
 use oro_serial_pl011 as pl011;
 
@@ -25,6 +27,9 @@ pub struct Aarch64;
 
 unsafe impl Arch for Aarch64 {
 	type InterruptState = usize;
+	type PrebootAddressSpace<P: PhysicalAddressTranslator> = PrebootMapper<P>;
+	type RuntimeAddressSpace = KernelMapper;
+	type TransferToken = ();
 
 	const ELF_CLASS: ElfClass = ElfClass::Class64;
 	const ELF_ENDIANNESS: ElfEndianness = ElfEndianness::Little;
@@ -95,5 +100,22 @@ unsafe impl Arch for Aarch64 {
 			writeln!(lock.assume_init_mut(), "{message}")
 		}
 		.unwrap();
+	}
+
+	unsafe fn prepare_transfer<P, A, C>(
+		_mapper: Self::PrebootAddressSpace<P>,
+		_config: &PrebootConfig<C>,
+		_alloc: &mut A,
+	) -> Self::TransferToken
+	where
+		P: PhysicalAddressTranslator,
+		A: PageFrameAllocate + PageFrameFree,
+		C: PrebootPrimaryConfig,
+	{
+		todo!();
+	}
+
+	unsafe fn transfer(_entry: usize, _transfer_token: Self::TransferToken) -> ! {
+		todo!();
 	}
 }
