@@ -12,6 +12,7 @@ members = [
 	"oro-arch-x86_64",
 	"oro-bootloader-limine",
 	"oro-common",
+	"oro-common-proc",
 	"oro-kernel",
 	"oro-serial-pl011",
 ]
@@ -20,6 +21,7 @@ members = [
 oro-arch-aarch64 = { path = "oro-arch-aarch64" }
 oro-arch-x86_64 = { path = "oro-arch-x86_64" }
 oro-common = { path = "oro-common" }
+oro-common-proc = { path = "oro-common-proc" }
 oro-kernel = { path = "oro-kernel" }
 oro-serial-pl011 = { path = "oro-serial-pl011" }
 
@@ -27,6 +29,9 @@ limine = "0.2.0"
 uart_16550 = "0.3.0"
 static_assertions = "1.1.0"
 volatile-register = "0.2.2"
+syn = "2.0.60"
+quote = "1.0.36"
+proc-macro2 = "1.0.81"
 
 [profile.dev]
 panic = "abort"            # Use "abort" panic strategy
