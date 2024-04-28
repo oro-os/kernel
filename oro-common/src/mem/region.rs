@@ -15,8 +15,6 @@
 
 #![allow(clippy::module_name_repetitions, clippy::inline_always)]
 
-use oro_ser2mem::Ser2Mem;
-
 /// An extension trait for [`MemoryRegion`] and its proxy.
 pub trait MemoryRegion: Sized {
 	/// Gets the base address.
@@ -65,7 +63,7 @@ pub trait MemoryRegion: Sized {
 }
 
 /// Defines the type of a memory region.
-#[derive(Ser2Mem, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 #[non_exhaustive]
 pub enum MemoryRegionType {

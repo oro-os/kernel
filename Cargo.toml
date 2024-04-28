@@ -13,8 +13,6 @@ members = [
 	"oro-bootloader-limine",
 	"oro-common",
 	"oro-kernel",
-	"oro-ser2mem",
-	"oro-ser2mem-macros",
 	"oro-serial-pl011",
 ]
 
@@ -23,13 +21,8 @@ oro-arch-aarch64 = { path = "oro-arch-aarch64" }
 oro-arch-x86_64 = { path = "oro-arch-x86_64" }
 oro-common = { path = "oro-common" }
 oro-kernel = { path = "oro-kernel" }
-oro-ser2mem = { path = "oro-ser2mem" }
-oro-ser2mem-macros = { path = "oro-ser2mem-macros" }
 oro-serial-pl011 = { path = "oro-serial-pl011" }
 
-proc-macro2 = "1.0.56"
-quote = "1.0.26"
-syn = "2.0.15"
 limine = "0.2.0"
 uart_16550 = "0.3.0"
 static_assertions = "1.1.0"
