@@ -85,6 +85,11 @@ to discuss prior to opening a pull request.
 For now, the kernel project standardizes that page frames are `u64` and
 virtual addresses are `usize`. This may change in the future.
 
+## Generics vs `impl` in Function Arguments
+Rust supports both `impl Trait` and generics in function arguments, most working
+nearly identically. The kernel project has a preference for generic arguments
+over `impl Trait` in all cases, even when the generic is only used once.
+
 ## Porting from Other Operating Systems
 The kernel project is not a dumping ground for code from other operating
 systems. However, some code may be ported from other operating systems
