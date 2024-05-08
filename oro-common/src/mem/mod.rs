@@ -13,7 +13,7 @@ pub use self::{
 		RuntimeAddressSpace, SupervisorAddressSegment, SupervisorAddressSpace, UnmapError,
 	},
 	pfa::{
-		filo::{FiloPageFrameAllocator, FiloPageFrameManager},
+		filo::{FiloPageFrameAllocator, FiloPageFrameManager, OffsetPageFrameManager},
 		mmap::MmapPageFrameAllocator,
 		AllocatorStatsTracker, PageFrameAllocate, PageFrameAllocatorStats, PageFrameFree,
 	},

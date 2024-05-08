@@ -154,3 +154,42 @@ pub unsafe trait FiloPageFrameManager {
 	/// invalidated and flushed as needed.
 	unsafe fn write_u64(&mut self, page_frame: u64, value: u64);
 }
+
+/// An offset-based page frame manager that uses a known virtual memory address to bring
+/// in physical pages and read/write `u64` values to/from the first few bytes of the page.
+pub struct OffsetPageFrameManager {
+	/// The virtual memory address used to bring in physical pages.
+	offset: *mut u64,
+}
+
+impl OffsetPageFrameManager {
+	/// Creates a new offset-based page frame manager.
+	///
+	/// # Safety
+	/// The virtual memory address must be safe to use and will not cause any undefined
+	/// behavior when read from or written to, and all memory accesses must be safe and
+	/// valid.
+	pub unsafe fn new(offset: *mut u64) -> Self {
+		Self { offset }
+	}
+
+	/// Gets the virtual memory address used by this manager.
+	#[inline]
+	pub fn offset(&self) -> *mut u64 {
+		self.offset
+	}
+}
+
+unsafe impl FiloPageFrameManager for OffsetPageFrameManager {
+	#[inline]
+	unsafe fn read_u64(&mut self, page_frame: u64) -> u64 {
+		let page_frame = self.offset.add(page_frame as usize);
+		*page_frame
+	}
+
+	#[inline]
+	unsafe fn write_u64(&mut self, page_frame: u64, value: u64) {
+		let page_frame = self.offset.add(page_frame as usize);
+		*page_frame = value;
+	}
+}
