@@ -13,9 +13,10 @@ pub use self::{
 		RuntimeAddressSpace, SupervisorAddressSegment, SupervisorAddressSpace, UnmapError,
 	},
 	pfa::{
+		alloc::{PageFrameAllocate, PageFrameFree},
 		filo::{FiloPageFrameAllocator, FiloPageFrameManager, OffsetPageFrameManager},
 		mmap::MmapPageFrameAllocator,
-		AllocatorStatsTracker, PageFrameAllocate, PageFrameAllocatorStats, PageFrameFree,
+		tracker::{AllocatorStatsTracker, PageFrameAllocatorStats},
 	},
 	region::{MemoryRegion, MemoryRegionType},
 	translate::{OffsetPhysicalAddressTranslator, PhysicalAddressTranslator},

@@ -2,7 +2,7 @@
 //! whereby page frames form a linked list of free pages. See [`FiloPageFrameAllocator`]
 //! for more information.
 
-use crate::mem::{AllocatorStatsTracker, PageFrameAllocate, PageFrameFree};
+use crate::mem::{PageFrameAllocate, PageFrameFree};
 
 /// The _first in, last out_ (FILO) page frame allocator is the default page frame allocator
 /// used by the kernel and most bootloaders. Through the use of a [`FiloPageFrameManager`],
@@ -32,8 +32,6 @@ where
 	manager:         M,
 	/// The last-free page frame address.
 	last_free:       u64,
-	/// The stats tracker this allocator uses.
-	tracker:         AllocatorStatsTracker,
 }
 
 impl<A, M> FiloPageFrameAllocator<A, M>
@@ -56,23 +54,12 @@ where
 	/// at least one memory region, whereby all memory regions are
 	/// either unusable or zero length), but there **must** be one
 	/// memory region at the least.
-	pub unsafe fn new(
-		frame_allocator: A,
-		manager: M,
-		stats_tracker: AllocatorStatsTracker,
-	) -> Self {
+	pub unsafe fn new(frame_allocator: A, manager: M) -> Self {
 		Self {
 			frame_allocator,
 			manager,
 			last_free: u64::MAX,
-			tracker: stats_tracker,
 		}
-	}
-
-	/// Gets a reference to the stats tracker used by this allocator.
-	#[inline]
-	pub fn stats(&self) -> &AllocatorStatsTracker {
-		&self.tracker
 	}
 }
 
@@ -83,7 +70,7 @@ where
 {
 	#[allow(clippy::cast_possible_truncation)]
 	fn allocate(&mut self) -> Option<u64> {
-		let page_frame = if self.last_free == u64::MAX {
+		if self.last_free == u64::MAX {
 			// Allocate from the underlying memory map allocator
 			self.frame_allocator.allocate()
 		} else {
@@ -91,13 +78,7 @@ where
 			let page_frame = self.last_free;
 			self.last_free = unsafe { self.manager.read_u64(page_frame) };
 			Some(page_frame)
-		};
-
-		if page_frame.is_some() {
-			self.tracker.add_used_bytes(4096);
 		}
-
-		page_frame
 	}
 }
 
@@ -112,7 +93,6 @@ where
 
 		self.manager.write_u64(frame, self.last_free);
 		self.last_free = frame;
-		self.tracker.sub_used_bytes(4096);
 	}
 }
 
@@ -175,6 +155,7 @@ impl OffsetPageFrameManager {
 
 	/// Gets the virtual memory address used by this manager.
 	#[inline]
+	#[must_use]
 	pub fn offset(&self) -> *mut u64 {
 		self.offset
 	}
@@ -183,12 +164,14 @@ impl OffsetPageFrameManager {
 unsafe impl FiloPageFrameManager for OffsetPageFrameManager {
 	#[inline]
 	unsafe fn read_u64(&mut self, page_frame: u64) -> u64 {
+		#[allow(clippy::cast_possible_truncation)]
 		let page_frame = self.offset.add(page_frame as usize);
 		*page_frame
 	}
 
 	#[inline]
 	unsafe fn write_u64(&mut self, page_frame: u64, value: u64) {
+		#[allow(clippy::cast_possible_truncation)]
 		let page_frame = self.offset.add(page_frame as usize);
 		*page_frame = value;
 	}
