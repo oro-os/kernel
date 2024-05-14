@@ -8,7 +8,7 @@ mod translate;
 
 pub use self::{
 	mapper::{
-		AddressSpace, AddressSpaceLayout, CloneToken, MapError, PrebootAddressSpace,
+		AddressRange, AddressSpace, AddressSpaceLayout, CloneToken, MapError, PrebootAddressSpace,
 		RuntimeAddressSpace, SupervisorAddressSegment, SupervisorAddressSpace, UnmapError,
 	},
 	pfa::{

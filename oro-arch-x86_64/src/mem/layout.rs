@@ -1,8 +1,9 @@
 //! Defines the Oro Operating System address space layout for x86_64 CPUs.
 #![allow(clippy::inline_always)]
 
+use super::paging_level::PagingLevel;
 use crate::mem::paging::PageTableEntry;
-use oro_common::mem::AddressSpaceLayout;
+use oro_common::mem::{AddressRange, AddressSpaceLayout};
 
 /// Holds initialization and range information for an address space segment
 /// for the x86_64 architecture address space.
@@ -11,6 +12,37 @@ pub struct Descriptor {
 	pub valid_range:    (usize, usize),
 	/// A template for the page table entry to use for this segment.
 	pub entry_template: PageTableEntry,
+}
+
+/// Sign-extends a value to the appropriate size for the current paging level.
+macro_rules! sign_extend {
+	(L4, $value:expr) => {
+		((($value << 16) as isize) >> 16) as usize
+	};
+	(L5, $value:expr) => {
+		((($value << 7) as isize) >> 7) as usize
+	};
+}
+
+impl AddressRange for Descriptor {
+	#[inline(always)]
+	fn valid_range(&self) -> (usize, usize) {
+		// Get the current paging level.
+		match PagingLevel::current_from_cpu() {
+			PagingLevel::Level4 => {
+				(
+					sign_extend!(L4, self.valid_range.0 << 39),
+					sign_extend!(L4, (self.valid_range.1 << 39) | 0x0000_007F_FFFF_FFFF),
+				)
+			}
+			PagingLevel::Level5 => {
+				(
+					sign_extend!(L5, self.valid_range.0 << 48),
+					sign_extend!(L5, (self.valid_range.1 << 48) | 0x0000_FFFF_FFFF_FFFF),
+				)
+			}
+		}
+	}
 }
 
 /// Defines the layout of the address space for the x86_64 architecture.

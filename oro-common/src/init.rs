@@ -14,8 +14,9 @@ use crate::{
 	dbg,
 	elf::{ElfSegment, ElfSegmentType},
 	mem::{
-		CloneToken, FiloPageFrameAllocator, MemoryRegion, MemoryRegionType, PageFrameAllocate,
-		PageFrameFree, PhysicalAddressTranslator, PrebootAddressSpace, SupervisorAddressSegment,
+		AddressRange, AddressSpace, AddressSpaceLayout, CloneToken, FiloPageFrameAllocator,
+		MemoryRegion, MemoryRegionType, PageFrameAllocate, PageFrameFree,
+		PhysicalAddressTranslator, PrebootAddressSpace, SupervisorAddressSegment,
 		SupervisorAddressSpace,
 	},
 	sync::{SpinBarrier, UnfairSpinlock},
@@ -255,8 +256,8 @@ where
 				.filter(|r| r.region_type() == MemoryRegionType::Usable)
 			{
 				let region = region.aligned(4096);
-				if region.length() > 0 {
-					shared_pfa.free(region.base());
+				for page in (0..region.length()).step_by(4096) {
+					shared_pfa.free(region.base() + page);
 				}
 			}
 
@@ -298,6 +299,7 @@ where
 	let kernel_mapper = if let PrebootConfig::Primary {
 		kernel_module,
 		num_instances,
+		memory_regions,
 		..
 	} = &config
 	{
@@ -384,6 +386,33 @@ where
 				segment.ty(),
 				segment.target_size(),
 			);
+
+			// Perform the direct map of all memory
+			let (dm_start, _) =
+				<A::RuntimeAddressSpace as AddressSpace>::Layout::direct_map().valid_range();
+			let min_phys_addr = memory_regions.clone().map(|r| r.base()).min().unwrap();
+			let offset = (dm_start as u64).saturating_sub(min_phys_addr);
+			let mut segment = kernel_mapper.direct_map();
+			for region in memory_regions.clone() {
+				let region = region.aligned(4096);
+				for byte_offset in (0..region.length()).step_by(4096) {
+					let phys = region.base() + byte_offset;
+					#[allow(clippy::cast_possible_truncation)]
+					let virt = (phys + offset) as usize;
+					segment
+						.map(&mut *pfa, virt, phys)
+						.expect("failed to map direct map segment");
+				}
+
+				dbg!(
+					A,
+					"boot-to-kernel",
+					"mapped direct map segment: {:?}: {:#016X?} <{:X?}>",
+					region.region_type(),
+					region.base(),
+					region.length()
+				);
+			}
 		}
 
 		// Store the kernel address space token and entry point for cloning later.

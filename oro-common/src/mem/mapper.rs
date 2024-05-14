@@ -20,7 +20,7 @@ use crate::mem::{PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator};
 pub unsafe trait AddressSpaceLayout {
 	/// The descriptor type that is passed to mapper methods to create
 	/// address space segments.
-	type Descriptor: Sized + 'static;
+	type Descriptor: AddressRange + Sized + 'static;
 
 	/// Returns the layout descriptor for the kernel code segment.
 	///
@@ -282,4 +282,22 @@ pub enum UnmapError {
 	VirtNotAligned,
 	/// Out of memory.
 	OutOfMemory,
+}
+
+/// Provides a few simple getter methods for address space descriptors.
+pub trait AddressRange {
+	/// Returns the valid range of the descriptor, inclusive
+	/// (meaning the second tuple valid address is also valid and points
+	/// to the last byte in the range).
+	fn valid_range(&self) -> (usize, usize);
+}
+
+impl<T> AddressRange for &'static T
+where
+	T: AddressRange,
+{
+	#[inline(always)]
+	fn valid_range(&self) -> (usize, usize) {
+		<T as AddressRange>::valid_range(*self)
+	}
 }
