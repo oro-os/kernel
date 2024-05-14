@@ -14,14 +14,17 @@ use crate::{
 	dbg,
 	elf::{ElfSegment, ElfSegmentType},
 	mem::{
-		CloneToken, MemoryRegion, MemoryRegionType, MmapPageFrameAllocator, PageFrameAllocate,
-		PanicOnFreeAllocator, PhysicalAddressTranslator, PrebootAddressSpace,
-		SupervisorAddressSegment, SupervisorAddressSpace,
+		CloneToken, FiloPageFrameAllocator, MemoryRegion, MemoryRegionType, PageFrameAllocate,
+		PageFrameFree, PhysicalAddressTranslator, PrebootAddressSpace, SupervisorAddressSegment,
+		SupervisorAddressSpace,
 	},
 	sync::{SpinBarrier, UnfairSpinlock},
 	Arch,
 };
-use core::mem::MaybeUninit;
+use core::{
+	mem::MaybeUninit,
+	ops::{Deref, DerefMut},
+};
 
 /// Waits for all cores to reach a certain point in the initialization sequence.
 macro_rules! wait_for_all_cores {
@@ -230,29 +233,12 @@ where
 		// Qix-
 		let mut temporary_pfa = None;
 
-		if let PrebootConfig::Primary { memory_regions, .. } = &config {
-			// First, we create an iterator over the memory regions
-			// that injects the region's index into an IndexedMemoryRegion.
-			// This allows us to track the index of the region in the original
-			// memory region list for use after all cores have initialized their
-			// structures, such that we can reconcile the allocated pages against
-			// the original iterator and mark the boot structures as allocated for
-			// the kernel to pick up and use later on. This prevents double-use
-			// of those page frames without inaccurately reporting total memory size
-			// (i.e. omitting the allocated memory from total / used memory counts).
-			let iterator = memory_regions
-				.clone()
-				.enumerate()
-				.map(|(index, region)| {
-					IndexedMemoryRegion {
-						index,
-						base: region.base(),
-						size: region.length(),
-						region_type: region.region_type(),
-					}
-				})
-				.filter(is_usable_region);
-
+		if let PrebootConfig::Primary {
+			memory_regions,
+			physical_address_translator,
+			..
+		} = &config
+		{
 			// Then, we create a memory-map PFA from the iterator and stick it
 			// within a spinlock for safe access by all cores. This allows well-defined
 			// future access, at least to the primary core (for now), to the PFA.
@@ -261,10 +247,22 @@ where
 			//
 			// The spinlocked PFA is stored inside of a page aligned structure to ensure
 			// alignment requirements are met with the type-erased `SHARED_PFA`.
-			let shared_pfa = MmapPageFrameAllocator::<A, IndexedMemoryRegion, _>::new(iterator);
-			let shared_pfa = PanicOnFreeAllocator(shared_pfa);
-			let shared_pfa = UnfairSpinlock::new(shared_pfa);
-			let shared_pfa = AlignedPfa(shared_pfa);
+			let mut shared_pfa = FiloPageFrameAllocator::new(physical_address_translator.clone());
+
+			// Pre-warm the shared PFA by "freeing" all usable memory regions.
+			for region in memory_regions
+				.clone()
+				.filter(|r| r.region_type() == MemoryRegionType::Usable)
+			{
+				let region = region.aligned(4096);
+				if region.length() > 0 {
+					shared_pfa.free(region.base());
+				}
+			}
+
+			// Wrap in a spinlock
+			let shared_pfa = UnfairSpinlock::<A, _>::new(shared_pfa);
+			let shared_pfa = FitsInPage(shared_pfa);
 
 			// Make sure that we're not exceeding our page size.
 			shared_pfa.assert_fits_in_page();
@@ -582,15 +580,6 @@ impl MemoryRegion for IndexedMemoryRegion {
 	}
 }
 
-/// Determines if a memory region is usable by the pre-boot environment.
-/// This is pulled out into its own function to ensure that the logic
-/// is consistent when reconciling used PFA regions against the original
-/// memory region iterator.
-#[inline]
-fn is_usable_region<R: MemoryRegion>(region: &R) -> bool {
-	region.region_type() == MemoryRegionType::Usable
-}
-
 // Create a preboot address space for the kernel and map it.
 #[repr(C, align(16))]
 
@@ -635,12 +624,9 @@ static mut SHARED_PFA: AlignedPageBytes = AlignedPageBytes([0; 4096]);
 
 /// A page-aligned page frame allocator wrapper.
 #[repr(C, align(4096))]
-struct AlignedPfa<A, I>(
-	UnfairSpinlock<A, PanicOnFreeAllocator<MmapPageFrameAllocator<A, IndexedMemoryRegion, I>>>,
-)
+struct FitsInPage<T>(T)
 where
-	A: Arch,
-	I: Iterator<Item = IndexedMemoryRegion> + 'static;
+	T: Sized;
 
 /// Credit to @y21 for the elegant solution to compile-time size assertions.
 trait AssertFitsInPage: Sized {
@@ -660,9 +646,24 @@ trait AssertFitsInPage: Sized {
 	}
 }
 
-impl<A, I> const AssertFitsInPage for AlignedPfa<A, I>
+impl<T> Deref for FitsInPage<T>
 where
-	A: Arch,
-	I: Iterator<Item = IndexedMemoryRegion> + 'static,
+	T: Sized,
 {
+	type Target = T;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
 }
+
+impl<T> DerefMut for FitsInPage<T>
+where
+	T: Sized,
+{
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
+}
+
+impl<T> const AssertFitsInPage for FitsInPage<T> where T: Sized {}

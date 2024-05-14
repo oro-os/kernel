@@ -17,6 +17,8 @@ pub struct Descriptor {
 pub struct Layout;
 
 impl Layout {
+	/// The direct map range
+	pub const DIRECT_MAP_IDX: (usize, usize) = (258, 300);
 	/// The kernel executable range, shared by the RX, RO, and RW segments.
 	pub const KERNEL_EXE_IDX: usize = 511;
 	/// The stack space range
@@ -90,6 +92,20 @@ unsafe impl AddressSpaceLayout for Layout {
 				.with_global()
 				.with_present()
 				.with_no_exec(),
+		};
+
+		&DESCRIPTOR
+	}
+
+	#[inline(always)]
+	fn direct_map() -> Self::Descriptor {
+		const DESCRIPTOR: Descriptor = Descriptor {
+			valid_range:    Layout::DIRECT_MAP_IDX,
+			entry_template: PageTableEntry::new()
+				.with_global()
+				.with_present()
+				.with_no_exec()
+				.with_writable(),
 		};
 
 		&DESCRIPTOR

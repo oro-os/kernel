@@ -43,6 +43,14 @@ pub unsafe trait AddressSpaceLayout {
 	///
 	/// **Must overlap with [`Self::kernel_code()`]**
 	fn kernel_rodata() -> Self::Descriptor;
+
+	/// Returns the layout descriptor for the direct map of physical addresses.
+	///
+	/// This must be read-write, non-user accessible, and is
+	/// **not** executable.
+	///
+	/// Must **not** overlap with any other segment.
+	fn direct_map() -> Self::Descriptor;
 }
 
 /// Base trait for all address space mappers.
@@ -86,6 +94,12 @@ pub trait SupervisorAddressSpace: AddressSpace {
 	#[inline(always)]
 	fn kernel_rodata(&self) -> Self::Segment<'_> {
 		self.for_supervisor_segment(Self::Layout::kernel_rodata())
+	}
+
+	/// Returns a supervisor segment for performing the direct mapping of physical addresses.
+	#[inline(always)]
+	fn direct_map(&self) -> Self::Segment<'_> {
+		self.for_supervisor_segment(Self::Layout::direct_map())
 	}
 }
 

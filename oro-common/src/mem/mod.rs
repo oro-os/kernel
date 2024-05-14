@@ -6,7 +6,6 @@ mod pfa;
 mod region;
 mod translate;
 
-pub(crate) use self::pfa::pof_mmap::PanicOnFreeAllocator;
 pub use self::{
 	mapper::{
 		AddressSpace, AddressSpaceLayout, CloneToken, MapError, PrebootAddressSpace,
@@ -14,8 +13,7 @@ pub use self::{
 	},
 	pfa::{
 		alloc::{PageFrameAllocate, PageFrameFree},
-		filo::{FiloPageFrameAllocator, FiloPageFrameManager, OffsetPageFrameManager},
-		mmap::MmapPageFrameAllocator,
+		filo::{FiloPageFrameAllocator, FiloPageFrameManager},
 		tracker::{AllocatorStatsTracker, PageFrameAllocatorStats},
 	},
 	region::{MemoryRegion, MemoryRegionType},

@@ -18,6 +18,10 @@ unsafe impl AddressSpaceLayout for Layout {
 	fn kernel_rodata() -> Self::Descriptor {
 		todo!("Layout::kernel_rodata");
 	}
+
+	fn direct_map() -> Self::Descriptor {
+		todo!("Layout::direct_map");
+	}
 }
 
 pub struct Descriptor(u8);
