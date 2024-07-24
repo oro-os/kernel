@@ -4,7 +4,7 @@ from os import path
 import tempfile
 import subprocess
 
-import gdb
+import gdb  # type: ignore
 
 from .log import log
 from .prompt import *

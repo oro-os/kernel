@@ -1,4 +1,4 @@
-import gdb
+import gdb  # type: ignore
 from ..qemu import DEFAULT_ENDPOINT as QEMU_DEFAULT_ENDPOINT
 from ..log import log, error
 from ..service import QEMU
