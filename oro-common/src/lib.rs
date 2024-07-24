@@ -31,8 +31,7 @@ pub mod sync;
 pub(crate) mod arch;
 pub(crate) mod dbg;
 pub(crate) mod init;
-pub(crate) mod macros;
-pub(crate) mod unsafe_macros;
+pub(crate) mod util;
 
 pub use self::{
 	arch::Arch,
