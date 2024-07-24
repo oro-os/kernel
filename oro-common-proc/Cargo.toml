@@ -13,6 +13,7 @@ license = "MPL-2.0"
 
 [lib]
 proc-macro = true
+doctest = false
 
 [dependencies]
 static_assertions.workspace = true
