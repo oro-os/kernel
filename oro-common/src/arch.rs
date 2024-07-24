@@ -159,6 +159,18 @@ pub unsafe trait Arch {
 	/// This method **must not panic**.
 	unsafe fn transfer(entry: usize, transfer_token: Self::TransferToken) -> !;
 
+	/// Cleans up resources after the transfer has been completed.
+	/// Execution is now in the kernel; all architecture-specific
+	/// resources that were used to prepare the transfer should be
+	/// cleaned up.
+	///
+	/// # Safety
+	/// TODO
+	unsafe fn after_transfer() {
+		// TODO(qix-): properly specify this method
+		todo!();
+	}
+
 	/// Logs a message to the debug logger (typically a serial port).
 	///
 	/// The message should be newline-terminated for streams,

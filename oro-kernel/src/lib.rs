@@ -23,6 +23,7 @@ use oro_common::Arch;
 /// on ALL CORES before calling this function.
 pub unsafe fn boot<A: Arch>() -> ! {
 	A::disable_interrupts();
+	A::after_transfer();
 	A::halt()
 }
 
