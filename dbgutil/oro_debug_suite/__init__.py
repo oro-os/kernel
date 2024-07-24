@@ -3,6 +3,7 @@ import os
 from os import path
 import tempfile
 import subprocess
+
 import gdb
 
 from .log import log
@@ -202,5 +203,27 @@ def bootstrap_debug_suite():
     fetch_limine()
     install_deps()
 
+    log("")
+    log(
+        "Oro kernel debug suite is ready; run \x1b[1mhelp oro\x1b[m for a list of commands"
+    )
+
 
 bootstrap_debug_suite()
+
+
+class OroCmd(gdb.Command):
+    """
+    Oro operating system kernel debug suite GDB commands.
+    """
+
+    def __init__(self):
+        super(OroCmd, self).__init__("oro", gdb.COMMAND_USER, prefix=True)
+
+    def invoke(self, arg, from_tty=False):
+        gdb.execute("help oro")
+
+
+OroCmd()
+
+from .cmd import *
