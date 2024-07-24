@@ -1,4 +1,4 @@
-import gdb
+import gdb  # type: ignore
 
 
 def gdb_prompt(_old_prompt):

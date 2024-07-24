@@ -5,6 +5,12 @@ DEFAULT_ENDPOINT = "localhost:4444"
 
 
 def parse_connection(connection):
+    """
+    Parses a connection string (e.g. "localhost:4444", "localhost" or ":4444")
+    or tuple (e.g. ("localhost", 4444)) into a tuple (host, port) for use by the
+    QEMU client connection.
+    """
+
     if isinstance(connection, str):
         if ":" not in connection:
             connection += ":4444"
