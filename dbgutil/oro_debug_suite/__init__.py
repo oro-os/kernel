@@ -203,11 +203,6 @@ def bootstrap_debug_suite():
     fetch_limine()
     install_deps()
 
-    log("")
-    log(
-        "Oro kernel debug suite is ready; run \x1b[1mhelp oro\x1b[m for a list of commands"
-    )
-
 
 bootstrap_debug_suite()
 
@@ -228,3 +223,6 @@ OroCmd()
 
 from .service import *
 from .cmd import *
+
+log("")
+log("Oro kernel debug suite is ready; run \x1b[1mhelp oro\x1b[m for a list of commands")
