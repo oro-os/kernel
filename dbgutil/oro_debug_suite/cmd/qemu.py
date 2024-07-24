@@ -11,16 +11,16 @@ class QemuCmd(gdb.Command):
 
     def __init__(self):
         super(QemuCmd, self).__init__("oro qemu", gdb.COMMAND_USER, prefix=True)
-        self._connection = None
 
     def invoke(self, arg, from_tty=False):
         gdb.execute("help qemu")
-        pass
 
 
 class QemuCmdConnect(gdb.Command):
     """
     Connect to a QEMU monitor.
+
+    Usage: oro qemu connect [<endpoint>]
     """
 
     def __init__(self):
@@ -37,6 +37,8 @@ class QemuCmdConnect(gdb.Command):
 class QemuCmdRaw(gdb.Command):
     """
     Send a raw command to the QEMU monitor and print the response.
+
+    Usage: oro qemu raw <command>
     """
 
     def __init__(self):

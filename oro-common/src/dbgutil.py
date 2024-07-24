@@ -20,9 +20,7 @@ def attempt_load_suite(suite_path, from_tty=False):
     global suite_loaded
 
     if suite_loaded:
-        log(
-            "oro-suite: suite already loaded; restart GDB to specify a different location"
-        )
+        log("suite already loaded; restart GDB to specify a different location")
         return False
 
     suite_path = path.abspath(suite_path)
@@ -38,31 +36,13 @@ def attempt_load_suite(suite_path, from_tty=False):
     sys.path.append(suite_path)
 
     try:
-        import oro_debug_suite
+        import oro_debug_suite  # type: ignore
     except ImportError as e:
         log(f"failed to load Oro suite: {e}")
         return False
 
     suite_loaded = True
     return True
-
-
-class OroSuiteCommand(gdb.Command):
-    """
-    Attempts to manually load the Oro debug suite from the given path.
-
-    Usage: oro-suite <path>
-    """
-
-    def __init__(self):
-        super(OroSuiteCommand, self).__init__("oro-suite", gdb.COMMAND_NONE)
-
-    def invoke(self, arg, from_tty):
-        self.dont_repeat()
-        attempt_load_suite(arg, from_tty)
-
-
-OroSuiteCommand()
 
 
 def bootstrap_debug_suite():
@@ -80,7 +60,7 @@ def bootstrap_debug_suite():
     current_filename = prog.filename
     if not current_filename:
         log(
-            "somehow, the current program has no filename; run `oro-suite <path>` to manually load the Oro suite"
+            "somehow, the current program has no filename; set `ORO_DBGUTIL` to dbgutil path to manually load the Oro suite"
         )
         return
 
@@ -89,7 +69,7 @@ def bootstrap_debug_suite():
         parent = path.dirname(current)
         if parent == current:
             log(
-                "failed to find Oro suite (hit root); run `oro-suite <path>` to manually load the Oro suite"
+                "failed to find Oro suite (hit root); set `ORO_DBGUTIL` to dbgutil path to manually load the Oro suite"
             )
             return
 
