@@ -85,7 +85,7 @@ static mut REQ_SMP: SmpRequest = SmpRequest::with_revision(0);
 /// Thus, we expand the stack size here, fairly substantially.
 #[cfg(debug_assertions)]
 #[used]
-static REQ_STKSZ: StackSizeRequest = StackSizeRequest::with_revision(0).with_size(256 * 1024);
+static REQ_STKSZ: StackSizeRequest = StackSizeRequest::with_revision(0).with_size(16 * 1024 * 1024);
 
 /// A TAIT definition that extracts the type of the memory region iterator
 /// without needing to spell it out in full.
