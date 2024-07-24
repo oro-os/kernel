@@ -70,8 +70,10 @@ impl Elf {
 			return Err(ElfError::InvalidMagic);
 		}
 
-		if !matches!(transmute(elf.ident.class), 1_u8 | 2_u8) {
-			return Err(ElfError::InvalidClass(transmute(elf.ident.class)));
+		if !matches!(transmute::<ElfClass, u8>(elf.ident.class), 1_u8 | 2_u8) {
+			return Err(ElfError::InvalidClass(transmute::<ElfClass, u8>(
+				elf.ident.class,
+			)));
 		}
 
 		if elf.ident.class != A::ELF_CLASS {
@@ -81,8 +83,13 @@ impl Elf {
 			});
 		}
 
-		if !matches!(transmute(elf.ident.endian), 1_u8 | 2_u8) {
-			return Err(ElfError::InvalidEndianness(transmute(elf.ident.endian)));
+		if !matches!(
+			transmute::<ElfEndianness, u8>(elf.ident.endian),
+			1_u8 | 2_u8
+		) {
+			return Err(ElfError::InvalidEndianness(transmute::<ElfEndianness, u8>(
+				elf.ident.endian,
+			)));
 		}
 
 		if elf.ident.endian != A::ELF_ENDIANNESS {
@@ -127,7 +134,7 @@ impl Elf {
 				}
 
 				if $hdr.version != 1 {
-					return Err(ElfError::InvalidVersion($hdr.version as u8));
+					return Err(ElfError::InvalidFileVersion($hdr.version));
 				}
 
 				if u64::from($hdr.ph_offset) >= $end_excl {
@@ -669,8 +676,8 @@ pub enum ElfError {
 	},
 	/// Invalid ELF ident section version
 	InvalidIdentVersion(u8),
-	/// Invalid ELF version
-	InvalidVersion(u8),
+	/// Invalid ELF file version
+	InvalidFileVersion(u32),
 	/// Invalid ABI
 	InvalidAbi(u8),
 	/// Invalid ABI version
