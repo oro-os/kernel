@@ -38,7 +38,7 @@ const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel");
 /// Provides Limine with a base revision of the protocol
 /// that this "kernel" (in Limine terms) expects.
 #[used]
-static BASE_REVISION: BaseRevision = BaseRevision::new();
+static BASE_REVISION: BaseRevision = BaseRevision::with_revision(2);
 
 /// Requests a list of modules provided to the kernel via
 /// Limine configuration.
