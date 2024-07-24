@@ -46,7 +46,11 @@
 	clippy::integer_division,
 	clippy::missing_docs_in_private_items
 )]
-#![allow(internal_features, clippy::verbose_bit_mask)]
+#![allow(
+	internal_features,
+	clippy::verbose_bit_mask,
+	clippy::module_name_repetitions
+)]
 #![feature(
 	const_mut_refs,
 	naked_functions,

@@ -65,11 +65,11 @@ impl PageTable {
 		self.entries.iter()
 	}
 
-	/// Returns an iterator over mutable references to entries
-	/// in the page table.
+	/// Copies the given page table into this page table.
+	/// Shallow copy; only the root-level entries are copied.
 	#[inline]
-	pub fn _iter_mut(&mut self) -> impl Iterator<Item = &mut PageTableEntry> {
-		self.entries.iter_mut()
+	pub fn shallow_copy_from(&mut self, other: &PageTable) {
+		self.entries.copy_from_slice(&other.entries);
 	}
 }
 
@@ -119,6 +119,7 @@ impl PageTableEntry {
 	}
 
 	/// Creates a new `PageTableEntry` with all flags and attributes set to 0.
+	#[allow(clippy::new_without_default)]
 	#[inline]
 	#[must_use]
 	pub const fn new() -> Self {

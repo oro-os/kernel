@@ -2,9 +2,9 @@
 
 #![allow(clippy::inline_always)]
 
-use crate::mem::{
-	layout::Layout, paging_level::PagingLevel, preboot_mapper::TranslatorMapper,
-	recursive_mapper::RecursiveMapper,
+use crate::{
+	mem::{address_space::AddressSpaceLayout, paging_level::PagingLevel},
+	xfer::TransferToken,
 };
 use core::{
 	arch::asm,
@@ -14,10 +14,7 @@ use core::{
 };
 use oro_common::{
 	elf::{ElfClass, ElfEndianness, ElfMachine},
-	mem::{
-		PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator, SupervisorAddressSegment,
-		UnmapError,
-	},
+	mem::{AddressSegment, AddressSpace, PageFrameAllocate, PageFrameFree, UnmapError},
 	sync::UnfairCriticalSpinlock,
 	Arch, PrebootConfig, PrebootPrimaryConfig,
 };
@@ -34,9 +31,8 @@ static SERIAL: UnfairCriticalSpinlock<X86_64, MaybeUninit<SerialPort>> =
 pub struct X86_64;
 
 unsafe impl Arch for X86_64 {
+	type AddressSpace = AddressSpaceLayout;
 	type InterruptState = usize;
-	type PrebootAddressSpace<P: PhysicalAddressTranslator> = TranslatorMapper<P>;
-	type RuntimeAddressSpace = RecursiveMapper;
 	type TransferToken = TransferToken;
 
 	const ELF_CLASS: ElfClass = ElfClass::Class64;
@@ -94,16 +90,13 @@ unsafe impl Arch for X86_64 {
 		.unwrap();
 	}
 
-	#[allow(clippy::too_many_lines)]
-	unsafe fn prepare_transfer<P, A, C>(
-		mapper: Self::PrebootAddressSpace<P>,
+	unsafe fn prepare_master_page_tables<A, C>(
+		mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
 		config: &PrebootConfig<C>,
 		alloc: &mut A,
-	) -> Self::TransferToken
-	where
-		P: PhysicalAddressTranslator,
-		A: PageFrameAllocate + PageFrameFree,
+	) where
 		C: PrebootPrimaryConfig,
+		A: PageFrameAllocate + PageFrameFree,
 	{
 		// Allocate and map in the transfer stubs
 		let stubs_base = crate::xfer::target_address();
@@ -124,87 +117,99 @@ unsafe impl Arch for X86_64 {
 			"transfer stubs must have a length greater than 0: {stub_len:X}",
 		);
 
-		// map the stubs into lower memory.
 		let num_pages = (stub_len + 4095) >> 12;
 
-		if let PrebootConfig::Primary {
-			physical_address_translator,
-			..
-		} = config
-		{
-			let source = stub_start as *const u8;
-			let dest = stubs_base as *mut u8;
+		let source = stub_start as *const u8;
+		let dest = stubs_base as *mut u8;
 
-			let current_mapper =
-				Self::PrebootAddressSpace::get_current(physical_address_translator.clone());
+		let current_mapper =
+			Self::AddressSpace::current_supervisor_space(config.physical_address_translator());
 
-			for page_offset in 0..num_pages {
-				let phys = alloc
-					.allocate()
-					.expect("failed to allocate page for transfer stubs (out of memory)");
+		for page_offset in 0..num_pages {
+			let phys = alloc
+				.allocate()
+				.expect("failed to allocate page for transfer stubs (out of memory)");
 
-				let virt = stubs_base + page_offset * 4096;
+			let virt = stubs_base + page_offset * 4096;
 
-				// Map into the target kernel page tables
-				mapper
-					.stubs()
-					.map(alloc, virt, phys)
-					.expect("failed to map page for transfer stubs for kernel address space");
+			let stubs = AddressSpaceLayout::stubs();
 
-				// Attempt to unmap it from the current address space.
-				// If it's not mapped, we can ignore the error.
-				current_mapper
-					.stubs()
-					.unmap(alloc, virt)
-					.or_else(|e| {
-						if e == UnmapError::NotMapped {
-							Ok(0)
-						} else {
-							Err(e)
-						}
-					})
-					.expect("failed to unmap page for transfer stubs from current address space");
+			// Map into the target kernel page tables
+			stubs
+				.map(
+					mapper,
+					alloc,
+					config.physical_address_translator(),
+					virt,
+					phys,
+				)
+				.expect("failed to map page for transfer stubs for kernel address space");
 
-				// Now map it into the current mapper so we can access it.
-				current_mapper
-					.stubs()
-					.map(alloc, virt, phys)
-					.expect("failed to map page for transfer stubs in current address space");
-			}
+			// Attempt to unmap it from the current address space.
+			// If it's not mapped, we can ignore the error.
+			stubs
+				.unmap(
+					&current_mapper,
+					alloc,
+					config.physical_address_translator(),
+					virt,
+				)
+				.or_else(|e| {
+					if e == UnmapError::NotMapped {
+						Ok(0)
+					} else {
+						Err(e)
+					}
+				})
+				.expect("failed to unmap page for transfer stubs from current address space");
 
-			dest.copy_from(source, stub_len);
-
-			Self::strong_memory_barrier();
-		} else {
-			// Simply invalidate the stub pages
-			for page_offset in 0..num_pages {
-				let virt = stubs_base + page_offset * 4096;
-				crate::asm::invlpg(virt);
-			}
+			// Now map it into the current mapper so we can access it.
+			stubs
+				.map(
+					&current_mapper,
+					alloc,
+					config.physical_address_translator(),
+					virt,
+					phys,
+				)
+				.expect("failed to map page for transfer stubs in current address space");
 		}
 
-		// If we're on a secondary, clone the mapper's L4/L5 table
-		// into a new mapper.
-		let mapper = match config {
-			PrebootConfig::Primary { .. } => mapper,
-			PrebootConfig::Secondary { .. } => mapper.clone_top_level(alloc),
-		};
+		dest.copy_from(source, stub_len);
 
+		Self::strong_memory_barrier();
+	}
+
+	#[allow(clippy::too_many_lines)]
+	unsafe fn prepare_transfer<A, C>(
+		mapper: <<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
+		config: &PrebootConfig<C>,
+		alloc: &mut A,
+	) -> Self::TransferToken
+	where
+		A: PageFrameAllocate + PageFrameFree,
+		C: PrebootPrimaryConfig,
+	{
 		// Allocate a stack for the kernel
 		#[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
 		let last_stack_page_virt = match PagingLevel::current_from_cpu() {
 			PagingLevel::Level4 => {
-				(((((Layout::KERNEL_STACK_IDX << 39) | 0x7F_FFFF_F000) << 16) as isize) >> 16)
-					as usize
+				(((((AddressSpaceLayout::KERNEL_STACK_IDX << 39) | 0x7F_FFFF_F000) << 16) as isize)
+					>> 16) as usize
 			}
 			PagingLevel::Level5 => {
-				(((((Layout::KERNEL_STACK_IDX << 48) | 0xFFFF_FFFF_F000) << 7) as isize) >> 7)
-					as usize
+				(((((AddressSpaceLayout::KERNEL_STACK_IDX << 48) | 0xFFFF_FFFF_F000) << 7)
+					as isize) >> 7) as usize
 			}
 		};
 
 		// make sure top guard page is unmapped
-		match mapper.kernel_stack().unmap(alloc, last_stack_page_virt) {
+		match AddressSpaceLayout::kernel_stack().unmap(
+			&mapper,
+			alloc,
+			config.physical_address_translator(),
+			last_stack_page_virt,
+		) {
 			Ok(_) => panic!("kernel top stack guard page was already mapped"),
 			Err(UnmapError::NotMapped) => {}
 			Err(e) => panic!("failed to test unmap of top kernel stack guard page: {e:?}"),
@@ -214,16 +219,23 @@ unsafe impl Arch for X86_64 {
 			.allocate()
 			.expect("failed to allocate page for kernel stack (out of memory)");
 
-		mapper
-			.kernel_stack()
-			.remap(alloc, last_stack_page_virt - 4096, stack_phys)
+		AddressSpaceLayout::kernel_stack()
+			.remap(
+				&mapper,
+				alloc,
+				config.physical_address_translator(),
+				last_stack_page_virt - 4096,
+				stack_phys,
+			)
 			.expect("failed to (re)map page for kernel stack");
 
 		// Make sure that the bottom guard page is unmapped
-		match mapper
-			.kernel_stack()
-			.unmap(alloc, last_stack_page_virt - 8192)
-		{
+		match AddressSpaceLayout::kernel_stack().unmap(
+			&mapper,
+			alloc,
+			config.physical_address_translator(),
+			last_stack_page_virt - 8192,
+		) {
 			Ok(_) => panic!("kernel bottom stack guard page was mapped"),
 			Err(UnmapError::NotMapped) => {}
 			Err(e) => panic!("failed to test unmap of kernel bottom stack guard page: {e:?}"),
@@ -232,27 +244,12 @@ unsafe impl Arch for X86_64 {
 		// Return the token that is passed to the `transfer` function.
 		TransferToken {
 			stack_ptr:       last_stack_page_virt,
-			page_table_phys: mapper.page_table_phys(),
+			page_table_phys: mapper.base_phys,
 		}
 	}
 
 	unsafe fn transfer(entry: usize, transfer_token: Self::TransferToken) -> ! {
-		let page_table_phys: u64 = transfer_token.page_table_phys;
-		let stack_addr: usize = transfer_token.stack_ptr;
-		let stubs_addr: usize = crate::xfer::target_address();
-
-		// Jump to stubs.
-		asm!(
-			"push {CR3_ADDR}",
-			"push {STACK_ADDR}",
-			"push {KERNEL_ENTRY}",
-			"jmp {STUBS_ADDR}",
-			CR3_ADDR = in(reg) page_table_phys,
-			STACK_ADDR = in(reg) stack_addr,
-			KERNEL_ENTRY = in(reg) entry,
-			STUBS_ADDR = in(reg) stubs_addr,
-			options(noreturn)
-		);
+		crate::xfer::transfer(entry, &transfer_token)
 	}
 
 	#[inline(always)]
@@ -261,12 +258,4 @@ unsafe impl Arch for X86_64 {
 			core::arch::asm!("mfence", options(nostack, preserves_flags),);
 		}
 	}
-}
-
-/// Transfer token passed from `prepare_transfer` to `transfer`.
-pub struct TransferToken {
-	/// The stack address for the kernel. Core-local.
-	stack_ptr:       usize,
-	/// The physical address of the root page table entry for the kernel.
-	page_table_phys: u64,
 }

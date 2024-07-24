@@ -3,7 +3,7 @@
 //!
 //! These are _tightly_ coupled to the linker script.
 
-use crate::mem::{layout::Layout, paging_level::PagingLevel};
+use crate::mem::{address_space::AddressSpaceLayout, paging_level::PagingLevel};
 use core::arch::asm;
 
 extern "C" {
@@ -11,6 +11,46 @@ extern "C" {
 	pub static _ORO_STUBS_START: u64;
 	/// The end of the transfer stubs.
 	pub static _ORO_STUBS_LEN: u64;
+}
+
+/// Transfer token passed from `prepare_transfer` to `transfer`.
+pub struct TransferToken {
+	/// The stack address for the kernel. Core-local.
+	pub stack_ptr:       usize,
+	/// The physical address of the root page table entry for the kernel.
+	pub page_table_phys: u64,
+}
+
+/// Returns the target virtual address of the stubs based on
+/// the current CPU paging level.
+pub fn target_address() -> usize {
+	match PagingLevel::current_from_cpu() {
+		PagingLevel::Level4 => AddressSpaceLayout::STUBS_IDX << 39,
+		PagingLevel::Level5 => AddressSpaceLayout::STUBS_IDX << 48,
+	}
+}
+
+/// Performs the transfer from pre-boot to the kernel.
+///
+/// # Safety
+/// Only to be called ONCE per core, and only by the [`oro_common::Arch`] implementation.
+pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
+	let page_table_phys: u64 = transfer_token.page_table_phys;
+	let stack_addr: usize = transfer_token.stack_ptr;
+	let stubs_addr: usize = crate::xfer::target_address();
+
+	// Jump to stubs.
+	asm!(
+		"push {CR3_ADDR}",
+		"push {STACK_ADDR}",
+		"push {KERNEL_ENTRY}",
+		"jmp {STUBS_ADDR}",
+		CR3_ADDR = in(reg) page_table_phys,
+		STACK_ADDR = in(reg) stack_addr,
+		KERNEL_ENTRY = in(reg) entry,
+		STUBS_ADDR = in(reg) stubs_addr,
+		options(noreturn)
+	);
 }
 
 /// Transfer stubs for the x86_64 architecture.
@@ -30,7 +70,7 @@ extern "C" {
 #[naked]
 #[no_mangle]
 #[link_section = ".oro_xfer_stubs.entry"]
-pub unsafe extern "C" fn transfer_stubs() -> ! {
+unsafe extern "C" fn transfer_stubs() -> ! {
 	asm! {
 		"pop r10",
 		"pop r9",
@@ -40,14 +80,5 @@ pub unsafe extern "C" fn transfer_stubs() -> ! {
 		"push 0", // Push a return value of 0 onto the stack to prevent accidental returns
 		"jmp r10",
 		options(noreturn)
-	}
-}
-
-/// Returns the target virtual address of the stubs based on
-/// the current CPU paging level.
-pub fn target_address() -> usize {
-	match PagingLevel::current_from_cpu() {
-		PagingLevel::Level4 => Layout::STUBS_IDX << 39,
-		PagingLevel::Level5 => Layout::STUBS_IDX << 48,
 	}
 }

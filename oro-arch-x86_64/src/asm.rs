@@ -45,6 +45,6 @@ pub fn cr3() -> u64 {
 /// Callers must be prepared for the consequences of changing the
 /// page table base address.
 #[inline(always)]
-pub unsafe fn set_cr3(value: u64) {
+pub unsafe fn _set_cr3(value: u64) {
 	asm!("mov cr3, {}", in(reg) value, options(nostack, preserves_flags));
 }
