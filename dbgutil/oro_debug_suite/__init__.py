@@ -226,4 +226,5 @@ class OroCmd(gdb.Command):
 
 OroCmd()
 
+from .service import *
 from .cmd import *
