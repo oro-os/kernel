@@ -74,7 +74,7 @@ macro_rules! wait_for_all_cores {
 ///
 /// ### Timing
 /// All cores must be initialized at the same stage of the pre-boot process; that is,
-/// no CPU-wide altercations to any of its state may be made after the first invocation
+/// no CPU-wide alterations to any of its state may be made after the first invocation
 /// to this function (on at least one of the cores).
 ///
 /// ### Core Count
@@ -105,7 +105,7 @@ macro_rules! wait_for_all_cores {
 /// This mapping _does not_ need to be a linear mapping, so long as a unique, non-overlapping
 /// virtual address can be derived from a physical address in a 1:1 fashion.
 ///
-/// Typically, a bootloader would set up an offset-based physical-to-virtual address mapping,
+/// Typically, a bootloader would set up an offset-based ("linear") physical-to-virtual address mapping,
 /// but this is not a requirement. A [`crate::mem::PhysicalAddressTranslator`] implementation
 /// is all that is necessary.
 ///
@@ -114,7 +114,7 @@ macro_rules! wait_for_all_cores {
 /// any offsets or other configuration values to the translator.
 ///
 /// Put another way, the same physical address must always map to the same virtual address across
-/// all cores.
+/// all translations, across all cores.
 ///
 /// ### Stack Memory
 /// All cores **must** share the same direct memory map described above, with the exception of
@@ -407,7 +407,7 @@ where
 				dbg!(
 					A,
 					"boot-to-kernel",
-					"mapped direct map segment: {:?}: {:#016X?} <{:X?}>",
+					"mapping direct map segment: {:?}: {:#016X?} <{:X?}>",
 					region.region_type(),
 					region.base(),
 					region.length()
