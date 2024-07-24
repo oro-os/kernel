@@ -7,20 +7,6 @@ compile_error!("The `dbgutil` module should only be used in debug builds.");
 
 use core::arch::asm;
 
-/// A function that does nothing but has at least
-/// one instruction in it. Debuggers should set a
-/// breakpoint on this function to stop execution
-/// at the end of a dbg util function to get the result.
-#[link_section = ".text.force_keep"]
-#[no_mangle]
-#[naked]
-pub extern "C" fn __oro_dbgutil_finish() {
-	// A single nop
-	unsafe {
-		asm!("nop", options(noreturn));
-	}
-}
-
 /// Performs a translation as though it were EL1 with
 /// read permissions. The result is stored in
 /// `PAR_EL1`.
@@ -31,6 +17,6 @@ pub extern "C" fn __oro_dbgutil_finish() {
 #[naked]
 pub extern "C" fn __oro_dbgutil_ATS1E1R() -> ! {
 	unsafe {
-		asm!("AT S1E1R, x0", "b __oro_dbgutil_finish", options(noreturn));
+		asm!("AT S1E1R, x0", "nop", options(noreturn));
 	}
 }
