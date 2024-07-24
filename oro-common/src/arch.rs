@@ -6,10 +6,7 @@
 //! memory management facilities).
 use crate::{
 	elf::{ElfClass, ElfEndianness, ElfMachine},
-	mem::{
-		PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator, PrebootAddressSpace,
-		RuntimeAddressSpace,
-	},
+	mem::{AddressSpace, PageFrameAllocate, PageFrameFree},
 	PrebootConfig, PrebootPrimaryConfig,
 };
 use core::fmt;
@@ -28,27 +25,8 @@ pub unsafe trait Arch {
 	/// and expected by `restore_interrupts`.
 	type InterruptState: Sized + Copy;
 
-	/// The type of [`crate::mem::AddressSpace`] that this architecture implements
-	/// for the preboot routine to construct the kernel address space(s).
-	///
-	/// May be constructed multiple times, one for each CPU core.
-	///
-	/// Must **not** refer to the current memory map; implementations
-	/// _must_ allocate a new memory map for each instance and use
-	/// the page frame allocator and translation facilities to create
-	/// a brand new address space.
-	type PrebootAddressSpace<P: PhysicalAddressTranslator>: PrebootAddressSpace<P> + Sized;
-
-	/// The type of [`crate::mem::AddressSpace`] that this architecture implements
-	/// for the kernel itself to mutate and otherwise interact with
-	/// the address space for the running execution context.
-	///
-	/// Constructed once per CPU core at beginning of kernel execution.
-	///
-	/// Must refer to the current memory map; implementations **must not**
-	/// switch the memory map context outside of this type; the kernel
-	/// uses this type for **ALL** address space switches.
-	type RuntimeAddressSpace: RuntimeAddressSpace + Sized;
+	/// The address space layout used by this architecture.
+	type AddressSpace: AddressSpace;
 
 	/// A token type for [`Self::prepare_transfer`] to return and [`Self::transfer`]
 	/// to consume.
@@ -99,6 +77,34 @@ pub unsafe trait Arch {
 	/// completed before the barrier returns.
 	fn strong_memory_barrier();
 
+	/// Allows the architecture to prepare the master page tables
+	/// for the transfer to the kernel execution context.
+	///
+	/// This is called once for the primary CPU core, before
+	/// the page tables are cloned by the secondary cores.
+	///
+	/// Any additional memory mappings that are required for the
+	/// kernel to execute should be set up here.
+	///
+	/// # Safety
+	/// This method must be called **exactly once** for the primary
+	/// CPU core, and **only** by the primary CPU core, before the
+	/// secondary cores copy the page tables.
+	///
+	/// Implementations must take special care to clean up resources
+	/// after execution has been transferred to the kernel via the
+	/// [`Self::after_transfer()`] method.
+	///
+	/// Callers of this method **MUST** synchronize with other cores
+	/// directly after calling, a transfer is prepared.
+	unsafe fn prepare_master_page_tables<A, C>(
+		mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
+		config: &PrebootConfig<C>,
+		alloc: &mut A,
+	) where
+		C: PrebootPrimaryConfig,
+		A: PageFrameAllocate + PageFrameFree;
+
 	/// Prepares the CPU for an execution control transfer.
 	///
 	/// This is used only when the preboot stage is about to transfer
@@ -132,14 +138,19 @@ pub unsafe trait Arch {
 	/// This method must not affect the commons library from writing
 	/// to the boot protocol area.
 	///
+	/// Callers of this method MUST synchronize with other cores
+	/// directly after calling, before performing the transfer.
+	///
 	/// This method **may panic**.
-	unsafe fn prepare_transfer<P, A, C>(
-		mapper: Self::PrebootAddressSpace<P>,
+	///
+	/// CALLERS OF THIS METHOD MUST TAKE GREAT CARE THAT NO FURTHER
+	/// MEMORY ALLOCATIONS TAKE PLACE AFTER THIS METHOD IS CALLED.
+	unsafe fn prepare_transfer<A, C>(
+		mapper: <<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
 		config: &PrebootConfig<C>,
 		alloc: &mut A,
 	) -> Self::TransferToken
 	where
-		P: PhysicalAddressTranslator,
 		A: PageFrameAllocate + PageFrameFree,
 		C: PrebootPrimaryConfig;
 

@@ -7,10 +7,7 @@ mod region;
 mod translate;
 
 pub use self::{
-	mapper::{
-		AddressRange, AddressSpace, AddressSpaceLayout, CloneToken, MapError, PrebootAddressSpace,
-		RuntimeAddressSpace, SupervisorAddressSegment, SupervisorAddressSpace, UnmapError,
-	},
+	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::{
 		alloc::{PageFrameAllocate, PageFrameFree},
 		filo::{FiloPageFrameAllocator, FiloPageFrameManager},

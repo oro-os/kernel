@@ -14,17 +14,12 @@ use crate::{
 	dbg,
 	elf::{ElfSegment, ElfSegmentType},
 	mem::{
-		AddressRange, AddressSpace, AddressSpaceLayout, CloneToken, FiloPageFrameAllocator,
-		MemoryRegion, MemoryRegionType, PageFrameAllocate, PageFrameFree,
-		PhysicalAddressTranslator, PrebootAddressSpace, SupervisorAddressSegment,
-		SupervisorAddressSpace,
+		AddressSegment, AddressSpace, FiloPageFrameAllocator, MemoryRegion, MemoryRegionType,
+		PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator,
 	},
 	sync::{SpinBarrier, UnfairSpinlock},
+	util::{assertions, proxy::Proxy},
 	Arch,
-};
-use core::{
-	mem::MaybeUninit,
-	ops::{Deref, DerefMut},
 };
 
 /// Waits for all cores to reach a certain point in the initialization sequence.
@@ -172,10 +167,11 @@ where
 	A: Arch,
 	P: PrebootPrimaryConfig,
 {
-	static mut KERNEL_ADDRESS_SPACE_TOKEN: MaybeUninit<CloneTokenProxy> = MaybeUninit::uninit();
+	static mut KERNEL_ADDRESS_SPACE: Proxy<256> = Proxy::Uninit;
 	static mut KERNEL_ENTRY_POINT: usize = 0;
 
-	static MAPPER_BARRIER: SpinBarrier = SpinBarrier::new();
+	static MAPPER_DUPLICATE_BARRIER: SpinBarrier = SpinBarrier::new();
+	static MAPPER_DUPLICATE_FINISH_BARRIER: SpinBarrier = SpinBarrier::new();
 	static TRANSFER_BARRIER: SpinBarrier = SpinBarrier::new();
 
 	A::disable_interrupts();
@@ -263,10 +259,9 @@ where
 
 			// Wrap in a spinlock
 			let shared_pfa = UnfairSpinlock::<A, _>::new(shared_pfa);
-			let shared_pfa = FitsInPage(shared_pfa);
 
 			// Make sure that we're not exceeding our page size.
-			shared_pfa.assert_fits_in_page();
+			assertions::assert_fits::<_, 4096>(&shared_pfa);
 
 			// Store the PFA in the type inference helper then pop
 			// it back out again. This is a dance to get the type
@@ -290,120 +285,145 @@ where
 		#[allow(unused_assignments)]
 		let mut pfa = temporary_pfa.as_slice().as_ptr();
 		pfa = SHARED_PFA.0.as_ptr().cast();
-		&(*pfa).0
+		&(*pfa)
 	};
 
 	// Finally, for good measure, make sure that we barrier here so we're all on the same page.
 	wait_for_all_cores!(config);
 
-	let kernel_mapper = if let PrebootConfig::Primary {
-		kernel_module,
-		num_instances,
-		memory_regions,
-		..
-	} = &config
-	{
-		let mut pfa = pfa.lock();
+	// Next, we create the supervisor mapper. This has two steps, as the value returned
+	// is going to be different for every core.
+	//
+	// The primary core will first create the "genesis" mapper, which gets the kernel and all
+	// other 'shared' memory regions mapped into it. Anything mapped in this mapper is expected
+	// never to change, and is shared across all cores.
+	//
+	// Then, the primary core will move the mapping handle into a static "proxy" object, which
+	// is a facade over a type-agnostic byte buffer whereby immutable references can be taken
+	// in a type-safe manner. This proxy is shared across all cores.
+	//
+	// The CPU will then signal for all secondary cores to take a reference to the handle via
+	// the proxy and duplicate it. Each core then has its own handle to the same mapping (typically,
+	// the architecture will create a new root-level page table upon duplication, then copy all of the
+	// same root-level mappings into it).
+	//
+	// The primary core will then wait for all secondary cores to duplicate the mapping, then
+	// take back the handle from the proxy and return it, such that the primary core is not
+	// duplicating itself and thus leaking physical pages.
+	let kernel_mapper = match &config {
+		PrebootConfig::Primary {
+			kernel_module,
+			num_instances,
+			memory_regions,
+			physical_address_translator,
+			..
+		} => {
+			let mut pfa = pfa.lock();
 
-		// Parse the kernel ELF module.
-		let kernel_elf = match crate::elf::Elf::parse::<A>(kernel_module.base, kernel_module.length)
-		{
-			Ok(elf) => elf,
-			Err(e) => {
-				panic!("failed to parse kernel ELF: {:?}", e);
-			}
-		};
-
-		// Create a new preboot page table mapper for the kernel.
-		// This will ultimately be cloned and used by all cores.
-		let Some(kernel_mapper) =
-			A::PrebootAddressSpace::new(&mut *pfa, config.physical_address_translator().clone())
-		else {
-			panic!("failed to create preboot address space for kernel; out of memory");
-		};
-
-		for segment in kernel_elf.segments() {
-			let mut mapper_segment = match segment.ty() {
-				ElfSegmentType::Ignored => continue,
-				ElfSegmentType::Invalid { flags, ptype } => {
-					panic!(
-						"invalid segment type for kernel ELF: flags={:#X}, type={:#X}",
-						flags, ptype
-					);
-				}
-				ElfSegmentType::KernelCode => kernel_mapper.kernel_code(),
-				ElfSegmentType::KernelData => kernel_mapper.kernel_data(),
-				ElfSegmentType::KernelRoData => kernel_mapper.kernel_rodata(),
-			};
-
-			// NOTE(qix-): This will almost definitely be improved in the future.
-			// NOTE(qix-): At the very least, hugepages will change this.
-			// NOTE(qix-): There will probably be some better machinery for
-			// NOTE(qix-): mapping ranges of memory in the future.
-			for page in 0..(segment.target_size().saturating_add(0xFFF) >> 12) {
-				let Some(phys_addr) = pfa.allocate() else {
-					panic!("failed to allocate page for kernel segment: out of memory");
+			// Parse the kernel ELF module.
+			let kernel_elf =
+				match crate::elf::Elf::parse::<A>(kernel_module.base, kernel_module.length) {
+					Ok(elf) => elf,
+					Err(e) => {
+						panic!("failed to parse kernel ELF: {:?}", e);
+					}
 				};
 
-				let byte_offset = page << 12;
-				// Saturating sub here since the target size might exceed the file size,
-				// in which case we have to keep allocating those pages and zeroing them.
-				let load_size = segment.load_size().saturating_sub(byte_offset).min(4096);
-				let load_virt = segment.load_address() + byte_offset;
-				let target_virt = segment.target_address() + byte_offset;
+			// Create a new preboot page table mapper for the kernel.
+			// This will ultimately be cloned and used by all cores.
+			let Some(kernel_mapper) =
+				A::AddressSpace::new_supervisor_space(&mut *pfa, physical_address_translator)
+			else {
+				panic!("failed to create preboot address space for kernel; out of memory");
+			};
 
-				let local_page_virt = config
-					.physical_address_translator()
-					.to_virtual_addr(phys_addr);
-
-				let dest = core::slice::from_raw_parts_mut(local_page_virt as *mut u8, 4096);
-				let src = core::slice::from_raw_parts(load_virt as *const u8, load_size);
-
-				// copy data
-				if load_size > 0 {
-					dest[..load_size].copy_from_slice(&src[..load_size]);
-				}
-				// zero remaining
-				if load_size < 4096 {
-					dest[load_size..].fill(0);
-				}
-
-				if let Err(err) = mapper_segment.map(&mut *pfa, target_virt, phys_addr) {
-					panic!(
-						"failed to map kernel segment: {err:?}: ls={load_size} p={page} \
-						 po={page:X?} lv={load_virt:#016X} tv={target_virt:#016X} \
-						 s={segment:016X?}"
-					);
-				}
-			}
-
+			let num_segments = kernel_elf.segments().count();
 			dbg!(
 				A,
 				"boot_to_kernel",
-				"mapped kernel segment: {:#016X?} <{:X?}> -> {:?} <{:X?}>",
-				segment.target_address(),
-				segment.target_size(),
-				segment.ty(),
-				segment.target_size(),
+				"mapping {} kernel segments...",
+				num_segments
 			);
 
-			// Perform the direct map of all memory
-			let (dm_start, _) =
-				<A::RuntimeAddressSpace as AddressSpace>::Layout::direct_map().valid_range();
-			let min_phys_addr = memory_regions.clone().map(|r| r.base()).min().unwrap();
-			let offset = (dm_start as u64).saturating_sub(min_phys_addr);
-			let mut segment = kernel_mapper.direct_map();
-			for region in memory_regions.clone() {
-				let region = region.aligned(4096);
-				for byte_offset in (0..region.length()).step_by(4096) {
-					let phys = region.base() + byte_offset;
-					#[allow(clippy::cast_possible_truncation)]
-					let virt = (phys + offset) as usize;
-					segment
-						.map(&mut *pfa, virt, phys)
-						.expect("failed to map direct map segment");
+			assert!(num_segments > 0, "kernel ELF has no segments");
+
+			for segment in kernel_elf.segments() {
+				let mapper_segment = match segment.ty() {
+					ElfSegmentType::Ignored => continue,
+					ElfSegmentType::Invalid { flags, ptype } => {
+						panic!(
+							"invalid segment type for kernel ELF: flags={:#X}, type={:#X}",
+							flags, ptype
+						);
+					}
+					ElfSegmentType::KernelCode => A::AddressSpace::kernel_code(),
+					ElfSegmentType::KernelData => A::AddressSpace::kernel_data(),
+					ElfSegmentType::KernelRoData => A::AddressSpace::kernel_rodata(),
+				};
+
+				// NOTE(qix-): This will almost definitely be improved in the future.
+				// NOTE(qix-): At the very least, hugepages will change this.
+				// NOTE(qix-): There will probably be some better machinery for
+				// NOTE(qix-): mapping ranges of memory in the future.
+				for page in 0..(segment.target_size().saturating_add(0xFFF) >> 12) {
+					let Some(phys_addr) = pfa.allocate() else {
+						panic!("failed to allocate page for kernel segment: out of memory");
+					};
+
+					let byte_offset = page << 12;
+					// Saturating sub here since the target size might exceed the file size,
+					// in which case we have to keep allocating those pages and zeroing them.
+					let load_size = segment.load_size().saturating_sub(byte_offset).min(4096);
+					let load_virt = segment.load_address() + byte_offset;
+					let target_virt = segment.target_address() + byte_offset;
+
+					let local_page_virt = config
+						.physical_address_translator()
+						.to_virtual_addr(phys_addr);
+
+					let dest = core::slice::from_raw_parts_mut(local_page_virt as *mut u8, 4096);
+					let src = core::slice::from_raw_parts(load_virt as *const u8, load_size);
+
+					// copy data
+					if load_size > 0 {
+						dest[..load_size].copy_from_slice(&src[..load_size]);
+					}
+					// zero remaining
+					if load_size < 4096 {
+						dest[load_size..].fill(0);
+					}
+
+					if let Err(err) = mapper_segment.map(
+						&kernel_mapper,
+						&mut *pfa,
+						physical_address_translator,
+						target_virt,
+						phys_addr,
+					) {
+						panic!(
+							"failed to map kernel segment: {err:?}: ls={load_size} p={page} \
+							 po={page:X?} lv={load_virt:#016X} tv={target_virt:#016X} \
+							 s={segment:016X?}"
+						);
+					}
 				}
 
+				dbg!(
+					A,
+					"boot_to_kernel",
+					"mapped kernel segment: {:#016X?} <{:X?}> -> {:?} <{:X?}>",
+					segment.target_address(),
+					segment.target_size(),
+					segment.ty(),
+					segment.target_size(),
+				);
+			}
+
+			// Perform the direct map of all memory
+			let direct_map = A::AddressSpace::direct_map();
+			let (dm_start, _) = direct_map.range();
+			let min_phys_addr = memory_regions.clone().map(|r| r.base()).min().unwrap();
+			for region in memory_regions.clone() {
 				dbg!(
 					A,
 					"boot-to-kernel",
@@ -412,33 +432,109 @@ where
 					region.base(),
 					region.length()
 				);
+
+				let region = region.aligned(4096);
+				for byte_offset in (0..region.length()).step_by(4096) {
+					let phys = region.base() + byte_offset;
+					#[allow(clippy::cast_possible_truncation)]
+					let virt = dm_start + (phys - min_phys_addr) as usize;
+					direct_map
+						.map(
+							&kernel_mapper,
+							&mut *pfa,
+							physical_address_translator,
+							virt,
+							phys,
+						)
+						.expect("failed to map direct map segment");
+				}
 			}
+
+			dbg!(
+				A,
+				"boot_to_kernel",
+				"direct mapped all memory regions; preparing master page tables"
+			);
+
+			// Allow the architecture to prepare any additional mappings.
+			A::prepare_master_page_tables(&kernel_mapper, &config, &mut *pfa);
+
+			dbg!(
+				A,
+				"boot_to_kernel",
+				"architecture prepared master page tables"
+			);
+
+			// Store the kernel address space handle and entry point for cloning later.
+			KERNEL_ADDRESS_SPACE = Proxy::from(kernel_mapper);
+			KERNEL_ENTRY_POINT = kernel_elf.entry_point();
+
+			// Wait for all cores to see the write.
+			A::strong_memory_barrier();
+
+			// Drop the PFA lock so the secondaries can use it.
+			drop(pfa);
+
+			dbg!(
+				A,
+				"boot_to_kernel",
+				"primary core ready to duplicate kernel address space to secondaries; \
+				 synchronizing..."
+			);
+
+			// Let other cores take it.
+			MAPPER_DUPLICATE_BARRIER.set_total::<A>(*num_instances);
+			MAPPER_DUPLICATE_BARRIER.wait();
+
+			dbg!(
+				A,
+				"boot_to_kernel",
+				"secondaries duplicating kernel address space..."
+			);
+
+			// Let other core finish duplicating it.
+			MAPPER_DUPLICATE_FINISH_BARRIER.set_total::<A>(*num_instances);
+			MAPPER_DUPLICATE_FINISH_BARRIER.wait();
+
+			dbg!(
+				A,
+				"boot_to_kernel",
+				"all cores have duplicated kernel address space"
+			);
+
+			// SAFETY: If unwrap fails, another core took the handle (a bug in this function alone).
+			KERNEL_ADDRESS_SPACE.take().unwrap()
 		}
+		PrebootConfig::Secondary {
+			physical_address_translator,
+			..
+		} => {
+			// Wait for the primary to tell us the mapper handle is available.
+			MAPPER_DUPLICATE_BARRIER.wait();
 
-		// Store the kernel address space token and entry point for cloning later.
-		let clone_token = kernel_mapper.clone_token();
-		KERNEL_ADDRESS_SPACE_TOKEN.write(CloneTokenProxy::from_token(clone_token));
-		KERNEL_ENTRY_POINT = kernel_elf.entry_point();
+			// Clone the kernel address space token.
+			// SAFETY: If unwrap fails, either another core took the handle, or the primary core
+			// SAFETY: didn't properly set it up (a bug in this function alone).
+			let kernel_address_space_primary_handle: &<<A as Arch>::AddressSpace as AddressSpace>::SupervisorHandle = KERNEL_ADDRESS_SPACE.as_ref().unwrap();
 
-		// Wait for all cores to see the write.
-		A::strong_memory_barrier();
+			// Clone the kernel address space.
+			let mut pfa = pfa.lock();
+			let mapper = A::AddressSpace::duplicate_supervisor_space_shallow(
+				kernel_address_space_primary_handle,
+				&mut *pfa,
+				physical_address_translator,
+			)
+			.expect("failed to duplicate kernel address space for secondary core; out of memory");
 
-		// Let other cores take it.
-		MAPPER_BARRIER.set_total::<A>(*num_instances);
-		MAPPER_BARRIER.wait();
+			// Let other secondaries use the PFA.
+			drop(pfa);
 
-		kernel_mapper
-	} else {
-		// Wait for the primary to tell us the mapper token
-		// is available.
-		MAPPER_BARRIER.wait();
+			// Signal that we've finished duplicating it and that the primary core is now
+			// free to take it back.
+			MAPPER_DUPLICATE_FINISH_BARRIER.wait();
 
-		// Clone the kernel address space token.
-		let kernel_address_space_token = KERNEL_ADDRESS_SPACE_TOKEN.assume_init_ref().as_token();
-
-		// Clone the kernel address space.
-		let mut pfa = pfa.lock();
-		A::PrebootAddressSpace::from_token(kernel_address_space_token, &mut *pfa)
+			mapper
+		}
 	};
 
 	// Wait for all cores to come online
@@ -452,21 +548,25 @@ where
 	// operations to be performed before the kernel is entered.
 	// We start with the primary core, sync, and then let the secondaries
 	// go.
-	let transfer_token = if let PrebootConfig::Primary { num_instances, .. } = config {
-		let mut pfa = pfa.lock();
-		let token = A::prepare_transfer(kernel_mapper, &config, &mut *pfa);
+	let transfer_token = match config {
+		PrebootConfig::Primary { num_instances, .. } => {
+			let mut pfa = pfa.lock();
+			let token = A::prepare_transfer(kernel_mapper, &config, &mut *pfa);
+			drop(pfa);
 
-		// Inform secondaries they can now prepare for transfer
-		TRANSFER_BARRIER.set_total::<A>(num_instances);
-		TRANSFER_BARRIER.wait();
+			// Inform secondaries they can now prepare for transfer
+			TRANSFER_BARRIER.set_total::<A>(num_instances);
+			TRANSFER_BARRIER.wait();
 
-		token
-	} else {
-		// Wait for primary to finish preparing for transfer
-		TRANSFER_BARRIER.wait();
+			token
+		}
+		PrebootConfig::Secondary { .. } => {
+			// Wait for primary to finish preparing for transfer
+			TRANSFER_BARRIER.wait();
 
-		let mut pfa = pfa.lock();
-		A::prepare_transfer(kernel_mapper, &config, &mut *pfa)
+			let mut pfa = pfa.lock();
+			A::prepare_transfer(kernel_mapper, &config, &mut *pfa)
+		}
 	};
 
 	// Wait for all cores to be ready to jump to the kernel.

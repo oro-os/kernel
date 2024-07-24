@@ -22,6 +22,7 @@ pub struct SpinBarrier {
 
 impl SpinBarrier {
 	/// Creates a new `SpinBarrier` that will synchronize `total` cores.
+	#[allow(clippy::new_without_default)]
 	#[must_use]
 	pub const fn new() -> Self {
 		Self {

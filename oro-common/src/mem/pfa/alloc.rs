@@ -42,9 +42,9 @@ pub unsafe trait PageFrameFree: PageFrameAllocate {
 	/// The following **must absolutely remain true**:
 	///
 	/// 1. Callers **must** ensure the passed frame address is valid and allocated, not in active
-	/// use, and is not already freed. Implementors are under no obligation to ensure this.
+	///    use, and is not already freed. Implementors are under no obligation to ensure this.
 	///
 	/// 2. Callers **must** ensure the passed frame address is not in a reserved or unusable
-	/// memory region.
+	///    memory region.
 	unsafe fn free(&mut self, frame: u64);
 }
