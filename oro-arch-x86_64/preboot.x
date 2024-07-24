@@ -8,3 +8,5 @@ SECTIONS {
 		_ORO_STUBS_LEN = . - _ORO_STUBS_START;
 	} :text
 }
+
+INCLUDE "oro-arch-x86_64/arch.x"

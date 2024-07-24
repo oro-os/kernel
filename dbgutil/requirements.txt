@@ -1,0 +1,2 @@
+pycdlib==1.14.0
+kiwisolver==1.4.5

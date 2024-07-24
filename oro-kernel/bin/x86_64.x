@@ -11,7 +11,11 @@ PHDRS {
 
 SECTIONS {
 	. = 0xFFFFFFFF80000000;
+}
 
+INCLUDE "oro-arch-x86_64/arch.x"
+
+SECTIONS {
 	.text : {
 		*(.text .text.*)
 	} :text
@@ -34,6 +38,12 @@ SECTIONS {
 		*(COMMON)
 		*(.bss .bss.*) /* MUST be last allocated to :data */
 	} :data
+
+	. = ALIGN(4096);
+
+	.debug_gdb_scripts : {
+		KEEP(*(.debug_gdb_scripts .debug_gdb_scripts.*))
+	} :text
 
 	/DISCARD/ : {
 		*(.eh_frame)

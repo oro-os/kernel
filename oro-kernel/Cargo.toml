@@ -23,7 +23,7 @@ path = "bin/aarch64.rs"
 doc = false
 
 [dependencies]
-oro-common.workspace = true
+oro-common = { workspace = true, features = ["dbgutil"] }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 oro-arch-x86_64.workspace = true
