@@ -121,6 +121,16 @@ impl fmt::Debug for MairRegister {
 	}
 }
 
+// NOTE(qix-): I don't really want to encourage anyone convert back from a raw u64
+// NOTE(qix-): to a `MairRegister` value as that's probably not very safe.
+#[allow(clippy::from_over_into)]
+impl Into<u64> for MairRegister {
+	#[inline(always)]
+	fn into(self) -> u64 {
+		self.0
+	}
+}
+
 /// Memory attributes for a specific MAIR attribute.
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
@@ -160,11 +170,15 @@ impl MairAttributes {
 	/// Gets the type of memory these attributes represent.
 	#[inline(always)]
 	#[must_use]
-	pub fn ty(&self) -> AttributesType {
+	pub fn ty(self) -> AttributesType {
 		if self.0 & 0b1111_0000 == 0 {
-			AttributesType::Device(unsafe { core::mem::transmute(self.0) })
+			AttributesType::Device(unsafe {
+				core::mem::transmute::<u8, MairDeviceAttribute>(self.0)
+			})
 		} else {
-			AttributesType::Memory(unsafe { core::mem::transmute(self.0) })
+			AttributesType::Memory(unsafe {
+				core::mem::transmute::<u8, MairMemoryAttributes>(self.0)
+			})
 		}
 	}
 }
@@ -217,6 +231,7 @@ impl fmt::Debug for AttributesType {
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 #[non_exhaustive]
+#[allow(clippy::upper_case_acronyms)]
 pub enum MairDeviceAttribute {
 	/// Device non-Gathering, non-Reordering, No Early write acknowledgement.
 	DnGnRnE = 0b0000,
@@ -336,8 +351,12 @@ impl From<MairMemoryAttributes> for (MairCacheability<OUTER>, MairCacheability<I
 	#[inline(always)]
 	fn from(attrs: MairMemoryAttributes) -> Self {
 		(
-			unsafe { core::mem::transmute((attrs.0 >> OUTER) & 0b1111) },
-			unsafe { core::mem::transmute((attrs.0 >> INNER) & 0b1111) },
+			unsafe {
+				core::mem::transmute::<u8, MairCacheability<OUTER>>((attrs.0 >> OUTER) & 0b1111)
+			},
+			unsafe {
+				core::mem::transmute::<u8, MairCacheability<INNER>>((attrs.0 >> INNER) & 0b1111)
+			},
 		)
 	}
 }
