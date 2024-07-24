@@ -6,7 +6,7 @@
 	Kernel and associated bootloaders for the <strong>Oro Operating System</strong>,<br>
 	a general-purpose, minimal, and novel microkernel operating system written in Rust.
 	<br>
-	&laquo;&nbsp;<a href="https://oro.sh">oro.sh</a>&nbsp;|&nbsp;<a href="https://discord.gg/WXavRNqcDS">discord</a>&nbsp;&raquo;
+	&laquo;&nbsp;<a href="https://oro.sh">oro.sh</a>&nbsp;|&nbsp;<a href="https://discord.gg/WXavRNqcDS">discord</a>&nbsp;|&nbsp;<a href="https://x.com/oro_sys">x</a>&nbsp;&raquo;
 	<h1></h1>
 	<br>
 	<br>
