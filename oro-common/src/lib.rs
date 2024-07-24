@@ -18,7 +18,8 @@
 #![allow(
 	clippy::module_name_repetitions,
 	clippy::missing_errors_doc,
-	internal_features
+	internal_features,
+	rustdoc::private_doc_tests
 )]
 #![feature(const_trait_impl, core_intrinsics, debug_closure_helpers)]
 
