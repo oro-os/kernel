@@ -9,7 +9,7 @@
 //! # Architectures
 //! If you are implementing an architecture for Oro, see the
 //! [`Arch`] trait.
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 #![deny(
 	missing_docs,
 	clippy::integer_division,
