@@ -35,6 +35,7 @@ proc-macro2 = "1.0.81"
 
 [profile.dev]
 panic = "abort"            # Use "abort" panic strategy
+debug = "full"             # Full debugging symbols
 
 [profile.release]
 opt-level = 3              # Maximum optimizations
