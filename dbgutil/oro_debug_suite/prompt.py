@@ -6,7 +6,7 @@ def gdb_prompt(_old_prompt):
     Custom GDB prompt.
     """
 
-    return "(oro) "
+    return "(oro-gdb) "
 
 
 gdb.prompt_hook = gdb_prompt

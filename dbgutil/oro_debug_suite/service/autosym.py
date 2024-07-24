@@ -1,25 +1,20 @@
 import gdb  # type: ignore
 from ..log import log
 
-TRACKED_SYMBOLS = frozenset(
-    set(
-        [
-            # AArch64: AT S1E1R instruction stub
-            ("f", "oro_arch_aarch64::dbgutil::__oro_dbgutil_ATS1E1R")
-        ]
-    )
-)
+## AArch64: AT S1E1R instruction stub
+SYM_AARCH64_ATS1E1R = "oro_arch_aarch64::dbgutil::__oro_dbgutil_ATS1E1R"
+
+TRACKED_SYMBOLS = frozenset(set([("f", SYM_AARCH64_ATS1E1R)]))
 
 _DOMAINS = {"f": gdb.SYMBOL_FUNCTION_DOMAIN, "v": gdb.SYMBOL_VAR_DOMAIN}
 
 
 class SymbolTracker(object):
     def __init__(self):
-        self.__symbols = {}
+        self.__symbols = dict()
 
-    @property
-    def symbols(self):
-        return frozenset(self.__symbols)
+    def get(self, sym):
+        return self.__symbols.get(sym)
 
     def _on_objfile_freed(self, objfile):
         for _, sym in TRACKED_SYMBOLS:
@@ -40,7 +35,7 @@ class SymbolTracker(object):
             if resolved:
                 address = int(resolved.value().address)
                 self.__symbols[sym] = (address, objfile)
-                log(f"autosym: resolved {sym}=0x{address:#016x}")
+                log(f"autosym: resolved {sym}=0x{address:016x}")
 
 
 SYMBOLS = SymbolTracker()
