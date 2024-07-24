@@ -12,7 +12,11 @@ PHDRS {
 
 SECTIONS {
 	. = 0xFFFFFFFF80000000;
+}
 
+INCLUDE "oro-arch-aarch64/preboot.x"
+
+SECTIONS {
 	.text : {
 		*(.text .text.*)
 	} :text
