@@ -242,6 +242,11 @@ class TtCmdVirt(gdb.Command):
                     log(f"tt: {prefix}.PROT\t= {protected}")
                     log(f"tt: {prefix}.AF\t= {access}")
 
+                    if access == 0:
+                        warn(
+                            "tt: table entry access flag is not set; CPU will most likely fault unless hardware A/D flags are enabled"
+                        )
+
                     return addr
 
                 # Read the L0 page table entry
