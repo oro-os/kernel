@@ -47,14 +47,6 @@ unsafe impl Arch for Aarch64 {
 			pl011::StopBits::One,
 			pl011::Parity::None,
 		));
-
-		// XXX DEBUG
-		oro_common::dbg!(
-			Self,
-			"debug",
-			"{:#?}",
-			crate::reg::sctlr_el1::SctlrEl1::load()
-		);
 	}
 
 	unsafe fn init_local() {
