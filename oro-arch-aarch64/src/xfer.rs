@@ -105,8 +105,8 @@ pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
 	// and we don't want to accidentally overwrite them.
 	let mut tcr_el1 = crate::reg::tcr_el1::TcrEl1::load();
 	// 47-bit split
-	tcr_el1.set_t0sz(17);
-	tcr_el1.set_t1sz(17);
+	tcr_el1.set_t0sz(16);
+	tcr_el1.set_t1sz(16);
 	// 4KiB granule sizes
 	tcr_el1.set_tg0(Tg0GranuleSize::Kb4);
 	tcr_el1.set_tg1(Tg1GranuleSize::Kb4);
