@@ -26,15 +26,25 @@ extern "C" {
 /// The transfer token for the Aarch64 architecture.
 pub struct TransferToken {
 	/// The stack address for the kernel. Core-local.
-	pub stack_ptr:           usize,
-	/// The physical address of the root page table entry for the kernel (EL1).
-	pub el1_page_table_phys: u64,
+	pub stack_ptr: usize,
+	/// The physical address of the root page table entry for the kernel (TTBR1).
+	pub ttbr1_page_table_phys: u64,
+	/// The physical address of the root page table for the stubs (TTBR0)
+	pub ttbr0_page_table_phys: u64,
 	/// The address of the core-local stubs (identity mapped)
-	pub stubs_addr:          usize,
+	pub stubs_addr: usize,
+}
+
+/// The result of mapping in the stubs
+pub struct MappedStubs {
+	/// The virtual address of the stubs
+	pub stubs_addr: usize,
+	/// The base physical address of the page table for TTBR0
+	pub ttbr0_addr: u64,
 }
 
 /// Maps in the transfer stubs into memory.
-pub unsafe fn map_stubs<A, P>(alloc: &mut A, translator: &P) -> Result<usize, MapError>
+pub unsafe fn map_stubs<A, P>(alloc: &mut A, translator: &P) -> Result<MappedStubs, MapError>
 where
 	A: PageFrameAllocate + PageFrameFree,
 	P: PhysicalAddressTranslator,
@@ -71,21 +81,11 @@ where
 		stubs_phys,
 	)?;
 
-	// Load TTBR0_EL1 with the new page table address and flush caches
-	asm!(
-		"dsb ish",
-		"isb sy",
-		"msr ttbr0_el1, x0",
-		"ic iallu",
-		"dsb sy",
-		"isb sy",
-		"tlbi vmalle1is",
-		"dmb sy",
-		in("x0") page_table.base_phys
-	);
-
 	#[allow(clippy::cast_possible_truncation)]
-	Ok(stubs_phys as usize)
+	Ok(MappedStubs {
+		stubs_addr: stubs_phys as usize,
+		ttbr0_addr: page_table.base_phys,
+	})
 }
 
 /// Performs the transfer from pre-boot to the kernel.
@@ -93,10 +93,11 @@ where
 /// # Safety
 /// Only to be called ONCE per core, and only by the [`oro_common::Arch`] implementation.
 pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
-	let page_table_phys: u64 = transfer_token.el1_page_table_phys;
+	let page_table_phys: u64 = transfer_token.ttbr1_page_table_phys;
 	let stack_addr: usize = transfer_token.stack_ptr;
 	let mair_value: u64 = MairEntry::build_mair().into();
 	let stubs_addr: usize = transfer_token.stubs_addr;
+	let stubs_page_table_phys: u64 = transfer_token.ttbr0_page_table_phys;
 
 	// Construct the final TCR_EL1 register value
 	// We load the current value and modify it instead of
@@ -137,19 +138,25 @@ pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
 	sctlr.set_wxn(false);
 	sctlr.write();
 
+	// Load TTBR0_EL1 with the new page table address and flush caches
+	// We do this here as opposed to the map stubs function so that e.g.
+	// memory mapped devices (such as the UART) can be used right up until
+	// the transfer occurs.
+	asm!(
+		"dsb ish",
+		"isb sy",
+		"msr ttbr0_el1, x0",
+		"ic iallu",
+		"dsb sy",
+		"isb sy",
+		"tlbi vmalle1is",
+		"dmb sy",
+		in("x0") stubs_page_table_phys,
+	);
+
 	// Populate registers and jump to stubs
 	asm!(
-		// Invalidate TLBs
-		"tlbi vmalle1is",
-		// Invalidate instruction cache
-		"ic iallu",
-		// Invalidate data cache
-		"dc isw, xzr",
-		// Ensure all cache, TLB, and branch predictor maintenance operations have completed
-		"dsb nsh",
-		// Ensure the instruction stream is consistent
 		"isb",
-		// Jump to stubs
 		"br x4",
 		in("x0") page_table_phys,
 		in("x1") stack_addr,
