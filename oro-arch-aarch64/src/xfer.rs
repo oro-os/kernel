@@ -71,14 +71,18 @@ where
 		stubs_phys,
 	)?;
 
-	// XXX DEBUG disable the table flag...
-	// let entry = AddressSpaceLayout::stubs().entry(&page_table, alloc, translator, stubs_phys as usize).expect("failed to get stubs entry");
-	// let entry_raw = entry.raw_mut();
-	// oro_common::dbg!(crate::Aarch64, "debug", "table bit: {:?}", (*entry_raw & 0b10) != 0);
-	////*entry_raw &= !0b10;
-
-	// Set the TTBR0_EL1 register to point to the new page table
-	crate::asm::store_ttbr0(page_table.base_phys);
+	// Load TTBR0_EL1 with the new page table address and flush caches
+	asm!(
+		"dsb ish",
+		"isb sy",
+		"msr ttbr0_el1, x0",
+		"ic iallu",
+		"dsb sy",
+		"isb sy",
+		"tlbi vmalle1is",
+		"dmb sy",
+		in("x0") page_table.base_phys
+	);
 
 	#[allow(clippy::cast_possible_truncation)]
 	Ok(stubs_phys as usize)

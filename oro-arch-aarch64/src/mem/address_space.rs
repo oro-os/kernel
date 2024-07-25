@@ -58,8 +58,7 @@ impl AddressSpaceLayout {
 					.with_valid()
 					.with_block_access_permissions(
 						PageTableEntryBlockAccessPerm::KernelROUserNoAccess,
-					)
-					.with_mair_index(0), // DEBUG(qix-)
+					),
 			}
 		};
 
