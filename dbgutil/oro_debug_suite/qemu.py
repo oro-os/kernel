@@ -1,4 +1,6 @@
 import socket
+import struct
+from .backend import Backend
 
 PROMPT = b"(qemu) "
 DEFAULT_ENDPOINT = "localhost:4444"
@@ -59,6 +61,10 @@ class QemuConnection(object):
 
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.connect(self._endpoint)
+        self._socket.setsockopt(
+            socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 1)
+        )
+
         self._read_response()  # pop off version + initial prompt
 
     @property
@@ -126,3 +132,54 @@ class QemuConnection(object):
 
             if should_return:
                 return response[:end_idx].decode("utf-8", "replace").strip()
+
+
+class QemuBackend(Backend):
+    def __init__(self, connection):
+        super(QemuBackend, self).__init__()
+        if not isinstance(connection, QemuConnection):
+            raise ValueError("connection must be a QemuConnection instance")
+
+        self.__connection = connection
+
+    @property
+    def connection(self):
+        return self.__connection
+
+    def read_physical(self, addr, length):
+        if not isinstance(addr, int):
+            raise ValueError("addr must be an integer")
+        if not isinstance(length, int):
+            raise ValueError("length must be an integer")
+
+        if length > 4096:
+            raise ValueError(
+                "length must be <= 4KiB (cowardly refusing to read too much memory; this is probably a bug at the callsite)"
+            )
+
+        response = self.__connection.request(f"xp /{length}b {addr}")
+
+        bytes = b""
+
+        for line in response.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            split = line.split(":")
+            if len(split) != 2:
+                raise ValueError(f"unexpected response line: {line}")
+            [_, data] = split
+            data = data.strip().split(" ")
+            if len(data) > 8:
+                raise ValueError(f"unexpected response line: {line}")
+
+            for byte in data:
+                if len(byte) != 4:
+                    raise ValueError(f"unexpected byte format: {byte}")
+                bytes += int(byte[2:], 16).to_bytes(
+                    1, "little"
+                )  # byte order doesn't matter here.
+
+        assert len(bytes) == length, f"expected {length} bytes, got {len(bytes)}"
+
+        return bytes

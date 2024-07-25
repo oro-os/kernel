@@ -13,7 +13,7 @@ class QemuCmd(gdb.Command):
         super(QemuCmd, self).__init__("oro qemu", gdb.COMMAND_USER, prefix=True)
 
     def invoke(self, arg, from_tty=False):
-        gdb.execute("help qemu")
+        gdb.execute("help oro qemu")
 
 
 class QemuCmdConnect(gdb.Command):
@@ -27,6 +27,8 @@ class QemuCmdConnect(gdb.Command):
         super(QemuCmdConnect, self).__init__("oro qemu connect", gdb.COMMAND_USER)
 
     def invoke(self, arg, _from_tty=False):
+        self.dont_repeat()
+
         try:
             QEMU.connect(arg)
             log(f"qemu: connected to {QEMU.connection.endpoint}")
@@ -46,7 +48,7 @@ class QemuCmdRaw(gdb.Command):
 
     def invoke(self, arg, _from_tty=False):
         if not QEMU.is_connected:
-            error("qemu: not connected; use 'qemu connect' to connect")
+            error("qemu: not connected; use 'oro qemu connect' to connect")
             return
 
         try:

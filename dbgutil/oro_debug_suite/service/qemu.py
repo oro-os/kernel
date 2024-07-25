@@ -1,5 +1,5 @@
 from ..log import warn
-from ..qemu import QemuConnection
+from ..qemu import QemuConnection, QemuBackend
 
 
 class QemuService(object):
@@ -18,9 +18,17 @@ class QemuService(object):
         """
 
         if not self._connection:
-            raise Exception("QEMU is not connected; use 'qemu connect' to connect")
+            raise Exception("QEMU is not connected; use 'oro qemu connect' to connect")
 
         return self._connection
+
+    @property
+    def backend(self):
+        """
+        Returns a `Backend` implementation for the active QEMU connection.
+        """
+
+        return QemuBackend(self.connection)
 
     @property
     def is_connected(self):
@@ -37,6 +45,7 @@ class QemuService(object):
 
         if self.is_connected:
             warn("qemu: already connected; killing old connection")
+            self._connection.close()
 
         self._connection = QemuConnection(connection)
 
