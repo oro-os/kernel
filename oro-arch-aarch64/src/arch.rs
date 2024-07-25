@@ -121,7 +121,7 @@ unsafe impl Arch for Aarch64 {
 		C: PrebootPrimaryConfig,
 	{
 		// Map the stubs
-		let stubs_addr = crate::xfer::map_stubs(alloc, config.physical_address_translator())
+		let stubs = crate::xfer::map_stubs(alloc, config.physical_address_translator())
 			.expect("failed to map transfer stubs");
 
 		// Allocate a stack for the kernel
@@ -171,8 +171,9 @@ unsafe impl Arch for Aarch64 {
 		// Return the token that is passed to the `transfer` function.
 		TransferToken {
 			stack_ptr: last_stack_page_virt,
-			el1_page_table_phys: mapper.base_phys,
-			stubs_addr,
+			ttbr1_page_table_phys: mapper.base_phys,
+			ttbr0_page_table_phys: stubs.ttbr0_addr,
+			stubs_addr: stubs.stubs_addr,
 		}
 	}
 
