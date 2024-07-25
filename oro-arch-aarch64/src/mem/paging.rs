@@ -334,6 +334,7 @@ macro_rules! descriptor_init_value {
 	(block) => {
 		!0b1 & (PageTableEntryShareability::default_const() as u64
 			| PageTableEntryBlockAccessPerm::default_const() as u64)
+			| (1 << 10) // Access flag (AF=1)
 	};
 	// NOTE(qix-): L3 block descriptors must have the normally indicative "table" bit set.
 	// NOTE(qix-): This might look wrong, but it's not.
@@ -343,6 +344,7 @@ macro_rules! descriptor_init_value {
 		!0b1 & (0b10
 			| PageTableEntryShareability::default_const() as u64
 			| PageTableEntryBlockAccessPerm::default_const() as u64)
+			| (1 << 10) // Access flag (AF=1)
 	};
 }
 
@@ -746,8 +748,6 @@ macro_rules! impl_page_table_entry_block_descriptor_attr {
 
 			/// Sets the access flag of the block entry.
 			///
-			/// **You probably don't want to be setting this manually.**
-			///
 			/// **NOTE:** This entry is not held in the TLB if it is set to `0`.
 			///
 			/// See [`Self::accessed()`] for more information
@@ -755,9 +755,6 @@ macro_rules! impl_page_table_entry_block_descriptor_attr {
 			///
 			/// # Safety
 			/// Caller must ensure that the page table entry is properly managed.
-			///
-			/// **You probably don't want to be setting this manually.** Make sure to
-			/// understand the effects of setting this bit before using it.
 			#[inline(always)]
 			pub unsafe fn set_accessed(&mut self) {
 				*self.raw_mut() |= 1 << 10;
