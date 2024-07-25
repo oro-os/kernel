@@ -51,7 +51,7 @@ SECTIONS {
 
 	.debug_gdb_scripts : {
 		KEEP(*(.debug_gdb_scripts .debug_gdb_scripts.*))
-	} :text
+	} :rodata
 
 	/DISCARD/ : {
 		*(.eh_frame)
