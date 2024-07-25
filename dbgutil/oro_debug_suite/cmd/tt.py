@@ -161,6 +161,8 @@ class TtCmdAt(gdb.Command):
                 )
                 return
 
+            original_par_el1 = int(gdb.parse_and_eval("$PAR_EL1"))
+            gdb.parse_and_eval("$PAR_EL1 = 0")
             original_pc = int(frame.pc())
             original_x0 = int(gdb.parse_and_eval("$x0"))
             gdb.parse_and_eval(f"$x0 = {virt:#x}")
@@ -169,6 +171,17 @@ class TtCmdAt(gdb.Command):
             translated = int(gdb.parse_and_eval("$PAR_EL1"))
             gdb.parse_and_eval(f"$x0 = {original_x0:#x}")
             gdb.parse_and_eval(f"$pc = {original_pc:#x}")
+            gdb.parse_and_eval(f"$PAR_EL1 = {original_par_el1:#x}")
+
+            if translated == 0:
+                error("tt: translation failed (PAR_EL1=0); execution might have failed")
+                warn(
+                    "tt: PAR_EL1 wasn't set during the translation; the kernel state may not have properly been restored!"
+                )
+                warn(
+                    "tt: check the logs and a \x1b[1mbt\x1b[m to double check, and make sure x0 wasn't clobbered!"
+                )
+                return
 
             aborted = (translated & 1) == 1
             if aborted:
