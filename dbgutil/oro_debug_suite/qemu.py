@@ -131,7 +131,12 @@ class QemuConnection(object):
                     break
 
             if should_return:
-                return response[:end_idx].decode("utf-8", "replace").strip()
+                return (
+                    response[:end_idx]
+                    .decode("utf-8", "replace")
+                    .strip()
+                    .replace("\r\n", "\n")
+                )
 
 
 class QemuBackend(Backend):

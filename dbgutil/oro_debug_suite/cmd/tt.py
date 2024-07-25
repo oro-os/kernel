@@ -3,6 +3,7 @@ import gdb  # type: ignore
 from ..service import QEMU, SYMBOLS
 from ..service.autosym import SYM_AARCH64_ATS1E1R
 from ..log import error, log, warn
+from ..arch import get_arch
 
 _FAULT_STATUSES = {
     "0b000000": "address size fault, level 0 of translation or translation table base register",
@@ -40,10 +41,10 @@ _FAULT_STATUSES = {
 }
 
 _SHAREABILITY = [
-    "Non-shareable",
-    "Reserved (invalid shareability)",
-    "Outer Shareable / Device",
-    "Inner Shareable",
+    "non-shareable",
+    "reserved (invalid shareability)",
+    "outer shareable / device",
+    "inner shareable",
 ]
 
 
@@ -92,12 +93,7 @@ class TtCmdVirt(gdb.Command):
 
         backend = QEMU.backend
 
-        inferior = gdb.selected_inferior()
-        if not inferior:
-            error("tt: no inferior selected")
-            return
-
-        arch = inferior.architecture().name()
+        arch = get_arch()
 
         if arch == "aarch64":
             # TODO(qix-): Make sure we're not using 128 bit descriptors
@@ -236,7 +232,7 @@ class TtCmdVirt(gdb.Command):
                     xn = (raw >> 60) & 1
                     xn2 = (raw >> 59) & 1
                     protected = (raw >> 52) & 1
-                    accessed = (raw >> 10) & 1
+                    access = (raw >> 10) & 1
 
                     log(f"tt: {prefix}.ADDR\t= 0x{addr:016x}")
                     log(f"tt: {prefix}.NS\t= {ns}")
@@ -244,7 +240,7 @@ class TtCmdVirt(gdb.Command):
                     log(f"tt: {prefix}.XN\t= {xn}")
                     log(f"tt: {prefix}.XN2\t= {xn2}")
                     log(f"tt: {prefix}.PROT\t= {protected}")
-                    log(f"tt: {prefix}.ACC\t= {accessed}")
+                    log(f"tt: {prefix}.AF\t= {access}")
 
                     return addr
 
@@ -442,12 +438,7 @@ class TtCmdAt(gdb.Command):
             gdb.execute("help oro tt at")
             return
 
-        inferior = gdb.selected_inferior()
-        if not inferior:
-            error("tt: no inferior selected")
-            return
-
-        arch = inferior.architecture().name()
+        arch = get_arch()
 
         if arch == "aarch64":
             # Attempt to lookup the `AT` stub.

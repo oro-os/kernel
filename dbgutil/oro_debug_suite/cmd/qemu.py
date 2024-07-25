@@ -53,7 +53,8 @@ class QemuCmdRaw(gdb.Command):
 
         try:
             response = QEMU.connection.request(arg)
-            log(response)
+            for line in response.split("\n"):
+                log(f"qemu: {line}")
         except Exception as e:
             error(f"qemu: could not send command '{arg}': {e}")
             raise e
