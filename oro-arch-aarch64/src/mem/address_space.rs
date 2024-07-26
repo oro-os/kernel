@@ -92,8 +92,7 @@ impl AddressSpaceLayout {
 				l3_template:       L3PageTableBlockDescriptor::new()
 					.with_valid()
 					.with_block_access_permissions(
-						// Must be RO in case "write implies NX" is enabled.
-						PageTableEntryBlockAccessPerm::KernelROUserNoAccess,
+						PageTableEntryBlockAccessPerm::KernelRWUserNoAccess,
 					)
 					.with_user_no_exec()
 					.with_kernel_no_exec()
