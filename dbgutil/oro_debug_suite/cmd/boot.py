@@ -53,6 +53,8 @@ class BootCmdLimine(gdb.Command):
 
         argi = 0
         while argi < len(args):
+            arg = args[argi]
+
             if arg in ["--switch", "-s"]:
                 switch = True
             elif arg in ["--num_cores", "-n"]:
