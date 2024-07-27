@@ -32,7 +32,7 @@ pub trait MapperHandle {
 }
 
 /// A segment of the address space. This is constructed as a
-/// constant value in the [`AddressSpaceLayout`] struct and returned
+/// constant value in the [`super::address_space::AddressSpaceLayout`] struct and returned
 /// as a static reference.
 pub struct AddressSegment {
 	/// The valid range of L4/L5 indices.

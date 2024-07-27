@@ -63,8 +63,8 @@ pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
 /// - The new instruction pointer.
 ///
 /// # Safety
-/// This function is meant to be called by the [`crate::Arch::transfer()`]
-/// and nowhere else.
+/// This function is meant to be called by the [`transfer()`]
+/// function and nowhere else.
 ///
 /// The transfer stubs MUST be 4KiB page aligned AND be a multiple of 4KiB.
 #[naked]
