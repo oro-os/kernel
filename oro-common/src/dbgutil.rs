@@ -5,6 +5,7 @@
 #[cfg(not(debug_assertions))]
 compile_error!("The `dbgutil` module should only be used in debug builds.");
 
+#[cfg(feature = "dbgutil")]
 use oro_common_proc::gdb_autoload_inline;
 
 #[cfg(feature = "dbgutil")]
