@@ -169,6 +169,23 @@ impl TcrEl1 {
 	pub const fn new() -> Self {
 		Self(0)
 	}
+
+	/// Returns the range of the TT0 address range based on `T0SZ`.
+	///
+	/// The upper bound is inclusive.
+	pub fn tt0_range(self) -> (usize, usize) {
+		(0, (1 << (64 - self.t0sz())) - 1)
+	}
+
+	/// Returns the range of the TT1 address range based on `T1SZ`.
+	///
+	/// The upper bound is inclusive.
+	pub fn tt1_range(self) -> (usize, usize) {
+		(
+			0xFFFF_FFFF_FFFF_FFFF - (1 << (64 - self.t1sz())) + 1,
+			0xFFFF_FFFF_FFFF_FFFF,
+		)
+	}
 }
 
 impl From<u64> for TcrEl1 {

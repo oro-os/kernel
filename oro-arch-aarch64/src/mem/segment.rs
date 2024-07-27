@@ -71,6 +71,10 @@ impl Segment {
 		A: PageFrameAllocate + PageFrameFree,
 		P: PhysicalAddressTranslator,
 	{
+		let virt = virt
+			.checked_sub(space.virt_start)
+			.ok_or(MapError::VirtOutOfAddressSpaceRange)?;
+
 		let l0_idx = (virt >> 39) & 0x1FF;
 
 		if l0_idx < self.valid_range.0 || l0_idx > self.valid_range.1 {
@@ -201,6 +205,10 @@ impl Segment {
 		A: PageFrameAllocate + PageFrameFree,
 		P: PhysicalAddressTranslator,
 	{
+		let virt = virt
+			.checked_sub(space.virt_start)
+			.ok_or(UnmapError::VirtOutOfAddressSpaceRange)?;
+
 		if unlikely!(virt & 0xFFF != 0) {
 			return Err(UnmapError::VirtNotAligned);
 		}
