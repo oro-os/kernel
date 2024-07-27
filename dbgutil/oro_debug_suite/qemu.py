@@ -1,190 +1,166 @@
-import socket
-import struct
-from .backend import Backend
+import subprocess
+import tempfile
+import shutil
+import gdb  # type: ignore
+import threading
+from qemu.qmp import QMPClient, Runstate  # type:ignore
+import asyncio
+from os import path
+from queue import SimpleQueue
+import time
+import signal
 
-PROMPT = b"(qemu) "
-DEFAULT_ENDPOINT = "localhost:4444"
+
+class QmpThread(threading.Thread):
+    def __init__(self, qmp_fifo_path):
+        super().__init__()
+        self.__qmp_path = qmp_fifo_path
+        self.__qmp = None
+        self.__loop = asyncio.new_event_loop()
+
+    def __on_request(self, request, response_queue):
+        async def _on_request_async(request, response_queue):
+            response = await self.__qmp.request(request)
+            response_queue.put_nowait(response)
+
+        self.__loop.create_task(_on_request_async(request, response_queue))
+
+    def request(self, request):
+        if self.__loop.is_closed():
+            raise RuntimeError("QMP client has been closed")
+        response_queue = SimpleQueue()
+        self.__loop.call_soon_threadsafe(self.__on_request, request, response_queue)
+        return response_queue.get()
+
+    def run(self):
+        self.__loop.run_until_complete(self.__run())
+        self.__loop.close()
+
+    async def __run(self):
+        self.__qmp = QMPClient("oro-kernel")
+        await self.__qmp.connect(self.__qmp_path)
+        while True:
+            # We've shut down and the connection is now IDLE.
+            rs = await self.__qmp.runstate_changed()
+            if rs == Runstate.IDLE:
+                break
+
+    async def __disconnect(self):
+        if self.__qmp is not None and self.__qmp.runstate == Runstate.RUNNING:
+            try:
+                await self.__qmp.disconnect()
+            except Exception as e:
+                pass
+
+    def __shutdown(self):
+        self.__loop.create_task(self.__disconnect())
+
+    def shutdown(self):
+        try:
+            self.__loop.call_soon_threadsafe(self.__shutdown)
+        except:
+            # Loop's already been closed.
+            pass
+        self.join()
 
 
-def parse_connection(connection):
+def wait_for_file(file_path, timeout=5):
     """
-    Parses a connection string (e.g. "localhost:4444", "localhost" or ":4444")
-    or tuple (e.g. ("localhost", 4444)) into a tuple (host, port) for use by the
-    QEMU client connection.
+    Waits for a file to exist, with a timeout.
     """
 
-    if isinstance(connection, str):
-        if ":" not in connection:
-            connection += ":4444"
-        [host, port] = connection.split(":")
-        host = host.strip()
-        port = port.strip()
-        if not port.isdigit():
-            raise ValueError(f"invalid port '{port}'")
-        if not host:
-            host = "localhost"
-        return (host, int(port))
-    elif isinstance(connection, tuple):
-        if len(connection) != 2:
-            raise ValueError("connection tuple must have 2 elements")
-        [host, port] = connection
-        if not isinstance(host, str):
-            raise ValueError("host must be a string")
-        host = host.strip()
-        if isinstance(port, str):
-            port = port.strip()
-            if not port.isdigit():
-                raise ValueError(f"invalid port '{port}'")
-            port = int(port)
-        if not isinstance(port, int):
-            raise ValueError("port must be an integer")
-        return (host, port)
-    else:
-        raise ValueError("connection must be a string or tuple")
+    for _ in range(timeout * 10):
+        if path.exists(file_path):
+            return
+        time.sleep(0.1)
+
+    raise TimeoutError(f"file not found (timed out waiting for it): {file_path}")
 
 
-class QemuConnection(object):
+class QemuProcess(object):
     """
-    A low-level request/response client for QEMU monitor connections
-    over TCP.
+    Spawns QEMU with the given arguments and provides a way to connect GDB to it.
+
+    Note that `-qmp` and `-gdb` arguments are automatically added to the arguments
+    and should not be specified by the caller.
     """
 
-    def __init__(self, endpoint=DEFAULT_ENDPOINT):
-        """
-        Connects to a QEMU monitor instance over TCP at the
-        given connection string.
-        """
+    def __init__(self, args, **kwargs):
+        self.__tmpdir = tempfile.mkdtemp()
+        self.__qmp_path = path.join(self.__tmpdir, "qmp.sock")
+        self.__qmp = QmpThread(self.__qmp_path)
+        self.__gdbsrv_path = path.join(self.__tmpdir, "gdbsrv.sock")
 
-        endpoint = endpoint or DEFAULT_ENDPOINT
+        args = [
+            *args,
+            "-qmp",
+            f"unix:{self.__qmp_path},server",
+            "-gdb",
+            f"unix:{self.__gdbsrv_path},server",
+            "-S",
+        ]
 
-        self._endpoint = parse_connection(endpoint)
-
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._socket.connect(self._endpoint)
-        self._socket.setsockopt(
-            socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 1)
+        self.__process = subprocess.Popen(
+            args,
+            **kwargs,
+            stdin=subprocess.DEVNULL,
+            close_fds=True,
+            preexec_fn=lambda: signal.pthread_sigmask(
+                signal.SIG_BLOCK, [signal.SIGINT]
+            ),
         )
 
-        self._read_response()  # pop off version + initial prompt
+        wait_for_file(self.__qmp_path)
+        self.__qmp.start()
+
+    def poll(self):
+        """
+        Polls the underlying child process to check if it has terminated.
+        """
+
+        return self.__process.poll()
+
+    def shutdown(self):
+        """
+        Safely shuts down the QEMU process and the QMP thread.
+        """
+
+        conn = gdb.selected_inferior().connection
+        if isinstance(conn, gdb.RemoteTargetConnection) and conn.is_valid():
+            details = conn.details
+            if details == self.__gdbsrv_path:
+                gdb.execute("disconnect", to_string=False, from_tty=False)
+
+        if self.__qmp is not None:
+            self.__qmp.shutdown()
+            self.__qmp = None
+        if self.__process is not None:
+            if self.__process.poll() is None:
+                self.__process.kill()
+                self.__process.wait()
+            self.__process = None
+        shutil.rmtree(self.__tmpdir, ignore_errors=True)
+
+    def __del__(self):
+        self.shutdown()
 
     @property
-    def endpoint(self):
+    def pid(self):
         """
-        The connection string used to connect to the QEMU monitor.
-        """
-
-        (host, port) = self._endpoint
-
-        return f"{host}:{port}"
-
-    @property
-    def is_connected(self):
-        return self._socket is not None
-
-    def close(self):
-        """
-        Closes the connection to the QEMU monitor.
+        The PID of the QEMU process, or None if the process has not been spawned /
+        has already been terminated.
         """
 
-        if self.is_connected:
-            self._socket.close()
-            self._socket = None
+        if self.__process is None:
+            return None
+        return self.__process.pid
 
-    def request(self, data):
+    def connect_gdb(self):
         """
-        Sends a request to the QEMU monitor and returns the response.
-        """
-
-        if not self.is_connected:
-            raise RuntimeError("not connected to QEMU monitor")
-
-        if not isinstance(data, bytes):
-            data = data.encode()
-        self._socket.send(data)
-        self._socket.send(b"\n")
-
-        # Skip the first line of the response as it's an echo of the command
-        # (and usually incomplete)
-        while self._socket.recv(1) != b"\n":
-            pass
-
-        return self._read_response()
-
-    def _read_response(self):
-        """
-        Reads a message from the QEMU monitor until the prompt is reached.
+        Connects GDB to the QEMU process that was spawned.
         """
 
-        if not self.is_connected:
-            raise RuntimeError("not connected to QEMU monitor")
-
-        response = b""
-        while True:
-            end_idx = len(response)
-            should_return = True
-
-            for prompt_byte in PROMPT:
-                b = self._socket.recv(1)
-                response += b
-                if b[0] != prompt_byte:
-                    should_return = False
-                    break
-
-            if should_return:
-                return (
-                    response[:end_idx]
-                    .decode("utf-8", "replace")
-                    .strip()
-                    .replace("\r\n", "\n")
-                )
-
-
-class QemuBackend(Backend):
-    def __init__(self, connection):
-        super(QemuBackend, self).__init__()
-        if not isinstance(connection, QemuConnection):
-            raise ValueError("connection must be a QemuConnection instance")
-
-        self.__connection = connection
-
-    @property
-    def connection(self):
-        return self.__connection
-
-    def read_physical(self, addr, length):
-        if not isinstance(addr, int):
-            raise ValueError("addr must be an integer")
-        if not isinstance(length, int):
-            raise ValueError("length must be an integer")
-
-        if length > 4096:
-            raise ValueError(
-                "length must be <= 4KiB (cowardly refusing to read too much memory; this is probably a bug at the callsite)"
-            )
-
-        response = self.__connection.request(f"xp /{length}b {addr}")
-
-        bytes = b""
-
-        for line in response.split("\n"):
-            line = line.strip()
-            if not line:
-                continue
-            split = line.split(":")
-            if len(split) != 2:
-                raise ValueError(f"unexpected response line: {line}")
-            [_, data] = split
-            data = data.strip().split(" ")
-            if len(data) > 8:
-                raise ValueError(f"unexpected response line: {line}")
-
-            for byte in data:
-                if len(byte) != 4:
-                    raise ValueError(f"unexpected byte format: {byte}")
-                bytes += int(byte[2:], 16).to_bytes(
-                    1, "little"
-                )  # byte order doesn't matter here.
-
-        assert len(bytes) == length, f"expected {length} bytes, got {len(bytes)}"
-
-        return bytes
+        wait_for_file(self.__gdbsrv_path)
+        gdb.execute(
+            f"target remote {self.__gdbsrv_path}", to_string=False, from_tty=False
+        )

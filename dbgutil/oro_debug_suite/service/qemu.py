@@ -1,53 +1,73 @@
-from ..log import warn
-from ..qemu import QemuConnection, QemuBackend
+import gdb  # type: ignore
+from ..log import warn, log
+from ..qemu import QemuProcess
 
 
 class QemuService(object):
     """
-    Manages a singleton connection to a QEMU monitor.
+    Manages a singleton instance of QEMU.
     """
 
     def __init__(self):
-        self._connection = None
+        self._child = None
 
     @property
-    def connection(self):
+    def running(self):
         """
-        Returns the active QEMU monitor connection.
-        Raises an exception if not connected.
+        Returns the active QEMU session
+
+        Raises an exception if one is not started.
         """
 
-        if not self._connection:
-            raise Exception("QEMU is not connected; use 'oro qemu connect' to connect")
+        if not self._child:
+            raise Exception("QEMU is not running; use 'oro boot' to spawn the kernel")
 
-        return self._connection
+        return self._child
 
     @property
-    def backend(self):
+    def is_running(self):
         """
-        Returns a `Backend` implementation for the active QEMU connection.
-        """
-
-        return QemuBackend(self.connection)
-
-    @property
-    def is_connected(self):
-        """
-        Is the QEMU monitor connected?
+        Is QEMU running?
         """
 
-        return self._connection is not None
+        return self._child is not None
 
-    def connect(self, connection=None):
+    def spawn_and_connect(self, args, **kwargs):
         """
-        Connects to a QEMU monitor. Kills an old connection if one exists.
+        Spawns QEMU with the given arguments and connects GDB to it.
         """
 
-        if self.is_connected:
-            warn("qemu: already connected; killing old connection")
-            self._connection.close()
+        if self.is_running:
+            warn("QEMU is already running; stopping it before starting a new instance")
+            self.shutdown()
+            del self._child
+            self._child = None
 
-        self._connection = QemuConnection(connection)
+        log("spawning QEMU...")
+        self._child = QemuProcess(args, **kwargs)
+        log("connecting to QEMU gdbserver...")
+        self._child.connect_gdb()
+        log("QEMU started")
+        return self._child
+
+    def check_child(self):
+        if not self.is_running:
+            return
+
+        r = self._child.poll()
+        if r is not None:
+            warn(f"QEMU exited with code \x1b[1m{r}\x1b[22m; cleaning up...")
+            self.shutdown()
+
+    def shutdown(self):
+        if self.is_running:
+            log("shutting down QEMU...")
+            self._child.shutdown()
+            log("QEMU stopped")
+            del self._child
+            self._child = None
 
 
 QEMU = QemuService()
+gdb.events.gdb_exiting.connect(lambda *args: QEMU.shutdown())
+gdb.events.stop.connect(lambda *args: QEMU.check_child())
