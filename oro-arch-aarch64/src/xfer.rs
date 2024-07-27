@@ -172,7 +172,7 @@ pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
 /// This function performs the actual register modifications and jumps to the kernel entry point.
 ///
 /// # Safety
-/// This function is meant to be called by the [`oro_common::xfer::transfer()`]
+/// This function is meant to be called by the [`transfer()`] function
 /// and nowhere else.
 #[naked]
 #[no_mangle]
