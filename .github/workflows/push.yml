@@ -109,4 +109,5 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/rust
       - name: Test
-        run: cargo oro-test
+        run: |
+          cargo oro-test --target $(rustc -vV | sed -n 's|host: ||p')
