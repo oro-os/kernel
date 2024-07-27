@@ -10,3 +10,4 @@ oro-clippy-x86_64 = "clippy --target ./oro-arch-x86_64/x86_64-unknown-oro.json -
 oro-clippy-aarch64 = "clippy --target ./oro-arch-aarch64/aarch64-unknown-oro.json --bin oro-kernel-aarch64 --bin oro-limine-aarch64 --all-features -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem -- -D warnings -D clippy::all -D clippy::pedantic"
 oro-doc-x86_64 = "doc --all-features --lib --document-private-items --target=oro-arch-x86_64/x86_64-unknown-oro.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
 oro-doc-aarch64 = "doc --all-features --lib --document-private-items --target=oro-arch-aarch64/aarch64-unknown-oro.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
+oro-test = "test -p oro-common"
