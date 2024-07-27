@@ -49,7 +49,7 @@ class BootCmdLimine(gdb.Command):
         rest_args = []
 
         switch = False
-        num_cores = 1
+        num_cores = 2
 
         argi = 0
         while argi < len(args):
