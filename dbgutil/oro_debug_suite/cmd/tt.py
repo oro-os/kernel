@@ -362,7 +362,7 @@ class TtCmdVirt(gdb.Command):
                 dirty = (l3_entry >> 51) & 1
                 guarded = (l3_entry >> 50) & 1
                 ng = (l3_entry >> 11) & 1
-                accessed = (l3_entry >> 10) & 1
+                access_flag = (l3_entry >> 10) & 1
                 shareability = (l3_entry >> 8) & 0b11
                 ap = (l3_entry >> 6) & 0b11
                 ns = (l3_entry >> 5) & 1
@@ -387,7 +387,11 @@ class TtCmdVirt(gdb.Command):
                 log(
                     f"tt: {prefix}.NG\t= {ng}\t\t\t(only if two privilege levels are used)"
                 )
-                log(f"tt: {prefix}.ACC\t= {accessed}")
+                log(f"tt: {prefix}.AF\t= {access_flag}")
+                if access_flag == 0:
+                    warn(
+                        "tt: access flag is not set; CPU will most likely fault unless hardware A/D flags are enabled"
+                    )
                 log(
                     f"tt: {prefix}.SH\t= 0b{shareability:02b}\t\t\t({_SHAREABILITY[shareability]})"
                 )
