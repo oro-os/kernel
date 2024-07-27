@@ -42,15 +42,15 @@ SECTIONS {
 
 	. = ALIGN(4096);
 
-	.bss : {
-		*(COMMON)
-		*(.bss .bss.*) /* MUST be last allocated to :data */
+	.debug_gdb_scripts : {
+		KEEP(*(.debug_gdb_scripts .debug_gdb_scripts.*))
 	} :data
 
 	. = ALIGN(4096);
 
-	.debug_gdb_scripts : {
-		KEEP(*(.debug_gdb_scripts .debug_gdb_scripts.*))
+	.bss : {
+		*(COMMON)
+		*(.bss .bss.*) /* MUST be last allocated to :data */
 	} :data
 
 	/DISCARD/ : {
