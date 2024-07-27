@@ -22,6 +22,14 @@ rust-gdb -q /path/to/oro-os/kernel/repo/target/x86_64-unknown-oro/debug/oro-kern
 rust-gdb -q /path/to/oro-os/kernel/repo/target/aarch64-unknown-oro/debug/oro-kernel-aarch64
 ```
 
+You can then boot directly to the kernel via QEMU with the `oro boot` convenience
+commands, like so:
+
+```gdb
+help oro boot
+oro boot limine
+```
+
 > [!IMPORTANT]
 > GDB's auto-load functionality is whitelist-based, so by default the
 > debug utilities will not load. You will need to add the following line to your
