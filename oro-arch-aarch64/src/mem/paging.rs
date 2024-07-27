@@ -49,6 +49,9 @@
 // NOTE(qix-): to refactor this to use const traits instead. Check the commit log for around
 // NOTE(qix-): 18-20 June 2024 to see what this looked like before, for inspiration.
 
+// TODO(qix-): Very much not happy with how this is structured. It's way too rigid and will be
+// TODO(qix-): nearly impossible to maintain or extend in the future. It needs a full rewrite.
+
 #![allow(clippy::inline_always, private_bounds)]
 
 use core::{
@@ -329,22 +332,33 @@ pub trait PageTableEntrySubtype {
 /// on the type of the descriptor (block vs table).
 macro_rules! descriptor_init_value {
 	(table) => {
-		!0b1 & (0b10 | PageTableEntryTableAccessPerm::default_const() as u64)
+		!0b1 & (
+			0b10
+				| PageTableEntryTableAccessPerm::default_const() as u64
+				// Access flag (AF=1)
+				| (1 << 10)
+		)
 	};
 	(block) => {
-		!0b1 & (PageTableEntryShareability::default_const() as u64
-			| PageTableEntryBlockAccessPerm::default_const() as u64)
-			| (1 << 10) // Access flag (AF=1)
+		!0b1 & (
+			PageTableEntryShareability::default_const() as u64
+				| PageTableEntryBlockAccessPerm::default_const() as u64
+				// Access flag (AF=1)
+				| (1 << 10)
+		)
 	};
 	// NOTE(qix-): L3 block descriptors must have the normally indicative "table" bit set.
 	// NOTE(qix-): This might look wrong, but it's not.
 	// NOTE(qix-):
 	// NOTE(qix-): Check D5.4.2 of the ARMv8-A Architecture Reference Manual.
 	(l3) => {
-		!0b1 & (0b10
-			| PageTableEntryShareability::default_const() as u64
-			| PageTableEntryBlockAccessPerm::default_const() as u64)
-			| (1 << 10) // Access flag (AF=1)
+		!0b1 & (
+			0b10
+				| PageTableEntryShareability::default_const() as u64
+				| PageTableEntryBlockAccessPerm::default_const() as u64
+				// Access flag (AF=1)
+				| (1 << 10)
+		)
 	};
 }
 
