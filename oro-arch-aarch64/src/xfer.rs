@@ -12,8 +12,7 @@ use crate::{
 };
 use core::arch::asm;
 use oro_common::mem::{
-	AddressSegment, AddressSpace, MapError, PageFrameAllocate, PageFrameFree,
-	PhysicalAddressTranslator,
+	AddressSegment, MapError, PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator,
 };
 
 extern "C" {
@@ -68,8 +67,8 @@ where
 	// Map the stubs into the new page table using an identity mapping.
 	// SAFETY(qix-): We specify that TTBR0 must be 4KiB upon transferring to the kernel,
 	// SAFETY(qix-): and that TTBR0_EL1 is left undefined (for our usage).
-	let page_table =
-		AddressSpaceLayout::new_supervisor_space(alloc, translator).ok_or(MapError::OutOfMemory)?;
+	let page_table = AddressSpaceLayout::new_supervisor_space_tt0(alloc, translator)
+		.ok_or(MapError::OutOfMemory)?;
 
 	// Identity map it.
 	#[allow(clippy::cast_possible_truncation)]

@@ -10,6 +10,7 @@ use crate::{
 		},
 		segment::Segment,
 	},
+	reg::tcr_el1::TcrEl1,
 };
 use oro_common::mem::{AddressSpace, PageFrameAllocate, PhysicalAddressTranslator};
 
@@ -17,7 +18,12 @@ use oro_common::mem::{AddressSpace, PageFrameAllocate, PhysicalAddressTranslator
 pub struct AddressSpaceHandle {
 	/// The base physical address of the root of the page tables
 	/// associated with an address space.
-	pub base_phys: u64,
+	pub base_phys:  u64,
+	/// Lower bound of the address range covered by this address space.
+	///
+	/// All virtual addresses mapped/unmapped have this value subtracted from
+	/// them before being passed to the page table walker.
+	pub virt_start: usize,
 }
 
 /// The Oro-specific address space layout implementation for the Aarch64 architecture.
@@ -103,21 +109,18 @@ impl AddressSpaceLayout {
 
 		&DESCRIPTOR
 	}
-}
 
-unsafe impl AddressSpace for AddressSpaceLayout {
-	type SupervisorHandle = AddressSpaceHandle;
-	type SupervisorSegment = &'static Segment;
-
-	unsafe fn current_supervisor_space<P>(_translator: &P) -> Self::SupervisorHandle
-	where
-		P: PhysicalAddressTranslator,
-	{
-		let base_phys = crate::asm::load_ttbr1();
-		Self::SupervisorHandle { base_phys }
-	}
-
-	fn new_supervisor_space<A, P>(alloc: &mut A, translator: &P) -> Option<Self::SupervisorHandle>
+	/// Returns a new supervisor address space handle with the given virtual start address.
+	///
+	/// Returns `None` if any allocation(s) fail.
+	///
+	/// # Safety
+	/// The caller must ensure that the given virtual start address is valid.
+	unsafe fn new_supervisor_space_with_start<A, P>(
+		alloc: &mut A,
+		translator: &P,
+		virt_start: usize,
+	) -> Option<AddressSpaceHandle>
 	where
 		A: PageFrameAllocate,
 		P: PhysicalAddressTranslator,
@@ -128,7 +131,60 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 			(*(translator.to_virtual_addr(base_phys) as *mut PageTable)).reset();
 		}
 
-		Some(Self::SupervisorHandle { base_phys })
+		Some(AddressSpaceHandle {
+			base_phys,
+			virt_start,
+		})
+	}
+
+	/// Creates a new supervisor (EL1) address space that addresses
+	/// the TT0 address range (i.e. for use with `TTBR0_EL1`).
+	///
+	/// This probably isn't used by the kernel, but instead by the
+	/// preboot environment to map stubs.
+	pub(crate) fn new_supervisor_space_tt0<A, P>(
+		alloc: &mut A,
+		translator: &P,
+	) -> Option<<Self as AddressSpace>::SupervisorHandle>
+	where
+		A: PageFrameAllocate,
+		P: PhysicalAddressTranslator,
+	{
+		unsafe { Self::new_supervisor_space_with_start(alloc, translator, 0) }
+	}
+}
+
+unsafe impl AddressSpace for AddressSpaceLayout {
+	type SupervisorHandle = AddressSpaceHandle;
+	type SupervisorSegment = &'static Segment;
+
+	unsafe fn current_supervisor_space<P>(_translator: &P) -> Self::SupervisorHandle
+	where
+		P: PhysicalAddressTranslator,
+	{
+		// NOTE(qix-): Technically this isn't required since the kernel currently
+		// NOTE(qix-): requires `TCR_EL1.TnSZ=16`, but it's cheap and not often
+		// NOTE(qix-): called, so we'll just do it anyway.
+		#[allow(clippy::cast_possible_truncation)]
+		let (tt1_start, _) = TcrEl1::load().tt1_range();
+
+		let base_phys = crate::asm::load_ttbr1();
+		Self::SupervisorHandle {
+			base_phys,
+			virt_start: tt1_start,
+		}
+	}
+
+	fn new_supervisor_space<A, P>(alloc: &mut A, translator: &P) -> Option<Self::SupervisorHandle>
+	where
+		A: PageFrameAllocate,
+		P: PhysicalAddressTranslator,
+	{
+		// NOTE(qix-): We currently specify that the kernel uses `TCR_EL1.TnSZ=16`,
+		// NOTE(qix-): so we hard-code this value here (as opposed to `current_supervisor_space`).
+		// NOTE(qix-): Unlike `current_supervisor_space`, this function will probably have to be
+		// NOTE(qix-): updated in the future if other `TnSZ` values are supported or used.
+		unsafe { Self::new_supervisor_space_with_start(alloc, translator, 0xFFFF_0000_0000_0000) }
 	}
 
 	fn duplicate_supervisor_space_shallow<A, P>(
@@ -150,7 +206,10 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 			);
 		}
 
-		Some(Self::SupervisorHandle { base_phys })
+		Some(Self::SupervisorHandle {
+			base_phys,
+			virt_start: space.virt_start,
+		})
 	}
 
 	fn kernel_code() -> Self::SupervisorSegment {

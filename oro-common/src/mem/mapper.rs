@@ -153,6 +153,13 @@ pub enum MapError {
 	/// The virtual address passed to the map function
 	/// is out of range for the given mapper.
 	VirtOutOfRange,
+	/// On some architectures, the virtual address must be within
+	/// a certain range that is larger than the logical Oro segment
+	/// range (e.g. TTBR0/TTBR1 on AArch64). This error indicates that
+	/// the virtual address is out of the range of the overall address
+	/// space within which the caller is attempting to perform a mapping
+	/// operation.
+	VirtOutOfAddressSpaceRange,
 	/// The virtual address passed to the map function
 	/// is not page-aligned.
 	VirtNotAligned,
@@ -168,6 +175,13 @@ pub enum UnmapError {
 	/// The virtual address passed to the map function
 	/// is out of range for the given mapper.
 	VirtOutOfRange,
+	/// On some architectures, the virtual address must be within
+	/// a certain range that is larger than the logical Oro segment
+	/// range (e.g. TTBR0/TTBR1 on AArch64). This error indicates that
+	/// the virtual address is out of the range of the overall address
+	/// space within which the caller is attempting to perform a mapping
+	/// operation.
+	VirtOutOfAddressSpaceRange,
 	/// The virtual address passed to the map function
 	/// is not page-aligned.
 	VirtNotAligned,
