@@ -24,11 +24,12 @@ class BootCmdLimine(gdb.Command):
     Boot the kernel under QEMU using the Limine bootloader.
 
     Usage:
-        oro boot limine [-s] [-n <num_cores>]
+        oro boot limine [-sC] [-n <num_cores>]
 
     Options:
-        -s, --switch    Switch to the Limine executable before booting.
-        -n, --num_cores Specify the number of CPU cores to emulate (default: 1).
+        -s, --switch       Switch to the Limine executable before booting.
+        -n, --num_cores    Specify the number of CPU cores to emulate (default: 1).
+        -C, --no-continue  Do not automatically continue execution after booting.
     """
 
     def __init__(self):
@@ -50,6 +51,7 @@ class BootCmdLimine(gdb.Command):
 
         switch = False
         num_cores = 2
+        auto_continue = True
 
         argi = 0
         while argi < len(args):
@@ -72,6 +74,8 @@ class BootCmdLimine(gdb.Command):
                     return
 
                 argi += 1
+            elif arg in ["--no-continue", "-C"]:
+                auto_continue = False
             elif arg == "--":
                 rest_args = args[argi + 1 :]
                 break
@@ -279,11 +283,15 @@ class BootCmdLimine(gdb.Command):
             with gdb_util.parameter("confirm", False):
                 gdb.execute(f"file {limine_path}", to_string=False, from_tty=True)
 
-        log("setting _start breakpoint")
-        gdb.Breakpoint("_start", internal=True, temporary=True, qualified=True)
+        if auto_continue:
+            log("setting _start breakpoint")
+            gdb.Breakpoint("_start", internal=True, temporary=True, qualified=True)
 
-        log("kernel booted; continuing execution")
-        gdb.execute("continue", to_string=False, from_tty=True)
+            log("kernel booted; continuing execution")
+            gdb.execute("continue", to_string=False, from_tty=True)
+        else:
+            log("kernel booted; use \x1b[1mcontinue\x1b[22m to start execution")
+            log("(note: _start breakpoint was NOT set)")
 
 
 BootCmd()
