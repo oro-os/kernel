@@ -11,8 +11,9 @@
 //! undefined and thus untouched. However on AArch64, the following must be true:
 //!
 //! - `TCR_EL1.TG0` must be set to 4KiB granule size upon calling `oro_common::init()`.
-//! - `TCR_EL1.T0SZ` must encompass enough memory for an identity map of a physical page.
-//!   It is up to the preboot stage to determine an appropriate value.
+//! - `TCR_EL1.T0SZ` must encompass enough memory for a identity maps of physical pages.
+//!   It is up to the preboot stage to determine an appropriate value, but it is recommended
+//!   to set it to 16.
 //! - `TTBR0_EL1` must be left undefined or set to 0 and not be relied upon for any execution,
 //!   as the initialization subroutine will overwrite it.
 #![no_std]
