@@ -103,3 +103,10 @@ jobs:
       - uses: ./.github/actions/rust
       - name: Build
         run: cargo limine-aarch64 --profile ${{ matrix.profile }} ${{ matrix.flags }}
+  unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/rust
+      - name: Test
+        run: cargo oro-test
