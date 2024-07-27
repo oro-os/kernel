@@ -1,3 +1,6 @@
+# Documentation on the supported QMP protocol here:
+# https://gitlab.com/qemu-project/qemu/-/tree/master/qapi?ref_type=heads
+
 import subprocess
 import tempfile
 import shutil
@@ -5,10 +8,12 @@ import gdb  # type: ignore
 import threading
 from qemu.qmp import QMPClient, Runstate  # type:ignore
 import asyncio
+import os
 from os import path
 from queue import SimpleQueue
 import time
 import signal
+import errno
 
 
 class QmpThread(threading.Thread):
@@ -20,17 +25,26 @@ class QmpThread(threading.Thread):
 
     def __on_request(self, request, response_queue):
         async def _on_request_async(request, response_queue):
-            response = await self.__qmp.request(request)
-            response_queue.put_nowait(response)
+            try:
+                response = await self.__qmp.execute_msg(request)
+                response_queue.put_nowait((response, None))
+            except Exception as e:
+                response_queue.put_nowait((None, e))
 
         self.__loop.create_task(_on_request_async(request, response_queue))
 
-    def request(self, request):
+    def request(self, request, **mapping):
+        request_msg = QMPClient.make_execute_msg(request, mapping, oob=False)
+
         if self.__loop.is_closed():
             raise RuntimeError("QMP client has been closed")
         response_queue = SimpleQueue()
-        self.__loop.call_soon_threadsafe(self.__on_request, request, response_queue)
-        return response_queue.get()
+        self.__loop.call_soon_threadsafe(self.__on_request, request_msg, response_queue)
+
+        (good, bad) = response_queue.get()
+        if bad is not None:
+            raise bad
+        return good
 
     def run(self):
         self.__loop.run_until_complete(self.__run())
@@ -91,6 +105,13 @@ class QemuProcess(object):
         self.__qmp = QmpThread(self.__qmp_path)
         self.__gdbsrv_path = path.join(self.__tmpdir, "gdbsrv.sock")
 
+        self.__readphys_fifo_path = path.join(self.__tmpdir, "readphys.fifo")
+        os.mkfifo(self.__readphys_fifo_path)
+        self.__readphys_fifo = os.open(
+            self.__readphys_fifo_path,
+            os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_BINARY", 0),
+        )
+
         args = [
             *args,
             "-qmp",
@@ -139,6 +160,9 @@ class QemuProcess(object):
                 self.__process.kill()
                 self.__process.wait()
             self.__process = None
+        if self.__readphys_fifo is not None:
+            os.close(self.__readphys_fifo)
+            self.__readphys_fifo = None
         shutil.rmtree(self.__tmpdir, ignore_errors=True)
 
     def __del__(self):
@@ -164,3 +188,31 @@ class QemuProcess(object):
         gdb.execute(
             f"target remote {self.__gdbsrv_path}", to_string=False, from_tty=False
         )
+
+    def read_physical(self, addr, size):
+        """
+        Reads physical memory from the QEMU process.
+        """
+
+        if size <= 0:
+            raise ValueError("size must be greater than 0")
+        if addr < 0:
+            raise ValueError("address must be non-negative")
+
+        self.__qmp.request(
+            "pmemsave", val=addr, size=size, filename=self.__readphys_fifo_path
+        )
+
+        result = b""
+
+        while len(result) < size:
+            try:
+                result += os.read(self.__readphys_fifo, size - len(result))
+            except OSError as err:
+                if err.errno == errno.EAGAIN or err.errno == errno.EWOULDBLOCK:
+                    pass
+                else:
+                    raise err
+
+        assert len(result) == size
+        return result
