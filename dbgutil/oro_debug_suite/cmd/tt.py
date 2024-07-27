@@ -91,7 +91,7 @@ class TtCmdVirt(gdb.Command):
             gdb.execute("help oro tt virt")
             return
 
-        backend = QEMU.backend
+        qemu = QEMU.session
 
         arch = get_arch()
 
@@ -255,7 +255,7 @@ class TtCmdVirt(gdb.Command):
                 log(f"tt: L0.IDX\t\t= {l0_index}")
                 l0_entry_pa = ttbr_pa + (l0_index * 8)
                 log(f"tt: L0[{l0_index_s}].PA\t= 0x{l0_entry_pa:016x}")
-                l0_entry = backend.read_physical(l0_entry_pa, 8)
+                l0_entry = qemu.read_physical(l0_entry_pa, 8)
                 (l0_entry,) = struct.unpack("<Q", l0_entry)
                 log(f"tt: L0[{l0_index_s}]\t\t= 0x{l0_entry:016x}")
 
@@ -283,7 +283,7 @@ class TtCmdVirt(gdb.Command):
                 log(f"tt: L1.IDX\t\t= {l1_index}")
                 l1_entry_pa = l1_pa + (l1_index * 8)
                 log(f"tt: L1[{l1_index_s}].PA\t= 0x{l1_entry_pa:016x}")
-                l1_entry = backend.read_physical(l1_entry_pa, 8)
+                l1_entry = qemu.read_physical(l1_entry_pa, 8)
                 (l1_entry,) = struct.unpack("<Q", l1_entry)
                 log(f"tt: L1[{l1_index_s}]\t\t= 0x{l1_entry:016x}")
 
@@ -311,7 +311,7 @@ class TtCmdVirt(gdb.Command):
                 log(f"tt: L2.IDX\t\t= {l2_index}")
                 l2_entry_pa = l2_pa + (l2_index * 8)
                 log(f"tt: L2[{l2_index_s}].PA\t= 0x{l2_entry_pa:016x}")
-                l2_entry = backend.read_physical(l2_entry_pa, 8)
+                l2_entry = qemu.read_physical(l2_entry_pa, 8)
                 (l2_entry,) = struct.unpack("<Q", l2_entry)
                 log(f"tt: L2[{l2_index_s}]\t\t= 0x{l2_entry:016x}")
 
@@ -339,7 +339,7 @@ class TtCmdVirt(gdb.Command):
                 log(f"tt: L3.IDX\t\t= {l3_index}")
                 l3_entry_pa = l3_pa + (l3_index * 8)
                 log(f"tt: L3[{l3_index_s}].PA\t= 0x{l3_entry_pa:016x}")
-                l3_entry = backend.read_physical(l3_entry_pa, 8)
+                l3_entry = qemu.read_physical(l3_entry_pa, 8)
                 (l3_entry,) = struct.unpack("<Q", l3_entry)
                 log(f"tt: L3[{l3_index_s}]\t\t= 0x{l3_entry:016x}")
 

@@ -12,9 +12,9 @@ class QemuService(object):
         self._child = None
 
     @property
-    def running(self):
+    def session(self):
         """
-        Returns the active QEMU session
+        Returns the active QEMU session.
 
         Raises an exception if one is not started.
         """
