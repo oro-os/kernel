@@ -174,6 +174,8 @@ unsafe impl Arch for Aarch64 {
 			ttbr1_page_table_phys: mapper.base_phys,
 			ttbr0_page_table_phys: stubs.ttbr0_addr,
 			stubs_addr: stubs.stubs_addr,
+			core_id: config.core_id(),
+			core_is_primary: matches!(config, PrebootConfig::Primary { .. }),
 		}
 	}
 

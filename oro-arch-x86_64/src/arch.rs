@@ -245,6 +245,8 @@ unsafe impl Arch for X86_64 {
 		TransferToken {
 			stack_ptr:       last_stack_page_virt,
 			page_table_phys: mapper.base_phys,
+			core_id:         config.core_id(),
+			core_is_primary: matches!(config, PrebootConfig::Primary { .. }),
 		}
 	}
 
