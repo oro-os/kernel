@@ -21,5 +21,16 @@ unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 #[cold]
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {
-	::oro_kernel::boot::<X86_64>()
+	let mut core_id: u64;
+	let mut core_is_primary_raw: u64;
+
+	::oro_arch_x86_64::transfer_params!(core_id, core_is_primary_raw);
+
+	::oro_kernel::boot::<X86_64>(&::oro_kernel::CoreConfig {
+		core_id,
+		core_type: match core_is_primary_raw {
+			0 => ::oro_kernel::CoreType::Secondary,
+			_ => ::oro_kernel::CoreType::Primary,
+		},
+	})
 }

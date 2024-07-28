@@ -32,6 +32,10 @@ pub struct TransferToken {
 	pub ttbr0_page_table_phys: u64,
 	/// The address of the core-local stubs (identity mapped)
 	pub stubs_addr: usize,
+	/// The core ID.
+	pub core_id: u64,
+	/// Whether or not the core is the primary core.
+	pub core_is_primary: bool,
 }
 
 /// The result of mapping in the stubs
@@ -97,6 +101,8 @@ pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
 	let mair_value: u64 = MairEntry::build_mair().into();
 	let stubs_addr: usize = transfer_token.stubs_addr;
 	let stubs_page_table_phys: u64 = transfer_token.ttbr0_page_table_phys;
+	let core_id: u64 = transfer_token.core_id;
+	let core_is_primary: u64 = u64::from(transfer_token.core_is_primary);
 
 	// Construct the final TCR_EL1 register value
 	// We load the current value and modify it instead of
@@ -154,6 +160,8 @@ pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
 	);
 
 	// Populate registers and jump to stubs
+	// SAFETY(qix-): `x9` is used by the transfer stubs as a temporary register.
+	// SAFETY(qix-): Do not use it for transferring values.
 	asm!(
 		"isb",
 		"br x4",
@@ -163,6 +171,9 @@ pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
 		in("x3") mair_value,
 		in("x4") stubs_addr,
 		in("x5") tcr_el1_raw,
+		in("x6") core_id,
+		in("x7") core_is_primary,
+		// SAFETY(qix-): Do not use `x9` for transferring values.
 		options(noreturn)
 	);
 }
@@ -178,6 +189,7 @@ pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
 #[no_mangle]
 #[link_section = ".oro_xfer_stubs.entry"]
 unsafe extern "C" fn transfer_stubs() -> ! {
+	// SAFETY(qix-): `x9` is the only temporary register usable by the stubs.
 	asm!(
 		// Disable MMU
 		"mrs x9, sctlr_el1",
@@ -207,6 +219,25 @@ unsafe extern "C" fn transfer_stubs() -> ! {
 		"mov sp, x1",
 		// Jump to the kernel entry point
 		"br x2",
-		options(noreturn)
+		options(noreturn),
 	);
+}
+
+/// Extracts important information from the registers when the kernel
+/// entry point is hit, used to popular the kernel's `CoreConfig` structs.
+///
+/// # Safety
+/// This function is ONLY meant to be called from architecture-specific
+/// entry points in the kernel. DO NOT USE THIS MACRO IN PRE-BOOT ENVIRONMENTS.
+#[macro_export]
+macro_rules! transfer_params {
+	($core_id:path, $core_is_primary:path) => {{
+		::oro_common::assert_unsafe!();
+		::core::arch::asm!(
+			"",
+			out("x6") $core_id,
+			out("x7") $core_is_primary,
+			options(nostack, nomem),
+		);
+	}};
 }

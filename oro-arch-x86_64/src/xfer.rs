@@ -19,6 +19,10 @@ pub struct TransferToken {
 	pub stack_ptr:       usize,
 	/// The physical address of the root page table entry for the kernel.
 	pub page_table_phys: u64,
+	/// The core ID.
+	pub core_id:         u64,
+	/// Whether or not the core is the primary core.
+	pub core_is_primary: bool,
 }
 
 /// Returns the target virtual address of the stubs based on
@@ -38,17 +42,19 @@ pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
 	let page_table_phys: u64 = transfer_token.page_table_phys;
 	let stack_addr: usize = transfer_token.stack_ptr;
 	let stubs_addr: usize = crate::xfer::target_address();
+	let core_id: u64 = transfer_token.core_id;
+	let core_is_primary: u64 = u64::from(transfer_token.core_is_primary);
 
 	// Jump to stubs.
+	// SAFETY(qix-): Do NOT use `ax`, `dx`, `cx` for transfer registers.
 	asm!(
-		"push {CR3_ADDR}",
-		"push {STACK_ADDR}",
-		"push {KERNEL_ENTRY}",
-		"jmp {STUBS_ADDR}",
-		CR3_ADDR = in(reg) page_table_phys,
-		STACK_ADDR = in(reg) stack_addr,
-		KERNEL_ENTRY = in(reg) entry,
-		STUBS_ADDR = in(reg) stubs_addr,
+		"jmp r12",
+		in("r9") page_table_phys,
+		in("r10") stack_addr,
+		in("r11") entry,
+		in("r12") stubs_addr,
+		in("r13") core_id,
+		in("r14") core_is_primary,
 		options(noreturn)
 	);
 }
@@ -72,13 +78,29 @@ pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
 #[link_section = ".oro_xfer_stubs.entry"]
 unsafe extern "C" fn transfer_stubs() -> ! {
 	asm! {
-		"pop r10",
-		"pop r9",
-		"pop r8",
-		"mov cr3, r8",
-		"mov rsp, r9",
+		"mov cr3, r9",
+		"mov rsp, r10",
 		"push 0", // Push a return value of 0 onto the stack to prevent accidental returns
-		"jmp r10",
-		options(noreturn)
+		"jmp r11",
+		options(noreturn),
 	}
+}
+
+/// Extracts important information from the registers when the kernel
+/// entry point is hit, used to popular the kernel's `CoreConfig` structs.
+///
+/// # Safety
+/// This function is ONLY meant to be called from architecture-specific
+/// entry points in the kernel. DO NOT USE THIS MACRO IN PRE-BOOT ENVIRONMENTS.
+#[macro_export]
+macro_rules! transfer_params {
+	($core_id:path, $core_is_primary:path) => {{
+		::oro_common::assert_unsafe!();
+		::core::arch::asm!(
+			"",
+			out("r13") $core_id,
+			out("r14") $core_is_primary,
+			options(nostack, nomem),
+		);
+	}};
 }
