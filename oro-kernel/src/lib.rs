@@ -19,7 +19,6 @@ use oro_common::Arch;
 ///
 /// All general, system-wide configuration should be stored
 /// in the boot protocol configuration otherwise.
-#[derive(Default)]
 #[repr(C, align(16))]
 pub struct CoreConfig {
 	/// The core ID.
@@ -32,7 +31,7 @@ pub struct CoreConfig {
 }
 
 /// The core type.
-#[derive(Default, PartialEq, Eq, Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone)]
 pub enum CoreType {
 	/// The core is the primary core.
 	///
@@ -40,7 +39,6 @@ pub enum CoreType {
 	/// Exactly one core must be marked as primary.
 	Primary,
 	/// The core is a secondary core.
-	#[default]
 	Secondary,
 }
 
