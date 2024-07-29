@@ -182,6 +182,7 @@ pub unsafe trait Arch {
 		entry: usize,
 		transfer_token: Self::TransferToken,
 		boot_config_virt: usize,
+		pfa_head: u64,
 	) -> !;
 
 	/// Cleans up resources after the transfer has been completed.

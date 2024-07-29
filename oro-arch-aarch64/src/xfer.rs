@@ -95,7 +95,12 @@ where
 ///
 /// # Safety
 /// Only to be called ONCE per core, and only by the [`oro_common::Arch`] implementation.
-pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken, boot_config_virt: usize) -> ! {
+pub unsafe fn transfer(
+	entry: usize,
+	transfer_token: &TransferToken,
+	boot_config_virt: usize,
+	pfa_head: u64,
+) -> ! {
 	let page_table_phys: u64 = transfer_token.ttbr1_page_table_phys;
 	let stack_addr: usize = transfer_token.stack_ptr;
 	let mair_value: u64 = MairEntry::build_mair().into();
@@ -173,6 +178,7 @@ pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken, boot_config
 		in("x7") core_is_primary,
 		// SAFETY(qix-): Do not use `x8` or `x9` for transferring values.
 		in("x10") boot_config_virt,
+		in("x11") pfa_head,
 		options(noreturn)
 	);
 }
@@ -230,13 +236,14 @@ unsafe extern "C" fn transfer_stubs() -> ! {
 /// entry points in the kernel. DO NOT USE THIS MACRO IN PRE-BOOT ENVIRONMENTS.
 #[macro_export]
 macro_rules! transfer_params {
-	($core_id:path, $core_is_primary:path, $boot_config_virt:path) => {{
+	($core_id:path, $core_is_primary:path, $boot_config_virt:path, $pfa_head:path) => {{
 		::oro_common::assert_unsafe!();
 		::core::arch::asm!(
 			"",
 			out("x6") $core_id,
 			out("x7") $core_is_primary,
 			out("x10") $boot_config_virt,
+			out("x11") $pfa_head,
 			options(nostack, nomem),
 		);
 	}};

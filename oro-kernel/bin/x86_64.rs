@@ -24,8 +24,9 @@ pub unsafe extern "C" fn _start() -> ! {
 	let mut core_id: u64;
 	let mut core_is_primary_raw: u64;
 	let mut boot_config_virt: usize;
+	let mut pfa_head: u64;
 
-	::oro_arch_x86_64::transfer_params!(core_id, core_is_primary_raw, boot_config_virt);
+	::oro_arch_x86_64::transfer_params!(core_id, core_is_primary_raw, boot_config_virt, pfa_head);
 
 	::oro_kernel::boot::<X86_64>(&::oro_kernel::CoreConfig {
 		core_id,
@@ -34,5 +35,6 @@ pub unsafe extern "C" fn _start() -> ! {
 			_ => ::oro_kernel::CoreType::Primary,
 		},
 		boot_config: &*(boot_config_virt as *const ::oro_common::BootConfig),
+		pfa_head,
 	})
 }

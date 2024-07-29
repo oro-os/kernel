@@ -469,7 +469,8 @@ where
 
 			// Write the boot config.
 			let boot_config = <BootConfig as crate::ser2mem::Proxy>::Proxy {
-				core_count: *num_instances,
+				core_count:        *num_instances,
+				linear_map_offset: dm_start,
 			};
 
 			// FIXME(qix-): The strange types here are required to work around a
@@ -608,8 +609,20 @@ where
 	// We do this here since allocations may fail, cores may panic, etc.
 	wait_for_all_cores!(config);
 
+	let pfa_head = {
+		let last_free = pfa.lock().last_free();
+		// SAFETY(qix-): We do this here to prevent any further usage of the PFA prior to transfer.
+		let _ = pfa;
+		last_free
+	};
+
 	// Finally, jump to the kernel entry point.
-	A::transfer(KERNEL_ENTRY_POINT, transfer_token, SHARED_BOOT_CONFIG_VIRT)
+	A::transfer(
+		KERNEL_ENTRY_POINT,
+		transfer_token,
+		SHARED_BOOT_CONFIG_VIRT,
+		pfa_head,
+	)
 }
 
 /// Provides the types used by the primary core configuration values
