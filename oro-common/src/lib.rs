@@ -21,7 +21,12 @@
 	internal_features,
 	rustdoc::private_doc_tests
 )]
-#![feature(const_trait_impl, core_intrinsics, debug_closure_helpers)]
+#![feature(
+	const_trait_impl,
+	core_intrinsics,
+	debug_closure_helpers,
+	more_qualified_paths
+)]
 #![cfg_attr(debug_assertions, feature(naked_functions))]
 
 #[cfg(debug_assertions)]
@@ -33,8 +38,10 @@ pub mod proc;
 pub mod sync;
 
 pub(crate) mod arch;
+pub(crate) mod boot;
 pub(crate) mod dbg;
 pub(crate) mod init;
+pub(crate) mod ser2mem;
 pub(crate) mod util;
 
 pub use self::{

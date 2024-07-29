@@ -45,11 +45,25 @@ where
 	M: FiloPageFrameManager,
 {
 	/// Creates a new FILO page frame allocator.
+	#[inline]
 	pub fn new(manager: M) -> Self {
 		Self {
 			manager,
 			last_free: u64::MAX,
 		}
+	}
+
+	/// Creates a new FILO page frame allocator with the given
+	/// last-free page frame address.
+	#[inline]
+	pub fn with_last_free(manager: M, last_free: u64) -> Self {
+		Self { manager, last_free }
+	}
+
+	/// Returns the last-free page frame address.
+	#[inline]
+	pub fn last_free(&self) -> u64 {
+		self.last_free
 	}
 }
 

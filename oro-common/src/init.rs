@@ -11,6 +11,7 @@
 //! sequence; please read _and understand_ the documentation for the
 //! [`boot_to_kernel`] function before calling it.
 use crate::{
+	boot::BootConfig,
 	dbg,
 	elf::{ElfSegment, ElfSegmentType},
 	mem::{
@@ -464,6 +465,13 @@ where
 				"boot_to_kernel",
 				"architecture prepared master page tables"
 			);
+
+			// Write the boot config.
+			// TODO(qix-)
+			#[allow(clippy::no_effect_underscore_binding)]
+			let _boot_config = <BootConfig as crate::ser2mem::Proxy>::Proxy {
+				core_count: *num_instances,
+			};
 
 			// Store the kernel address space handle and entry point for cloning later.
 			KERNEL_ADDRESS_SPACE = Proxy::from(kernel_mapper);

@@ -6,10 +6,19 @@
 //! that is handled by passing information to the kernel via
 //! architecture-specific transfer stubs.
 
-#[repr(C, align(4096))]
+use crate::ser2mem::Ser2Mem;
+
+/// Root structure of the kernel boot protocol, sent to the kernel via
+/// serialization to memory.
+///
+/// # Safety
+/// Do not instantiate this structure yourself; you probably won't
+/// be able to anyway, but it's meant to be instantiated via its
+/// [`crate::ser2mem::Proxy`] implementation (auto-generated via
+/// the `#[derive(Ser2Mem)]` macro) and then serialized to memory.
+#[derive(Ser2Mem, Debug)]
+#[repr(C)]
 pub struct BootConfig {
 	/// The total number of cores being booted.
 	pub core_count: u64,
-	/// The physical address of the top of the page frame allocator stack.
-	pub pfa_stack_top: u64,
 }
