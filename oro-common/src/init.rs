@@ -293,10 +293,6 @@ where
 	// Finally, for good measure, make sure that we barrier here so we're all on the same page.
 	wait_for_all_cores!(config);
 
-	// Create a spot where the boot config virtual address can be stored for passing to
-	// the kernel during transfer.
-	let boot_config_shared_virt = UnfairSpinlock::<A, usize>::new(0x0);
-
 	// Next, we create the supervisor mapper. This has two steps, as the value returned
 	// is going to be different for every core.
 	//
@@ -488,8 +484,9 @@ where
 			let boot_config_target_virt = boot_config
 				.serialize(&mut serializer)
 				.expect("failed to serialize boot config");
-			(*boot_config_shared_virt.lock()) =
-				::core::ptr::from_ref(boot_config_target_virt) as usize;
+
+			SHARED_BOOT_CONFIG_VIRT = ::core::ptr::from_ref(boot_config_target_virt) as usize;
+			A::strong_memory_barrier();
 
 			dbg!(
 				A,
@@ -576,9 +573,8 @@ where
 	}
 
 	// Make sure we got the boot config virtual address.
-	let boot_config_shared_virt = *boot_config_shared_virt.lock();
 	assert_ne!(
-		boot_config_shared_virt, 0,
+		SHARED_BOOT_CONFIG_VIRT, 0,
 		"boot config virtual address not set"
 	);
 
@@ -613,7 +609,7 @@ where
 	wait_for_all_cores!(config);
 
 	// Finally, jump to the kernel entry point.
-	A::transfer(KERNEL_ENTRY_POINT, transfer_token, boot_config_shared_virt)
+	A::transfer(KERNEL_ENTRY_POINT, transfer_token, SHARED_BOOT_CONFIG_VIRT)
 }
 
 /// Provides the types used by the primary core configuration values
@@ -716,3 +712,6 @@ struct AlignedPageBytes([u8; 4096]);
 /// by each of the cores, but downcasted as the PFA itself.
 #[used]
 static mut SHARED_PFA: AlignedPageBytes = AlignedPageBytes([0; 4096]);
+/// Where the shared virtual address of the boot config lives.
+#[used]
+static mut SHARED_BOOT_CONFIG_VIRT: usize = 0;
