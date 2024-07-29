@@ -191,11 +191,18 @@ pub unsafe trait Arch {
 	/// cleaned up.
 	///
 	/// # Safety
-	/// TODO
-	unsafe fn after_transfer() {
-		// TODO(qix-): properly specify this method
-		todo!();
-	}
+	/// This method must only be called **once** for each CPU core,
+	/// and only after the transfer has been completed.
+	///
+	/// Implementations MUST NOT affect ANY resources that are not
+	/// local to the CPU core being prepared, and must ONLY do what
+	/// the architecture documents will occur after the kernel has
+	/// taken control.
+	unsafe fn after_transfer<A>(
+		mapper: <<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
+		alloc: &mut A,
+	) where
+		A: PageFrameAllocate + PageFrameFree;
 
 	/// Logs a message to the debug logger (typically a serial port).
 	///
