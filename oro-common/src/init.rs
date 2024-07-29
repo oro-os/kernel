@@ -21,6 +21,7 @@ use crate::{
 	sync::{SpinBarrier, UnfairSpinlock},
 	util::{assertions, proxy::Proxy},
 	Arch,
+	ser2mem::Serialize,
 };
 
 /// Waits for all cores to reach a certain point in the initialization sequence.
@@ -467,11 +468,12 @@ where
 			);
 
 			// Write the boot config.
-			// TODO(qix-)
-			#[allow(clippy::no_effect_underscore_binding)]
-			let _boot_config = <BootConfig as crate::ser2mem::Proxy>::Proxy {
+			let boot_config = <BootConfig as crate::ser2mem::Proxy>::Proxy {
 				core_count: *num_instances,
 			};
+
+			let mut serializer = crate::mem::PfaSerializer::new(&mut *pfa, physical_address_translator.clone(), &kernel_mapper);
+			let boot_config_virt = boot_config.serialize(&mut serializer).expect("failed to serialize boot config");
 
 			// Store the kernel address space handle and entry point for cloning later.
 			KERNEL_ADDRESS_SPACE = Proxy::from(kernel_mapper);

@@ -4,6 +4,7 @@
 mod mapper;
 mod pfa;
 mod region;
+mod ser2mem;
 mod translate;
 
 pub use self::{
@@ -16,3 +17,5 @@ pub use self::{
 	region::{MemoryRegion, MemoryRegionType},
 	translate::{OffsetPhysicalAddressTranslator, PhysicalAddressTranslator},
 };
+
+pub(crate) use self::ser2mem::PfaSerializer;

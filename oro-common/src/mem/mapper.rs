@@ -84,6 +84,14 @@ pub unsafe trait AddressSpace {
 	///
 	/// Must **not** overlap with any other segment.
 	fn direct_map() -> Self::SupervisorSegment;
+
+	/// Returns the layout descriptor for the boot protocol information.
+	///
+	/// This must be read-only, non-user accessible, and is
+	/// **not** executable.
+	///
+	/// Must **not** overlap with any other segment.
+	fn boot_info() -> Self::SupervisorSegment;
 }
 
 /// An address space segment descriptor. Segments are architecture specified
