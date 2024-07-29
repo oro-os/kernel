@@ -59,6 +59,20 @@ pub enum CoreType {
 /// Specifically, all safety requirements must be met, such as
 /// marking exactly one core as primary.
 pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
+	#[allow(clippy::missing_docs_in_private_items)]
+	macro_rules! wait_for_all_cores {
+		() => {{
+			static BARRIER: ::oro_common::sync::SpinBarrier =
+				::oro_common::sync::SpinBarrier::new();
+
+			if core_config.core_type == CoreType::Primary {
+				BARRIER.set_total::<A>(core_config.boot_config.core_count);
+			}
+
+			BARRIER.wait();
+		}};
+	}
+
 	A::disable_interrupts();
 	A::after_transfer();
 
@@ -66,7 +80,7 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 		A::init_shared();
 	}
 
-	// TODO(qix-): barrier. But we need the core count from the boot protocol info first.
+	wait_for_all_cores!();
 
 	A::init_local();
 
