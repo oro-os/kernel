@@ -259,6 +259,15 @@ unsafe impl Arch for X86_64 {
 		crate::xfer::transfer(entry, &transfer_token, boot_config_virt, pfa_head)
 	}
 
+	unsafe fn after_transfer<A>(
+		_mapper: <<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
+		_alloc: &mut A,
+	) where
+		A: PageFrameAllocate + PageFrameFree,
+	{
+		// TODO(qix-)
+	}
+
 	#[inline(always)]
 	fn strong_memory_barrier() {
 		unsafe {
