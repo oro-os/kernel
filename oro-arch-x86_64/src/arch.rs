@@ -9,7 +9,6 @@ use crate::{
 use core::{
 	arch::asm,
 	fmt::{self, Write},
-	mem::MaybeUninit,
 	ptr::from_ref,
 };
 use oro_common::{
@@ -24,8 +23,8 @@ use uart_16550::SerialPort;
 ///
 /// **NOTE:** This is a temporary solution until pre-boot module loading
 /// is implemented.
-static SERIAL: UnfairCriticalSpinlock<X86_64, MaybeUninit<SerialPort>> =
-	UnfairCriticalSpinlock::new(MaybeUninit::uninit());
+static SERIAL: UnfairCriticalSpinlock<X86_64, Option<SerialPort>> =
+	UnfairCriticalSpinlock::new(None);
 
 /// x86_64 architecture support implementation for the Oro kernel.
 pub struct X86_64;
@@ -41,7 +40,7 @@ unsafe impl Arch for X86_64 {
 
 	unsafe fn init_shared() {
 		// Initialize the serial port
-		SERIAL.lock().write(SerialPort::new(0x3F8));
+		(*SERIAL.lock()) = Some(SerialPort::new(0x3F8));
 	}
 
 	unsafe fn init_local() {
@@ -84,8 +83,11 @@ unsafe impl Arch for X86_64 {
 	fn log(message: fmt::Arguments) {
 		// NOTE(qix-): This unsafe block MUST NOT PANIC.
 		unsafe {
-			let mut lock = SERIAL.lock();
-			writeln!(lock.assume_init_mut(), "{message}")
+			if let Some(serial) = SERIAL.lock().as_mut() {
+				writeln!(serial, "{message}")
+			} else {
+				Ok(())
+			}
 		}
 		.unwrap();
 	}
