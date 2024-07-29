@@ -9,7 +9,13 @@
 	clippy::missing_docs_in_private_items
 )]
 
-use oro_common::{Arch, BootConfig};
+use core::mem::MaybeUninit;
+use oro_common::{
+	dbg,
+	mem::{AddressSpace, FiloPageFrameAllocator, OffsetPhysicalAddressTranslator},
+	sync::UnfairSpinlock,
+	Arch, BootConfig,
+};
 
 /// Core-specific boot information.
 ///
@@ -77,15 +83,57 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 	}
 
 	A::disable_interrupts();
-	A::after_transfer();
+
+	wait_for_all_cores!();
 
 	if core_config.core_type == CoreType::Primary {
-		A::init_shared();
+		// TODO(qix-): A number of issues across architectures with the logging
+		// TODO(qix-): system here. For now, I'm going to skip this. It'll be
+		// TODO(qix-): refurbished when the boot services modules are implemented.
+		// A::init_shared();
 	}
 
 	wait_for_all_cores!();
 
 	A::init_local();
+
+	wait_for_all_cores!();
+
+	// Set up the PFA.
+	let translator =
+		OffsetPhysicalAddressTranslator::new(core_config.boot_config.linear_map_offset);
+	let kernel_addr_space = <A as Arch>::AddressSpace::current_supervisor_space(&translator);
+
+	#[allow(clippy::items_after_statements, clippy::missing_docs_in_private_items)]
+	static mut PFA: MaybeUninit<
+		UnfairSpinlock<FiloPageFrameAllocator<OffsetPhysicalAddressTranslator>>,
+	> = MaybeUninit::uninit();
+
+	if core_config.core_type == CoreType::Primary {
+		PFA.write(UnfairSpinlock::new(FiloPageFrameAllocator::with_last_free(
+			translator,
+			core_config.pfa_head,
+		)));
+
+		A::strong_memory_barrier();
+	}
+
+	wait_for_all_cores!();
+
+	// SAFETY(qix-): Since we lockstep initialize the shared PFA, it is safe to
+	// SAFETY(qix-): assume that it is initialized here.
+	let pfa = PFA.assume_init_ref();
+
+	{
+		let mut pfa = pfa.lock::<A>();
+		A::after_transfer(&kernel_addr_space, &mut *pfa);
+	}
+
+	wait_for_all_cores!();
+
+	if core_config.core_type == CoreType::Primary {
+		dbg!(A, "kernel", "kernel transfer ok");
+	}
 
 	A::halt()
 }
