@@ -6,7 +6,6 @@ use crate::{mem::address_space::AddressSpaceLayout, xfer::TransferToken};
 use core::{
 	arch::asm,
 	fmt::{self, Write},
-	mem::MaybeUninit,
 };
 use oro_common::{
 	elf::{ElfClass, ElfEndianness, ElfMachine},
@@ -19,8 +18,8 @@ use oro_serial_pl011 as pl011;
 /// The shared serial port for the system.
 ///
 /// **NOTE:** This is a temporary solution until pre-boot module loading
-static mut SERIAL: UnfairCriticalSpinlock<Aarch64, MaybeUninit<pl011::PL011>> =
-	UnfairCriticalSpinlock::new(MaybeUninit::uninit());
+static mut SERIAL: UnfairCriticalSpinlock<Aarch64, Option<pl011::PL011>> =
+	UnfairCriticalSpinlock::new(None);
 
 /// aarch64 architecture support implementation for the Oro kernel.
 pub struct Aarch64;
@@ -39,7 +38,7 @@ unsafe impl Arch for Aarch64 {
 		// TODO(qix-): This will need to be adapted to handle
 		// TODO(qix-): different UART types and a configurable
 		// TODO(qix-): base address / settings in the future.
-		SERIAL.lock().write(pl011::PL011::new::<Self>(
+		*(SERIAL.lock()) = Some(pl011::PL011::new::<Self>(
 			0x900_0000,
 			24_000_000,
 			115_200,
@@ -95,8 +94,11 @@ unsafe impl Arch for Aarch64 {
 	fn log(message: fmt::Arguments) {
 		// NOTE(qix-): This unsafe block MUST NOT PANIC.
 		unsafe {
-			let mut lock = SERIAL.lock();
-			writeln!(lock.assume_init_mut(), "{message}")
+			if let Some(serial) = SERIAL.lock().as_mut() {
+				writeln!(serial, "{message}")
+			} else {
+				Ok(())
+			}
 		}
 		.unwrap();
 	}
