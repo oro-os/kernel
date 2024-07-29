@@ -216,3 +216,13 @@ class QemuProcess(object):
 
         assert len(result) == size
         return result
+
+    def monitor_command(self, command):
+        """
+        Sends a "human" command to the QEMU monitor.
+
+        This is like sending a command via the text-based (non-QMP)
+        QEMU monitor REPL.
+        """
+
+        return self.__qmp.request("human-monitor-command", **{"command-line": command})
