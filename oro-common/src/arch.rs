@@ -167,8 +167,22 @@ pub unsafe trait Arch {
 	/// Implementations MUST NOT affect ANY resources that are not
 	/// local to the CPU core being prepared.
 	///
+	/// The boot config virtual address MUST NOT be zero, and MUST be
+	/// a valid, readable readable address (as specified by
+	/// [`crate::mem::AddressSpace::boot_info()`]) mapped into the
+	/// kernel's eventual address space, whereby a cast to a pointer to
+	/// [`crate::boot::BootConfig`] is valid and dereferenceable without
+	/// invoking undefined behavior.
+	///
+	/// Implementations MUST NOT derefence the boot config virtual address
+	/// as it is not valid in the pre-boot memory map.
+	///
 	/// This method **must not panic**.
-	unsafe fn transfer(entry: usize, transfer_token: Self::TransferToken) -> !;
+	unsafe fn transfer(
+		entry: usize,
+		transfer_token: Self::TransferToken,
+		boot_config_virt: usize,
+	) -> !;
 
 	/// Cleans up resources after the transfer has been completed.
 	/// Execution is now in the kernel; all architecture-specific

@@ -23,8 +23,9 @@ unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 pub unsafe extern "C" fn _start() -> ! {
 	let mut core_id: u64;
 	let mut core_is_primary_raw: u64;
+	let mut boot_config_virt: u64;
 
-	::oro_arch_aarch64::transfer_params!(core_id, core_is_primary_raw);
+	::oro_arch_aarch64::transfer_params!(core_id, core_is_primary_raw, boot_config_virt);
 
 	::oro_kernel::boot::<Aarch64>(&::oro_kernel::CoreConfig {
 		core_id,
@@ -32,5 +33,6 @@ pub unsafe extern "C" fn _start() -> ! {
 			0 => ::oro_kernel::CoreType::Secondary,
 			_ => ::oro_kernel::CoreType::Primary,
 		},
+		boot_config: &*(boot_config_virt as *const ::oro_common::BootConfig),
 	})
 }
