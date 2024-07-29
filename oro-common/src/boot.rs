@@ -21,5 +21,7 @@ use crate::ser2mem::Ser2Mem;
 #[repr(C)]
 pub struct BootConfig {
 	/// The total number of cores being booted.
-	pub core_count: u64,
+	pub core_count:        u64,
+	/// The virtual offset of the linear map of physical memory.
+	pub linear_map_offset: usize,
 }

@@ -254,8 +254,9 @@ unsafe impl Arch for X86_64 {
 		entry: usize,
 		transfer_token: Self::TransferToken,
 		boot_config_virt: usize,
+		pfa_head: u64,
 	) -> ! {
-		crate::xfer::transfer(entry, &transfer_token, boot_config_virt)
+		crate::xfer::transfer(entry, &transfer_token, boot_config_virt, pfa_head)
 	}
 
 	#[inline(always)]

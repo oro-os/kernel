@@ -30,6 +30,9 @@ pub struct CoreConfig {
 	pub core_type:   CoreType,
 	/// The boot protocol configuration.
 	pub boot_config: &'static BootConfig,
+	/// The head of the page frame allocator directly
+	/// before the transfer.
+	pub pfa_head:    u64,
 }
 
 /// The core type.
