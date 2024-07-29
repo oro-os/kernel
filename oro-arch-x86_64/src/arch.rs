@@ -262,7 +262,7 @@ unsafe impl Arch for X86_64 {
 	}
 
 	unsafe fn after_transfer<A>(
-		_mapper: <<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
+		_mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
 		_alloc: &mut A,
 	) where
 		A: PageFrameAllocate + PageFrameFree,

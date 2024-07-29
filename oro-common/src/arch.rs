@@ -199,7 +199,7 @@ pub unsafe trait Arch {
 	/// the architecture documents will occur after the kernel has
 	/// taken control.
 	unsafe fn after_transfer<A>(
-		mapper: <<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
+		mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
 		alloc: &mut A,
 	) where
 		A: PageFrameAllocate + PageFrameFree;
