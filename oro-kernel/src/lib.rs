@@ -9,7 +9,7 @@
 	clippy::missing_docs_in_private_items
 )]
 
-use oro_common::Arch;
+use oro_common::{Arch, BootConfig};
 
 /// Core-specific boot information.
 ///
@@ -22,12 +22,14 @@ use oro_common::Arch;
 #[repr(C, align(16))]
 pub struct CoreConfig {
 	/// The core ID.
-	pub core_id:   u64,
+	pub core_id:     u64,
 	/// The core type.
 	///
 	/// # Safety
 	/// Exactly one core must be marked as primary.
-	pub core_type: CoreType,
+	pub core_type:   CoreType,
+	/// The boot protocol configuration.
+	pub boot_config: &'static BootConfig,
 }
 
 /// The core type.

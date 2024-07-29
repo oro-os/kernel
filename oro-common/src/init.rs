@@ -18,6 +18,7 @@ use crate::{
 		AddressSegment, AddressSpace, FiloPageFrameAllocator, MemoryRegion, MemoryRegionType,
 		PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator,
 	},
+	ser2mem::Serialize,
 	sync::{SpinBarrier, UnfairSpinlock},
 	util::{assertions, proxy::Proxy},
 	Arch,
@@ -292,6 +293,10 @@ where
 	// Finally, for good measure, make sure that we barrier here so we're all on the same page.
 	wait_for_all_cores!(config);
 
+	// Create a spot where the boot config virtual address can be stored for passing to
+	// the kernel during transfer.
+	let boot_config_shared_virt = UnfairSpinlock::<A, usize>::new(0x0);
+
 	// Next, we create the supervisor mapper. This has two steps, as the value returned
 	// is going to be different for every core.
 	//
@@ -467,11 +472,30 @@ where
 			);
 
 			// Write the boot config.
-			// TODO(qix-)
-			#[allow(clippy::no_effect_underscore_binding)]
-			let _boot_config = <BootConfig as crate::ser2mem::Proxy>::Proxy {
+			let boot_config = <BootConfig as crate::ser2mem::Proxy>::Proxy {
 				core_count: *num_instances,
 			};
+
+			// FIXME(qix-): The strange types here are required to work around a
+			// FIXME(qix-): bug in rustc (rust-lang/rust#121613)
+			let pfa_mut = &mut *pfa;
+			let mut serializer = crate::mem::PfaSerializer::<_, _, <A as Arch>::AddressSpace>::new(
+				pfa_mut,
+				physical_address_translator,
+				&kernel_mapper,
+			);
+
+			let boot_config_target_virt = boot_config
+				.serialize(&mut serializer)
+				.expect("failed to serialize boot config");
+			(*boot_config_shared_virt.lock()) =
+				::core::ptr::from_ref(boot_config_target_virt) as usize;
+
+			dbg!(
+				A,
+				"boot_to_kernel",
+				"boot config serialized to kernel memory"
+			);
 
 			// Store the kernel address space handle and entry point for cloning later.
 			KERNEL_ADDRESS_SPACE = Proxy::from(kernel_mapper);
@@ -551,6 +575,13 @@ where
 		dbg!(A, "boot_to_kernel", "all {} core(s) online", num_instances);
 	}
 
+	// Make sure we got the boot config virtual address.
+	let boot_config_shared_virt = *boot_config_shared_virt.lock();
+	assert_ne!(
+		boot_config_shared_virt, 0,
+		"boot config virtual address not set"
+	);
+
 	// Inform the architecture we are about to jump to the kernel.
 	// This allows for any architecture-specific, **potentially destructive**
 	// operations to be performed before the kernel is entered.
@@ -582,7 +613,7 @@ where
 	wait_for_all_cores!(config);
 
 	// Finally, jump to the kernel entry point.
-	A::transfer(KERNEL_ENTRY_POINT, transfer_token)
+	A::transfer(KERNEL_ENTRY_POINT, transfer_token, boot_config_shared_virt)
 }
 
 /// Provides the types used by the primary core configuration values

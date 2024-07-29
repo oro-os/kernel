@@ -4,8 +4,10 @@
 mod mapper;
 mod pfa;
 mod region;
+mod ser2mem;
 mod translate;
 
+pub(crate) use self::ser2mem::PfaSerializer;
 pub use self::{
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::{

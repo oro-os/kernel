@@ -5,6 +5,7 @@
 //! Note that no core-specific information is provided here, as
 //! that is handled by passing information to the kernel via
 //! architecture-specific transfer stubs.
+#![allow(rustdoc::private_intra_doc_links)]
 
 use crate::ser2mem::Ser2Mem;
 

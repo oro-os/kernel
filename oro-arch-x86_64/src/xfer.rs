@@ -38,7 +38,7 @@ pub fn target_address() -> usize {
 ///
 /// # Safety
 /// Only to be called ONCE per core, and only by the [`oro_common::Arch`] implementation.
-pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
+pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken, boot_config_virt: usize) -> ! {
 	let page_table_phys: u64 = transfer_token.page_table_phys;
 	let stack_addr: usize = transfer_token.stack_ptr;
 	let stubs_addr: usize = crate::xfer::target_address();
@@ -55,6 +55,7 @@ pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
 		in("r12") stubs_addr,
 		in("r13") core_id,
 		in("r14") core_is_primary,
+		in("r15") boot_config_virt,
 		options(noreturn)
 	);
 }
@@ -94,12 +95,13 @@ unsafe extern "C" fn transfer_stubs() -> ! {
 /// entry points in the kernel. DO NOT USE THIS MACRO IN PRE-BOOT ENVIRONMENTS.
 #[macro_export]
 macro_rules! transfer_params {
-	($core_id:path, $core_is_primary:path) => {{
+	($core_id:path, $core_is_primary:path, $boot_config_virt:path) => {{
 		::oro_common::assert_unsafe!();
 		::core::arch::asm!(
 			"",
 			out("r13") $core_id,
 			out("r14") $core_is_primary,
+			out("r15") $boot_config_virt,
 			options(nostack, nomem),
 		);
 	}};

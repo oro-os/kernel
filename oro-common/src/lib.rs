@@ -46,5 +46,6 @@ pub(crate) mod util;
 
 pub use self::{
 	arch::Arch,
+	boot::BootConfig,
 	init::{boot_to_kernel, ModuleDef, PrebootConfig, PrebootPrimaryConfig},
 };

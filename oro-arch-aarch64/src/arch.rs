@@ -179,7 +179,11 @@ unsafe impl Arch for Aarch64 {
 		}
 	}
 
-	unsafe fn transfer(entry: usize, transfer_token: Self::TransferToken) -> ! {
-		crate::xfer::transfer(entry, &transfer_token);
+	unsafe fn transfer(
+		entry: usize,
+		transfer_token: Self::TransferToken,
+		boot_config_virt: usize,
+	) -> ! {
+		crate::xfer::transfer(entry, &transfer_token, boot_config_virt);
 	}
 }
