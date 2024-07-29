@@ -260,7 +260,7 @@ where
 			}
 
 			// Wrap in a spinlock
-			let shared_pfa = UnfairSpinlock::<A, _>::new(shared_pfa);
+			let shared_pfa = UnfairSpinlock::new(shared_pfa);
 
 			// Make sure that we're not exceeding our page size.
 			assertions::assert_fits::<_, 4096>(&shared_pfa);
@@ -320,7 +320,7 @@ where
 			physical_address_translator,
 			..
 		} => {
-			let mut pfa = pfa.lock();
+			let mut pfa = pfa.lock::<A>();
 
 			// Parse the kernel ELF module.
 			let kernel_elf =
@@ -548,7 +548,7 @@ where
 			let kernel_address_space_primary_handle: &<<A as Arch>::AddressSpace as AddressSpace>::SupervisorHandle = KERNEL_ADDRESS_SPACE.as_ref().unwrap();
 
 			// Clone the kernel address space.
-			let mut pfa = pfa.lock();
+			let mut pfa = pfa.lock::<A>();
 			let mapper = A::AddressSpace::duplicate_supervisor_space_shallow(
 				kernel_address_space_primary_handle,
 				&mut *pfa,
@@ -586,7 +586,7 @@ where
 	// go.
 	let transfer_token = match config {
 		PrebootConfig::Primary { num_instances, .. } => {
-			let mut pfa = pfa.lock();
+			let mut pfa = pfa.lock::<A>();
 			let token = A::prepare_transfer(kernel_mapper, &config, &mut *pfa);
 			drop(pfa);
 
@@ -600,7 +600,7 @@ where
 			// Wait for primary to finish preparing for transfer
 			TRANSFER_BARRIER.wait();
 
-			let mut pfa = pfa.lock();
+			let mut pfa = pfa.lock::<A>();
 			A::prepare_transfer(kernel_mapper, &config, &mut *pfa)
 		}
 	};
@@ -610,7 +610,7 @@ where
 	wait_for_all_cores!(config);
 
 	let pfa_head = {
-		let last_free = pfa.lock().last_free();
+		let last_free = pfa.lock::<A>().last_free();
 		// SAFETY(qix-): We do this here to prevent any further usage of the PFA prior to transfer.
 		let _ = pfa;
 		last_free

@@ -6,7 +6,6 @@
 use crate::Arch;
 use core::{
 	cell::UnsafeCell,
-	marker::PhantomData,
 	sync::atomic::{AtomicBool, Ordering},
 };
 
@@ -17,25 +16,22 @@ use core::{
 /// Note that this implementation does _not_ put the system into a critical section.
 /// If that behavior is desired, consider using an [`crate::sync::UnfairCriticalSpinlock`]
 /// instead.
-pub struct UnfairSpinlock<A: Arch, T> {
+pub struct UnfairSpinlock<T> {
 	/// Whether the lock is currently owned.
 	owned: AtomicBool,
 	/// The value protected by the lock.
 	value: UnsafeCell<T>,
-	/// The architecture this spinlock is for.
-	_arch: PhantomData<A>,
 }
 
-unsafe impl<A: Arch, T> Sync for UnfairSpinlock<A, T> {}
+unsafe impl<T> Sync for UnfairSpinlock<T> {}
 
-impl<A: Arch, T> UnfairSpinlock<A, T> {
+impl<T> UnfairSpinlock<T> {
 	/// Creates a new `UnfairSpinlock`.
 	#[inline]
 	pub const fn new(value: T) -> Self {
 		Self {
 			owned: AtomicBool::new(false),
 			value: UnsafeCell::new(value),
-			_arch: PhantomData,
 		}
 	}
 
@@ -47,7 +43,7 @@ impl<A: Arch, T> UnfairSpinlock<A, T> {
 	/// This function is not reentrant.
 	#[inline]
 	#[must_use]
-	pub unsafe fn try_lock(&self) -> Option<UnfairSpinlockGuard<T>> {
+	pub unsafe fn try_lock<A: Arch>(&self) -> Option<UnfairSpinlockGuard<T>> {
 		A::strong_memory_barrier();
 
 		self.owned
@@ -67,9 +63,9 @@ impl<A: Arch, T> UnfairSpinlock<A, T> {
 	/// This function is not reentrant.
 	#[inline]
 	#[must_use]
-	pub unsafe fn lock(&self) -> UnfairSpinlockGuard<T> {
+	pub unsafe fn lock<A: Arch>(&self) -> UnfairSpinlockGuard<T> {
 		loop {
-			if let Some(guard) = self.try_lock() {
+			if let Some(guard) = self.try_lock::<A>() {
 				return guard;
 			}
 		}
@@ -98,7 +94,7 @@ impl<T> Drop for UnfairSpinlockGuard<'_, T> {
 	}
 }
 
-impl<A: Arch, T> Default for UnfairSpinlock<A, T>
+impl<T> Default for UnfairSpinlock<T>
 where
 	T: Default,
 {
