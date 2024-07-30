@@ -16,9 +16,9 @@ use oro_common::{
 use oro_serial_pl011 as pl011;
 
 /// The shared serial port for the system.
-///
-/// **NOTE:** This is a temporary solution until pre-boot module loading
-static mut SERIAL: UnfairCriticalSpinlock<Aarch64, Option<pl011::PL011>> =
+// NOTE(qix-): This is a temporary solution until pre-boot module loading
+// NOTE(qix-): is implemented.
+static SERIAL: UnfairCriticalSpinlock<Aarch64, Option<pl011::PL011>> =
 	UnfairCriticalSpinlock::new(None);
 
 /// aarch64 architecture support implementation for the Oro kernel.
@@ -32,25 +32,6 @@ unsafe impl Arch for Aarch64 {
 	const ELF_CLASS: ElfClass = ElfClass::Class64;
 	const ELF_ENDIANNESS: ElfEndianness = ElfEndianness::Little;
 	const ELF_MACHINE: ElfMachine = ElfMachine::Aarch64;
-
-	unsafe fn init_shared() {
-		// TODO(qix-): This is set up specifically for QEMU.
-		// TODO(qix-): This will need to be adapted to handle
-		// TODO(qix-): different UART types and a configurable
-		// TODO(qix-): base address / settings in the future.
-		*(SERIAL.lock()) = Some(pl011::PL011::new::<Self>(
-			0x900_0000,
-			24_000_000,
-			115_200,
-			pl011::DataBits::Eight,
-			pl011::StopBits::One,
-			pl011::Parity::None,
-		));
-	}
-
-	unsafe fn init_local() {
-		// TODO(qix-): Assert that the granule size is 4KiB for both EL1 and EL0.
-	}
 
 	#[cold]
 	fn halt() -> ! {
@@ -198,4 +179,85 @@ unsafe impl Arch for Aarch64 {
 	{
 		// TODO(qix-)
 	}
+}
+
+/// Initializes the primary core in the preboot environment.
+///
+/// This function MUST be called by preboot environments prior
+/// to starting any initialization sequences.
+///
+/// It is assumed the preboot environment initializes itself on
+/// a single (primary) core prior to beginning execution on other
+/// cores. It is assumed that the preboot routine will properly
+/// initialize other cores and/or copy over the base settings
+/// of the primary core to them prior to jumping to the kernel.
+///
+/// Because of this, there is no `init_preboot_secondary` function.
+///
+/// This function *may* be reserved (i.e. do nothing) on certain
+/// platforms. However, it is still necessary that the function
+/// be called to be future-proof, as it may change at a later date.
+///
+/// # Safety
+/// This function MUST be called EXACTLY once.
+///
+/// The kernel MUST NOT call this function.
+pub unsafe fn init_preboot_primary() {
+	Aarch64::disable_interrupts();
+
+	// NOTE(qix-): This is set up specifically for QEMU.
+	// NOTE(qix-): It is a stop gap measure for early-stage-development
+	// NOTE(qix-): debugging and will eventually be replaced with a
+	// NOTE(qix-): proper preboot module loader.
+	*(SERIAL.lock()) = Some(pl011::PL011::new::<Aarch64>(
+		0x900_0000,
+		24_000_000,
+		115_200,
+		pl011::DataBits::Eight,
+		pl011::StopBits::One,
+		pl011::Parity::None,
+	));
+}
+
+/// Initializes the primary core in the kernel.
+///
+/// This function *may* be reserved (i.e. do nothing) on certain
+/// platforms. However, it is still necessary that the function
+/// be called to be future-proof, as it may change at a later date.
+///
+/// # Safety
+/// This function MUST be called EXACTLY once.
+///
+/// This function MUST only be called on the primary core.
+///
+/// This function MUST NOT be called by a secondary core.
+///
+/// This function MUST NOT be called from the preboot environment.
+pub unsafe fn init_kernel_primary() {
+	Aarch64::disable_interrupts();
+
+	// TODO(qix-): Unlock the latch barrier
+
+	init_kernel_secondary();
+}
+
+/// Initializes a seconary core in the kernel.
+///
+/// This function *may* be reserved (i.e. do nothing) on certain
+/// platforms. However, it is still necessary that the function
+/// be called to be future-proof, as it may change at a later date.
+///
+/// # Safety
+/// This function MUST be called EXACTLY once for each secondary core.
+/// If no secondary cores are present, this function MUST NOT be called.
+///
+/// This function MUST only be called on secondary cores.
+///
+/// This function MUST NOT be called from the preboot environment.
+///
+/// This function MAY block until `init_kernel_primary()` has completed.
+pub unsafe fn init_kernel_secondary() {
+	Aarch64::disable_interrupts();
+
+	// TODO(qix-): Wait for latch barrier
 }

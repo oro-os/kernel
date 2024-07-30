@@ -36,4 +36,4 @@ pub(crate) mod mem;
 pub(crate) mod reg;
 pub(crate) mod xfer;
 
-pub use self::arch::Aarch64;
+pub use self::arch::{init_kernel_primary, init_kernel_secondary, init_preboot_primary, Aarch64};

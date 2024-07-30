@@ -20,11 +20,10 @@ use oro_common::{
 use uart_16550::SerialPort;
 
 /// The shared serial port for the system.
-///
-/// **NOTE:** This is a temporary solution until pre-boot module loading
-/// is implemented.
-static SERIAL: UnfairCriticalSpinlock<X86_64, Option<SerialPort>> =
-	UnfairCriticalSpinlock::new(None);
+// NOTE(qix-): This is a temporary solution until pre-boot module loading
+// NOTE(qix-): is implemented.
+static SERIAL: UnfairCriticalSpinlock<X86_64, SerialPort> =
+	UnfairCriticalSpinlock::new(unsafe { SerialPort::new(0x3F8) });
 
 /// x86_64 architecture support implementation for the Oro kernel.
 pub struct X86_64;
@@ -37,16 +36,6 @@ unsafe impl Arch for X86_64 {
 	const ELF_CLASS: ElfClass = ElfClass::Class64;
 	const ELF_ENDIANNESS: ElfEndianness = ElfEndianness::Little;
 	const ELF_MACHINE: ElfMachine = ElfMachine::X86_64;
-
-	unsafe fn init_shared() {
-		// Initialize the serial port
-		(*SERIAL.lock()) = Some(SerialPort::new(0x3F8));
-	}
-
-	unsafe fn init_local() {
-		// TODO(qix-): Ensure that the CPU has page execution protection
-		// TODO(qix-): enabled. Ref 3.1.7, NX bit.
-	}
 
 	#[cold]
 	fn halt() -> ! {
@@ -82,14 +71,7 @@ unsafe impl Arch for X86_64 {
 
 	fn log(message: fmt::Arguments) {
 		// NOTE(qix-): This unsafe block MUST NOT PANIC.
-		unsafe {
-			if let Some(serial) = SERIAL.lock().as_mut() {
-				writeln!(serial, "{message}")
-			} else {
-				Ok(())
-			}
-		}
-		.unwrap();
+		unsafe { writeln!(SERIAL.lock(), "{message}") }.unwrap();
 	}
 
 	unsafe fn prepare_master_page_tables<A, C>(
@@ -276,4 +258,80 @@ unsafe impl Arch for X86_64 {
 			core::arch::asm!("mfence", options(nostack, preserves_flags),);
 		}
 	}
+}
+
+/// Initializes the primary core in the preboot environment.
+///
+/// This function MUST be called by preboot environments prior
+/// to starting any initialization sequences.
+///
+/// It is assumed the preboot environment initializes itself on
+/// a single (primary) core prior to beginning execution on other
+/// cores. It is assumed that the preboot routine will properly
+/// initialize other cores and/or copy over the base settings
+/// of the primary core to them prior to jumping to the kernel.
+///
+/// Because of this, there is no `init_preboot_secondary` function.
+///
+/// This function *may* be reserved (i.e. do nothing) on certain
+/// platforms. However, it is still necessary that the function
+/// be called to be future-proof, as it may change at a later date.
+///
+/// # Safety
+/// This function MUST be called EXACTLY once.
+///
+/// The kernel MUST NOT call this function.
+pub unsafe fn init_preboot_primary() {
+	X86_64::disable_interrupts();
+
+	// Initialize the serial port
+	// NOTE(qix-): This is an early-development-stage stop-gap solution
+	// NOTE(qix-): to the logging and debugging problem. This will be
+	// NOTE(qix-): replaced with a proper pre-boot module loading system
+	// NOTE(qix-): in the future.
+	SERIAL.lock().init();
+}
+
+/// Initializes the primary core in the kernel.
+///
+/// This function *may* be reserved (i.e. do nothing) on certain
+/// platforms. However, it is still necessary that the function
+/// be called to be future-proof, as it may change at a later date.
+///
+/// # Safety
+/// This function MUST be called EXACTLY once.
+///
+/// This function MUST only be called on the primary core.
+///
+/// This function MUST NOT be called from the preboot environment.
+pub unsafe fn init_kernel_primary() {
+	X86_64::disable_interrupts();
+
+	// TODO(qix-): Unlock the latch barrier
+
+	init_kernel_secondary();
+}
+
+/// Initializes a seconary core in the kernel.
+///
+/// This function *may* be reserved (i.e. do nothing) on certain
+/// platforms. However, it is still necessary that the function
+/// be called to be future-proof, as it may change at a later date.
+///
+/// # Safety
+/// This function MUST be called EXACTLY once for each secondary core.
+/// If no secondary cores are present, this function MUST NOT be called.
+///
+/// This function MUST only be called on secondary cores.
+///
+/// This function MUST NOT be called from the preboot environment.
+///
+/// This function MAY block until `init_kernel_primary()` has completed.
+pub unsafe fn init_kernel_secondary() {
+	X86_64::disable_interrupts();
+
+	// TODO(qix-): Wait for latch barrier
+
+	// TODO(qix-): Ensure that the CPU has page execution protection
+	// TODO(qix-): enabled. Ref 3.1.7, NX bit.
 }
