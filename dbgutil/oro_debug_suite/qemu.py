@@ -6,7 +6,7 @@ import tempfile
 import shutil
 import gdb  # type: ignore
 import threading
-from qemu.qmp import QMPClient, Runstate  # type:ignore
+from qemu.qmp import QMPClient, Runstate  # type: ignore
 import asyncio
 import os
 from os import path
@@ -14,6 +14,7 @@ from queue import SimpleQueue
 import time
 import signal
 import errno
+from .log import debug
 
 
 class QmpThread(threading.Thread):
@@ -120,6 +121,8 @@ class QemuProcess(object):
             f"unix:{self.__gdbsrv_path},server",
             "-S",
         ]
+
+        debug("spawning QEMU with args:", repr(args))
 
         self.__process = subprocess.Popen(
             args,

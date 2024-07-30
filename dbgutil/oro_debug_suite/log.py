@@ -21,3 +21,12 @@ def error(*args, **kwargs):
     # TODO(qix-): This adds a space between the last arg and the color reset message;
     # TODO(qix-): it really shouldn't. Just a minor nitpick.
     print("\x1b[38;5;129moro\x1b[38;5;160m", *args, "\x1b[m", **kwargs)
+
+
+def debug(*args, **kwargs):
+    """
+    Oro-branded debug function.
+    """
+    # TODO(qix-): This adds a space between the last arg and the color reset message;
+    # TODO(qix-): it really shouldn't. Just a minor nitpick.
+    print("\x1b[38;5;129moro\x1b[2m", *args, "\x1b[m", **kwargs)
