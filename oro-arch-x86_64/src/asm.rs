@@ -23,7 +23,7 @@ pub fn invlpg(virtual_address: usize) {
 pub fn is_5_level_paging_enabled() -> bool {
 	let cr4: usize;
 	unsafe {
-		asm!("mov {}, cr4", out(reg) cr4, options(preserves_flags));
+		asm!("mov {}, cr4", out(reg) cr4, options(nostack, nomem, preserves_flags));
 	}
 	cr4 & (1 << 12) != 0
 }
@@ -34,7 +34,7 @@ pub fn is_5_level_paging_enabled() -> bool {
 pub fn cr3() -> u64 {
 	let cr3: u64;
 	unsafe {
-		asm!("mov {}, cr3", out(reg) cr3, options(preserves_flags));
+		asm!("mov {}, cr3", out(reg) cr3, options(nostack, nomem, preserves_flags));
 	}
 	cr3
 }
