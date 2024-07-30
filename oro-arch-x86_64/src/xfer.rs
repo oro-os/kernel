@@ -50,6 +50,10 @@ pub unsafe fn transfer(
 	let core_id: u64 = transfer_token.core_id;
 	let core_is_primary: u64 = u64::from(transfer_token.core_is_primary);
 
+	// Tell dbgutil we're about to switch
+	#[cfg(debug_assertions)]
+	crate::dbgutil::__oro_dbgutil_kernel_will_transfer();
+
 	// Jump to stubs.
 	// SAFETY(qix-): Do NOT use `ax`, `dx`, `cx` for transfer registers.
 	asm!(

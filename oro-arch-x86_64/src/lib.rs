@@ -59,6 +59,9 @@
 )]
 #![cfg(not(all(doc, not(target_arch = "x86_64"))))]
 
+#[cfg(debug_assertions)]
+pub(crate) mod dbgutil;
+
 pub(crate) mod arch;
 pub(crate) mod asm;
 pub(crate) mod mem;
