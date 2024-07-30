@@ -164,6 +164,10 @@ pub unsafe fn transfer(
 		in("x0") stubs_page_table_phys,
 	);
 
+	// Tell dbgutil we're about to switch
+	#[cfg(debug_assertions)]
+	crate::dbgutil::__oro_dbgutil_kernel_will_transfer();
+
 	// Populate registers and jump to stubs
 	asm!(
 		"isb",

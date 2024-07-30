@@ -27,7 +27,7 @@
 #![cfg(not(all(doc, not(target_arch = "aarch64"))))]
 
 #[cfg(debug_assertions)]
-mod dbgutil;
+pub(crate) mod dbgutil;
 
 pub(crate) mod arch;
 pub(crate) mod asm;

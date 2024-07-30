@@ -1,10 +1,10 @@
 import gdb  # type: ignore
 import os
 from os import path
-from ..log import log, error
+from ..log import log, error, warn, debug
 from .. import gdb_util
 import subprocess
-from ..service import QEMU
+from ..service import QEMU, SYMBOLS
 
 
 class BootCmd(gdb.Command):
@@ -283,6 +283,16 @@ class BootCmdLimine(gdb.Command):
             with gdb_util.parameter("confirm", False):
                 gdb.execute(f"file {limine_path}", to_string=False, from_tty=True)
 
+            # Set an auto-switch breakpoint if we found one
+            kernel_will_switch_sym = SYMBOLS.get_kernel_will_transfer()
+            if kernel_will_switch_sym:
+                log("setting kernel switch breakpoint")
+                SwitchKernelBreakpoint(kernel_will_switch_sym, kernel_path)
+            else:
+                warn(
+                    "no kernel switch symbol found; will not automatically switch to kernel image"
+                )
+
         if auto_continue:
             log("setting _start breakpoint")
             gdb.Breakpoint("_start", internal=True, temporary=True, qualified=True)
@@ -292,6 +302,23 @@ class BootCmdLimine(gdb.Command):
         else:
             log("kernel booted; use \x1b[1mcontinue\x1b[22m to start execution")
             log("(note: _start breakpoint was NOT set)")
+
+
+class SwitchKernelBreakpoint(gdb.Breakpoint):
+    def __init__(self, at, switch_to_file):
+        super(SwitchKernelBreakpoint, self).__init__(
+            at, internal=True, temporary=True, qualified=True
+        )
+        self.silent = True
+        self._switch_to_file = switch_to_file
+
+    def stop(self):
+        debug(
+            "preboot environment is about to jump to kernel; switching to kernel image file"
+        )
+        with gdb_util.parameter("confirm", False):
+            gdb.execute(f"file {self._switch_to_file}", to_string=False, from_tty=True)
+        return False  # don't stop
 
 
 BootCmd()
