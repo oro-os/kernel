@@ -28,13 +28,23 @@ pub unsafe extern "C" fn _start() -> ! {
 
 	::oro_arch_aarch64::transfer_params!(core_id, core_is_primary_raw, boot_config_virt, pfa_head);
 
+	let core_type = match core_is_primary_raw {
+		0 => ::oro_kernel::CoreType::Secondary,
+		_ => ::oro_kernel::CoreType::Primary,
+	};
+
+	let boot_config = &*(boot_config_virt as *const ::oro_common::BootConfig);
+
+	if core_type == ::oro_kernel::CoreType::Primary {
+		::oro_arch_aarch64::init_kernel_primary();
+	} else {
+		::oro_arch_aarch64::init_kernel_secondary();
+	}
+
 	::oro_kernel::boot::<Aarch64>(&::oro_kernel::CoreConfig {
 		core_id,
-		core_type: match core_is_primary_raw {
-			0 => ::oro_kernel::CoreType::Secondary,
-			_ => ::oro_kernel::CoreType::Primary,
-		},
-		boot_config: &*(boot_config_virt as *const ::oro_common::BootConfig),
+		core_type,
+		boot_config,
 		pfa_head,
 	})
 }

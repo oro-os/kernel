@@ -41,23 +41,6 @@ pub unsafe trait Arch {
 	/// The ELF machine type that this architecture uses.
 	const ELF_MACHINE: ElfMachine;
 
-	/// Initializes shared resources the target CPU.
-	///
-	/// # Safety
-	/// This method must be called **exactly once** at the
-	/// beginning of an execution context (boot stage or kernel),
-	/// and **only** by the primary CPU instance.
-	unsafe fn init_shared();
-
-	/// Initializes instance-local resources the target CPU.
-	///
-	/// # Safety
-	/// This method must be called **exactly once** at the
-	/// beginning of an execution context (boot stage or kernel),
-	/// for **all** instances, **only after** `init_shared` has been
-	/// called by the primary CPU instance.
-	unsafe fn init_local();
-
 	/// Halts the CPU.
 	fn halt() -> !;
 

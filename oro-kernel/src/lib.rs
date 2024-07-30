@@ -82,21 +82,6 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 		}};
 	}
 
-	A::disable_interrupts();
-
-	wait_for_all_cores!();
-
-	if core_config.core_type == CoreType::Primary {
-		// TODO(qix-): A number of issues across architectures with the logging
-		// TODO(qix-): system here. For now, I'm going to skip this. It'll be
-		// TODO(qix-): refurbished when the boot services modules are implemented.
-		// A::init_shared();
-	}
-
-	wait_for_all_cores!();
-
-	A::init_local();
-
 	wait_for_all_cores!();
 
 	// Set up the PFA.

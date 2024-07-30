@@ -64,4 +64,4 @@ pub(crate) mod asm;
 pub(crate) mod mem;
 pub(crate) mod xfer;
 
-pub use self::arch::X86_64;
+pub use self::arch::{init_kernel_primary, init_kernel_secondary, init_preboot_primary, X86_64};

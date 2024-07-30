@@ -143,13 +143,6 @@ pub trait CpuId {
 /// # Panics
 /// Panics if a bootstrap CPU is not found.
 pub unsafe fn init<A: Arch, C: CpuId>() -> ! {
-	// We know that there is only one CPU being used
-	// in the bootloader stage.
-	A::init_shared();
-	A::init_local();
-
-	A::disable_interrupts();
-
 	dbg!(A, "limine", "boot");
 
 	let smp_response = get_response!(mut REQ_SMP, "smp");
@@ -230,8 +223,6 @@ fn make_memory_map_iterator() -> LimineMemoryRegionIterator {
 /// Must ONLY be called ONCE by SECONDARY cores. DO NOT CALL FROM PRIMARY.
 /// Call `initialize_kernel` directly from the bootstrap (primary) core instead.
 unsafe extern "C" fn trampoline_to_init<A: Arch, C: CpuId>(smp: &Cpu) -> ! {
-	A::init_local();
-
 	let hhdm_res = get_response!(REQ_HHDM, "hhdm offset");
 
 	initialize_kernel::<A>(PrebootConfig::Secondary {
