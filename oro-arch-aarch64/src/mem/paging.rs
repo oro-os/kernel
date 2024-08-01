@@ -335,8 +335,6 @@ macro_rules! descriptor_init_value {
 		!0b1 & (
 			0b10
 				| PageTableEntryTableAccessPerm::default_const() as u64
-				// Access flag (AF=1)
-				| (1 << 10)
 		)
 	};
 	(block) => {
