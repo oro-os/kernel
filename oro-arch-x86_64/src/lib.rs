@@ -64,6 +64,7 @@ pub(crate) mod dbgutil;
 
 pub(crate) mod arch;
 pub(crate) mod asm;
+pub(crate) mod descriptor;
 pub(crate) mod mem;
 pub(crate) mod xfer;
 

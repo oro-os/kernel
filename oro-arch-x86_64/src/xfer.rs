@@ -5,6 +5,7 @@
 
 use crate::mem::{address_space::AddressSpaceLayout, paging_level::PagingLevel};
 use core::arch::asm;
+use oro_common::mem::AddressSegment;
 
 extern "C" {
 	/// The start of the transfer stubs.
@@ -49,13 +50,14 @@ pub unsafe fn transfer(
 	let stubs_addr: usize = crate::xfer::target_address();
 	let core_id: u64 = transfer_token.core_id;
 	let core_is_primary: u64 = u64::from(transfer_token.core_is_primary);
+	let gdt_base: usize = AddressSpaceLayout::gdt().range().0;
 
 	// Tell dbgutil we're about to switch
 	#[cfg(debug_assertions)]
 	crate::dbgutil::__oro_dbgutil_kernel_will_transfer();
 
 	// Jump to stubs.
-	// SAFETY(qix-): Do NOT use `ax`, `dx`, `cx` for transfer registers.
+	// SAFETY(qix-): Do NOT use `ax`, `bx`, `dx`, `cx` for transfer registers.
 	asm!(
 		"jmp r12",
 		in("r8") pfa_head,
@@ -66,6 +68,7 @@ pub unsafe fn transfer(
 		in("r13") core_id,
 		in("r14") core_is_primary,
 		in("r15") boot_config_virt,
+		in("rdi") gdt_base,
 		options(noreturn)
 	);
 }
@@ -89,9 +92,35 @@ pub unsafe fn transfer(
 #[link_section = ".oro_xfer_stubs.entry"]
 unsafe extern "C" fn transfer_stubs() -> ! {
 	asm! {
+		// Load the new page table base address.
 		"mov cr3, r9",
+		// Load the GDT. Doesn't do anything until
+		// segment registers are re-loaded.
+		"lgdt [rdi]",
+		// Set non-code segment registers
+		"mov ax, 0x10",
+		"mov ds, ax",
+		"mov es, ax",
+		"mov fs, ax",
+		"mov gs, ax",
+		"mov ss, ax",
+		// Set the stack
 		"mov rsp, r10",
-		"push 0", // Push a return value of 0 onto the stack to prevent accidental returns
+		// CS is at offset 0x08, and we can't just move into CS,
+		// so we must push the segment selector onto the stack and
+		// then return to it.
+		"sub rsp, 16",
+		"mov qword ptr[rsp + 8], 0x08",
+		"lea rax, [rip + 2f]",
+		"mov qword ptr[rsp], rax",
+		"retfq",
+		// Using 2f instead of 0/1 due to LLVM bug
+		// (https://bugs.llvm.org/show_bug.cgi?id=36144)
+		// causing them to be parsed as binary literals
+		// under intel syntax.
+		"2:",
+		// Push a return value of 0 onto the stack to prevent accidental returns
+		"push 0",
 		"jmp r11",
 		options(noreturn),
 	}

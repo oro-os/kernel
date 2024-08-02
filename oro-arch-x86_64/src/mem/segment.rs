@@ -313,6 +313,7 @@ impl AddressSegment {
 unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 	// SAFETY(qix-): We know and understand that the sign is being munged here;
 	// SAFETY(qix-): that's expected. We can safely ignore any clippy lints related to that.
+	// TODO(qix-): Once const trait methods are stabilitized, make this const.
 	// TODO(qix-): Once attributes on expressions are stabilized, move this directly into the macro.
 	#[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
 	fn range(&self) -> (usize, usize) {
