@@ -27,9 +27,11 @@ class BootCmdLimine(gdb.Command):
         oro boot limine [-sC] [-n <num_cores>]
 
     Options:
-        -s, --switch       Switch to the Limine executable before booting.
-        -n, --num_cores    Specify the number of CPU cores to emulate (default: 1).
-        -C, --no-continue  Do not automatically continue execution after booting.
+        -s, --switch         Switch to the Limine executable before booting.
+        -n, --num_cores      Specify the number of CPU cores to emulate (default: 1).
+        -C, --no-continue    Do not automatically continue execution after booting.
+        -K, --no-autokernel  Do not automatically load the kernel image during transfer.
+                             (Only useful with --switch)
     """
 
     def __init__(self):
@@ -50,6 +52,7 @@ class BootCmdLimine(gdb.Command):
         rest_args = []
 
         switch = False
+        autoload_kernel = True
         num_cores = 2
         auto_continue = True
 
@@ -76,6 +79,8 @@ class BootCmdLimine(gdb.Command):
                 argi += 1
             elif arg in ["--no-continue", "-C"]:
                 auto_continue = False
+            elif arg in ["--no-autokernel", "-K"]:
+                autoload_kernel = False
             elif arg == "--":
                 rest_args = args[argi + 1 :]
                 break
@@ -283,15 +288,16 @@ class BootCmdLimine(gdb.Command):
             with gdb_util.parameter("confirm", False):
                 gdb.execute(f"file {limine_path}", to_string=False, from_tty=True)
 
-            # Set an auto-switch breakpoint if we found one
-            kernel_will_switch_sym = SYMBOLS.get_kernel_will_transfer()
-            if kernel_will_switch_sym:
-                log("setting kernel switch breakpoint")
-                SwitchKernelBreakpoint(kernel_will_switch_sym, kernel_path)
-            else:
-                warn(
-                    "no kernel switch symbol found; will not automatically switch to kernel image"
-                )
+            if autoload_kernel:
+                # Set an auto-switch breakpoint if we found one
+                kernel_will_switch_sym = SYMBOLS.get_kernel_will_transfer()
+                if kernel_will_switch_sym:
+                    log("setting kernel switch breakpoint")
+                    SwitchKernelBreakpoint(kernel_will_switch_sym, kernel_path)
+                else:
+                    warn(
+                        "no kernel switch symbol found; will not automatically switch to kernel image"
+                    )
 
         if auto_continue:
             log("setting _start breakpoint")
