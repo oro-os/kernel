@@ -13,7 +13,10 @@ use core::{
 };
 use oro_common::{
 	elf::{ElfClass, ElfEndianness, ElfMachine},
-	mem::{AddressSegment, AddressSpace, PageFrameAllocate, PageFrameFree, UnmapError},
+	mem::{
+		AddressSegment, AddressSpace, PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator,
+		UnmapError,
+	},
 	sync::UnfairCriticalSpinlock,
 	Arch, PrebootConfig, PrebootPrimaryConfig,
 };
@@ -82,6 +85,27 @@ unsafe impl Arch for X86_64 {
 		C: PrebootPrimaryConfig,
 		A: PageFrameAllocate + PageFrameFree,
 	{
+		let translator = config.physical_address_translator();
+
+		// Allocate and write the GDT.
+		let gdt_page = alloc.allocate().expect("failed to allocate page for GDT");
+
+		let gdt_slice =
+			core::slice::from_raw_parts_mut(translator.to_virtual_addr(gdt_page) as *mut u8, 4096);
+		gdt_slice.fill(0);
+
+		crate::descriptor::write_gdt(gdt_slice);
+
+		AddressSpaceLayout::gdt()
+			.map(
+				mapper,
+				alloc,
+				translator,
+				AddressSpaceLayout::gdt().range().0,
+				gdt_page,
+			)
+			.expect("failed to map GDT page for kernel address space");
+
 		// Allocate and map in the transfer stubs
 		let stubs_base = crate::xfer::target_address();
 
@@ -120,24 +144,13 @@ unsafe impl Arch for X86_64 {
 
 			// Map into the target kernel page tables
 			stubs
-				.map(
-					mapper,
-					alloc,
-					config.physical_address_translator(),
-					virt,
-					phys,
-				)
+				.map(mapper, alloc, translator, virt, phys)
 				.expect("failed to map page for transfer stubs for kernel address space");
 
 			// Attempt to unmap it from the current address space.
 			// If it's not mapped, we can ignore the error.
 			stubs
-				.unmap(
-					&current_mapper,
-					alloc,
-					config.physical_address_translator(),
-					virt,
-				)
+				.unmap(&current_mapper, alloc, translator, virt)
 				.or_else(|e| {
 					if e == UnmapError::NotMapped {
 						Ok(0)
@@ -149,13 +162,7 @@ unsafe impl Arch for X86_64 {
 
 			// Now map it into the current mapper so we can access it.
 			stubs
-				.map(
-					&current_mapper,
-					alloc,
-					config.physical_address_translator(),
-					virt,
-					phys,
-				)
+				.map(&current_mapper, alloc, translator, virt, phys)
 				.expect("failed to map page for transfer stubs in current address space");
 		}
 
