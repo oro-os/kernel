@@ -335,7 +335,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 		unsafe {
 			// Sanity check the pre-condition that it's aligned.
 			debug_assert!(virt & 0xFFF == 0);
-			crate::asm::invalidate_tlb(virt);
+			crate::asm::invalidate_tlb_el1(virt);
 		}
 
 		Ok(())
@@ -388,7 +388,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 		}
 
 		unsafe {
-			crate::asm::invalidate_tlb(virt);
+			crate::asm::invalidate_tlb_el1(virt);
 		}
 
 		Ok(old_phys)
