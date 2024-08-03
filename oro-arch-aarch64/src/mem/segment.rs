@@ -302,7 +302,9 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 	#[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
 	fn range(&self) -> (usize, usize) {
 		let start = sign_extend!(self.valid_range.0 << 39);
-		let end = sign_extend!((self.valid_range.1 + 1) << 39);
+		// TODO(qix-): Assumes a 48-bit virtual address space for each TT; will need
+		// TODO(qix-): to adjust this when other addressing modes are supported.
+		let end = sign_extend!(((self.valid_range.1) << 39) | 0x0000_007F_FFFF_FFFF);
 		(start, end)
 	}
 

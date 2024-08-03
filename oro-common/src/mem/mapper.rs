@@ -124,6 +124,8 @@ pub unsafe trait AddressSpace {
 /// expectations.
 pub unsafe trait AddressSegment<Handle: Sized> {
 	/// Returns the range of virtual addresses that this segment covers.
+	///
+	/// The range is inclusive of the start and end addresses.
 	fn range(&self) -> (usize, usize);
 
 	/// Maps a physical address into the segment at the given virtual address.
