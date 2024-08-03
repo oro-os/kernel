@@ -148,8 +148,6 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 		);
 	}
 
-	wait_for_all_cores!();
-
 	if core_config.core_type == CoreType::Primary {
 		dbg!(A, "kernel", "kernel transfer ok");
 	}
