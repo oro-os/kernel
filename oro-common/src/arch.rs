@@ -6,7 +6,7 @@
 //! memory management facilities).
 use crate::{
 	elf::{ElfClass, ElfEndianness, ElfMachine},
-	mem::{AddressSpace, PageFrameAllocate, PageFrameFree},
+	mem::{AddressSpace, PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator},
 	PrebootConfig, PrebootPrimaryConfig,
 };
 use core::fmt;
@@ -181,11 +181,13 @@ pub unsafe trait Arch {
 	/// local to the CPU core being prepared, and must ONLY do what
 	/// the architecture documents will occur after the kernel has
 	/// taken control.
-	unsafe fn after_transfer<A>(
+	unsafe fn after_transfer<A, P>(
 		mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
+		translator: &P,
 		alloc: &mut A,
 	) where
-		A: PageFrameAllocate + PageFrameFree;
+		A: PageFrameAllocate + PageFrameFree,
+		P: PhysicalAddressTranslator;
 
 	/// Logs a message to the debug logger (typically a serial port).
 	///
