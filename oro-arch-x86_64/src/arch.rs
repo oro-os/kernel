@@ -262,45 +262,67 @@ unsafe impl Arch for X86_64 {
 		// Unmap and reclaim anything in the lower half.
 		let l4 = &mut *(translator.to_virtual_addr(mapper.base_phys) as *mut PageTable);
 
-		for l4_idx in 0..=255 {
-			let l4_entry = &mut l4[l4_idx];
-			if l4_entry.present() {
-				let l3 = &mut *(translator.to_virtual_addr(l4_entry.address()) as *mut PageTable);
+		if is_primary {
+			for l4_idx in 0..=255 {
+				let l4_entry = &mut l4[l4_idx];
+				if l4_entry.present() {
+					let l3 =
+						&mut *(translator.to_virtual_addr(l4_entry.address()) as *mut PageTable);
 
-				for l3_idx in 0..512 {
-					let l3_entry = &mut l3[l3_idx];
-					if l3_entry.present() {
-						let l2 = &mut *(translator.to_virtual_addr(l3_entry.address())
-							as *mut PageTable);
+					for l3_idx in 0..512 {
+						let l3_entry = &mut l3[l3_idx];
+						if l3_entry.present() {
+							let l2 = &mut *(translator.to_virtual_addr(l3_entry.address())
+								as *mut PageTable);
 
-						for l2_idx in 0..512 {
-							let l2_entry = &mut l2[l2_idx];
-							if l2_entry.present() {
-								let l1 = &mut *(translator.to_virtual_addr(l2_entry.address())
-									as *mut PageTable);
+							for l2_idx in 0..512 {
+								let l2_entry = &mut l2[l2_idx];
+								if l2_entry.present() {
+									let l1 = &mut *(translator.to_virtual_addr(l2_entry.address())
+										as *mut PageTable);
 
-								for l1_idx in 0..512 {
-									let l1_entry = &mut l1[l1_idx];
-									if l1_entry.present() {
-										alloc.free(l1_entry.address());
+									for l1_idx in 0..512 {
+										let l1_entry = &mut l1[l1_idx];
+										if l1_entry.present() {
+											alloc.free(l1_entry.address());
+										}
 									}
+
+									let _ = l1;
+									alloc.free(l2_entry.address());
 								}
-
-								let _ = l1;
-								alloc.free(l2_entry.address());
 							}
-						}
 
-						let _ = l2;
-						alloc.free(l3_entry.address());
+							let _ = l2;
+							alloc.free(l3_entry.address());
+						}
 					}
+
+					let _ = l3;
+					alloc.free(l4_entry.address());
 				}
 
-				let _ = l3;
-				alloc.free(l4_entry.address());
+				l4_entry.reset();
 			}
 
-			l4_entry.reset();
+			// Make sure other cores see writes.
+			Self::strong_memory_barrier();
+		} else {
+			// We simply need to reset the L4 entries in the lower half.
+			// All of the addresses they have pointed to have been freed
+			// by the primary.
+			//
+			// SAFETY(qix-): The specification of this method guarantees that
+			// SAFETY(qix-): this method is called on the primary core first.
+			// SAFETY(qix-): This means that the primary core has already freed
+			// SAFETY(qix-): all of the pages that the secondary core's L4
+			// SAFETY(qix-): entries point to, and those entries are now zombies.
+			// SAFETY(qix-): We can further guarantee this is the case since
+			// SAFETY(qix-): the secondary cores shallow clone the L4 table when
+			// SAFETY(qix-): bootstrapping.
+			for l4_idx in 0..=255 {
+				l4[l4_idx].reset();
+			}
 		}
 
 		// Flush the TLB
