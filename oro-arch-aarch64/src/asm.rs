@@ -34,7 +34,6 @@ pub unsafe fn invalidate_tlb_el1(virt: usize) {
 /// all cores in all execution contexts. Be VERY CAREFUL
 /// that you control the value in the `TTBR0_EL1` register
 /// prior to calling this again.
-#[allow(dead_code)]
 pub unsafe fn load_ttbr0() -> u64 {
 	let ttbr0_el1: u64;
 	unsafe {
@@ -62,7 +61,6 @@ pub unsafe fn load_ttbr0() -> u64 {
 /// all cores in all execution contexts. Be VERY CAREFUL
 /// that you control the value in the `TTBR1_EL1` register
 /// prior to calling this again.
-#[allow(dead_code)]
 pub unsafe fn load_ttbr1() -> u64 {
 	let ttbr1_el1: u64;
 	unsafe {
@@ -80,27 +78,10 @@ pub unsafe fn load_ttbr1() -> u64 {
 /// Caller must ensure that the physical address is valid
 /// memory, and that page tables written to that
 /// address are valid.
-#[allow(dead_code)]
 pub unsafe fn store_ttbr0(phys: u64) {
 	unsafe {
 		asm!(
 			"msr TTBR0_EL1, {0:x}",
-			in(reg) phys,
-		);
-	}
-}
-
-/// Stores a new physical address into the `TTBR1_EL1` register.
-///
-/// # Safety
-/// Caller must ensure that the physical address is valid
-/// memory, and that page tables written to that
-/// address are valid.
-#[allow(dead_code)]
-pub unsafe fn store_ttbr1(phys: u64) {
-	unsafe {
-		asm!(
-			"msr TTBR1_EL1, {0:x}",
 			in(reg) phys,
 		);
 	}
