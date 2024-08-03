@@ -38,8 +38,6 @@ impl AddressSpaceLayout {
 	pub const KERNEL_EXE_IDX: usize = 511;
 	/// The stack space range
 	pub const KERNEL_STACK_IDX: usize = 257;
-	/// The recursive index for the page table.
-	pub const RECURSIVE_IDX: usize = 256;
 	/// The index for kernel transfer stubs.
 	/// Since we identity map the stubs, we must specify an index
 	/// range that spans the entirety of the lower half.

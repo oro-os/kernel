@@ -49,8 +49,6 @@ impl AddressSpaceLayout {
 	pub const KERNEL_EXE_IDX: usize = 511;
 	/// The stack space range
 	pub const KERNEL_STACK_IDX: usize = 257;
-	/// The recursive index for the page table.
-	pub const RECURSIVE_IDX: usize = 256;
 	/// The index for kernel transfer stubs.
 	/// NOTE(qix-): All lower-half indices are automatically reclaimed
 	/// NOTE(qix-): by the kernel after boot.
