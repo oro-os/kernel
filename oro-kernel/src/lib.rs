@@ -9,9 +9,13 @@
 	clippy::missing_docs_in_private_items
 )]
 
+extern crate alloc;
+
+mod mem;
+
 use core::mem::MaybeUninit;
 use oro_common::{
-	dbg,
+	dbg, dbg_err,
 	mem::{AddressSpace, FiloPageFrameAllocator, OffsetPhysicalAddressTranslator},
 	sync::UnfairSpinlock,
 	Arch, BootConfig,
@@ -160,6 +164,7 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 /// # Safety
 /// Do **NOT** call this function directly.
 /// It is only called by the architecture-specific binaries.
-pub unsafe fn panic<A: Arch>(_info: &::core::panic::PanicInfo) -> ! {
+pub unsafe fn panic<A: Arch>(info: &::core::panic::PanicInfo) -> ! {
+	dbg_err!(A, "kernel", "panic: {:?}", info);
 	A::halt()
 }
