@@ -53,6 +53,24 @@ pub fn assert_fits<T: Sized, const SIZE: usize>(_v: &T) {
 	() = <T as AssertFits<SIZE>>::ASSERT;
 }
 
+/// One-off assertion that a type fits within another type size-wise.
+pub fn assert_fits_within<T: Sized, U: Sized>(_v: &T) {
+	// TODO(qix-): When the `generic_const_exprs` feature is stabilized,
+	// TODO(qix-): switch this to the following:
+	// TODO(qix-): () = <T as AssertFits<{core::mem::size_of::<U>()}>>::ASSERT;
+
+	() = <T as AssertFitsWithin<U>>::ASSERT;
+}
+
+/// One-off assertion that a type fits within another type size-wise using value references.
+pub fn assert_fits_within_val<T: Sized, U: Sized>(_v: &T, _u: &U) {
+	// TODO(qix-): When the `generic_const_exprs` feature is stabilized,
+	// TODO(qix-): switch this to the following:
+	// TODO(qix-): () = <T as AssertFits<{core::mem::size_of::<U>()}>>::ASSERT;
+
+	() = <T as AssertFitsWithin<U>>::ASSERT;
+}
+
 /// Asserts that a type does not have a destructor (drop method) or have any fields
 /// that require a destructor to be called.
 ///
@@ -86,3 +104,80 @@ pub trait AssertNoDrop {
 }
 
 impl<T> AssertNoDrop for T {}
+
+/// Asserts that a type has equal or less alignment requirements than another type.
+///
+/// To use, simply bound a type to this trait and use the `ASSERT` associated constant
+/// like so:
+///
+/// ```rust
+/// () = <T as AssertAlignsWithin<U>>::ASSERT;
+/// ```
+///
+/// # Safety
+/// The assertion **does not trigger** unless the above explicit usage of the
+/// `ASSERT` associated constant is used. There's, unfortunately, no great way
+/// to enforce this at the type level.
+pub trait AssertAlignsWithin<U: Sized>: Sized {
+	/// Performs the assertion that the type has equal or less alignment requirements
+	/// than another type.
+	///
+	/// This must be referenced somewhere in the code at each usage site,
+	/// like so:
+	///
+	/// ```rust
+	/// () = <T as AssertAlignsWithin<U>>::ASSERT;
+	/// ```
+	///
+	/// This will cause a compile-time error if the assertion does not hold.
+	const ASSERT: () = assert!(
+		core::mem::align_of::<Self>() <= core::mem::align_of::<U>(),
+		"value does not align within the specified type (check U)"
+	);
+}
+
+impl<T: Sized, U: Sized> AssertAlignsWithin<U> for T {}
+
+/// One-off assertion that a type has equal or less alignment requirements
+/// than another type.
+pub fn assert_aligns_within<T: Sized, U: Sized>(_v: &T) {
+	() = <T as AssertAlignsWithin<U>>::ASSERT;
+}
+
+/// One-off assertion that a type has equal or less alignment requirements
+/// than another type using value references.
+pub fn assert_aligns_within_val<T: Sized, U: Sized>(_v: &T, _u: &U) {
+	() = <T as AssertAlignsWithin<U>>::ASSERT;
+}
+
+/// Asserts that a type fits within another type size-wise.
+///
+/// To use, simply bound a type to this trait and use the `ASSERT` associated constant
+/// like so:
+///
+/// ```rust
+/// () = <T as AssertFitsWithin<U>>::ASSERT;
+/// ```
+///
+/// # Safety
+/// The assertion **does not trigger** unless the above explicit usage of the
+/// `ASSERT` associated constant is used. There's, unfortunately, no great way
+/// to enforce this at the type level.
+pub trait AssertFitsWithin<U: Sized>: Sized {
+	/// Performs the assertion that the type fits within another type size-wise.
+	///
+	/// This must be referenced somewhere in the code at each usage site,
+	/// like so:
+	///
+	/// ```rust
+	/// () = <T as AssertFitsWithin<U>>::ASSERT;
+	/// ```
+	///
+	/// This will cause a compile-time error if the assertion does not hold.
+	const ASSERT: () = assert!(
+		core::mem::size_of::<Self>() <= core::mem::size_of::<U>(),
+		"value does not fit within the specified type (check U)"
+	);
+}
+
+impl<T: Sized, U: Sized> AssertFitsWithin<U> for T {}
