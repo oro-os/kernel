@@ -3,7 +3,7 @@
 #![allow(clippy::inline_always)]
 
 use crate::{
-	mem::{address_space::AddressSpaceLayout, paging_level::PagingLevel},
+	mem::{address_space::AddressSpaceLayout, paging::PageTable, paging_level::PagingLevel},
 	xfer::TransferToken,
 };
 use core::{
@@ -258,7 +258,57 @@ unsafe impl Arch for X86_64 {
 		A: PageFrameAllocate + PageFrameFree,
 		P: PhysicalAddressTranslator,
 	{
-		// TODO(qix-)
+		// Unmap and reclaim anything in the lower half.
+		let l0 = &mut *(translator.to_virtual_addr(mapper.base_phys) as *mut PageTable);
+
+		for l0_idx in 0..=255 {
+			let l0_entry = &mut l0[l0_idx];
+			if l0_entry.present() {
+				let l1 = &mut *(translator.to_virtual_addr(l0_entry.address()) as *mut PageTable);
+
+				for l1_idx in 0..512 {
+					let l1_entry = &mut l1[l1_idx];
+					if l1_entry.present() {
+						let l2 = &mut *(translator.to_virtual_addr(l1_entry.address())
+							as *mut PageTable);
+
+						for l2_idx in 0..512 {
+							let l2_entry = &mut l2[l2_idx];
+							if l2_entry.present() {
+								let l3 = &mut *(translator.to_virtual_addr(l2_entry.address())
+									as *mut PageTable);
+
+								for l3_idx in 0..512 {
+									let l3_entry = &mut l3[l3_idx];
+									if l3_entry.present() {
+										alloc.free(l3_entry.address());
+									}
+								}
+
+								let _ = l3;
+								alloc.free(l2_entry.address());
+							}
+						}
+
+						let _ = l2;
+						alloc.free(l1_entry.address());
+					}
+				}
+
+				let _ = l1;
+				alloc.free(l0_entry.address());
+			}
+
+			l0_entry.reset();
+		}
+
+		// Flush the TLB
+		asm!(
+			"mov rax, cr3",
+			"mov cr3, rax",
+			out("rax") _,
+			options(nostack, preserves_flags)
+		);
 	}
 
 	#[inline(always)]

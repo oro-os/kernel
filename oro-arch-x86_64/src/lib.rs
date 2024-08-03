@@ -40,6 +40,13 @@
 //! The Oro x86_64 architecture expects that all SMP cores invoking
 //! [`oro_common::boot_to_kernel`] use a shared page table - that is,
 //! the `cr3` register points to the same base address for all cores.
+//!
+//! ### After-Transfer Behavior
+//! All memory mapped in the lower half is reclaimed by the page frame
+//! allocator after the transfer to the kernel. Any boot-time allocations
+//! that are used only for the transfer to the kernel by the preboot
+//! environment can be placed there for automatic cleanup by the kernel
+//! once it has booted.
 #![no_std]
 #![deny(
 	missing_docs,
