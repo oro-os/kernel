@@ -1,9 +1,11 @@
 //! One-off assembly instructions or operations for AArch64.
 use core::arch::asm;
 
+/// Invalidates the TLB entry for the given virtual address.
+///
 /// # Safety
 /// Caller must ensure that the virtual address is valid and aligned.
-pub unsafe fn invalidate_tlb(virt: usize) {
+pub unsafe fn invalidate_tlb_el1(virt: usize) {
 	asm!(
 		"dsb ish",                // Ensure the update is visible
 		"dc ivac, {0:x}",         // Invalidate the data cache by virtual address
