@@ -1,5 +1,5 @@
 //! Various utility types, functions, and traits,
-//! to be used solely from within the kernel common crate.
+//! to be used solely from within the kernel and common crate.
 
 pub mod assertions;
 pub mod macros;

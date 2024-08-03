@@ -42,6 +42,10 @@ pub(crate) mod boot;
 pub(crate) mod dbg;
 pub(crate) mod init;
 pub(crate) mod ser2mem;
+
+#[cfg(feature = "kernel")]
+pub mod util;
+#[cfg(not(feature = "kernel"))]
 pub(crate) mod util;
 
 pub use self::{
