@@ -16,6 +16,11 @@
 //!   to set it to 16.
 //! - `TTBR0_EL1` must be left undefined or set to 0 and not be relied upon for any execution,
 //!   as the initialization subroutine will overwrite it.
+//!
+//! ### After Transfer Behavior
+//! All of TT0 is unmapped and TTBR0 is set to 0. This, however, means nothing to the
+//! preboot environment, as the preboot environment MUST NOT rely on TTBR0 for any resource
+//! allocation or mapping.
 #![no_std]
 #![deny(
 	missing_docs,
