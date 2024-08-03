@@ -96,7 +96,7 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 
 	if core_config.core_type == CoreType::Primary {
 		PFA.write(UnfairSpinlock::new(FiloPageFrameAllocator::with_last_free(
-			translator,
+			translator.clone(),
 			core_config.pfa_head,
 		)));
 
@@ -111,7 +111,7 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 
 	{
 		let mut pfa = pfa.lock::<A>();
-		A::after_transfer(&kernel_addr_space, &mut *pfa);
+		A::after_transfer(&kernel_addr_space, &translator, &mut *pfa);
 	}
 
 	wait_for_all_cores!();

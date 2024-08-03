@@ -9,7 +9,10 @@ use core::{
 };
 use oro_common::{
 	elf::{ElfClass, ElfEndianness, ElfMachine},
-	mem::{AddressSegment, AddressSpace, PageFrameAllocate, PageFrameFree, UnmapError},
+	mem::{
+		AddressSegment, AddressSpace, PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator,
+		UnmapError,
+	},
 	sync::UnfairCriticalSpinlock,
 	Arch, PrebootConfig, PrebootPrimaryConfig,
 };
@@ -171,11 +174,13 @@ unsafe impl Arch for Aarch64 {
 		crate::xfer::transfer(entry, &transfer_token, boot_config_virt, pfa_head);
 	}
 
-	unsafe fn after_transfer<A>(
+	unsafe fn after_transfer<A, P>(
 		_mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
+		_translator: &P,
 		_alloc: &mut A,
 	) where
 		A: PageFrameAllocate + PageFrameFree,
+		P: PhysicalAddressTranslator,
 	{
 		// TODO(qix-)
 	}

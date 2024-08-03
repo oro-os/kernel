@@ -250,11 +250,13 @@ unsafe impl Arch for X86_64 {
 		crate::xfer::transfer(entry, &transfer_token, boot_config_virt, pfa_head)
 	}
 
-	unsafe fn after_transfer<A>(
-		_mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
-		_alloc: &mut A,
+	unsafe fn after_transfer<A, P>(
+		mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
+		translator: &P,
+		alloc: &mut A,
 	) where
 		A: PageFrameAllocate + PageFrameFree,
+		P: PhysicalAddressTranslator,
 	{
 		// TODO(qix-)
 	}
