@@ -181,10 +181,14 @@ pub unsafe trait Arch {
 	/// local to the CPU core being prepared, and must ONLY do what
 	/// the architecture documents will occur after the kernel has
 	/// taken control.
+	///
+	/// The method MUST be called FIRST for the primary core, followed
+	/// by a barrier, and then for the secondary core(s).
 	unsafe fn after_transfer<A, P>(
 		mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
 		translator: &P,
 		alloc: &mut A,
+		is_primary: bool,
 	) where
 		A: PageFrameAllocate + PageFrameFree,
 		P: PhysicalAddressTranslator;

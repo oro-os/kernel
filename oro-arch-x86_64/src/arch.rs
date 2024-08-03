@@ -254,6 +254,7 @@ unsafe impl Arch for X86_64 {
 		mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
 		translator: &P,
 		alloc: &mut A,
+		is_primary: bool,
 	) where
 		A: PageFrameAllocate + PageFrameFree,
 		P: PhysicalAddressTranslator,

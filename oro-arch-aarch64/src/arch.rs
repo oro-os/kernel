@@ -178,6 +178,7 @@ unsafe impl Arch for Aarch64 {
 		_mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
 		_translator: &P,
 		_alloc: &mut A,
+		_is_primary: bool,
 	) where
 		A: PageFrameAllocate + PageFrameFree,
 		P: PhysicalAddressTranslator,

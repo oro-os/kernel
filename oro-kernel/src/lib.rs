@@ -80,6 +80,35 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 
 			BARRIER.wait();
 		}};
+		(primary $primary:block secondary $secondary:block) => {{
+			static BARRIER: ::oro_common::sync::SpinBarrier =
+				::oro_common::sync::SpinBarrier::new();
+			static AFTER_BARRIER: ::oro_common::sync::SpinBarrier =
+				::oro_common::sync::SpinBarrier::new();
+
+			if core_config.core_type == CoreType::Primary {
+				$primary
+				BARRIER.set_total::<A>(core_config.boot_config.core_count);
+				AFTER_BARRIER.set_total::<A>(core_config.boot_config.core_count);
+				BARRIER.wait();
+			} else {
+				BARRIER.wait();
+				$secondary
+			}
+
+			AFTER_BARRIER.wait();
+		}};
+		($($t:stmt ;)*) => {{
+			// TODO(qix-): Simplify this such that we don't duplicate code.
+			wait_for_all_cores! {
+				primary {
+					$( $t )*
+				}
+				secondary {
+					$( $t )*
+				}
+			}
+		}};
 	}
 
 	wait_for_all_cores!();
@@ -109,9 +138,14 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 	// SAFETY(qix-): assume that it is initialized here.
 	let pfa = PFA.assume_init_ref();
 
-	{
+	wait_for_all_cores! {
 		let mut pfa = pfa.lock::<A>();
-		A::after_transfer(&kernel_addr_space, &translator, &mut *pfa);
+		A::after_transfer(
+			&kernel_addr_space,
+			&translator,
+			&mut *pfa,
+			core_config.core_type == CoreType::Primary,
+		);
 	}
 
 	wait_for_all_cores!();
