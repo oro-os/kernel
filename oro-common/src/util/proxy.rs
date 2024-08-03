@@ -76,6 +76,7 @@ impl<const SIZE: usize> Proxy<SIZE> {
 	// NOTE(qix-): as a safeguard against edits such that modifications don't
 	// NOTE(qix-): break any lifetime guarantees in the future.
 	#[allow(clippy::needless_lifetimes)]
+	#[must_use]
 	pub fn as_ref<'a, T: Sized + AssertFits<SIZE> + AssertNoDrop + 'static>(
 		&'a self,
 	) -> Option<&'a T> {
