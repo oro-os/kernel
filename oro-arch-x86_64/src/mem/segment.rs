@@ -82,7 +82,18 @@ impl AddressSegment {
 				translator.to_virtual_addr(entry.address())
 			} else {
 				let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
-				*entry = self.entry_template.with_address(frame_phys_addr);
+
+				// SAFETY(qix-): We set writable here since if two L4/L3/L2 regions
+				// SAFETY(qix-): overlap and one is writable, mapping the unwritable
+				// SAFETY(qix-): first would otherwise cause a fault for any writes
+				// SAFETY(qix-): to the overlapping region. Since the leaf pages
+				// SAFETY(qix-): ultimately have their R/W bits set correctly, we set
+				// SAFETY(qix-): the intermediate pages to writable to avoid this.
+				*entry = self
+					.entry_template
+					.with_address(frame_phys_addr)
+					.with_writable();
+
 				let frame_virt_addr = translator.to_virtual_addr(frame_phys_addr);
 				crate::asm::invlpg(frame_virt_addr);
 
