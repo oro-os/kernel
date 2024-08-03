@@ -425,6 +425,11 @@ where
 			let direct_map = A::AddressSpace::direct_map();
 			let (dm_start, _) = direct_map.range();
 			let min_phys_addr = memory_regions.clone().map(|r| r.base()).min().unwrap();
+			assert!(
+				(dm_start as u64) >= min_phys_addr,
+				"direct map start below minimum physical address"
+			);
+
 			for region in memory_regions.clone() {
 				dbg!(
 					A,
@@ -468,9 +473,17 @@ where
 			);
 
 			// Write the boot config.
+			assert!(
+				usize::try_from(min_phys_addr).is_ok(),
+				"minimum physical address too large"
+			);
+
+			#[allow(clippy::cast_possible_truncation)]
+			let linear_map_offset = dm_start - (min_phys_addr as usize);
+
 			let boot_config = <BootConfig as crate::ser2mem::Proxy>::Proxy {
-				core_count:        *num_instances,
-				linear_map_offset: dm_start,
+				core_count: *num_instances,
+				linear_map_offset,
 			};
 
 			// FIXME(qix-): The strange types here are required to work around a
