@@ -140,7 +140,7 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 
 	// SAFETY(qix-): Since we lockstep initialize the shared PFA, it is safe to
 	// SAFETY(qix-): assume that it is initialized here.
-	let pfa = PFA.assume_init_ref();
+	let pfa: &'static _ = &*core::ptr::from_ref(PFA.assume_init_ref());
 
 	wait_for_all_cores! {
 		let mut pfa = pfa.lock::<A>();
@@ -155,6 +155,15 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 	if core_config.core_type == CoreType::Primary {
 		dbg!(A, "kernel", "kernel transfer ok");
 	}
+
+	mem::initialize_allocators::<A, _, _>(kernel_addr_space, translator, pfa);
+
+	// SAFETY(qix-): After this barrier completes, heap allocations are safe to use.
+	wait_for_all_cores!();
+
+	// XXX DEBUG
+	let boxed = alloc::boxed::Box::new(42u8);
+	dbg!(A, "debug", "boxed: {:?}", *boxed);
 
 	A::halt()
 }
