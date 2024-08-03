@@ -21,6 +21,9 @@ use oro_common::{
 };
 use oro_serial_pl011 as pl011;
 
+/// The number of pages to allocate for the kernel stack.
+const KERNEL_STACK_PAGES: usize = 8;
+
 /// The shared serial port for the system.
 // NOTE(qix-): This is a temporary solution until pre-boot module loading
 // NOTE(qix-): is implemented.
@@ -109,21 +112,21 @@ unsafe impl Arch for Aarch64 {
 		A: PageFrameAllocate + PageFrameFree,
 		C: PrebootPrimaryConfig,
 	{
+		let translator = config.physical_address_translator();
+
 		// Map the stubs
-		let stubs = crate::xfer::map_stubs(alloc, config.physical_address_translator())
-			.expect("failed to map transfer stubs");
+		let stubs =
+			crate::xfer::map_stubs(alloc, translator).expect("failed to map transfer stubs");
 
 		// Allocate a stack for the kernel
-		#[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
-		let last_stack_page_virt = (((((AddressSpaceLayout::KERNEL_STACK_IDX << 39) | 0x7F_FFFF_F000)
-			<< 16) as isize)
-			>> 16) as usize;
+		// TODO(qix-): This will have to change when different addressing types are supported.
+		let last_stack_page_virt = AddressSpaceLayout::kernel_stack().range().1 & !0xFFF;
 
 		// make sure top guard page is unmapped
 		match AddressSpaceLayout::kernel_stack().unmap(
 			&mapper,
 			alloc,
-			config.physical_address_translator(),
+			translator,
 			last_stack_page_virt,
 		) {
 			Ok(_) => panic!("kernel top stack guard page was already mapped"),
@@ -131,26 +134,33 @@ unsafe impl Arch for Aarch64 {
 			Err(e) => panic!("failed to test unmap of top kernel stack guard page: {e:?}"),
 		}
 
-		let stack_phys = alloc
-			.allocate()
-			.expect("failed to allocate page for kernel stack (out of memory)");
+		let mut bottom_stack_page_virt = last_stack_page_virt;
 
-		AddressSpaceLayout::kernel_stack()
-			.remap(
-				&mapper,
-				alloc,
-				config.physical_address_translator(),
-				last_stack_page_virt - 4096,
-				stack_phys,
-			)
-			.expect("failed to (re)map page for kernel stack");
+		for _ in 0..KERNEL_STACK_PAGES {
+			// TODO(qix-): This will have to change when different addressing types are supported.
+			bottom_stack_page_virt -= 4096;
+
+			let stack_phys = alloc
+				.allocate()
+				.expect("failed to allocate page for kernel stack (out of memory)");
+
+			AddressSpaceLayout::kernel_stack()
+				.remap(
+					&mapper,
+					alloc,
+					translator,
+					bottom_stack_page_virt,
+					stack_phys,
+				)
+				.expect("failed to (re)map page for kernel stack");
+		}
 
 		// Make sure that the bottom guard page is unmapped
 		match AddressSpaceLayout::kernel_stack().unmap(
 			&mapper,
 			alloc,
-			config.physical_address_translator(),
-			last_stack_page_virt - 8192,
+			translator,
+			bottom_stack_page_virt - 4096,
 		) {
 			Ok(_) => panic!("kernel bottom stack guard page was mapped"),
 			Err(UnmapError::NotMapped) => {}
