@@ -14,6 +14,7 @@
 //! The assertion **does not trigger** unless the above explicit usage of the
 //! `ASSERT` associated constant is used. There's, unfortunately, no great way
 //! to enforce this at the type level.
+#![allow(dead_code)]
 
 /// Asserts that a type is *within* a number of bytes (i.e. `size_of::<T>() <= SIZE`).
 ///
