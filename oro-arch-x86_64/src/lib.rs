@@ -41,6 +41,12 @@
 //! [`oro_common::boot_to_kernel`] use a shared page table - that is,
 //! the `cr3` register points to the same base address for all cores.
 //!
+//! If for some reason `boot_to_kernel` is not used (and you're writing
+//! your own transfer code), each secondary must have a shallow-cloned
+//! CR3 (whereby the L4 page itself is uniquely allocated for each core,
+//! but has duplicate content across all cores, thus pointing to the same
+//! L3/2/1 physical pages).
+//!
 //! ### After-Transfer Behavior
 //! All memory mapped in the lower half is reclaimed by the page frame
 //! allocator after the transfer to the kernel. Any boot-time allocations
