@@ -47,6 +47,10 @@ impl AddressSpaceLayout {
 	pub const GDT_IDX: usize = 258;
 	/// The kernel executable range, shared by the RX, RO, and RW segments.
 	pub const KERNEL_EXE_IDX: usize = 511;
+	/// The private heap (per-core heap) range
+	pub const KERNEL_PRIVATE_HEAP_IDX: (usize, usize) = (400, 450);
+	/// The public heap (shared across all cores) range
+	pub const KERNEL_SHARED_HEAP_IDX: (usize, usize) = (451, 500);
 	/// The stack space range
 	pub const KERNEL_STACK_IDX: usize = 257;
 	/// The index for kernel transfer stubs.
@@ -199,6 +203,34 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 				.with_global()
 				.with_present()
 				.with_no_exec(),
+		};
+
+		&DESCRIPTOR
+	}
+
+	fn kernel_private_heap() -> Self::SupervisorSegment {
+		#[allow(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range:    AddressSpaceLayout::KERNEL_PRIVATE_HEAP_IDX,
+			entry_template: PageTableEntry::new()
+				.with_global()
+				.with_present()
+				.with_no_exec()
+				.with_writable(),
+		};
+
+		&DESCRIPTOR
+	}
+
+	fn kernel_shared_heap() -> Self::SupervisorSegment {
+		#[allow(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range:    AddressSpaceLayout::KERNEL_SHARED_HEAP_IDX,
+			entry_template: PageTableEntry::new()
+				.with_global()
+				.with_present()
+				.with_no_exec()
+				.with_writable(),
 		};
 
 		&DESCRIPTOR

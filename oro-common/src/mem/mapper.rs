@@ -77,6 +77,23 @@ pub unsafe trait AddressSpace {
 	/// **Must overlap with [`Self::kernel_code()`]**
 	fn kernel_rodata() -> Self::SupervisorSegment;
 
+	/// Returns the layout descriptor for the kernel's private heap.
+	///
+	/// Each core gets its own private heap that is never shared with
+	/// other cores. This must be read-write, non-user accessible, and is
+	/// **not** executable.
+	///
+	/// Must **not** overlap with any other segment.
+	fn kernel_private_heap() -> Self::SupervisorSegment;
+
+	/// Returns the layout descriptor for the kernel's shared heap.
+	///
+	/// This is a shared heap that is accessible by all cores. This must be
+	/// read-write, non-user accessible, and is **not** executable.
+	///
+	/// Must **not** overlap with any other segment.
+	fn kernel_shared_heap() -> Self::SupervisorSegment;
+
 	/// Returns the layout descriptor for the direct map of physical addresses.
 	///
 	/// This must be read-write, non-user accessible, and is
