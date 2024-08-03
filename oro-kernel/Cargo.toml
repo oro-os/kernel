@@ -24,6 +24,7 @@ doc = false
 
 [dependencies]
 oro-common = { workspace = true, features = ["kernel"] }
+buddy_system_allocator.workspace = true
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 oro-arch-x86_64.workspace = true

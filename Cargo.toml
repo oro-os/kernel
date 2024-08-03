@@ -32,6 +32,7 @@ volatile-register = "0.2.2"
 syn = "2.0.60"
 quote = "1.0.36"
 proc-macro2 = "1.0.81"
+buddy_system_allocator = "0.10.0"
 
 [profile.dev]
 panic = "abort"            # Use "abort" panic strategy
