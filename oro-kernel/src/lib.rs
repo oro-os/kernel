@@ -9,10 +9,6 @@
 	clippy::missing_docs_in_private_items
 )]
 
-extern crate alloc;
-
-mod mem;
-
 use core::mem::MaybeUninit;
 use oro_common::{
 	dbg, dbg_err,
@@ -155,15 +151,6 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 	if core_config.core_type == CoreType::Primary {
 		dbg!(A, "kernel", "kernel transfer ok");
 	}
-
-	mem::initialize_allocators::<A, _, _>(kernel_addr_space, translator, pfa);
-
-	// SAFETY(qix-): After this barrier completes, heap allocations are safe to use.
-	wait_for_all_cores!();
-
-	// XXX DEBUG
-	let boxed = alloc::boxed::Box::new(42u8);
-	dbg!(A, "debug", "boxed: {:?}", *boxed);
 
 	A::halt()
 }
