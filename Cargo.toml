@@ -46,3 +46,8 @@ strip = true               # Strip symbols from binary
 incremental = false        # Disable incremental building
 panic = "abort"            # Use "abort" panic strategy
 debug = 0                  # Do not generate debug information
+
+[profile.relwithdebinfo]
+inherits = "release"
+debug = "full"             # Full debugging symbols
+strip = false              # Don't strip symbols from binary
