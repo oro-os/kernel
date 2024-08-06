@@ -1,1 +1,1 @@
-doc-valid-idents = ["..", "x86_64", "AArch64", "ARMv8", "Ser2Mem"]
+doc-valid-idents = ["..", "x86_64", "AArch64", "ARMv8", "Ser2Mem", "ANDing", "ORing"]
