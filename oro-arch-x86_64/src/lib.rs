@@ -68,7 +68,8 @@
 	const_mut_refs,
 	naked_functions,
 	core_intrinsics,
-	debug_closure_helpers
+	debug_closure_helpers,
+	asm_const
 )]
 #![cfg(not(all(doc, not(target_arch = "x86_64"))))]
 
@@ -79,6 +80,7 @@ pub(crate) mod arch;
 pub(crate) mod asm;
 pub(crate) mod descriptor;
 pub(crate) mod mem;
+pub(crate) mod reg;
 pub(crate) mod xfer;
 
 pub use self::arch::{init_kernel_primary, init_kernel_secondary, init_preboot_primary, X86_64};

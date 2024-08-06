@@ -3,7 +3,10 @@
 //!
 //! These are _tightly_ coupled to the linker script.
 
-use crate::mem::{address_space::AddressSpaceLayout, paging_level::PagingLevel};
+use crate::{
+	mem::{address_space::AddressSpaceLayout, paging_level::PagingLevel},
+	reg::Cr0,
+};
 use core::arch::asm;
 use oro_common::mem::AddressSegment;
 
@@ -91,6 +94,18 @@ pub unsafe fn transfer(
 #[no_mangle]
 #[link_section = ".oro_xfer_stubs.entry"]
 unsafe extern "C" fn transfer_stubs() -> ! {
+	#[allow(clippy::missing_docs_in_private_items)]
+	const CR0_BITS: u64 = Cr0::new()
+		.with_monitor_coprocessor()
+		.with_emulation()
+		.with_write_protect()
+		.with_alignment_mask()
+		.with_paging_enable()
+		.bits();
+
+	#[allow(clippy::missing_docs_in_private_items)]
+	const CR0_MASK: u64 = Cr0::mask();
+
 	asm! {
 		// Load the new page table base address.
 		"mov cr3, r9",
@@ -119,9 +134,18 @@ unsafe extern "C" fn transfer_stubs() -> ! {
 		// causing them to be parsed as binary literals
 		// under intel syntax.
 		"2:",
+		// Load CR0 with the new bits.
+		"mov r9, cr0",
+		"mov rax, {CR0_MASK}",
+		"and r9, rax",
+		"mov rax, {CR0_BITS}",
+		"or r9, rax",
+		"mov cr0, r9",
 		// Push a return value of 0 onto the stack to prevent accidental returns
 		"push 0",
 		"jmp r11",
+		CR0_BITS = const CR0_BITS,
+		CR0_MASK = const CR0_MASK,
 		options(noreturn),
 	}
 }
