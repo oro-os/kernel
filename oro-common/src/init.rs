@@ -24,19 +24,6 @@ use crate::{
 	Arch,
 };
 
-/// Waits for all cores to reach a certain point in the initialization sequence.
-macro_rules! wait_for_all_cores {
-	($config:expr) => {{
-		static BARRIER: SpinBarrier = SpinBarrier::new();
-
-		if let PrebootConfig::Primary { num_instances, .. } = &$config {
-			BARRIER.set_total::<A>(*num_instances);
-		}
-
-		BARRIER.wait();
-	}};
-}
-
 /// Initializes and transfers execution to the Oro kernel.
 ///
 /// This function does not return. Calling this function will boot the
@@ -169,6 +156,19 @@ where
 	A: Arch,
 	P: PrebootPrimaryConfig,
 {
+	/// Waits for all cores to reach a certain point in the initialization sequence.
+	macro_rules! wait_for_all_cores {
+		() => {{
+			static BARRIER: SpinBarrier = SpinBarrier::new();
+
+			if let PrebootConfig::Primary { num_instances, .. } = &config {
+				BARRIER.set_total::<A>(*num_instances);
+			}
+
+			BARRIER.wait();
+		}};
+	}
+
 	static mut KERNEL_ADDRESS_SPACE: Proxy<256> = Proxy::Uninit;
 	static mut KERNEL_ENTRY_POINT: usize = 0;
 
@@ -280,7 +280,7 @@ where
 		}
 
 		// Let everyone catch up.
-		wait_for_all_cores!(config);
+		wait_for_all_cores!();
 		A::strong_memory_barrier();
 
 		// Then we down-cast it back to a reference
@@ -291,7 +291,7 @@ where
 	};
 
 	// Finally, for good measure, make sure that we barrier here so we're all on the same page.
-	wait_for_all_cores!(config);
+	wait_for_all_cores!();
 
 	// Next, we create the supervisor mapper. This has two steps, as the value returned
 	// is going to be different for every core.
@@ -581,7 +581,7 @@ where
 	};
 
 	// Wait for all cores to come online
-	wait_for_all_cores!(config);
+	wait_for_all_cores!();
 	if let PrebootConfig::Primary { num_instances, .. } = &config {
 		dbg!(A, "boot_to_kernel", "all {} core(s) online", num_instances);
 	}
@@ -620,7 +620,7 @@ where
 
 	// Wait for all cores to be ready to jump to the kernel.
 	// We do this here since allocations may fail, cores may panic, etc.
-	wait_for_all_cores!(config);
+	wait_for_all_cores!();
 
 	let pfa_head = {
 		let last_free = pfa.lock::<A>().last_free();
