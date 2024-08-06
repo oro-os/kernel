@@ -29,7 +29,7 @@
 )]
 #![cfg_attr(debug_assertions, feature(naked_functions))]
 
-#[cfg(debug_assertions)]
+#[cfg(any(debug_assertions, feature = "dbgutil"))]
 mod dbgutil;
 
 pub mod elf;
