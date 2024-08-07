@@ -20,11 +20,12 @@ use core::{
 ///
 /// Thus, its locking methods are marked `unsafe`, as the code that acquires
 /// the lock **must not panic** while the lock is held.
+#[repr(C)]
 pub struct UnfairCriticalSpinlock<T> {
-	/// Whether the lock is currently owned.
-	owned: AtomicBool,
 	/// The value protected by the lock.
 	value: UnsafeCell<T>,
+	/// Whether the lock is currently owned.
+	owned: AtomicBool,
 }
 
 unsafe impl<T> Sync for UnfairCriticalSpinlock<T> {}
