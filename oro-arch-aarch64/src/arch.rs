@@ -27,8 +27,7 @@ const KERNEL_STACK_PAGES: usize = 8;
 /// The shared serial port for the system.
 // NOTE(qix-): This is a temporary solution until pre-boot module loading
 // NOTE(qix-): is implemented.
-static SERIAL: UnfairCriticalSpinlock<Aarch64, Option<pl011::PL011>> =
-	UnfairCriticalSpinlock::new(None);
+static SERIAL: UnfairCriticalSpinlock<Option<pl011::PL011>> = UnfairCriticalSpinlock::new(None);
 
 /// aarch64 architecture support implementation for the Oro kernel.
 pub struct Aarch64;
@@ -84,7 +83,7 @@ unsafe impl Arch for Aarch64 {
 	fn log(message: fmt::Arguments) {
 		// NOTE(qix-): This unsafe block MUST NOT PANIC.
 		unsafe {
-			if let Some(serial) = SERIAL.lock().as_mut() {
+			if let Some(serial) = SERIAL.lock::<Self>().as_mut() {
 				writeln!(serial, "{message}")
 			} else {
 				Ok(())
@@ -306,7 +305,7 @@ pub unsafe fn init_preboot_primary() {
 	// NOTE(qix-): It is a stop gap measure for early-stage-development
 	// NOTE(qix-): debugging and will eventually be replaced with a
 	// NOTE(qix-): proper preboot module loader.
-	*(SERIAL.lock()) = Some(pl011::PL011::new::<Aarch64>(
+	*(SERIAL.lock::<Aarch64>()) = Some(pl011::PL011::new::<Aarch64>(
 		0x900_0000,
 		24_000_000,
 		115_200,
