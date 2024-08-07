@@ -28,7 +28,7 @@ const KERNEL_STACK_PAGES: usize = 8;
 /// The shared serial port for the system.
 // NOTE(qix-): This is a temporary solution until pre-boot module loading
 // NOTE(qix-): is implemented.
-static SERIAL: UnfairCriticalSpinlock<X86_64, SerialPort> =
+static SERIAL: UnfairCriticalSpinlock<SerialPort> =
 	UnfairCriticalSpinlock::new(unsafe { SerialPort::new(0x3F8) });
 
 /// x86_64 architecture support implementation for the Oro kernel.
@@ -77,7 +77,7 @@ unsafe impl Arch for X86_64 {
 
 	fn log(message: fmt::Arguments) {
 		// NOTE(qix-): This unsafe block MUST NOT PANIC.
-		unsafe { writeln!(SERIAL.lock(), "{message}") }.unwrap();
+		unsafe { writeln!(SERIAL.lock::<Self>(), "{message}") }.unwrap();
 	}
 
 	unsafe fn prepare_master_page_tables<A, C>(
@@ -371,7 +371,7 @@ pub unsafe fn init_preboot_primary() {
 	// NOTE(qix-): to the logging and debugging problem. This will be
 	// NOTE(qix-): replaced with a proper pre-boot module loading system
 	// NOTE(qix-): in the future.
-	SERIAL.lock().init();
+	SERIAL.lock::<X86_64>().init();
 }
 
 /// Initializes the primary core in the kernel.

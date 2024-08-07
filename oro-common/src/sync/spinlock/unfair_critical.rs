@@ -20,25 +20,22 @@ use core::{
 ///
 /// Thus, its locking methods are marked `unsafe`, as the code that acquires
 /// the lock **must not panic** while the lock is held.
-pub struct UnfairCriticalSpinlock<A: Arch, T> {
+pub struct UnfairCriticalSpinlock<T> {
 	/// Whether the lock is currently owned.
 	owned: AtomicBool,
 	/// The value protected by the lock.
 	value: UnsafeCell<T>,
-	/// The architecture this spinlock is for.
-	_arch: PhantomData<A>,
 }
 
-unsafe impl<A: Arch, T> Sync for UnfairCriticalSpinlock<A, T> {}
+unsafe impl<T> Sync for UnfairCriticalSpinlock<T> {}
 
-impl<A: Arch, T> UnfairCriticalSpinlock<A, T> {
+impl<T> UnfairCriticalSpinlock<T> {
 	/// Creates a new `UnfairCriticalSpinlock`.
 	#[inline]
 	pub const fn new(value: T) -> Self {
 		Self {
 			owned: AtomicBool::new(false),
 			value: UnsafeCell::new(value),
-			_arch: PhantomData,
 		}
 	}
 
@@ -53,7 +50,7 @@ impl<A: Arch, T> UnfairCriticalSpinlock<A, T> {
 	/// This function is not reentrant.
 	#[inline]
 	#[must_use]
-	pub unsafe fn try_lock(&self) -> Option<UnfairCriticalSpinlockGuard<A, T>> {
+	pub unsafe fn try_lock<A: Arch>(&self) -> Option<UnfairCriticalSpinlockGuard<A, T>> {
 		A::strong_memory_barrier();
 
 		self.owned
@@ -81,12 +78,12 @@ impl<A: Arch, T> UnfairCriticalSpinlock<A, T> {
 	/// This function is not reentrant.
 	#[inline]
 	#[must_use]
-	pub unsafe fn lock(&self) -> UnfairCriticalSpinlockGuard<A, T> {
+	pub unsafe fn lock<A: Arch>(&self) -> UnfairCriticalSpinlockGuard<A, T> {
 		let interrupt_state = A::fetch_interrupts();
 		A::disable_interrupts();
 
 		loop {
-			if let Some(guard) = self.try_lock_with_interrupt_state(interrupt_state) {
+			if let Some(guard) = self.try_lock_with_interrupt_state::<A>(interrupt_state) {
 				return guard;
 			}
 		}
@@ -101,7 +98,7 @@ impl<A: Arch, T> UnfairCriticalSpinlock<A, T> {
 	/// This function is not reentrant.
 	#[inline]
 	#[must_use]
-	unsafe fn try_lock_with_interrupt_state(
+	unsafe fn try_lock_with_interrupt_state<A: Arch>(
 		&self,
 		interrupt_state: A::InterruptState,
 	) -> Option<UnfairCriticalSpinlockGuard<A, T>> {
@@ -147,7 +144,7 @@ impl<A: Arch, T> Drop for UnfairCriticalSpinlockGuard<'_, A, T> {
 	}
 }
 
-impl<A: Arch, T> Default for UnfairCriticalSpinlock<A, T>
+impl<T> Default for UnfairCriticalSpinlock<T>
 where
 	T: Default,
 {
