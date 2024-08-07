@@ -8,6 +8,13 @@
 	clippy::integer_division,
 	clippy::missing_docs_in_private_items
 )]
+// NOTE(qix-): This isn't strictly necessary but is on track for acceptance,
+// NOTE(qix-): and the open questions (e.g. mangling) are not of concern here.
+// NOTE(qix-): https://github.com/rust-lang/rust/issues/95174
+#![allow(incomplete_features)]
+#![feature(adt_const_params)]
+
+pub(crate) mod id;
 
 use core::mem::MaybeUninit;
 use oro_common::{
