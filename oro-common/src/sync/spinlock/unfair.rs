@@ -17,10 +17,10 @@ use core::{
 /// If that behavior is desired, consider using an [`crate::sync::UnfairCriticalSpinlock`]
 /// instead.
 pub struct UnfairSpinlock<T> {
-	/// Whether the lock is currently owned.
-	owned: AtomicBool,
 	/// The value protected by the lock.
 	value: UnsafeCell<T>,
+	/// Whether the lock is currently owned.
+	owned: AtomicBool,
 }
 
 unsafe impl<T> Sync for UnfairSpinlock<T> {}
