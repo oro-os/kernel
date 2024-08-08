@@ -258,7 +258,7 @@ where
 			let shared_pfa = UnfairSpinlock::new(shared_pfa);
 
 			// Make sure that we're not exceeding our page size.
-			assertions::assert_fits::<_, 4096>(&shared_pfa);
+			assertions::assert_fits1::<_, 4096>(&shared_pfa);
 
 			// Store the PFA in the type inference helper then pop
 			// it back out again. This is a dance to get the type

@@ -49,26 +49,23 @@ pub trait AssertFits<const SIZE: usize>: Sized {
 impl<T: Sized, const SIZE: usize> AssertFits<SIZE> for T {}
 
 /// One-off assertion that a type fits within a certain size.
-pub const fn assert_fits<T: Sized, const SIZE: usize>(_v: &T) {
-	() = <T as AssertFits<SIZE>>::ASSERT;
+pub const fn assert_fits1<Smaller: Sized, const SIZE: usize>(_v: &Smaller) {
+	() = <Smaller as AssertFits<SIZE>>::ASSERT;
 }
 
 /// One-off assertion that a type fits within another type size-wise.
-pub const fn assert_fits_within<T: Sized, U: Sized>(_v: &T) {
-	// TODO(qix-): When the `generic_const_exprs` feature is stabilized,
-	// TODO(qix-): switch this to the following:
-	// TODO(qix-): () = <T as AssertFits<{core::mem::size_of::<U>()}>>::ASSERT;
+pub const fn assert_fits_within<Smaller: Sized, Larger: Sized>() {
+	() = <Smaller as AssertFitsWithin<Larger>>::ASSERT;
+}
 
-	() = <T as AssertFitsWithin<U>>::ASSERT;
+/// One-off assertion that a type fits within another type size-wise using the smaller's value reference.
+pub const fn assert_fits_within1<Smaller: Sized, Larger: Sized>(_v: &Smaller) {
+	() = <Smaller as AssertFitsWithin<Larger>>::ASSERT;
 }
 
 /// One-off assertion that a type fits within another type size-wise using value references.
-pub const fn assert_fits_within_val<T: Sized, U: Sized>(_v: &T, _u: &U) {
-	// TODO(qix-): When the `generic_const_exprs` feature is stabilized,
-	// TODO(qix-): switch this to the following:
-	// TODO(qix-): () = <T as AssertFits<{core::mem::size_of::<U>()}>>::ASSERT;
-
-	() = <T as AssertFitsWithin<U>>::ASSERT;
+pub const fn assert_fits_within2<Smaller: Sized, Larger: Sized>(_v: &Smaller, _u: &Larger) {
+	() = <Smaller as AssertFitsWithin<Larger>>::ASSERT;
 }
 
 /// Asserts that a type is exactly a certain size.
@@ -148,14 +145,14 @@ impl<T> AssertNoDrop for T {}
 /// like so:
 ///
 /// ```rust
-/// () = <T as AssertAlignsWithin<U>>::ASSERT;
+/// () = <Smaller as AssertAlignsWithin<Larger>>::ASSERT;
 /// ```
 ///
 /// # Safety
 /// The assertion **does not trigger** unless the above explicit usage of the
 /// `ASSERT` associated constant is used. There's, unfortunately, no great way
 /// to enforce this at the type level.
-pub trait AssertAlignsWithin<U: Sized>: Sized {
+pub trait AssertAlignsWithin<Larger: Sized>: Sized {
 	/// Performs the assertion that the type has equal or less alignment requirements
 	/// than another type.
 	///
@@ -163,28 +160,28 @@ pub trait AssertAlignsWithin<U: Sized>: Sized {
 	/// like so:
 	///
 	/// ```rust
-	/// () = <T as AssertAlignsWithin<U>>::ASSERT;
+	/// () = <Smaller as AssertAlignsWithin<Larger>>::ASSERT;
 	/// ```
 	///
 	/// This will cause a compile-time error if the assertion does not hold.
 	const ASSERT: () = assert!(
-		core::mem::align_of::<Self>() <= core::mem::align_of::<U>(),
-		"value does not align within the specified type (check U)"
+		core::mem::align_of::<Self>() <= core::mem::align_of::<Larger>(),
+		"value does not align within the specified type (check Larger type)"
 	);
 }
 
-impl<T: Sized, U: Sized> AssertAlignsWithin<U> for T {}
+impl<Smaller: Sized, Larger: Sized> AssertAlignsWithin<Larger> for Smaller {}
 
 /// One-off assertion that a type has equal or less alignment requirements
 /// than another type.
-pub const fn assert_aligns_within<T: Sized, U: Sized>(_v: &T) {
-	() = <T as AssertAlignsWithin<U>>::ASSERT;
+pub const fn assert_aligns_within1<Smaller: Sized, Larger: Sized>(_v: &Smaller) {
+	() = <Smaller as AssertAlignsWithin<Larger>>::ASSERT;
 }
 
 /// One-off assertion that a type has equal or less alignment requirements
 /// than another type using value references.
-pub const fn assert_aligns_within_val<T: Sized, U: Sized>(_v: &T, _u: &U) {
-	() = <T as AssertAlignsWithin<U>>::ASSERT;
+pub const fn assert_aligns_within2<Smaller: Sized, Larger: Sized>(_v: &Smaller, _u: &Larger) {
+	() = <Smaller as AssertAlignsWithin<Larger>>::ASSERT;
 }
 
 /// Asserts that a type fits within another type size-wise.
@@ -193,28 +190,28 @@ pub const fn assert_aligns_within_val<T: Sized, U: Sized>(_v: &T, _u: &U) {
 /// like so:
 ///
 /// ```rust
-/// () = <T as AssertFitsWithin<U>>::ASSERT;
+/// () = <Smaller as AssertFitsWithin<Larger>>::ASSERT;
 /// ```
 ///
 /// # Safety
 /// The assertion **does not trigger** unless the above explicit usage of the
 /// `ASSERT` associated constant is used. There's, unfortunately, no great way
 /// to enforce this at the type level.
-pub trait AssertFitsWithin<U: Sized>: Sized {
+pub trait AssertFitsWithin<Larger: Sized>: Sized {
 	/// Performs the assertion that the type fits within another type size-wise.
 	///
 	/// This must be referenced somewhere in the code at each usage site,
 	/// like so:
 	///
 	/// ```rust
-	/// () = <T as AssertFitsWithin<U>>::ASSERT;
+	/// () = <Smaller as AssertFitsWithin<Larger>>::ASSERT;
 	/// ```
 	///
 	/// This will cause a compile-time error if the assertion does not hold.
 	const ASSERT: () = assert!(
-		core::mem::size_of::<Self>() <= core::mem::size_of::<U>(),
-		"value does not fit within the specified type (check U)"
+		core::mem::size_of::<Self>() <= core::mem::size_of::<Larger>(),
+		"value does not fit within the specified type (check Larger type)"
 	);
 }
 
-impl<T: Sized, U: Sized> AssertFitsWithin<U> for T {}
+impl<Smaller: Sized, Larger: Sized> AssertFitsWithin<Larger> for Smaller {}
