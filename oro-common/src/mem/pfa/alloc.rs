@@ -19,7 +19,7 @@
 /// - is not in a reserved, bad, or unusable memory region.
 /// - not overlapping with any other allocated frame.
 ///
-/// Any and all bookkeeping operations must be safe.
+/// Any and all bookkeeping operations must be safe and **MUST NOT panic**.
 pub unsafe trait PageFrameAllocate {
 	/// Allocates a new page frame, returning the physical address of the page frame
 	/// that was allocated. If `None` is returned, the system is out of memory.
@@ -32,9 +32,7 @@ pub unsafe trait PageFrameAllocate {
 /// Implementations of this trait must ensure that all memory accesses are safe and valid
 /// during any bookkeeping operations.
 ///
-/// Implementations **must** panic if the passed frame address is not page-aligned.
-///
-/// Any and all bookkeeping operations must be safe.
+/// Any and all bookkeeping operations must be safe and **MUST NOT panic**.
 pub unsafe trait PageFrameFree: PageFrameAllocate {
 	/// Frees a page frame.
 	///
@@ -46,5 +44,7 @@ pub unsafe trait PageFrameFree: PageFrameAllocate {
 	///
 	/// 2. Callers **must** ensure the passed frame address is not in a reserved or unusable
 	///    memory region.
+	///
+	/// 3. Callers **must** ensure the frame is page-aligned.
 	unsafe fn free(&mut self, frame: u64);
 }
