@@ -536,7 +536,6 @@ where
 				.expect("failed to serialize boot config");
 
 			SHARED_BOOT_CONFIG_VIRT = ::core::ptr::from_ref(boot_config_target_virt) as usize;
-			A::strong_memory_barrier();
 
 			dbg!(
 				A,
