@@ -77,22 +77,29 @@ pub unsafe trait AddressSpace {
 	/// **Must overlap with [`Self::kernel_code()`]**
 	fn kernel_rodata() -> Self::SupervisorSegment;
 
-	/// Returns the layout descriptor for the kernel's private heap.
+	/// Returns the layout descriptor for the kernel's Ring registry.
 	///
-	/// Each core gets its own private heap that is never shared with
-	/// other cores. This must be read-write, non-user accessible, and is
+	/// This must be read-write, non-user accessible, and is
 	/// **not** executable.
 	///
 	/// Must **not** overlap with any other segment.
-	fn kernel_private_heap() -> Self::SupervisorSegment;
+	fn kernel_ring_registry() -> Self::SupervisorSegment;
 
-	/// Returns the layout descriptor for the kernel's shared heap.
+	/// Returns the layout descriptor for the kernel's Port registry.
 	///
-	/// This is a shared heap that is accessible by all cores. This must be
-	/// read-write, non-user accessible, and is **not** executable.
+	/// This must be read-write, non-user accessible, and is
+	/// **not** executable.
 	///
 	/// Must **not** overlap with any other segment.
-	fn kernel_shared_heap() -> Self::SupervisorSegment;
+	fn kernel_port_registry() -> Self::SupervisorSegment;
+
+	/// Returns the layout descriptor for the kernel's Module Instance registry.
+	///
+	/// This must be read-write, non-user accessible, and is
+	/// **not** executable.
+	///
+	/// Must **not** overlap with any other segment.
+	fn kernel_module_instance_registry() -> Self::SupervisorSegment;
 
 	/// Returns the layout descriptor for the direct map of physical addresses.
 	///
