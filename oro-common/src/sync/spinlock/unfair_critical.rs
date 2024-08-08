@@ -4,7 +4,7 @@
 
 #![allow(clippy::module_name_repetitions)]
 
-use crate::Arch;
+use crate::arch::Arch;
 use core::{
 	cell::UnsafeCell,
 	marker::PhantomData,

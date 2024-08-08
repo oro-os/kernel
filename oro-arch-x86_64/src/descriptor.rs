@@ -2,7 +2,7 @@
 //! descriptor tables and their entries.
 
 use crate::mem::address_space::AddressSpaceLayout;
-use oro_common::mem::AddressSegment;
+use oro_common::mem::mapper::AddressSegment;
 
 /// A global descriptor table (GDT) entry.
 #[repr(transparent)]

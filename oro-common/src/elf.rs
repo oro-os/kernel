@@ -2,7 +2,7 @@
 //! needed for loading the kernel and modules and extracting
 //! the module metadata.
 
-use crate::Arch;
+use crate::arch::Arch;
 use core::{
 	fmt,
 	mem::{transmute, ManuallyDrop},

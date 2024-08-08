@@ -6,8 +6,9 @@ use super::{address_space::AddressSpaceHandle, paging::PageTable};
 use crate::mem::{paging::PageTableEntry, paging_level::PagingLevel};
 use oro_common::{
 	mem::{
-		AddressSegment as Segment, MapError, PageFrameAllocate, PageFrameFree,
-		PhysicalAddressTranslator, UnmapError,
+		mapper::{AddressSegment as Segment, MapError, UnmapError},
+		pfa::alloc::{PageFrameAllocate, PageFrameFree},
+		translate::PhysicalAddressTranslator,
 	},
 	unlikely,
 };

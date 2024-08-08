@@ -6,8 +6,12 @@
 //! memory management facilities).
 use crate::{
 	elf::{ElfClass, ElfEndianness, ElfMachine},
-	mem::{AddressSpace, PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator},
-	PrebootConfig, PrebootPrimaryConfig,
+	mem::{
+		mapper::AddressSpace,
+		pfa::alloc::{PageFrameAllocate, PageFrameFree},
+		translate::PhysicalAddressTranslator,
+	},
+	preboot::{PrebootConfig, PrebootPrimaryConfig},
 };
 use core::fmt;
 
@@ -176,7 +180,7 @@ pub unsafe trait Arch {
 	///
 	/// The boot config virtual address MUST NOT be zero, and MUST be
 	/// a valid, readable readable address (as specified by
-	/// [`crate::mem::AddressSpace::boot_info()`]) mapped into the
+	/// [`crate::mem::mapper::AddressSpace::boot_info()`]) mapped into the
 	/// kernel's eventual address space, whereby a cast to a pointer to
 	/// [`crate::boot::BootConfig`] is valid and dereferenceable without
 	/// invoking undefined behavior.

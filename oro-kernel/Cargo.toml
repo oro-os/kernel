@@ -23,6 +23,7 @@ path = "bin/aarch64.rs"
 doc = false
 
 [dependencies]
+oro-arch.workspace = true
 oro-common = { workspace = true, features = ["kernel"] }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]

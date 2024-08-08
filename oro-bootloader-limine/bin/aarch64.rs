@@ -1,12 +1,10 @@
 #![no_std]
 #![no_main]
 
-use oro_arch_aarch64::Aarch64;
-
 #[inline(never)]
 #[panic_handler]
 unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
-	::oro_bootloader_limine::panic::<Aarch64>(info)
+	::oro_bootloader_limine::panic(info)
 }
 
 /// Main entry point for the Limine bootloader stage
@@ -20,7 +18,7 @@ unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {
 	::oro_arch_aarch64::init_preboot_primary();
-	::oro_bootloader_limine::init::<Aarch64, MpidrCpuId>()
+	::oro_bootloader_limine::init::<MpidrCpuId>()
 }
 
 struct MpidrCpuId;

@@ -3,7 +3,7 @@
 //! kernel.
 //!
 //! # Architecture-Specific Requirements for Initialization
-//! When initializing the kernel via [`oro_common::boot_to_kernel()`], the following
+//! When initializing the kernel via `oro_boot::boot_to_kernel()`, the following
 //! considerations must be made:
 //!
 //! ### Memory Layout

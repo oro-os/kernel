@@ -2,7 +2,10 @@
 //! whereby page frames form a linked list of free pages. See [`FiloPageFrameAllocator`]
 //! for more information.
 
-use crate::mem::{PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator};
+use crate::mem::{
+	pfa::alloc::{PageFrameAllocate, PageFrameFree},
+	translate::PhysicalAddressTranslator,
+};
 
 /// The _first in, last out_ (FILO) page frame allocator is the
 /// default page frame allocator used by the kernel and most

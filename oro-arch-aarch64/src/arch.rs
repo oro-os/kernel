@@ -11,13 +11,15 @@ use core::{
 	fmt::{self, Write},
 };
 use oro_common::{
+	arch::Arch,
 	elf::{ElfClass, ElfEndianness, ElfMachine},
 	mem::{
-		AddressSegment, AddressSpace, PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator,
-		UnmapError,
+		mapper::{AddressSegment, AddressSpace, UnmapError},
+		pfa::alloc::{PageFrameAllocate, PageFrameFree},
+		translate::PhysicalAddressTranslator,
 	},
-	sync::UnfairCriticalSpinlock,
-	Arch, PrebootConfig, PrebootPrimaryConfig,
+	preboot::{PrebootConfig, PrebootPrimaryConfig},
+	sync::spinlock::unfair_critical::UnfairCriticalSpinlock,
 };
 use oro_serial_pl011 as pl011;
 

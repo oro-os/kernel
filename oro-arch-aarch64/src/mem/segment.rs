@@ -19,8 +19,9 @@ use crate::mem::{
 use core::panic;
 use oro_common::{
 	mem::{
-		AddressSegment, MapError, PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator,
-		UnmapError,
+		mapper::{AddressSegment, MapError, UnmapError},
+		pfa::alloc::{PageFrameAllocate, PageFrameFree},
+		translate::PhysicalAddressTranslator,
 	},
 	unlikely,
 };

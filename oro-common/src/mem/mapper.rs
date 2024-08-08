@@ -8,7 +8,10 @@
 //! for those regions to behave as the kernel expects.
 #![allow(clippy::inline_always)]
 
-use crate::mem::{PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator};
+use crate::mem::{
+	pfa::alloc::{PageFrameAllocate, PageFrameFree},
+	translate::PhysicalAddressTranslator,
+};
 
 /// A const trait that provides descriptors for the layout of an address space
 /// for the underlying architecture.

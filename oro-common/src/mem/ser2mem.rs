@@ -3,8 +3,9 @@
 
 use crate::{
 	mem::{
-		AddressSegment, AddressSpace, MapError, PageFrameAllocate, PageFrameFree,
-		PhysicalAddressTranslator,
+		mapper::{AddressSegment, AddressSpace, MapError},
+		pfa::alloc::{PageFrameAllocate, PageFrameFree},
+		translate::PhysicalAddressTranslator,
 	},
 	ser2mem::Serializer,
 };
@@ -44,8 +45,9 @@ where
 	/// the lifetime of this object.
 	///
 	/// Further, no other active references (including from other cores)
-	/// may refer to any of the memory within [`crate::mem::AddressSpace::boot_info()`] during
-	/// the lifetime of this object.
+	/// may refer to any of the memory within
+	/// [`crate::mem::mapper::AddressSpace::boot_info()`] during the lifetime
+	/// of this object.
 	pub unsafe fn new(
 		allocator: &'a mut Alloc,
 		translator: &'a P,

@@ -1,27 +1,24 @@
-//! Initialization sequence for the Oro kernel, including associated
-//! configuration types.
-//!
-//! The role of a bootloader implementation in Oro is to ultimately
-//! call this `init()` function with a proper configuration, which
-//! provides a clean and standardized way of initializing and booting
-//! into the Oro kernel without needing to know the specifics of the
-//! kernel's initialization process.
-//!
-//! There are a _lot_ of safety requirements for running the initialization
-//! sequence; please read _and understand_ the documentation for the
-//! [`boot_to_kernel`] function before calling it.
-use crate::{
+//! Initialization routine. See [`boot_to_kernel`] for more information.
+
+use oro_arch::Target;
+use oro_common::{
+	arch::Arch,
 	boot::BootConfig,
 	dbg,
 	elf::{ElfSegment, ElfSegmentType},
 	mem::{
-		AddressSegment, AddressSpace, FiloPageFrameAllocator, MemoryRegion, MemoryRegionType,
-		PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator,
+		mapper::{AddressSegment, AddressSpace},
+		pfa::{
+			alloc::{PageFrameAllocate, PageFrameFree},
+			filo::FiloPageFrameAllocator,
+		},
+		region::{MemoryRegion, MemoryRegionType},
+		translate::PhysicalAddressTranslator,
 	},
+	preboot::{PrebootConfig, PrebootPrimaryConfig},
 	ser2mem::Serialize,
-	sync::{SpinBarrier, UnfairSpinlock},
+	sync::{barrier::SpinBarrier, spinlock::unfair::UnfairSpinlock},
 	util::{assertions, proxy::Proxy},
-	Arch,
 };
 
 /// Initializes and transfers execution to the Oro kernel.
@@ -89,9 +86,9 @@ use crate::{
 /// This mapping _does not_ need to be a linear mapping, so long as a unique, non-overlapping
 /// virtual address can be derived from a physical address in a 1:1 fashion.
 ///
-/// Typically, a bootloader would set up an offset-based ("linear") physical-to-virtual address mapping,
-/// but this is not a requirement. A [`crate::mem::PhysicalAddressTranslator`] implementation
-/// is all that is necessary.
+/// Typically, a bootloader would set up an offset-based ("linear") physical-to-virtual
+/// address mapping, but this is not a requirement. A [`oro_common::mem::translate::PhysicalAddressTranslator`]
+/// implementation is all that is necessary.
 ///
 /// The translation of physical addresses to virtual addresses **must be consistent** across
 /// all cores. This includes both the mechanism by which the translation is performed, as well as
@@ -151,9 +148,8 @@ use crate::{
 	clippy::too_many_lines,
 	clippy::missing_docs_in_private_items
 )]
-pub unsafe fn boot_to_kernel<A, P>(config: PrebootConfig<P>) -> !
+pub unsafe fn boot_to_kernel<P>(config: PrebootConfig<P>) -> !
 where
-	A: Arch,
 	P: PrebootPrimaryConfig,
 {
 	/// Waits for all cores to reach a certain point in the initialization sequence.
@@ -162,7 +158,7 @@ where
 			static BARRIER: SpinBarrier = SpinBarrier::new();
 
 			if let PrebootConfig::Primary { num_instances, .. } = &config {
-				BARRIER.set_total::<A>(*num_instances);
+				BARRIER.set_total::<Target>(*num_instances);
 			}
 
 			BARRIER.wait();
@@ -176,10 +172,9 @@ where
 	static MAPPER_DUPLICATE_FINISH_BARRIER: SpinBarrier = SpinBarrier::new();
 	static TRANSFER_BARRIER: SpinBarrier = SpinBarrier::new();
 
-	A::disable_interrupts();
+	Target::disable_interrupts();
 
 	dbg!(
-		A,
 		"boot_to_kernel",
 		"booting to kernel ({} core {})",
 		match &config {
@@ -281,7 +276,7 @@ where
 
 		// Let everyone catch up.
 		wait_for_all_cores!();
-		A::strong_memory_barrier();
+		Target::strong_memory_barrier();
 
 		// Then we down-cast it back to a reference
 		#[allow(unused_assignments)]
@@ -320,28 +315,30 @@ where
 			physical_address_translator,
 			..
 		} => {
-			let mut pfa = pfa.lock::<A>();
+			let mut pfa = pfa.lock::<Target>();
 
 			// Parse the kernel ELF module.
-			let kernel_elf =
-				match crate::elf::Elf::parse::<A>(kernel_module.base, kernel_module.length) {
-					Ok(elf) => elf,
-					Err(e) => {
-						panic!("failed to parse kernel ELF: {:?}", e);
-					}
-				};
+			let kernel_elf = match oro_common::elf::Elf::parse::<Target>(
+				kernel_module.base,
+				kernel_module.length,
+			) {
+				Ok(elf) => elf,
+				Err(e) => {
+					panic!("failed to parse kernel ELF: {:?}", e);
+				}
+			};
 
 			// Create a new preboot page table mapper for the kernel.
 			// This will ultimately be cloned and used by all cores.
-			let Some(kernel_mapper) =
-				A::AddressSpace::new_supervisor_space(&mut *pfa, physical_address_translator)
-			else {
+			let Some(kernel_mapper) = <Target as Arch>::AddressSpace::new_supervisor_space(
+				&mut *pfa,
+				physical_address_translator,
+			) else {
 				panic!("failed to create preboot address space for kernel; out of memory");
 			};
 
 			let num_segments = kernel_elf.segments().count();
 			dbg!(
-				A,
 				"boot_to_kernel",
 				"mapping {} kernel segments...",
 				num_segments
@@ -358,9 +355,9 @@ where
 							flags, ptype
 						);
 					}
-					ElfSegmentType::KernelCode => A::AddressSpace::kernel_code(),
-					ElfSegmentType::KernelData => A::AddressSpace::kernel_data(),
-					ElfSegmentType::KernelRoData => A::AddressSpace::kernel_rodata(),
+					ElfSegmentType::KernelCode => <Target as Arch>::AddressSpace::kernel_code(),
+					ElfSegmentType::KernelData => <Target as Arch>::AddressSpace::kernel_data(),
+					ElfSegmentType::KernelRoData => <Target as Arch>::AddressSpace::kernel_rodata(),
 				};
 
 				// NOTE(qix-): This will almost definitely be improved in the future.
@@ -411,7 +408,6 @@ where
 				}
 
 				dbg!(
-					A,
 					"boot_to_kernel",
 					"mapped kernel segment: {:#016X?} <{:X?}> -> {:?} <{:X?}>",
 					segment.target_address(),
@@ -422,7 +418,7 @@ where
 			}
 
 			// Perform the direct map of all memory
-			let direct_map = A::AddressSpace::direct_map();
+			let direct_map = <Target as Arch>::AddressSpace::direct_map();
 			let (dm_start, _) = direct_map.range();
 			let min_phys_addr = memory_regions.clone().map(|r| r.base()).min().unwrap();
 			assert!(
@@ -432,7 +428,6 @@ where
 
 			for region in memory_regions.clone() {
 				dbg!(
-					A,
 					"boot-to-kernel",
 					"mapping direct map segment: {:?}: {:#016X?} <{:X?}>",
 					region.region_type(),
@@ -457,56 +452,43 @@ where
 				}
 			}
 
-			dbg!(A, "boot_to_kernel", "direct mapped all memory regions");
+			dbg!("boot_to_kernel", "direct mapped all memory regions");
 
 			// Allow the architecture to prepare any additional mappings.
-			A::prepare_master_page_tables(&kernel_mapper, &config, &mut *pfa);
+			Target::prepare_master_page_tables(&kernel_mapper, &config, &mut *pfa);
 
-			dbg!(
-				A,
-				"boot_to_kernel",
-				"architecture prepared master page tables"
-			);
+			dbg!("boot_to_kernel", "architecture prepared master page tables");
 
 			// Make each of the registry segments shared.
-			A::make_segment_shared(
+			Target::make_segment_shared(
 				&kernel_mapper,
-				&A::AddressSpace::kernel_port_registry(),
+				&<Target as Arch>::AddressSpace::kernel_port_registry(),
+				&config,
+				&mut *pfa,
+			);
+
+			dbg!("boot_to_kernel", "initialized shared port registry segment");
+
+			Target::make_segment_shared(
+				&kernel_mapper,
+				&<Target as Arch>::AddressSpace::kernel_module_instance_registry(),
 				&config,
 				&mut *pfa,
 			);
 
 			dbg!(
-				A,
-				"boot_to_kernel",
-				"initialized shared port registry segment"
-			);
-
-			A::make_segment_shared(
-				&kernel_mapper,
-				&A::AddressSpace::kernel_module_instance_registry(),
-				&config,
-				&mut *pfa,
-			);
-
-			dbg!(
-				A,
 				"boot_to_kernel",
 				"initialized shared module instance registry segment"
 			);
 
-			A::make_segment_shared(
+			Target::make_segment_shared(
 				&kernel_mapper,
-				&A::AddressSpace::kernel_ring_registry(),
+				&<Target as Arch>::AddressSpace::kernel_ring_registry(),
 				&config,
 				&mut *pfa,
 			);
 
-			dbg!(
-				A,
-				"boot_to_kernel",
-				"initialized shared ring registry segment"
-			);
+			dbg!("boot_to_kernel", "initialized shared ring registry segment");
 
 			// Write the boot config.
 			assert!(
@@ -517,7 +499,7 @@ where
 			#[allow(clippy::cast_possible_truncation)]
 			let linear_map_offset = dm_start - (min_phys_addr as usize);
 
-			let boot_config = <BootConfig as crate::ser2mem::Proxy>::Proxy {
+			let boot_config = <BootConfig as oro_common::ser2mem::Proxy>::Proxy {
 				core_count: *num_instances,
 				linear_map_offset,
 			};
@@ -525,11 +507,11 @@ where
 			// FIXME(qix-): The strange types here are required to work around a
 			// FIXME(qix-): bug in rustc (rust-lang/rust#121613)
 			let pfa_mut = &mut *pfa;
-			let mut serializer = crate::mem::PfaSerializer::<_, _, <A as Arch>::AddressSpace>::new(
-				pfa_mut,
-				physical_address_translator,
-				&kernel_mapper,
-			);
+			let mut serializer = oro_common::mem::ser2mem::PfaSerializer::<
+				_,
+				_,
+				<Target as Arch>::AddressSpace,
+			>::new(pfa_mut, physical_address_translator, &kernel_mapper);
 
 			let boot_config_target_virt = boot_config
 				.serialize(&mut serializer)
@@ -537,45 +519,38 @@ where
 
 			SHARED_BOOT_CONFIG_VIRT = ::core::ptr::from_ref(boot_config_target_virt) as usize;
 
-			dbg!(
-				A,
-				"boot_to_kernel",
-				"boot config serialized to kernel memory"
-			);
+			dbg!("boot_to_kernel", "boot config serialized to kernel memory");
 
 			// Store the kernel address space handle and entry point for cloning later.
 			KERNEL_ADDRESS_SPACE = Proxy::from(kernel_mapper);
 			KERNEL_ENTRY_POINT = kernel_elf.entry_point();
 
 			// Wait for all cores to see the write.
-			A::strong_memory_barrier();
+			Target::strong_memory_barrier();
 
 			// Drop the PFA lock so the secondaries can use it.
 			drop(pfa);
 
 			dbg!(
-				A,
 				"boot_to_kernel",
 				"primary core ready to duplicate kernel address space to secondaries; \
 				 synchronizing..."
 			);
 
 			// Let other cores take it.
-			MAPPER_DUPLICATE_BARRIER.set_total::<A>(*num_instances);
+			MAPPER_DUPLICATE_BARRIER.set_total::<Target>(*num_instances);
 			MAPPER_DUPLICATE_BARRIER.wait();
 
 			dbg!(
-				A,
 				"boot_to_kernel",
 				"secondaries duplicating kernel address space..."
 			);
 
 			// Let other core finish duplicating it.
-			MAPPER_DUPLICATE_FINISH_BARRIER.set_total::<A>(*num_instances);
+			MAPPER_DUPLICATE_FINISH_BARRIER.set_total::<Target>(*num_instances);
 			MAPPER_DUPLICATE_FINISH_BARRIER.wait();
 
 			dbg!(
-				A,
 				"boot_to_kernel",
 				"all cores have duplicated kernel address space"
 			);
@@ -593,11 +568,11 @@ where
 			// Clone the kernel address space token.
 			// SAFETY: If unwrap fails, either another core took the handle, or the primary core
 			// SAFETY: didn't properly set it up (a bug in this function alone).
-			let kernel_address_space_primary_handle: &<<A as Arch>::AddressSpace as AddressSpace>::SupervisorHandle = KERNEL_ADDRESS_SPACE.as_ref().unwrap();
+			let kernel_address_space_primary_handle: &<<Target as Arch>::AddressSpace as AddressSpace>::SupervisorHandle = KERNEL_ADDRESS_SPACE.as_ref().unwrap();
 
 			// Clone the kernel address space.
-			let mut pfa = pfa.lock::<A>();
-			let mapper = A::AddressSpace::duplicate_supervisor_space_shallow(
+			let mut pfa = pfa.lock::<Target>();
+			let mapper = <Target as Arch>::AddressSpace::duplicate_supervisor_space_shallow(
 				kernel_address_space_primary_handle,
 				&mut *pfa,
 				physical_address_translator,
@@ -618,7 +593,7 @@ where
 	// Wait for all cores to come online
 	wait_for_all_cores!();
 	if let PrebootConfig::Primary { num_instances, .. } = &config {
-		dbg!(A, "boot_to_kernel", "all {} core(s) online", num_instances);
+		dbg!("boot_to_kernel", "all {} core(s) online", num_instances);
 	}
 
 	// Make sure we got the boot config virtual address.
@@ -634,12 +609,12 @@ where
 	// go.
 	let transfer_token = match config {
 		PrebootConfig::Primary { num_instances, .. } => {
-			let mut pfa = pfa.lock::<A>();
-			let token = A::prepare_transfer(kernel_mapper, &config, &mut *pfa);
+			let mut pfa = pfa.lock::<Target>();
+			let token = Target::prepare_transfer(kernel_mapper, &config, &mut *pfa);
 			drop(pfa);
 
 			// Inform secondaries they can now prepare for transfer
-			TRANSFER_BARRIER.set_total::<A>(num_instances);
+			TRANSFER_BARRIER.set_total::<Target>(num_instances);
 			TRANSFER_BARRIER.wait();
 
 			token
@@ -648,8 +623,8 @@ where
 			// Wait for primary to finish preparing for transfer
 			TRANSFER_BARRIER.wait();
 
-			let mut pfa = pfa.lock::<A>();
-			A::prepare_transfer(kernel_mapper, &config, &mut *pfa)
+			let mut pfa = pfa.lock::<Target>();
+			Target::prepare_transfer(kernel_mapper, &config, &mut *pfa)
 		}
 	};
 
@@ -658,111 +633,19 @@ where
 	wait_for_all_cores!();
 
 	let pfa_head = {
-		let last_free = pfa.lock::<A>().last_free();
+		let last_free = pfa.lock::<Target>().last_free();
 		// SAFETY(qix-): We do this here to prevent any further usage of the PFA prior to transfer.
 		let _ = pfa;
 		last_free
 	};
 
 	// Finally, jump to the kernel entry point.
-	A::transfer(
+	Target::transfer(
 		KERNEL_ENTRY_POINT,
 		transfer_token,
 		SHARED_BOOT_CONFIG_VIRT,
 		pfa_head,
 	)
-}
-
-/// Provides the types used by the primary core configuration values
-/// specified in [`PrebootConfig`].
-pub trait PrebootPrimaryConfig {
-	/// The type of memory region provided by the pre-boot environment.
-	type MemoryRegion: MemoryRegion + Sized + 'static;
-
-	/// The type of memory region iterator provided by the pre-boot environment.
-	type MemoryRegionIterator: Iterator<Item = Self::MemoryRegion> + Clone + 'static;
-
-	/// The type of physical-to-virtual address translator used by the pre-boot environment.
-	type PhysicalAddressTranslator: PhysicalAddressTranslator + Clone + Sized + 'static;
-
-	/// Whether or not "bad" memory regions are reported by the pre-boot environment.
-	const BAD_MEMORY_REPORTED: bool;
-}
-
-/// Provides the initialization routine with configuration information for
-/// each of the cores.
-///
-/// # Safety
-/// See [`boot_to_kernel`] for information regarding the safe use of this enum.
-pub enum PrebootConfig<P>
-where
-	P: PrebootPrimaryConfig,
-{
-	/// The primary core configuration
-	Primary {
-		/// The **unique** core ID
-		core_id: u64,
-		/// The number of instances that are being booted
-		num_instances: u64,
-		/// An iterator over all memory regions available to the system
-		memory_regions: P::MemoryRegionIterator,
-		/// The physical-to-virtual address translator for the core
-		physical_address_translator: P::PhysicalAddressTranslator,
-		/// The module definition for the Oro kernel itself.
-		kernel_module: ModuleDef,
-	},
-	/// A secondary core configuration
-	Secondary {
-		/// The **unique** core ID
-		core_id: u64,
-		/// The physical-to-virtual address translator for the core
-		physical_address_translator: P::PhysicalAddressTranslator,
-	},
-}
-
-impl<P> PrebootConfig<P>
-where
-	P: PrebootPrimaryConfig,
-{
-	/// Returns the core ID of the configuration.
-	pub fn core_id(&self) -> u64 {
-		match self {
-			PrebootConfig::Primary { core_id, .. } | PrebootConfig::Secondary { core_id, .. } => {
-				*core_id
-			}
-		}
-	}
-
-	/// Returns a reference to the physical-to-virtual address translator for the core.
-	pub fn physical_address_translator(&self) -> &P::PhysicalAddressTranslator {
-		match self {
-			PrebootConfig::Primary {
-				physical_address_translator,
-				..
-			}
-			| PrebootConfig::Secondary {
-				physical_address_translator,
-				..
-			} => physical_address_translator,
-		}
-	}
-}
-
-/// A module definition, providing base locations, lengths, and
-/// per-module initialization configuration for both the kernel
-/// and root-ring modules.
-///
-/// Modules must be ELF files (see the [`crate::elf`] module for
-/// more information on what constitutes an ELF file valid for
-/// the Oro operating system).
-#[derive(Clone, Copy, Debug)]
-pub struct ModuleDef {
-	/// The base address of the module.
-	/// **MUST** be available in the pre-boot address space.
-	/// **MUST** be aligned to a 4-byte boundary.
-	pub base:   usize,
-	/// The length of the module in bytes.
-	pub length: u64,
 }
 
 /// A page-aligned page of bytes.

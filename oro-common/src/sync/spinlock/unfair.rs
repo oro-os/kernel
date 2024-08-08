@@ -3,7 +3,7 @@
 
 #![allow(clippy::module_name_repetitions)]
 
-use crate::Arch;
+use crate::arch::Arch;
 use core::{
 	cell::UnsafeCell,
 	sync::atomic::{AtomicBool, Ordering},
@@ -14,8 +14,8 @@ use core::{
 /// simplicity and low overhead.
 ///
 /// Note that this implementation does _not_ put the system into a critical section.
-/// If that behavior is desired, consider using an [`crate::sync::UnfairCriticalSpinlock`]
-/// instead.
+/// If that behavior is desired, consider using an
+///  [`crate::sync::spinlock::unfair_critical::UnfairCriticalSpinlock`] instead.
 pub struct UnfairSpinlock<T> {
 	/// The value protected by the lock.
 	value: UnsafeCell<T>,

@@ -2,7 +2,7 @@
 
 #![allow(clippy::module_name_repetitions)]
 
-use crate::{unsafe_precondition, Arch};
+use crate::{arch::Arch, unsafe_precondition};
 use core::sync::atomic::{AtomicU64, Ordering};
 
 /// An atomic, spin-based barrier used to synchronize multiprocessor

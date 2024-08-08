@@ -12,7 +12,9 @@ use crate::{
 };
 use core::arch::asm;
 use oro_common::mem::{
-	AddressSegment, MapError, PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator,
+	mapper::{AddressSegment, MapError},
+	pfa::alloc::{PageFrameAllocate, PageFrameFree},
+	translate::PhysicalAddressTranslator,
 };
 
 extern "C" {
@@ -94,7 +96,8 @@ where
 /// Performs the transfer from pre-boot to the kernel.
 ///
 /// # Safety
-/// Only to be called ONCE per core, and only by the [`oro_common::Arch`] implementation.
+/// Only to be called ONCE per core, and only by the
+/// [`oro_common::arch::Arch`] implementation.
 pub unsafe fn transfer(
 	entry: usize,
 	transfer_token: &TransferToken,
