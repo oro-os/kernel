@@ -1,13 +1,11 @@
 #![no_std]
 #![no_main]
 
-use oro_arch_aarch64::Aarch64;
-
 #[inline(never)]
 #[cold]
 #[panic_handler]
 unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
-	::oro_kernel::panic::<Aarch64>(info)
+	::oro_kernel::panic(info)
 }
 
 /// Main entry point for the Oro kernel. Bootloaders jump
@@ -33,7 +31,7 @@ pub unsafe extern "C" fn _start() -> ! {
 		_ => ::oro_kernel::CoreType::Primary,
 	};
 
-	let boot_config = &*(boot_config_virt as *const ::oro_common::BootConfig);
+	let boot_config = &*(boot_config_virt as *const ::oro_common::boot::BootConfig);
 
 	if core_type == ::oro_kernel::CoreType::Primary {
 		::oro_arch_aarch64::init_kernel_primary();
@@ -41,7 +39,7 @@ pub unsafe extern "C" fn _start() -> ! {
 		::oro_arch_aarch64::init_kernel_secondary();
 	}
 
-	::oro_kernel::boot::<Aarch64>(&::oro_kernel::CoreConfig {
+	::oro_kernel::boot(&::oro_kernel::CoreConfig {
 		core_id,
 		core_type,
 		boot_config,

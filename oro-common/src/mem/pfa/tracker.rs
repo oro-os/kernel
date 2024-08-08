@@ -2,9 +2,12 @@
 //! about memory usage.
 
 use crate::{
+	arch::Arch,
 	dbg_warn,
-	mem::{MemoryRegion, MemoryRegionType, PageFrameAllocate, PageFrameFree},
-	Arch,
+	mem::{
+		pfa::alloc::{PageFrameAllocate, PageFrameFree},
+		region::{MemoryRegion, MemoryRegionType},
+	},
 };
 use core::fmt;
 

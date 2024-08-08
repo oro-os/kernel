@@ -1,0 +1,24 @@
+[package]
+name = "oro-arch"
+version.workspace = true
+description = "Architecture selector based on the target architecture"
+publish = false
+edition = "2021"
+authors = [
+	"Josh Junon (https//github.com/qix-)"
+]
+homepage = "https://oro.sh"
+repository = "https://github.com/oro-os/kernel"
+license = "MPL-2.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+oro-common.workspace = true
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+oro-arch-aarch64.workspace = true
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+oro-arch-x86_64.workspace = true

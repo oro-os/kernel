@@ -7,7 +7,9 @@ use crate::{
 	asm::cr3,
 	mem::{paging::PageTableEntry, segment::AddressSegment},
 };
-use oro_common::mem::{AddressSpace, PageFrameAllocate, PhysicalAddressTranslator};
+use oro_common::mem::{
+	mapper::AddressSpace, pfa::alloc::PageFrameAllocate, translate::PhysicalAddressTranslator,
+};
 
 /// A handle to an address space for the x86_64 architecture.
 ///

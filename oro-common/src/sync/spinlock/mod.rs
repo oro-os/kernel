@@ -2,5 +2,5 @@
 //! between multiple threads of execution that may access the same resource
 //! concurrently.
 
-pub(crate) mod unfair;
-pub(crate) mod unfair_critical;
+pub mod unfair;
+pub mod unfair_critical;

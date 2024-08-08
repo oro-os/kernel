@@ -12,7 +12,9 @@ use crate::{
 	},
 	reg::tcr_el1::TcrEl1,
 };
-use oro_common::mem::{AddressSpace, PageFrameAllocate, PhysicalAddressTranslator};
+use oro_common::mem::{
+	mapper::AddressSpace, pfa::alloc::PageFrameAllocate, translate::PhysicalAddressTranslator,
+};
 
 /// A lightweight handle to an address space.
 pub struct AddressSpaceHandle {

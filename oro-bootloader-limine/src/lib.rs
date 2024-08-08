@@ -24,10 +24,9 @@ use limine::{
 	smp::Cpu,
 	BaseRevision,
 };
-use oro_common::{
-	dbg, dbg_err,
-	mem::{MemoryRegion, MemoryRegionType, OffsetPhysicalAddressTranslator},
-	Arch, ModuleDef, PrebootConfig, PrebootPrimaryConfig,
+use oro_boot::{
+	dbg, dbg_err, Arch, MemoryRegion, MemoryRegionType, ModuleDef, OffsetPhysicalAddressTranslator,
+	PrebootConfig, PrebootPrimaryConfig, Target,
 };
 
 /// The path to where the Oro kernel is expected.
@@ -142,8 +141,8 @@ pub trait CpuId {
 ///
 /// # Panics
 /// Panics if a bootstrap CPU is not found.
-pub unsafe fn init<A: Arch, C: CpuId>() -> ! {
-	dbg!(A, "limine", "boot");
+pub unsafe fn init<C: CpuId>() -> ! {
+	dbg!("limine", "boot");
 
 	let smp_response = get_response!(mut REQ_SMP, "smp");
 	let module_response = get_response!(REQ_MODULES, "module listing");
@@ -169,16 +168,16 @@ pub unsafe fn init<A: Arch, C: CpuId>() -> ! {
 
 	for cpu in smp_response.cpus_mut() {
 		if C::cpu_id(cpu) != primary_cpu_id {
-			dbg!(A, "limine", "booting seconary cpu: {}", C::cpu_id(cpu));
-			cpu.goto_address.write(trampoline_to_init::<A, C>);
+			dbg!("limine", "booting seconary cpu: {}", C::cpu_id(cpu));
+			cpu.goto_address.write(trampoline_to_init::<C>);
 		}
 	}
 
 	// Finally, jump the bootstrap core to the kernel.
 	let hhdm_response = get_response!(REQ_HHDM, "hhdm offset");
 
-	dbg!(A, "limine", "booting primary cpu: {primary_cpu_id}");
-	initialize_kernel::<A>(PrebootConfig::<LiminePrimaryConfig>::Primary {
+	dbg!("limine", "booting primary cpu: {primary_cpu_id}");
+	initialize_kernel(PrebootConfig::<LiminePrimaryConfig>::Primary {
 		core_id: primary_cpu_id,
 		num_instances,
 		#[allow(clippy::cast_possible_truncation)]
@@ -222,10 +221,10 @@ fn make_memory_map_iterator() -> LimineMemoryRegionIterator {
 /// # Safety
 /// Must ONLY be called ONCE by SECONDARY cores. DO NOT CALL FROM PRIMARY.
 /// Call `initialize_kernel` directly from the bootstrap (primary) core instead.
-unsafe extern "C" fn trampoline_to_init<A: Arch, C: CpuId>(smp: &Cpu) -> ! {
+unsafe extern "C" fn trampoline_to_init<C: CpuId>(smp: &Cpu) -> ! {
 	let hhdm_res = get_response!(REQ_HHDM, "hhdm offset");
 
-	initialize_kernel::<A>(PrebootConfig::Secondary {
+	initialize_kernel(PrebootConfig::Secondary {
 		core_id: C::cpu_id(smp),
 		#[allow(clippy::cast_possible_truncation)]
 		physical_address_translator: OffsetPhysicalAddressTranslator::new(
@@ -236,8 +235,8 @@ unsafe extern "C" fn trampoline_to_init<A: Arch, C: CpuId>(smp: &Cpu) -> ! {
 
 /// # Safety
 /// MUST be called EXACTLY ONCE per core.
-unsafe fn initialize_kernel<A: Arch>(preboot_config: PrebootConfig<LiminePrimaryConfig>) -> ! {
-	oro_common::boot_to_kernel::<A, _>(preboot_config);
+unsafe fn initialize_kernel(preboot_config: PrebootConfig<LiminePrimaryConfig>) -> ! {
+	oro_boot::boot_to_kernel::<_>(preboot_config);
 }
 
 /// Panic handler for the Limine bootloader stage.
@@ -245,9 +244,9 @@ unsafe fn initialize_kernel<A: Arch>(preboot_config: PrebootConfig<LiminePrimary
 /// # Safety
 /// Do **NOT** call this function directly.
 /// It is only called by the architecture-specific binaries.
-pub unsafe fn panic<A: Arch>(info: &::core::panic::PanicInfo) -> ! {
-	dbg_err!(A, "limine", "panic: {:?}", info);
-	A::halt()
+pub unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
+	dbg_err!("limine", "panic: {:?}", info);
+	Target::halt()
 }
 
 /// Provides Limine-specific types to the boot sequence for use

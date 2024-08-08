@@ -8,8 +8,10 @@ version = "0.0.0"
 [workspace]
 resolver = "2"
 members = [
+	"oro-arch",
 	"oro-arch-aarch64",
 	"oro-arch-x86_64",
+	"oro-boot",
 	"oro-bootloader-limine",
 	"oro-common",
 	"oro-common-proc",
@@ -18,8 +20,10 @@ members = [
 ]
 
 [workspace.dependencies]
+oro-arch = { path = "oro-arch" }
 oro-arch-aarch64 = { path = "oro-arch-aarch64" }
 oro-arch-x86_64 = { path = "oro-arch-x86_64" }
+oro-boot = { path = "oro-boot" }
 oro-common = { path = "oro-common" }
 oro-common-proc = { path = "oro-common-proc" }
 oro-kernel = { path = "oro-kernel" }

@@ -25,7 +25,7 @@ use crate::id::{Id, IdType};
 /// Typically the bootloader will have some means by which to load modules
 /// as instances onto the root ring, since without any additional application-
 /// specific modules, the kernel is effectively useless (will do nothing on
-/// boot). The preboot routine (that jumps to the kernel, see [`oro_common::boot_to_kernel()`])
+/// boot). The preboot routine (that jumps to the kernel, see `oro_boot::boot_to_kernel()`)
 /// provides a means for memory-mapped portable executables (PEs) to be loaded
 /// onto the root ring as instances.
 ///

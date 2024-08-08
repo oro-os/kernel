@@ -12,13 +12,15 @@ use core::{
 	ptr::from_ref,
 };
 use oro_common::{
+	arch::Arch,
 	elf::{ElfClass, ElfEndianness, ElfMachine},
 	mem::{
-		AddressSegment, AddressSpace, PageFrameAllocate, PageFrameFree, PhysicalAddressTranslator,
-		UnmapError,
+		mapper::{AddressSegment, AddressSpace, UnmapError},
+		pfa::alloc::{PageFrameAllocate, PageFrameFree},
+		translate::PhysicalAddressTranslator,
 	},
-	sync::UnfairCriticalSpinlock,
-	Arch, PrebootConfig, PrebootPrimaryConfig,
+	preboot::{PrebootConfig, PrebootPrimaryConfig},
+	sync::spinlock::unfair_critical::UnfairCriticalSpinlock,
 };
 use uart_16550::SerialPort;
 

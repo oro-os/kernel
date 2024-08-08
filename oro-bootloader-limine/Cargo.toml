@@ -25,7 +25,8 @@ path = "bin/aarch64.rs"
 doc = false
 
 [dependencies]
-oro-common.workspace = true
+oro-arch.workspace = true
+oro-boot.workspace = true
 limine.workspace = true
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]

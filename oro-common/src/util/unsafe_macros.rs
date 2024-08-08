@@ -16,12 +16,12 @@ macro_rules! assert_unsafe {
 /// a precondition is not met. Only enabled in debug mode.
 #[macro_export]
 macro_rules! unsafe_precondition {
-	($Arch:ty, $cond:expr, $_note:literal) => {
+	($Target:ty, $cond:expr, $_note:literal) => {
 		$crate::assert_unsafe!();
 
 		#[cfg(debug_assertions)]
 		if $crate::unlikely!(!$cond) {
-			<$Arch as $crate::Arch>::halt();
+			<$Target as $crate::arch::Arch>::halt();
 		}
 
 		#[cfg(not(debug_assertions))]
@@ -30,8 +30,13 @@ macro_rules! unsafe_precondition {
 			// We do this so that $A is always used and
 			// doesn't get a compiler error when it's coming
 			// from a template parameter.
-			<$Arch as $crate::Arch>::halt();
+			<$Target as $crate::arch::Arch>::halt();
 		}
+	};
+
+	// NOTE: requires oro_arch as a dependency
+	($cond:expr, $_note:literal) => {
+		unsafe_precondition!(::oro_arch::Target, $cond, $_note);
 	};
 }
 

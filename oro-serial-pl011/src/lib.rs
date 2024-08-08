@@ -7,7 +7,7 @@
 #![allow(internal_features)]
 #![feature(core_intrinsics)]
 
-use oro_common::{unsafe_precondition, Arch};
+use oro_common::{arch::Arch, unsafe_precondition};
 use volatile_register::{RO, RW, WO};
 
 const FR_BUSY: u32 = 1 << 3;

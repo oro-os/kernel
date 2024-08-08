@@ -20,11 +20,16 @@ pub(crate) mod port;
 pub(crate) mod ring;
 
 use core::mem::MaybeUninit;
+use oro_arch::Target;
 use oro_common::{
+	arch::Arch,
+	boot::BootConfig,
 	dbg, dbg_err,
-	mem::{AddressSpace, FiloPageFrameAllocator, OffsetPhysicalAddressTranslator},
-	sync::UnfairCriticalSpinlock,
-	Arch, BootConfig,
+	mem::{
+		mapper::AddressSpace, pfa::filo::FiloPageFrameAllocator,
+		translate::OffsetPhysicalAddressTranslator,
+	},
+	sync::spinlock::unfair_critical::UnfairCriticalSpinlock,
 };
 
 /// The type of PFA we'll use system-wide.
@@ -87,29 +92,29 @@ pub enum CoreType {
 /// The `core_config` parameter must be properly initialized.
 /// Specifically, all safety requirements must be met, such as
 /// marking exactly one core as primary.
-pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
+pub unsafe fn boot(core_config: &CoreConfig) -> ! {
 	#[allow(clippy::missing_docs_in_private_items)]
 	macro_rules! wait_for_all_cores {
 		() => {{
-			static BARRIER: ::oro_common::sync::SpinBarrier =
-				::oro_common::sync::SpinBarrier::new();
+			static BARRIER: ::oro_common::sync::barrier::SpinBarrier =
+				::oro_common::sync::barrier::SpinBarrier::new();
 
 			if core_config.core_type == CoreType::Primary {
-				BARRIER.set_total::<A>(core_config.boot_config.core_count);
+				BARRIER.set_total::<Target>(core_config.boot_config.core_count);
 			}
 
 			BARRIER.wait();
 		}};
 		(primary $primary:block secondary $secondary:block) => {{
-			static BARRIER: ::oro_common::sync::SpinBarrier =
-				::oro_common::sync::SpinBarrier::new();
-			static AFTER_BARRIER: ::oro_common::sync::SpinBarrier =
-				::oro_common::sync::SpinBarrier::new();
+			static BARRIER: ::oro_common::sync::barrier::SpinBarrier =
+				::oro_common::sync::barrier::SpinBarrier::new();
+			static AFTER_BARRIER: ::oro_common::sync::barrier::SpinBarrier =
+				::oro_common::sync::barrier::SpinBarrier::new();
 
 			if core_config.core_type == CoreType::Primary {
 				$primary
-				BARRIER.set_total::<A>(core_config.boot_config.core_count);
-				AFTER_BARRIER.set_total::<A>(core_config.boot_config.core_count);
+				BARRIER.set_total::<Target>(core_config.boot_config.core_count);
+				AFTER_BARRIER.set_total::<Target>(core_config.boot_config.core_count);
 				BARRIER.wait();
 			} else {
 				BARRIER.wait();
@@ -136,14 +141,14 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 	// Set up the PFA.
 	let translator =
 		OffsetPhysicalAddressTranslator::new(core_config.boot_config.linear_map_offset);
-	let kernel_addr_space = <A as Arch>::AddressSpace::current_supervisor_space(&translator);
+	let kernel_addr_space = <Target as Arch>::AddressSpace::current_supervisor_space(&translator);
 
 	if core_config.core_type == CoreType::Primary {
 		PFA.write(UnfairCriticalSpinlock::new(
 			FiloPageFrameAllocator::with_last_free(translator.clone(), core_config.pfa_head),
 		));
 
-		A::strong_memory_barrier();
+		Target::strong_memory_barrier();
 	}
 
 	wait_for_all_cores!();
@@ -153,8 +158,8 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 	let pfa: &'static _ = &*core::ptr::from_ref(PFA.assume_init_ref());
 
 	wait_for_all_cores! {
-		let mut pfa = pfa.lock::<A>();
-		A::after_transfer(
+		let mut pfa = pfa.lock::<Target>();
+		Target::after_transfer(
 			&kernel_addr_space,
 			&translator,
 			&mut *pfa,
@@ -163,10 +168,10 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 	}
 
 	if core_config.core_type == CoreType::Primary {
-		dbg!(A, "kernel", "kernel transfer ok");
+		dbg!("kernel", "kernel transfer ok");
 	}
 
-	A::halt()
+	Target::halt()
 }
 
 /// Panic handler for the kernel.
@@ -174,7 +179,7 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 /// # Safety
 /// Do **NOT** call this function directly.
 /// It is only called by the architecture-specific binaries.
-pub unsafe fn panic<A: Arch>(info: &::core::panic::PanicInfo) -> ! {
-	dbg_err!(A, "kernel", "panic: {:?}", info);
-	A::halt()
+pub unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
+	dbg_err!("kernel", "panic: {:?}", info);
+	Target::halt()
 }

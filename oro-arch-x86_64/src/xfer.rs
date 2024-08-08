@@ -8,7 +8,7 @@ use crate::{
 	reg::Cr0,
 };
 use core::arch::asm;
-use oro_common::mem::AddressSegment;
+use oro_common::mem::mapper::AddressSegment;
 
 extern "C" {
 	/// The start of the transfer stubs.
@@ -41,7 +41,8 @@ pub fn target_address() -> usize {
 /// Performs the transfer from pre-boot to the kernel.
 ///
 /// # Safety
-/// Only to be called ONCE per core, and only by the [`oro_common::Arch`] implementation.
+/// Only to be called ONCE per core, and only by the
+/// [`oro_common::arch::Arch`] implementation.
 pub unsafe fn transfer(
 	entry: usize,
 	transfer_token: &TransferToken,
