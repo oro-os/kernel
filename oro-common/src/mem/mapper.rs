@@ -30,7 +30,16 @@ pub unsafe trait AddressSpace {
 	/// Returns the supervisor address space handle for the current CPU.
 	///
 	/// # Safety
-	/// This function must ONLY be called ONCE.
+	/// This function is callable only from the supervisor mode (whatever
+	/// that means for the architecture), and must ONLY be called by code
+	/// that has exclusive ownership of a segment.
+	///
+	/// Put another way, calling this function must not result in mapping
+	/// any entries that are being mapped into by code with another handle
+	/// to the supervisor space (via calling this method).
+	///
+	/// Further, this function _should_ be considered slow, and only called
+	/// when absolutely necessary.
 	unsafe fn current_supervisor_space<P>(translator: &P) -> Self::SupervisorHandle
 	where
 		P: PhysicalAddressTranslator;
