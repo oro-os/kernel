@@ -88,6 +88,30 @@ pub unsafe trait Arch {
 		C: PrebootPrimaryConfig,
 		A: PageFrameAllocate + PageFrameFree;
 
+	/// Maps the pages in an address space segment such that they are
+	/// shared across all cores.
+	///
+	/// This is called once for the primary CPU core, after the page
+	/// tables have been prepared by the primary core, before being
+	/// copied by the secondary cores.
+	///
+	/// The goal of this method is to ensure that subsequent mappings
+	/// within the segment are visible to all other cores.
+	///
+	/// # Safety
+	/// This method must be called **exactly once per registry segment**
+	/// on the primary CPU core, and **only** by the primary CPU core,
+	/// after the page tables have been prepared, and before the secondaries
+	/// copy the page tables.
+	unsafe fn make_segment_shared<A, C>(
+		mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
+		segment: &<Self::AddressSpace as AddressSpace>::SupervisorSegment,
+		config: &PrebootConfig<C>,
+		alloc: &mut A,
+	) where
+		C: PrebootPrimaryConfig,
+		A: PageFrameAllocate + PageFrameFree;
+
 	/// Prepares the CPU for an execution control transfer.
 	///
 	/// This is used only when the preboot stage is about to transfer

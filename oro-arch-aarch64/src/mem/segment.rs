@@ -293,6 +293,45 @@ impl Segment {
 			_ => panic!("L0 entry is not a descriptor"),
 		})
 	}
+
+	/// Maps the L0 entry for the given segment range to
+	/// empty page tables, without mapping any children.
+	///
+	/// Intended to be used to create shared segments that are
+	/// otherwise empty, for later use.
+	///
+	/// # Safety
+	/// Must only be called once per segment range.
+	///
+	/// Does NOT invalidate the TLB.
+	pub unsafe fn make_top_level_present<A, P>(
+		&self,
+		space: &AddressSpaceHandle,
+		alloc: &mut A,
+		translator: &P,
+	) -> Result<(), MapError>
+	where
+		A: PageFrameAllocate,
+		P: PhysicalAddressTranslator,
+	{
+		let top_level = &mut *(translator.to_virtual_addr(space.base_phys) as *mut PageTable);
+
+		for idx in self.valid_range.0..=self.valid_range.1 {
+			let entry = &mut top_level[idx];
+
+			if entry.valid() {
+				return Err(MapError::Exists);
+			}
+
+			let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
+			entry.set_raw(self.l0_template.with_address(frame_phys_addr).to_raw());
+			let frame_virt_addr = translator.to_virtual_addr(frame_phys_addr);
+
+			(*(frame_virt_addr as *mut PageTable)).reset();
+		}
+
+		Ok(())
+	}
 }
 
 unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {

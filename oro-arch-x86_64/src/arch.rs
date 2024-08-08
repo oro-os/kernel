@@ -174,6 +174,22 @@ unsafe impl Arch for X86_64 {
 		Self::strong_memory_barrier();
 	}
 
+	unsafe fn make_segment_shared<A, C>(
+		mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
+		segment: &<Self::AddressSpace as AddressSpace>::SupervisorSegment,
+		config: &PrebootConfig<C>,
+		alloc: &mut A,
+	) where
+		C: PrebootPrimaryConfig,
+		A: PageFrameAllocate + PageFrameFree,
+	{
+		let translator = config.physical_address_translator();
+
+		segment
+			.make_top_level_present(mapper, alloc, translator)
+			.expect("failed to map shared segment");
+	}
+
 	#[allow(clippy::too_many_lines)]
 	unsafe fn prepare_transfer<A, C>(
 		mapper: <<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
