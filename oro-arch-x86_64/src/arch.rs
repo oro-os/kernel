@@ -82,7 +82,7 @@ unsafe impl Arch for X86_64 {
 		unsafe { writeln!(SERIAL.lock::<Self>(), "{message}") }.unwrap();
 	}
 
-	unsafe fn prepare_master_page_tables<A, C>(
+	unsafe fn prepare_primary_page_tables<A, C>(
 		mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
 		config: &PrebootConfig<C>,
 		alloc: &mut A,
