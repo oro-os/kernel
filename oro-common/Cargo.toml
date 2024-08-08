@@ -18,11 +18,5 @@ doctest = false
 default = []
 dbgutil = []
 
-# Do NOT enable this feature for preboot environments.
-# It acts as a somewhat tight-coupling of functionality
-# that is not stable nor guaranteed to be available in all
-# cases and that preboot environments MUST NOT rely on.
-kernel = []
-
 [dependencies]
 oro-common-proc.workspace = true
