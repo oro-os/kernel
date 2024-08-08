@@ -16,7 +16,6 @@ proc-macro = true
 doctest = false
 
 [dependencies]
-static_assertions.workspace = true
 syn.workspace = true
 quote.workspace = true
 proc-macro2.workspace = true

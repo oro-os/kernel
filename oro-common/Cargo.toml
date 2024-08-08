@@ -26,4 +26,3 @@ kernel = []
 
 [dependencies]
 oro-common-proc.workspace = true
-static_assertions.workspace = true

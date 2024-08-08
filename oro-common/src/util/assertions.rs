@@ -71,6 +71,43 @@ pub fn assert_fits_within_val<T: Sized, U: Sized>(_v: &T, _u: &U) {
 	() = <T as AssertFitsWithin<U>>::ASSERT;
 }
 
+/// Asserts that a type is exactly a certain size.
+///
+/// To use, simply bound a type to this trait and use the `ASSERT` associated constant
+/// like so:
+///
+/// ```rust
+/// () = <T as AssertSizeOf<SIZE>>::ASSERT;
+/// ```
+///
+/// # Safety
+/// The assertion **does not trigger** unless the above explicit usage of the
+/// `ASSERT` associated constant is used. There's, unfortunately, no great way
+/// to enforce this at the type level.
+pub trait AssertSizeOf<const SIZE: usize>: Sized {
+	/// Performs the assertion that the type is exactly the specified size.
+	///
+	/// This must be referenced somewhere in the code at each usage site,
+	/// like so:
+	///
+	/// ```rust
+	/// () = <T as AssertSizeOf<SIZE>>::ASSERT;
+	/// ```
+	///
+	/// This will cause a compile-time error if the assertion does not hold.
+	const ASSERT: () = assert!(
+		core::mem::size_of::<Self>() == SIZE,
+		"value is not the specified size (check SIZE)"
+	);
+}
+
+impl<T: Sized, const SIZE: usize> AssertSizeOf<SIZE> for T {}
+
+/// One-off assertion that a type is a certain size.
+pub const fn assert_size_of<T: Sized, const SIZE: usize>() {
+	() = <T as AssertSizeOf<SIZE>>::ASSERT;
+}
+
 /// Asserts that a type does not have a destructor (drop method) or have any fields
 /// that require a destructor to be called.
 ///

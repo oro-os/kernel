@@ -16,7 +16,7 @@ pub struct PageTable {
 	entries: [PageTableEntry; 512],
 }
 
-static_assertions::const_assert_eq!(::core::mem::size_of::<PageTable>(), 4096);
+const _: () = oro_common::util::assertions::assert_size_of::<PageTable, 4096>();
 
 impl Default for PageTable {
 	#[inline]
@@ -78,7 +78,8 @@ impl PageTable {
 #[repr(C, align(8))]
 pub struct PageTableEntry(u64);
 
-static_assertions::const_assert_eq!(::core::mem::size_of::<PageTableEntry>(), 8);
+#[allow(clippy::missing_docs_in_private_items)]
+const _: () = oro_common::util::assertions::assert_size_of::<PageTableEntry, 8>();
 
 impl fmt::Debug for PageTableEntry {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

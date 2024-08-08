@@ -217,7 +217,7 @@ struct ElfIdent {
 }
 
 // `EI_NIDENT` is 16.
-static_assertions::assert_eq_size!(ElfIdent, [u8; 16]);
+const _: () = crate::util::assertions::assert_size_of::<ElfIdent, 16>();
 
 /// An architecture-dependent ELF header (either [`Elf32`] or [`Elf64`]).
 #[repr(C, align(4))]
