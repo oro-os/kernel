@@ -123,7 +123,7 @@ pub unsafe fn boot(core_config: &CoreConfig) -> ! {
 
 			AFTER_BARRIER.wait();
 		}};
-		($($t:stmt ;)*) => {{
+		($($t:stmt)*) => {{
 			// TODO(qix-): Simplify this such that we don't duplicate code.
 			wait_for_all_cores! {
 				primary {
@@ -157,7 +157,7 @@ pub unsafe fn boot(core_config: &CoreConfig) -> ! {
 	// SAFETY(qix-): assume that it is initialized here.
 	let pfa: &'static _ = &*core::ptr::from_ref(PFA.assume_init_ref());
 
-	wait_for_all_cores! {
+	wait_for_all_cores! {{
 		let mut pfa = pfa.lock::<Target>();
 		Target::after_transfer(
 			&kernel_addr_space,
@@ -165,7 +165,7 @@ pub unsafe fn boot(core_config: &CoreConfig) -> ! {
 			&mut *pfa,
 			core_config.core_type == CoreType::Primary,
 		);
-	}
+	}}
 
 	if core_config.core_type == CoreType::Primary {
 		dbg!("kernel", "kernel transfer ok");
