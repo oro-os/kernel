@@ -49,12 +49,12 @@ pub trait AssertFits<const SIZE: usize>: Sized {
 impl<T: Sized, const SIZE: usize> AssertFits<SIZE> for T {}
 
 /// One-off assertion that a type fits within a certain size.
-pub fn assert_fits<T: Sized, const SIZE: usize>(_v: &T) {
+pub const fn assert_fits<T: Sized, const SIZE: usize>(_v: &T) {
 	() = <T as AssertFits<SIZE>>::ASSERT;
 }
 
 /// One-off assertion that a type fits within another type size-wise.
-pub fn assert_fits_within<T: Sized, U: Sized>(_v: &T) {
+pub const fn assert_fits_within<T: Sized, U: Sized>(_v: &T) {
 	// TODO(qix-): When the `generic_const_exprs` feature is stabilized,
 	// TODO(qix-): switch this to the following:
 	// TODO(qix-): () = <T as AssertFits<{core::mem::size_of::<U>()}>>::ASSERT;
@@ -63,7 +63,7 @@ pub fn assert_fits_within<T: Sized, U: Sized>(_v: &T) {
 }
 
 /// One-off assertion that a type fits within another type size-wise using value references.
-pub fn assert_fits_within_val<T: Sized, U: Sized>(_v: &T, _u: &U) {
+pub const fn assert_fits_within_val<T: Sized, U: Sized>(_v: &T, _u: &U) {
 	// TODO(qix-): When the `generic_const_exprs` feature is stabilized,
 	// TODO(qix-): switch this to the following:
 	// TODO(qix-): () = <T as AssertFits<{core::mem::size_of::<U>()}>>::ASSERT;
@@ -177,13 +177,13 @@ impl<T: Sized, U: Sized> AssertAlignsWithin<U> for T {}
 
 /// One-off assertion that a type has equal or less alignment requirements
 /// than another type.
-pub fn assert_aligns_within<T: Sized, U: Sized>(_v: &T) {
+pub const fn assert_aligns_within<T: Sized, U: Sized>(_v: &T) {
 	() = <T as AssertAlignsWithin<U>>::ASSERT;
 }
 
 /// One-off assertion that a type has equal or less alignment requirements
 /// than another type using value references.
-pub fn assert_aligns_within_val<T: Sized, U: Sized>(_v: &T, _u: &U) {
+pub const fn assert_aligns_within_val<T: Sized, U: Sized>(_v: &T, _u: &U) {
 	() = <T as AssertAlignsWithin<U>>::ASSERT;
 }
 
