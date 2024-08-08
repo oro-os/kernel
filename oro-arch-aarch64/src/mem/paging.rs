@@ -73,7 +73,7 @@ pub struct PageTable {
 	entries: [PageTableEntry; 512],
 }
 
-static_assertions::const_assert_eq!(::core::mem::size_of::<PageTable>(), 4096);
+const _: () = oro_common::util::assertions::assert_size_of::<PageTable, 4096>();
 
 impl IndexMut<usize> for PageTable {
 	#[inline(always)]
@@ -155,7 +155,8 @@ pub enum PageTableEntryType<'a> {
 #[repr(C, align(8))]
 pub struct PageTableEntry(u64);
 
-static_assertions::const_assert_eq!(::core::mem::size_of::<PageTableEntry>(), 8);
+#[allow(clippy::missing_docs_in_private_items)]
+const _: () = oro_common::util::assertions::assert_size_of::<PageTableEntry, 8>();
 
 impl PageTableEntry {
 	/// Creates a new page table entry.
@@ -426,7 +427,7 @@ macro_rules! define_descriptor {
 		#[repr(C, align(8))]
 		pub struct $name(u64);
 
-		static_assertions::const_assert_eq!(::core::mem::size_of::<$name>(), 8);
+		const _: () = oro_common::util::assertions::assert_size_of::<$name, 8>();
 
 		impl PageTableEntrySubtype for $name {
 			const ADDR_MASK_HIGH_BIT: u64 = $addr_mask_high;
