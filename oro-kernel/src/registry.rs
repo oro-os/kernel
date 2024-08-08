@@ -84,7 +84,7 @@ where
 	///
 	/// For that reason, this function is `unsafe` and only accessible
 	/// within the root module.
-	pub(super) fn new(
+	pub(super) unsafe fn new(
 		pfa: &'static UnfairCriticalSpinlock<Alloc>,
 		translator: P,
 		segment: <<Target as Arch>::AddressSpace as AddressSpace>::SupervisorSegment,
