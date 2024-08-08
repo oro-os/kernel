@@ -68,7 +68,7 @@ impl Segment {
 		virt: usize,
 	) -> Result<&'a mut PageTableEntry, MapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: PageFrameAllocate,
 		P: PhysicalAddressTranslator,
 	{
 		let virt = virt
@@ -318,6 +318,23 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 	) -> Result<(), MapError>
 	where
 		A: PageFrameAllocate + PageFrameFree,
+		P: PhysicalAddressTranslator,
+	{
+		// NOTE(qix-): The mapper doesn't actually free anything,
+		// NOTE(qix-): so we can just call the nofree variant.
+		self.map_nofree(space, alloc, translator, virt, phys)
+	}
+
+	fn map_nofree<A, P>(
+		&self,
+		space: &AddressSpaceHandle,
+		alloc: &mut A,
+		translator: &P,
+		virt: usize,
+		phys: u64,
+	) -> Result<(), MapError>
+	where
+		A: PageFrameAllocate,
 		P: PhysicalAddressTranslator,
 	{
 		let l3_entry = self.entry(space, alloc, translator, virt)?;

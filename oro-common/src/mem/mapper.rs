@@ -149,6 +149,23 @@ pub unsafe trait AddressSegment<Handle: Sized> {
 		A: PageFrameAllocate + PageFrameFree,
 		P: PhysicalAddressTranslator;
 
+	/// Maps a physical address into the segment at the given virtual address,
+	/// without performing any frees (even if it means a slightly less
+	/// efficient implementation).
+	///
+	/// Fails if the virtual address is already mapped.
+	fn map_nofree<A, P>(
+		&self,
+		space: &Handle,
+		alloc: &mut A,
+		translator: &P,
+		virt: usize,
+		phys: u64,
+	) -> Result<(), MapError>
+	where
+		A: PageFrameAllocate,
+		P: PhysicalAddressTranslator;
+
 	/// Unmaps a physical address from the segment at the given virtual address.
 	/// Fails if the virtual address is not mapped. Returns the physical address
 	/// that was previously mapped.
