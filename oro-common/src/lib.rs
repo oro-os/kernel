@@ -40,8 +40,4 @@ pub mod preboot;
 pub mod proc;
 pub mod ser2mem;
 pub mod sync;
-
-#[cfg(feature = "kernel")]
 pub mod util;
-#[cfg(not(feature = "kernel"))]
-pub(crate) mod util;
