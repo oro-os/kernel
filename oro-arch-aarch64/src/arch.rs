@@ -102,6 +102,22 @@ unsafe impl Arch for Aarch64 {
 	{
 	}
 
+	unsafe fn make_segment_shared<A, C>(
+		mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
+		segment: &<Self::AddressSpace as AddressSpace>::SupervisorSegment,
+		config: &PrebootConfig<C>,
+		alloc: &mut A,
+	) where
+		C: PrebootPrimaryConfig,
+		A: PageFrameAllocate + PageFrameFree,
+	{
+		let translator = config.physical_address_translator();
+
+		segment
+			.make_top_level_present(mapper, alloc, translator)
+			.expect("failed to map shared segment");
+	}
+
 	unsafe fn prepare_transfer<A, C>(
 		mapper: <<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
 		config: &PrebootConfig<C>,

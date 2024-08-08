@@ -457,11 +457,7 @@ where
 				}
 			}
 
-			dbg!(
-				A,
-				"boot_to_kernel",
-				"direct mapped all memory regions; preparing master page tables"
-			);
+			dbg!(A, "boot_to_kernel", "direct mapped all memory regions");
 
 			// Allow the architecture to prepare any additional mappings.
 			A::prepare_master_page_tables(&kernel_mapper, &config, &mut *pfa);
@@ -470,6 +466,46 @@ where
 				A,
 				"boot_to_kernel",
 				"architecture prepared master page tables"
+			);
+
+			// Make each of the registry segments shared.
+			A::make_segment_shared(
+				&kernel_mapper,
+				&A::AddressSpace::kernel_port_registry(),
+				&config,
+				&mut *pfa,
+			);
+
+			dbg!(
+				A,
+				"boot_to_kernel",
+				"initialized shared port registry segment"
+			);
+
+			A::make_segment_shared(
+				&kernel_mapper,
+				&A::AddressSpace::kernel_module_instance_registry(),
+				&config,
+				&mut *pfa,
+			);
+
+			dbg!(
+				A,
+				"boot_to_kernel",
+				"initialized shared module instance registry segment"
+			);
+
+			A::make_segment_shared(
+				&kernel_mapper,
+				&A::AddressSpace::kernel_ring_registry(),
+				&config,
+				&mut *pfa,
+			);
+
+			dbg!(
+				A,
+				"boot_to_kernel",
+				"initialized shared ring registry segment"
 			);
 
 			// Write the boot config.
