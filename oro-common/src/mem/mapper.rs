@@ -19,6 +19,12 @@ use crate::mem::{
 /// # Safety
 /// Implementations must ensure that the descriptor is valid for the architecture
 /// and that the descriptors do not overlap one another.
+///
+/// Implementations must also ensure that non-overlapping segments (as are prescribed
+/// in the individual segment descriptor method documentation) are safe to be used
+/// with copies of the current supervisor space (as returned by the
+/// [`AddressSpace::current_supervisor_space`] method), so as to not incur undefined
+/// behavior under Rust's safety rules regarding multiple mutable references.
 // TODO(qix-): Turn this into a const trait whenever const traits are stabilized.
 pub unsafe trait AddressSpace {
 	/// The type of supervisor address space handle that this address space works with.
@@ -95,6 +101,11 @@ pub unsafe trait AddressSpace {
 	/// **not** executable.
 	///
 	/// Must **not** overlap with any other segment.
+	///
+	/// Must NOT span more than 2^63 bytes (on 64-bit architectures)
+	/// or 2^31 bytes (on 32-bit architectures).
+	///
+	/// Must NOT border the beginning or end of an address space.
 	fn kernel_ring_registry() -> Self::SupervisorSegment;
 
 	/// Returns the layout descriptor for the kernel's Port registry.
@@ -103,6 +114,11 @@ pub unsafe trait AddressSpace {
 	/// **not** executable.
 	///
 	/// Must **not** overlap with any other segment.
+	///
+	/// Must NOT span more than 2^63 bytes (on 64-bit architectures)
+	/// or 2^31 bytes (on 32-bit architectures).
+	///
+	/// Must NOT border the beginning or end of an address space.
 	fn kernel_port_registry() -> Self::SupervisorSegment;
 
 	/// Returns the layout descriptor for the kernel's Module Instance registry.
@@ -111,6 +127,11 @@ pub unsafe trait AddressSpace {
 	/// **not** executable.
 	///
 	/// Must **not** overlap with any other segment.
+	///
+	/// Must NOT span more than 2^63 bytes (on 64-bit architectures)
+	/// or 2^31 bytes (on 32-bit architectures).
+	///
+	/// Must NOT border the beginning or end of an address space.
 	fn kernel_module_instance_registry() -> Self::SupervisorSegment;
 
 	/// Returns the layout descriptor for the direct map of physical addresses.
@@ -141,6 +162,14 @@ pub unsafe trait AddressSpace {
 /// Implementations must ensure that flags are appropriate for the kernel's expectations
 /// of each respective segment, and that any overlapping is consistent with the kernel's
 /// expectations.
+///
+/// Implementations must also ensure that non-overlapping segments do not touch other
+/// segments, at all, or dereference any of their e.g. page table entries, or other
+/// memory that might also be accessed by copies of the mapper handle. Doing so will
+/// incur undefined behavior under Rust's safety rules regarding multiple mutable
+/// references.
+///
+/// Implementations **MUST NOT PANIC** under any circumstance.
 pub unsafe trait AddressSegment<Handle: Sized> {
 	/// Returns the range of virtual addresses that this segment covers.
 	///
@@ -149,6 +178,10 @@ pub unsafe trait AddressSegment<Handle: Sized> {
 
 	/// Maps a physical address into the segment at the given virtual address.
 	/// Fails if the virtual address is already mapped.
+	///
+	/// If the caller had allocated the page frame for use and this function fails,
+	/// assuming the caller will not retry, it's up to the caller to free the
+	/// page frame in order to avoid a memory leak.
 	fn map<A, P>(
 		&self,
 		space: &Handle,
@@ -166,6 +199,10 @@ pub unsafe trait AddressSegment<Handle: Sized> {
 	/// efficient implementation).
 	///
 	/// Fails if the virtual address is already mapped.
+	///
+	/// If the caller had allocated the page frame for use and this function fails,
+	/// assuming the caller will not retry, it's up to the caller to free the
+	/// page frame in order to avoid a memory leak.
 	fn map_nofree<A, P>(
 		&self,
 		space: &Handle,
