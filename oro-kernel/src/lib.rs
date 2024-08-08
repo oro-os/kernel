@@ -15,6 +15,9 @@
 #![feature(adt_const_params)]
 
 pub(crate) mod id;
+pub(crate) mod module;
+pub(crate) mod port;
+pub(crate) mod ring;
 
 use core::mem::MaybeUninit;
 use oro_common::{
