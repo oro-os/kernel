@@ -23,9 +23,19 @@ use core::mem::MaybeUninit;
 use oro_common::{
 	dbg, dbg_err,
 	mem::{AddressSpace, FiloPageFrameAllocator, OffsetPhysicalAddressTranslator},
-	sync::UnfairSpinlock,
+	sync::UnfairCriticalSpinlock,
 	Arch, BootConfig,
 };
+
+/// The type of PFA we'll use system-wide.
+// NOTE(qix-): This is explicitly defined here since Rust doesn't have
+// NOTE(qix-): any way to define a "generic static" of sorts. TAIT does not
+// NOTE(qix-): work here. It's also why registries are defined in this file
+// NOTE(qix-): and not in their own type modules.
+type Pfa = FiloPageFrameAllocator<OffsetPhysicalAddressTranslator>;
+
+/// Holds the shared PFA.
+static mut PFA: MaybeUninit<UnfairCriticalSpinlock<Pfa>> = MaybeUninit::uninit();
 
 /// Core-specific boot information.
 ///
@@ -128,16 +138,10 @@ pub unsafe fn boot<A: Arch>(core_config: &CoreConfig) -> ! {
 		OffsetPhysicalAddressTranslator::new(core_config.boot_config.linear_map_offset);
 	let kernel_addr_space = <A as Arch>::AddressSpace::current_supervisor_space(&translator);
 
-	#[allow(clippy::items_after_statements, clippy::missing_docs_in_private_items)]
-	static mut PFA: MaybeUninit<
-		UnfairSpinlock<FiloPageFrameAllocator<OffsetPhysicalAddressTranslator>>,
-	> = MaybeUninit::uninit();
-
 	if core_config.core_type == CoreType::Primary {
-		PFA.write(UnfairSpinlock::new(FiloPageFrameAllocator::with_last_free(
-			translator.clone(),
-			core_config.pfa_head,
-		)));
+		PFA.write(UnfairCriticalSpinlock::new(
+			FiloPageFrameAllocator::with_last_free(translator.clone(), core_config.pfa_head),
+		));
 
 		A::strong_memory_barrier();
 	}
