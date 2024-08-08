@@ -455,9 +455,12 @@ where
 			dbg!("boot_to_kernel", "direct mapped all memory regions");
 
 			// Allow the architecture to prepare any additional mappings.
-			Target::prepare_master_page_tables(&kernel_mapper, &config, &mut *pfa);
+			Target::prepare_primary_page_tables(&kernel_mapper, &config, &mut *pfa);
 
-			dbg!("boot_to_kernel", "architecture prepared master page tables");
+			dbg!(
+				"boot_to_kernel",
+				"architecture prepared primary page tables"
+			);
 
 			// Make each of the registry segments shared.
 			Target::make_segment_shared(

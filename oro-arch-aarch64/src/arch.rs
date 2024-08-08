@@ -94,7 +94,7 @@ unsafe impl Arch for Aarch64 {
 		.unwrap();
 	}
 
-	unsafe fn prepare_master_page_tables<A, C>(
+	unsafe fn prepare_primary_page_tables<A, C>(
 		_mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
 		_config: &PrebootConfig<C>,
 		_alloc: &mut A,

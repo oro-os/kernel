@@ -64,7 +64,7 @@ pub unsafe trait Arch {
 	/// completed before the barrier returns.
 	fn strong_memory_barrier();
 
-	/// Allows the architecture to prepare the master page tables
+	/// Allows the architecture to prepare the primary page tables
 	/// for the transfer to the kernel execution context.
 	///
 	/// This is called once for the primary CPU core, before
@@ -84,7 +84,7 @@ pub unsafe trait Arch {
 	///
 	/// Callers of this method **MUST** synchronize with other cores
 	/// directly after calling, a transfer is prepared.
-	unsafe fn prepare_master_page_tables<A, C>(
+	unsafe fn prepare_primary_page_tables<A, C>(
 		mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
 		config: &PrebootConfig<C>,
 		alloc: &mut A,
