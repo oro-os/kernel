@@ -248,7 +248,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 					)
 					.with_user_no_exec()
 					.with_not_secure()
-					.with_mair_index(MairEntry::KernelExe.index() as u64),
+					.with_mair_index(MairEntry::NormalMemory.index() as u64),
 			}
 		};
 
@@ -324,7 +324,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 					.with_user_no_exec()
 					.with_kernel_no_exec()
 					.with_not_secure()
-					.with_mair_index(MairEntry::KernelRo.index() as u64),
+					.with_mair_index(MairEntry::NormalMemory.index() as u64),
 			}
 		};
 
@@ -511,7 +511,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 					.with_user_no_exec()
 					.with_kernel_no_exec()
 					.with_not_secure()
-					.with_mair_index(MairEntry::KernelRo.index() as u64),
+					.with_mair_index(MairEntry::NormalMemory.index() as u64),
 			}
 		};
 
