@@ -23,12 +23,8 @@ pub enum MairEntry {
 	NormalMemory = 1,
 	/// Direct-Mapped Physical Pages: Write-Through, No Write-Allocate
 	DirectMap    = 2,
-	/// Kernel Pages: Write-Back, Write-Allocate (Cacheable)
-	KernelExe    = 3,
-	/// Kernel RO Pages: Write-Back, Write-Allocate (Cacheable)
-	KernelRo     = 4,
 	/// IPC Pages: Write-Through, No Write-Allocate
-	Ipc          = 5,
+	Ipc          = 3,
 }
 
 impl MairEntry {
@@ -64,24 +60,10 @@ impl MairEntry {
 					)
 						.into();
 				}
-				MairEntry::KernelExe => {
-					*mair[usize::from(entry.index())].memory_mut() = (
-						MairCacheability::WriteBackNonTransientRW,
-						MairCacheability::WriteBackNonTransientRW,
-					)
-						.into();
-				}
-				MairEntry::KernelRo => {
-					*mair[usize::from(entry.index())].memory_mut() = (
-						MairCacheability::WriteBackNonTransientRW,
-						MairCacheability::WriteBackNonTransientRW,
-					)
-						.into();
-				}
 				MairEntry::Ipc => {
 					*mair[usize::from(entry.index())].memory_mut() = (
-						MairCacheability::WriteThroughNonTransient,
-						MairCacheability::WriteThroughNonTransient,
+						MairCacheability::WriteBackTransientRW,
+						MairCacheability::WriteBackTransientRW,
 					)
 						.into();
 				}
