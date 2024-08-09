@@ -46,7 +46,27 @@ pub unsafe trait Arch {
 	const ELF_MACHINE: ElfMachine;
 
 	/// Halts the CPU.
-	fn halt() -> !;
+	///
+	/// # Safety
+	/// Only halts the current CPU core. It's also a dead-end;
+	/// it never returns, and is meant for absolute last-resort
+	/// panic / fault modes.
+	///
+	/// Implementations should refrain from overriding this method's
+	/// default implementation unless absolutely necessary.
+	#[cold]
+	unsafe fn halt() -> ! {
+		loop {
+			Self::halt_once_and_wait();
+			::core::hint::spin_loop();
+		}
+	}
+
+	/// Halts the CPU once (for whatever definition of "halt" is
+	/// appropriate for the architecture) and waits for an interrupt.
+	///
+	/// This method must **not panic**.
+	fn halt_once_and_wait();
 
 	/// Disables interrupts for the CPU.
 	fn disable_interrupts();
