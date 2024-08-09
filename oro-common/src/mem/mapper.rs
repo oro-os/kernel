@@ -198,6 +198,10 @@ pub unsafe trait AddressSegment<Handle: Sized> {
 	/// without performing any frees (even if it means a slightly less
 	/// efficient implementation).
 	///
+	/// Note that "nofree" **also means "no-unmap"**. It's unfortunately
+	/// not possible to encode that into the type system any better than this.
+	/// **This method _may not_ unmap any existing mappings / intermediate tables / etc.**.
+	///
 	/// Fails if the virtual address is already mapped.
 	///
 	/// If the caller had allocated the page frame for use and this function fails,
