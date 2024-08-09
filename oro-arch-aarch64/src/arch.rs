@@ -43,12 +43,9 @@ unsafe impl Arch for Aarch64 {
 	const ELF_ENDIANNESS: ElfEndianness = ElfEndianness::Little;
 	const ELF_MACHINE: ElfMachine = ElfMachine::Aarch64;
 
-	#[cold]
-	fn halt() -> ! {
-		loop {
-			unsafe {
-				asm!("wfi");
-			}
+	fn halt_once_and_wait() {
+		unsafe {
+			asm!("wfi");
 		}
 	}
 

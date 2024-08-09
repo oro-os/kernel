@@ -45,12 +45,9 @@ unsafe impl Arch for X86_64 {
 	const ELF_ENDIANNESS: ElfEndianness = ElfEndianness::Little;
 	const ELF_MACHINE: ElfMachine = ElfMachine::X86_64;
 
-	#[cold]
-	fn halt() -> ! {
-		loop {
-			unsafe {
-				asm!("cli", "hlt");
-			}
+	fn halt_once_and_wait() {
+		unsafe {
+			asm!("cli", "hlt");
 		}
 	}
 
