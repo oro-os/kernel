@@ -25,6 +25,7 @@
 #![feature(adt_const_params, const_refs_to_static)]
 
 pub(crate) mod id;
+pub(crate) mod local;
 pub(crate) mod module;
 pub(crate) mod port;
 pub(crate) mod registry;
@@ -182,8 +183,6 @@ pub unsafe fn boot(core_config: &CoreConfig) -> ! {
 	}}
 
 	if core_config.core_type == CoreType::Primary {
-		dbg!("kernel", "kernel transfer ok");
-
 		// Initialize the registries.
 		{
 			use crate::registry::RegistryTarget;
@@ -247,7 +246,23 @@ pub unsafe fn boot(core_config: &CoreConfig) -> ! {
 
 	wait_for_all_cores!();
 
-	Target::halt()
+	// SAFETY(qix-): Only called once, here, and before we register the interrupt handlers.
+	// SAFETY(qix-): We also barrier afterward, before we register the interrupt handlers.
+	self::local::state::initialize_core_state(
+		unsafe { &mut *pfa.lock::<Target>() },
+		&translator,
+		core_config.core_type == CoreType::Primary,
+	)
+	.expect("failed to initialize core local state");
+	wait_for_all_cores!();
+	Target::initialize_interrupts::<self::local::interrupt::KernelInterruptHandler>();
+	wait_for_all_cores!();
+
+	if core_config.core_type == CoreType::Primary {
+		dbg!("kernel", "kernel transfer ok");
+	}
+
+	self::local::main::run()
 }
 
 /// Panic handler for the kernel.
