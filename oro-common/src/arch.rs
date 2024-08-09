@@ -6,6 +6,7 @@
 //! memory management facilities).
 use crate::{
 	elf::{ElfClass, ElfEndianness, ElfMachine},
+	interrupt::InterruptHandler,
 	mem::{
 		mapper::AddressSpace,
 		pfa::alloc::{PageFrameAllocate, PageFrameFree},
@@ -240,6 +241,32 @@ pub unsafe trait Arch {
 	) where
 		A: PageFrameAllocate + PageFrameFree,
 		P: PhysicalAddressTranslator;
+
+	/// Initializes the interrupt handler for the architecture.
+	///
+	/// # Safety
+	/// This method must be called **exactly once** for each CPU core.
+	/// It must be called before any interrupts are enabled, and must
+	/// NOT manually enable interrupts afterward (aside for the Arch-provided
+	/// interrupt enable/disable mechanisms).
+	///
+	/// It must be called as soon as possible after the CPU core is
+	/// initialized, and before any other interrupt-like events are
+	/// expected to be handled.
+	///
+	/// Implementations must overwrite any existing interrupt handlers
+	/// with the new handler, if provided, and must ensure that the
+	/// handler is ready to receive interrupts at any time.
+	///
+	/// Implementations must also enable the appropriate interrupt
+	/// masks, enable bits, or other mechanisms to ensure that interrupts
+	/// are delivered to the handler after they have been installed.
+	///
+	/// Put simply, the kernel must be ready to receive interrupts
+	/// no later than the invocation of this method.
+	///
+	/// This method **must not panic**.
+	unsafe fn initialize_interrupts<H: InterruptHandler>();
 
 	/// Logs a message to the debug logger (typically a serial port).
 	///

@@ -13,6 +13,7 @@ use core::{
 use oro_common::{
 	arch::Arch,
 	elf::{ElfClass, ElfEndianness, ElfMachine},
+	interrupt::InterruptHandler,
 	mem::{
 		mapper::{AddressSegment, AddressSpace, UnmapError},
 		pfa::alloc::{PageFrameAllocate, PageFrameFree},
@@ -115,6 +116,10 @@ unsafe impl Arch for Aarch64 {
 		segment
 			.make_top_level_present(mapper, alloc, translator)
 			.expect("failed to map shared segment");
+	}
+
+	unsafe fn initialize_interrupts<H: InterruptHandler>() {
+		// TODO(qix-)
 	}
 
 	unsafe fn prepare_transfer<A, C>(
