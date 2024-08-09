@@ -383,6 +383,12 @@ struct ArenaEntry<T: Sized> {
 /// For that reason, this trait is `unsafe` and only accessible within the
 /// root module.
 ///
+/// There must be a 1-to-1 relationship between the implementation of this
+/// trait on any type `T` and a registry for that type `T`.
+///
+/// Registries MUST be static and MUST refer to shared registry segments
+/// as prescribed by the architecture-specific address space layouts.
+///
 /// **DO NOT USE THIS TRAIT ANYWHERE ELSE IN THE KERNEL CODE.**
 pub(super) unsafe trait RegistryTarget: Sized {
 	/// The type of allocator to use.
@@ -417,7 +423,6 @@ pub(super) unsafe trait RegistryTarget: Sized {
 }
 
 /// A reference to an object in a registry.
-#[derive(Clone, Copy)]
 pub struct Ref<T: RegistryTarget + Sized + 'static> {
 	/// The index of the object in the registry.
 	index:    u32,
@@ -454,6 +459,64 @@ impl<T: RegistryTarget + Sized + 'static> Ref<T> {
 			index:    registry.insert(v)?,
 			registry: <T as RegistryTarget>::REGISTRY_PTR,
 		})
+	}
+
+	/// Operates on the underlying object.
+	///
+	/// Locks the object and passes it to the closure.
+	/// The closure is executed in a critical section.
+	///
+	/// # Safety
+	/// The closure MUST NOT panic, and MUST NOT
+	/// recursively call `Ref::with()` on the same object,
+	/// and must take care that any other functions called
+	/// from within the closure also do not recursively
+	/// call `Ref::with()` on the same object.
+	///
+	/// Calling `Ref::with()` on another object is fine.
+	pub unsafe fn with<F, R>(&self, f: F) -> R
+	where
+		F: FnOnce(&mut T) -> R,
+	{
+		// SAFETY(qix-): Barring a bug, we have a valid pointer to the registry.
+		let registry = unsafe { &*self.registry };
+		let entry = unsafe {
+			// SAFETY(qix-): We know that the index is valid, and that the
+			// SAFETY(qix-): registry is valid, so this is safe. Further,
+			// SAFETY(qix-): we know that the entry is initialized, so it
+			// SAFETY(qix-): is safe to call `assume_init_ref()`.
+			(*registry.base.add(self.index as usize)).assume_init_ref()
+		};
+
+		debug_assert!(entry.ref_count.load(Ordering::Acquire) > 0);
+
+		// SAFETY(qix-): We can guarantee that if we have a ref, the
+		// SAFETY(qix-): entry is valid.
+		let mut locked = entry.value.assume_init_ref().lock::<Target>();
+
+		f(&mut *locked)
+	}
+}
+
+impl<T: RegistryTarget + Sized + 'static> Clone for Ref<T> {
+	fn clone(&self) -> Self {
+		// SAFETY(qix-): Barring a bug, we have a valid pointer to the registry.
+		let registry = unsafe { &*self.registry };
+		let entry = unsafe {
+			// SAFETY(qix-): We know that the index is valid, and that the
+			// SAFETY(qix-): registry is valid, so this is safe. Further,
+			// SAFETY(qix-): we know that the entry is initialized, so it
+			// SAFETY(qix-): is safe to call `assume_init_ref()`.
+			(*registry.base.add(self.index as usize)).assume_init_ref()
+		};
+
+		let last_refcount = entry.ref_count.fetch_add(1, Ordering::AcqRel);
+		debug_assert!(last_refcount > 0);
+
+		Self {
+			index:    self.index,
+			registry: self.registry,
+		}
 	}
 }
 
