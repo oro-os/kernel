@@ -53,6 +53,23 @@ use core::{marker::ConstParamTy, str::FromStr};
 /// in the second byte's bits 7:3, the third digit is in the second
 /// byte's bits 2:0, and then continuing in the third byte's 7:6, and so on -
 /// the last digit being in the last byte's bits 4:0.
+///
+/// # Reserved IDs
+/// All IDs where the first 8 bytes (not including the type identifier bits)
+/// are zero are reserved and **must not** be used for any purpose. These
+/// are used internally by the kernel for various purposes, including for
+/// built-in modules and port types.
+///
+/// # Null ID
+/// The null ID is a special ID that is all zeroes except for the type
+/// identifier. It is used to represent an invalid ID, non-present,
+/// or otherwise missing ID. It is considered **reserved** and is not
+/// to be used for any purpose when interacting with the kernel (the
+/// kernel will never respect a "null ID").
+///
+/// Those wishing to manage databases, registries, or other systems
+/// that require a null ID are welcome to use the null ID for whatever
+/// purpose they see fit, as long as it is never served to the kernel.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Id<const TY: IdType>([u8; 16]);
 
@@ -196,6 +213,11 @@ impl<const TY: IdType> Id<TY> {
 	pub fn as_bytes(&self) -> &[u8; 16] {
 		&self.0
 	}
+
+	/// Whether or not the ID is the null ID.
+	pub fn is_null(&self) -> bool {
+		AnyId::is_buf_null(&self.0)
+	}
 }
 
 impl AnyId {
@@ -293,6 +315,27 @@ impl AnyId {
 	/// is valid before using this method.
 	pub unsafe fn as_bytes(&self) -> &[u8; 16] {
 		&self.0
+	}
+
+	/// Whether or not the ID is the null ID.
+	pub fn is_null(&self) -> bool {
+		Self::is_buf_null(&self.0)
+	}
+
+	/// Returns whether or not a raw id byte array
+	/// is the null ID.
+	pub fn is_buf_null(data: &[u8; 16]) -> bool {
+		if data[0] & 0b0001_1111 != 0 {
+			return false;
+		}
+
+		for byte in &data[1..] {
+			if *byte != 0 {
+				return false;
+			}
+		}
+
+		true
 	}
 }
 
