@@ -173,14 +173,50 @@ pub trait AssertAlignsWithin<Larger: Sized>: Sized {
 impl<Smaller: Sized, Larger: Sized> AssertAlignsWithin<Larger> for Smaller {}
 
 /// One-off assertion that a type has equal or less alignment requirements
+/// than a given size.
+pub const fn assert_aligns_to<Smaller: Sized, const ALIGN: usize>() {
+	() = assert!(ALIGN.is_power_of_two(), "ALIGN must be a power of two");
+	// This is a sanity check; it should always be true.
+	// If it's not, a language-level guarantee has been violated.
+	() = assert!(
+		core::mem::align_of::<Smaller>().is_power_of_two(),
+		"(sanity check) Smaller type has non-power-of-two alignment!"
+	);
+	() = assert!(
+		core::mem::align_of::<Smaller>() <= ALIGN,
+		"value does not align to the specified size (check ALIGN)"
+	);
+}
+
+/// One-off assertion that a type has equal or less alignment requirements
 /// than another type.
 pub const fn assert_aligns_within1<Smaller: Sized, Larger: Sized>(_v: &Smaller) {
+	// These are sanity checks; they should always be true.
+	// If they're not, a language-level guarantee has been violated.
+	() = assert!(
+		core::mem::align_of::<Smaller>().is_power_of_two(),
+		"(sanity check) Smaller type has non-power-of-two alignment!"
+	);
+	() = assert!(
+		core::mem::align_of::<Larger>().is_power_of_two(),
+		"(sanity check) Larger type has non-power-of-two alignment!"
+	);
 	() = <Smaller as AssertAlignsWithin<Larger>>::ASSERT;
 }
 
 /// One-off assertion that a type has equal or less alignment requirements
 /// than another type using value references.
 pub const fn assert_aligns_within2<Smaller: Sized, Larger: Sized>(_v: &Smaller, _u: &Larger) {
+	// These are sanity checks; they should always be true.
+	// If they're not, a language-level guarantee has been violated.
+	() = assert!(
+		core::mem::align_of::<Smaller>().is_power_of_two(),
+		"(sanity check) Smaller type has non-power-of-two alignment!"
+	);
+	() = assert!(
+		core::mem::align_of::<Larger>().is_power_of_two(),
+		"(sanity check) Larger type has non-power-of-two alignment!"
+	);
 	() = <Smaller as AssertAlignsWithin<Larger>>::ASSERT;
 }
 
