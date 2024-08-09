@@ -35,6 +35,7 @@ pub mod arch;
 pub mod boot;
 pub mod dbg;
 pub mod elf;
+pub mod interrupt;
 pub mod mem;
 pub mod preboot;
 pub mod proc;

@@ -14,6 +14,7 @@ use core::{
 use oro_common::{
 	arch::Arch,
 	elf::{ElfClass, ElfEndianness, ElfMachine},
+	interrupt::InterruptHandler,
 	mem::{
 		mapper::{AddressSegment, AddressSpace, UnmapError},
 		pfa::alloc::{PageFrameAllocate, PageFrameFree},
@@ -347,6 +348,11 @@ unsafe impl Arch for X86_64 {
 			out("rax") _,
 			options(nostack, preserves_flags)
 		);
+	}
+
+	unsafe fn initialize_interrupts<H: InterruptHandler>() {
+		// SAFETY(qix-): Called once, here.
+		crate::interrupt::initialize_interrupts::<H>();
 	}
 
 	#[inline(always)]
