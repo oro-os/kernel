@@ -41,26 +41,26 @@ impl MapperHandle for AddressSpaceHandle {
 pub struct AddressSpaceLayout;
 
 impl AddressSpaceLayout {
-	/// The index for the kernel boot protocol.
-	pub const BOOT_INFO_IDX: usize = 302;
-	/// The direct map range
-	pub const DIRECT_MAP_IDX: (usize, usize) = (259, 300);
-	/// The index for where the GDT lives.
-	pub const GDT_IDX: usize = 258;
-	/// The kernel executable range, shared by the RX, RO, and RW segments.
-	pub const KERNEL_EXE_IDX: usize = 511;
-	/// The segment for the module instance registry
-	pub const KERNEL_MODULE_INSTANCE_REGISTRY_IDX: usize = 401;
-	/// The segment for the port registry
-	pub const KERNEL_PORT_REGISTRY_IDX: usize = 402;
-	/// The segment for the ring registry
-	pub const KERNEL_RING_REGISTRY_IDX: usize = 400;
-	/// The stack space range
-	pub const KERNEL_STACK_IDX: usize = 257;
 	/// The index for kernel transfer stubs.
 	/// NOTE(qix-): All lower-half indices are automatically reclaimed
 	/// NOTE(qix-): by the kernel after boot.
 	pub const STUBS_IDX: usize = 255;
+	/// The stack space range
+	pub const KERNEL_STACK_IDX: usize = 257;
+	/// The index for where the GDT lives.
+	pub const GDT_IDX: usize = 258;
+	/// The direct map range
+	pub const DIRECT_MAP_IDX: (usize, usize) = (259, 300);
+	/// The index for the kernel boot protocol.
+	pub const BOOT_INFO_IDX: usize = 302;
+	/// The segment for the ring registry
+	pub const KERNEL_RING_REGISTRY_IDX: usize = 400;
+	/// The segment for the module instance registry
+	pub const KERNEL_MODULE_INSTANCE_REGISTRY_IDX: usize = 401;
+	/// The segment for the port registry
+	pub const KERNEL_PORT_REGISTRY_IDX: usize = 402;
+	/// The kernel executable range, shared by the RX, RO, and RW segments.
+	pub const KERNEL_EXE_IDX: usize = 511;
 
 	/// Returns an internal descriptor used to map the kernel transfer stubs.
 	#[inline(always)]
