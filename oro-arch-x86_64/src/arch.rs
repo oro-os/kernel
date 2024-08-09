@@ -431,7 +431,4 @@ pub unsafe fn init_kernel_secondary() {
 	X86_64::disable_interrupts();
 
 	// TODO(qix-): Wait for latch barrier
-
-	// TODO(qix-): Ensure that the CPU has page execution protection
-	// TODO(qix-): enabled. Ref 3.1.7, NX bit.
 }
