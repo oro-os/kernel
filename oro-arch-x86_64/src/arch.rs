@@ -97,7 +97,7 @@ unsafe impl Arch for X86_64 {
 			core::slice::from_raw_parts_mut(translator.to_virtual_addr(gdt_page) as *mut u8, 4096);
 		gdt_slice.fill(0);
 
-		crate::descriptor::write_gdt(gdt_slice);
+		crate::gdt::write_gdt(gdt_slice);
 
 		AddressSpaceLayout::gdt()
 			.map(
