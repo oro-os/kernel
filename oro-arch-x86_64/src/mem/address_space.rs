@@ -40,6 +40,7 @@ impl MapperHandle for AddressSpaceHandle {
 /// used for each segment.
 pub struct AddressSpaceLayout;
 
+#[rustfmt::skip]
 impl AddressSpaceLayout {
 	/// The index for kernel transfer stubs.
 	/// NOTE(qix-): All lower-half indices are automatically reclaimed
@@ -61,7 +62,9 @@ impl AddressSpaceLayout {
 	pub const KERNEL_PORT_REGISTRY_IDX: usize = 402;
 	/// The kernel executable range, shared by the RX, RO, and RW segments.
 	pub const KERNEL_EXE_IDX: usize = 511;
+}
 
+impl AddressSpaceLayout {
 	/// Returns an internal descriptor used to map the kernel transfer stubs.
 	#[inline(always)]
 	pub const fn stubs() -> <Self as AddressSpace>::SupervisorSegment {

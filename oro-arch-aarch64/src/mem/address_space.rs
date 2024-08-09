@@ -31,6 +31,7 @@ pub struct AddressSpaceHandle {
 /// The Oro-specific address space layout implementation for the Aarch64 architecture.
 pub struct AddressSpaceLayout;
 
+#[rustfmt::skip]
 impl AddressSpaceLayout {
 	/// The index for kernel transfer stubs.
 	/// Since we identity map the stubs, we must specify an index
@@ -42,12 +43,12 @@ impl AddressSpaceLayout {
 	pub const DIRECT_MAP_IDX: (usize, usize) = (258, 300);
 	/// The index for the kernel boot protocol.
 	pub const BOOT_INFO_IDX: usize = 302;
+	/// The segment for the ring registry
+	pub const KERNEL_RING_REGISTRY_IDX: usize = 400;
 	/// The segment for the module instance registry
 	pub const KERNEL_MODULE_INSTANCE_REGISTRY_IDX: usize = 401;
 	/// The segment for the port registry
 	pub const KERNEL_PORT_REGISTRY_IDX: usize = 402;
-	/// The segment for the ring registry
-	pub const KERNEL_RING_REGISTRY_IDX: usize = 400;
 	/// The kernel executable range, shared by the RX, RO, and RW segments.
 	pub const KERNEL_EXE_IDX: usize = 511;
 }
