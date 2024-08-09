@@ -247,62 +247,6 @@ pub unsafe fn boot(core_config: &CoreConfig) -> ! {
 
 	wait_for_all_cores!();
 
-	// XXX DEBUG
-	#[allow(clippy::cast_possible_truncation)]
-	let _: () = {
-		use self::{id::Id, module::ModuleInstance, registry::Ref};
-
-		let mut data = [0u8; 16];
-		data[15] = core_config.core_id as u8;
-
-		let module_ref = Ref::from(ModuleInstance {
-			id:        core_config.core_id as u32,
-			module_id: Id::new(data),
-		})
-		.expect("failed to allocate");
-
-		module_ref.with(|module| {
-			let mut buf = [0; 27];
-			let strid = module.module_id.to_str(&mut buf);
-			dbg!(
-				"DEBUG",
-				"core {:02?} allocated {}",
-				core_config.core_id,
-				strid
-			);
-		});
-
-		#[allow(clippy::items_after_statements, clippy::missing_docs_in_private_items)]
-		static mut SHARED_REF: Option<(u64, Ref<ModuleInstance>)> = None;
-
-		if core_config.core_id == 2 {
-			SHARED_REF = Some((core_config.core_id, module_ref));
-		}
-
-		wait_for_all_cores!();
-
-		let shared_ref = unsafe { SHARED_REF.clone() };
-		if let Some((from_core_id, modref)) = shared_ref {
-			modref.with(|module| {
-				let mut buf = [0; 27];
-				let strid = module.module_id.to_str(&mut buf);
-				dbg!(
-					"DEBUG",
-					"core {:02?} got core {:02?}'s ref {}",
-					core_config.core_id,
-					from_core_id,
-					strid
-				);
-			});
-		} else {
-			dbg_err!(
-				"DEBUG",
-				"core {:02?} failed to get shared ref (None)",
-				core_config.core_id
-			);
-		}
-	};
-
 	Target::halt()
 }
 
