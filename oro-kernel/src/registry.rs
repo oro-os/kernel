@@ -357,6 +357,39 @@ where
 
 		Some(last_free)
 	}
+
+	/// Reclaims an index for the registry, freeing the slot
+	/// for future allocations.
+	///
+	/// # Safety
+	/// The index must actually be free (not in use) to reclaim. It must also
+	/// not exceed the current number of slots in the registry.
+	///
+	/// The object tied to this index must not have been dropped, freed,
+	/// or otherwise invalidated. The reference count associated with the
+	/// slot at the given must be zero when calling this function.
+	///
+	/// This function is non-reentrant and must not be called recursively.
+	unsafe fn reclaim(&self, index: u32) {
+		// SAFETY(qix-): We specify this method is not re-entrant, so we can
+		// SAFETY(qix-): safely lock the registry for the duration of the operation.
+		//
+		// SAFETY(qix-): This starts a critical section since we use a critical spinlock.
+		let _registry_lock = unsafe { self.registry_lock.lock::<Target>() };
+
+		// SAFETY(qix-): We assume that the index is valid (based on the
+		// SAFETY(qix-): safety documentation of this method).
+		debug_assert!(index < self.num_slots.load(Ordering::Acquire));
+		let entry = unsafe { (*self.base.add(index as usize)).assume_init_mut() };
+
+		debug_assert_eq!(entry.ref_count.load(Ordering::Acquire), 0);
+
+		entry.value.assume_init_drop();
+		entry
+			.next_free
+			.store(self.last_free.load(Ordering::Acquire), Ordering::Release);
+		self.last_free.store(index, Ordering::Release);
+	}
 }
 
 /// A single entry in an arena.
@@ -516,6 +549,30 @@ impl<T: RegistryTarget + Sized + 'static> Clone for Ref<T> {
 		Self {
 			index:    self.index,
 			registry: self.registry,
+		}
+	}
+}
+
+impl<T: RegistryTarget + Sized + 'static> Drop for Ref<T> {
+	fn drop(&mut self) {
+		// SAFETY(qix-): Barring a bug, we have a valid pointer to the registry.
+		let registry = unsafe { &*self.registry };
+		let entry = unsafe {
+			// SAFETY(qix-): We know that the index is valid, and that the
+			// SAFETY(qix-): registry is valid, so this is safe. Further,
+			// SAFETY(qix-): we know that the entry is initialized, so it
+			// SAFETY(qix-): is safe to call `assume_init_ref()`.
+			(*registry.base.add(self.index as usize)).assume_init_ref()
+		};
+
+		let last_refcount = entry.ref_count.fetch_sub(1, Ordering::AcqRel);
+		debug_assert!(last_refcount > 0);
+
+		if last_refcount == 1 {
+			// SAFETY(qix-): If this ref exists, the entry is valid.
+			// SAFETY(qix-): We can also guarantee that the refcount==0
+			// SAFETY(qix-): and we have not dropped the object.
+			unsafe { registry.reclaim(self.index) };
 		}
 	}
 }
