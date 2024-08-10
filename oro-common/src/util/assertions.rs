@@ -105,6 +105,43 @@ pub const fn assert_size_of<T: Sized, const SIZE: usize>() {
 	() = <T as AssertSizeOf<SIZE>>::ASSERT;
 }
 
+/// Asserts that two types have the same size.
+///
+/// To use, simply bound a type to this trait and use the `ASSERT` associated constant
+/// like so:
+///
+/// ```rust
+/// () = <T as AssertSizeEq<U>>::ASSERT;
+/// ```
+///
+/// # Safety
+/// The assertion **does not trigger** unless the above explicit usage of the
+/// `ASSERT` associated constant is used. There's, unfortunately, no great way
+/// to enforce this at the type level.
+pub trait AssertSizeEq<U: Sized>: Sized {
+	/// Performs the assertion that two types have the same size.
+	///
+	/// This must be referenced somewhere in the code at each usage site,
+	/// like so:
+	///
+	/// ```rust
+	/// () = <T as AssertSizeEq<U>>::ASSERT;
+	/// ```
+	///
+	/// This will cause a compile-time error if the assertion does not hold.
+	const ASSERT: () = assert!(
+		core::mem::size_of::<Self>() == core::mem::size_of::<U>(),
+		"types do not have the same size"
+	);
+}
+
+impl<T: Sized, U: Sized> AssertSizeEq<U> for T {}
+
+/// One-off assertion that asserts two types have the same size.
+pub const fn assert_size_eq<T: Sized, U: Sized>() {
+	() = <T as AssertSizeEq<U>>::ASSERT;
+}
+
 /// Asserts that a type does not have a destructor (drop method) or have any fields
 /// that require a destructor to be called.
 ///
