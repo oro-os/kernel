@@ -153,7 +153,7 @@ pub unsafe fn write_gdt(dest: &mut [u8]) {
 
 	let gdt = [
 		GdtEntry::null_descriptor(),
-		GdtEntry::kernel_code_segment(),
+		GdtEntry::kernel_code_segment(), // kernel code MUST be index 1
 		GdtEntry::kernel_data_segment(),
 		GdtEntry::user_code_segment(),
 		GdtEntry::user_data_segment(),
