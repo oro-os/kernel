@@ -66,6 +66,7 @@ dependencies = [
 name = "oro-arch-x86_64"
 version = "0.0.0"
 dependencies = [
+ "acpi",
  "oro-common",
  "uart_16550",
 ]
@@ -109,7 +110,6 @@ dependencies = [
 name = "oro-kernel"
 version = "0.0.0"
 dependencies = [
- "acpi",
  "oro-arch",
  "oro-arch-aarch64",
  "oro-arch-x86_64",

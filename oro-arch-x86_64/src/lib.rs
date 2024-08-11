@@ -70,6 +70,7 @@
 #[cfg(debug_assertions)]
 pub(crate) mod dbgutil;
 
+pub(crate) mod acpi;
 pub(crate) mod arch;
 pub(crate) mod asm;
 pub(crate) mod gdt;
