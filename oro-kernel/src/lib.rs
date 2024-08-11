@@ -24,6 +24,8 @@
 #![allow(incomplete_features)]
 #![feature(adt_const_params, const_refs_to_static)]
 
+#[cfg(feature = "acpi")]
+pub(crate) mod acpi;
 pub(crate) mod id;
 pub(crate) mod local;
 pub(crate) mod module;

@@ -30,6 +30,7 @@ oro-kernel = { path = "oro-kernel" }
 oro-serial-pl011 = { path = "oro-serial-pl011" }
 
 limine = "0.2.0"
+acpi = { version = "5.0.0", default-features = false }
 uart_16550 = "0.3.0"
 volatile-register = "0.2.2"
 syn = "2.0.60"

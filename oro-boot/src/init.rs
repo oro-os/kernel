@@ -313,6 +313,7 @@ where
 			num_instances,
 			memory_regions,
 			physical_address_translator,
+			rsdp_address,
 			..
 		} => {
 			let mut pfa = pfa.lock::<Target>();
@@ -505,6 +506,7 @@ where
 			let boot_config = <BootConfig as oro_common::ser2mem::Proxy>::Proxy {
 				core_count: *num_instances,
 				linear_map_offset,
+				rsdp_phys: rsdp_address.unwrap_or(u64::MAX),
 			};
 
 			// FIXME(qix-): The strange types here are required to work around a

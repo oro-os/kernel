@@ -19,14 +19,16 @@ use limine::request::StackSizeRequest;
 use limine::{
 	memory_map::EntryType,
 	modules::InternalModule,
-	request::{BootTimeRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, SmpRequest},
+	request::{
+		BootTimeRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, RsdpRequest, SmpRequest,
+	},
 	response::SmpResponse,
 	smp::Cpu,
 	BaseRevision,
 };
 use oro_boot::{
-	dbg, dbg_err, Arch, MemoryRegion, MemoryRegionType, ModuleDef, OffsetPhysicalAddressTranslator,
-	PrebootConfig, PrebootPrimaryConfig, Target,
+	dbg, dbg_err, dbg_warn, Arch, MemoryRegion, MemoryRegionType, ModuleDef,
+	OffsetPhysicalAddressTranslator, PrebootConfig, PrebootPrimaryConfig, Target,
 };
 
 /// The path to where the Oro kernel is expected.
@@ -61,6 +63,10 @@ static REQ_MMAP: MemoryMapRequest = MemoryMapRequest::with_revision(0);
 /// Requests the BIOS timestamp from Limine.
 #[used]
 static REQ_TIME: BootTimeRequest = BootTimeRequest::with_revision(0);
+
+/// Requests the RSDP pointer from Limine.
+#[used]
+static REQ_RSDP: RsdpRequest = RsdpRequest::with_revision(0);
 
 /// Requests that Limine initializes secondary cores and provides
 /// us a way to instruct them to jump to the boot stage entry point.
@@ -146,6 +152,7 @@ pub unsafe fn init<C: CpuId>() -> ! {
 
 	let smp_response = get_response!(mut REQ_SMP, "smp");
 	let module_response = get_response!(REQ_MODULES, "module listing");
+	let hhdm_response = get_response!(REQ_HHDM, "hhdm offset");
 	let _time_response = get_response!(REQ_TIME, "bios timestamp response");
 	#[cfg(debug_assertions)]
 	let _stksz_response = get_response!(REQ_STKSZ, "debug stack size adjustment");
@@ -163,6 +170,23 @@ pub unsafe fn init<C: CpuId>() -> ! {
 
 	let memory_regions = make_memory_map_iterator();
 
+	let rsdp_address = if let Some(rsdp_response) = REQ_RSDP.get_response() {
+		let addr = rsdp_response.address() as u64;
+		let offset = hhdm_response.offset();
+		if addr < offset {
+			dbg_warn!(
+				"limine",
+				"RSDP address is below HHDM offset! ignoring RSDP (addr: {addr:#016X?}, offset: \
+				 {offset:#016X?})"
+			);
+			None
+		} else {
+			Some(addr - offset)
+		}
+	} else {
+		None
+	};
+
 	// Find the primary CPU first, and error if we don't have it.
 	let primary_cpu_id = C::bootstrap_cpu_id(smp_response).expect("no bootstrap CPU found");
 
@@ -174,8 +198,6 @@ pub unsafe fn init<C: CpuId>() -> ! {
 	}
 
 	// Finally, jump the bootstrap core to the kernel.
-	let hhdm_response = get_response!(REQ_HHDM, "hhdm offset");
-
 	dbg!("limine", "booting primary cpu: {primary_cpu_id}");
 	initialize_kernel(PrebootConfig::<LiminePrimaryConfig>::Primary {
 		core_id: primary_cpu_id,
@@ -185,6 +207,7 @@ pub unsafe fn init<C: CpuId>() -> ! {
 			hhdm_response.offset() as usize
 		),
 		memory_regions,
+		rsdp_address,
 		kernel_module: ModuleDef {
 			base:   kernel_module.addr() as usize,
 			length: kernel_module.size(),

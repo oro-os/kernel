@@ -63,6 +63,12 @@ pub trait MemoryRegion: Sized {
 }
 
 /// Defines the type of a memory region.
+// NOTE(qix-): If you are maintaining this enum,
+// NOTE(qix-): DO NOT CHANGE OR INSERT NUMBERS.
+// NOTE(qix-): New entries must be added at the end,
+// NOTE(qix-): and removed entries must be either marked
+// NOTE(qix-): as deprecated or deleted without changing
+// NOTE(qix-): the existing entries' discriminants.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 #[non_exhaustive]
