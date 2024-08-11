@@ -1,4 +1,7 @@
 # Oro kernel GDB debug utilities
+
+<img src="screenshot.jpg" align="right" width="50%">
+
 This is a suite of GDB debugging utilities specifically for the Oro kernel.
 They are automatically loaded when opening an Oro kernel variant in
 `gdb`, a linux-based debugger.
