@@ -244,6 +244,7 @@ class BootCmdLimine(gdb.Command):
                 INTERFACE_BRANDING=Oro Operating System
                 INTERFACE_BRANDING_COLOR=5
                 SERIAL=yes
+                KASLR=no
 
                 :Oro Operating System
                 PROTOCOL=limine
