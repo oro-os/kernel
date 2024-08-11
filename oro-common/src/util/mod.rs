@@ -2,6 +2,6 @@
 //! to be used solely from within the kernel and common crate.
 
 pub mod assertions;
+pub mod erased;
 pub mod macros;
-pub mod proxy;
 pub mod unsafe_macros;

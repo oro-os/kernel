@@ -1,4 +1,4 @@
-//! Provides the [`Proxy`] type, which is a type-safe, type-erased container for a single value
+//! Provides the [`Erased`] type, which is a type-safe, type-erased container for a single value
 //! within a fixed size buffer.
 
 use super::assertions::{AssertFits, AssertNoDrop};
@@ -8,9 +8,9 @@ use super::assertions::{AssertFits, AssertNoDrop};
 /// # Safety
 /// No attempt to infer the contents of this structure
 /// should be made whatsoever. Use the functions provided
-/// to you by [`Proxy`] to interact with the value.
+/// to you by [`Erased`] to interact with the value.
 /// Do not copy or move this value around.
-pub struct ProxyValue<const SIZE: usize> {
+pub struct ErasedValue<const SIZE: usize> {
 	/// The type ID of the value. Used to ensure
 	/// that subsequent accesses are of the correct type.
 	tid: core::any::TypeId,
@@ -29,15 +29,15 @@ pub struct ProxyValue<const SIZE: usize> {
 ///
 /// This type does its best to ensure that the value is of the correct type and size, and that
 /// the types used to reference the value are correct across all calls.
-pub enum Proxy<const SIZE: usize> {
+pub enum Erased<const SIZE: usize> {
 	/// The value is uninitialized.
 	Uninit,
 	/// The value is initialized and can be referenced or taken.
-	Value(ProxyValue<SIZE>),
+	Value(ErasedValue<SIZE>),
 }
 
-impl<const SIZE: usize> Proxy<SIZE> {
-	/// Create a [`Proxy::Value`] from a value.
+impl<const SIZE: usize> Erased<SIZE> {
+	/// Create a [`Erased::Value`] from a value.
 	///
 	/// The value must have a size less than or equal to `SIZE`, and
 	/// cannot have a destructor (`impl Drop` or have any fields that
@@ -61,7 +61,7 @@ impl<const SIZE: usize> Proxy<SIZE> {
 				core::mem::size_of::<T>(),
 			);
 			core::mem::forget(v);
-			Self::Value(ProxyValue {
+			Self::Value(ErasedValue {
 				tid: core::any::TypeId::of::<T>(),
 				buf,
 			})
@@ -84,11 +84,11 @@ impl<const SIZE: usize> Proxy<SIZE> {
 		() = <T as AssertNoDrop>::ASSERT;
 
 		match self {
-			Proxy::Uninit => None,
-			Proxy::Value(ProxyValue { tid, buf: _ }) if tid != &core::any::TypeId::of::<T>() => {
+			Erased::Uninit => None,
+			Erased::Value(ErasedValue { tid, buf: _ }) if tid != &core::any::TypeId::of::<T>() => {
 				None
 			}
-			Proxy::Value(ProxyValue { tid: _, buf }) => unsafe { Some(&*(buf.as_ptr().cast())) },
+			Erased::Value(ErasedValue { tid: _, buf }) => unsafe { Some(&*(buf.as_ptr().cast())) },
 		}
 	}
 
@@ -101,15 +101,15 @@ impl<const SIZE: usize> Proxy<SIZE> {
 		() = <T as AssertFits<SIZE>>::ASSERT;
 		() = <T as AssertNoDrop>::ASSERT;
 
-		if let Proxy::Value(ProxyValue { tid, buf: _ }) = self {
+		if let Erased::Value(ErasedValue { tid, buf: _ }) = self {
 			if tid != &core::any::TypeId::of::<T>() {
 				return None;
 			}
 		}
 
-		match core::mem::replace(self, Proxy::Uninit) {
-			Proxy::Uninit => None,
-			Proxy::Value(ProxyValue { tid: _, buf }) => unsafe {
+		match core::mem::replace(self, Erased::Uninit) {
+			Erased::Uninit => None,
+			Erased::Value(ErasedValue { tid: _, buf }) => unsafe {
 				let mut v = core::mem::MaybeUninit::<T>::uninit();
 				core::ptr::copy_nonoverlapping(
 					buf.as_ptr(),

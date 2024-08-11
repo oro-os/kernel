@@ -18,7 +18,7 @@ use oro_common::{
 	preboot::{PrebootConfig, PrebootPrimaryConfig},
 	ser2mem::Serialize,
 	sync::{barrier::SpinBarrier, spinlock::unfair::UnfairSpinlock},
-	util::{assertions, proxy::Proxy},
+	util::{assertions, erased::Erased},
 };
 
 /// Initializes and transfers execution to the Oro kernel.
@@ -165,7 +165,7 @@ where
 		}};
 	}
 
-	static mut KERNEL_ADDRESS_SPACE: Proxy<256> = Proxy::Uninit;
+	static mut KERNEL_ADDRESS_SPACE: Erased<256> = Erased::Uninit;
 	static mut KERNEL_ENTRY_POINT: usize = 0;
 
 	static MAPPER_DUPLICATE_BARRIER: SpinBarrier = SpinBarrier::new();
@@ -527,7 +527,7 @@ where
 			dbg!("boot_to_kernel", "boot config serialized to kernel memory");
 
 			// Store the kernel address space handle and entry point for cloning later.
-			KERNEL_ADDRESS_SPACE = Proxy::from(kernel_mapper);
+			KERNEL_ADDRESS_SPACE = Erased::from(kernel_mapper);
 			KERNEL_ENTRY_POINT = kernel_elf.entry_point();
 
 			// Wait for all cores to see the write.
