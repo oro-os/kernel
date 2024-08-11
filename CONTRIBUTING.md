@@ -160,6 +160,75 @@ a challenge for some contributors, but we believe it is important to
 ensure the highest quality of code. **Please prepare for this when
 contributing.**
 
+## IDEs and Editors
+The kernel project does not enforce the use of any particular IDE or
+editor. That being said, IDE-/editor-specific files or other configuration
+artifacts should not be committed to the repository. This includes
+`.vscode`, `.idea`, `.vim`, and other similar directories or files.
+
+To be useful, there are a few in-repo things that will help with
+local development:
+
+### Rust-Analyzer
+
+`.cargo/config.toml` contains a few aliases for `rust-analyzer`'s
+usual `check` command. They should be provided as the
+`rust-analyzer.check.overrideCommand` setting in your editor, IDE
+or other tooling.
+
+They are:
+
+- `cargo oro-ra-aarch64` for checking the aarch64 target
+- `cargo oro-ra-x86_64` for checking the x86_64 target
+
+Typically running them in sequence works fine with rust-analyzer
+as long as both commands' output is coalesced into a single stream.
+
+For example:
+
+```sh
+bash -c "cargo oro-ra-aarch64 && cargo oro-ra-x86_64"
+```
+
+#### Usage in VSCode
+If you have the [`rust-analyzer` extension](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+installed in VSCode, you can get much better code completion and
+support by doing the following:
+
+1. Add `.vscode/` to `.git/info/exclude` (please do not add it
+   to `.gitignore` if you intend to submit a pull request).
+2. Create a `.vscode/settings.json` file with the following content:
+
+```json
+{
+	"rust-analyzer.check.overrideCommand": [
+		"/usr/bin/env",
+		"bash",
+		"-c",
+		"cargo oro-ra-aarch64 && cargo oro-ra-x86_64"
+	]
+}
+```
+
+### GDB / QEMU Debugging Utilities
+The Oro kernel project ships with a debugging environment called
+"dbgutil" for use within GDB using QEMU. Among other things, it
+boots the kernel for you via QEMU, wires up the GDB session to
+the QEMU instance, and sets up a few useful GDB commands.
+
+Among other things, it has several automatic behaviors that aid in
+navigating the kernel (such as switching from the preboot environment
+image to the kernel image) as well as ISO generation, instrospection
+APIs that wouldn't otherwise be possible with only GDB or QEMU, and
+a few other niceties.
+
+Dbgutil is not required for development, but it is highly recommended
+for booting and debugging the kernel during development. It's embedded
+into the kernel (_not_ bootloader) image and bootstraps itself automatically
+when opened with `gdb`.
+
+Full documentation can be found in the [dbgutil/](dbgutil) directory.
+
 ## Languages other than Rust
 The kernel project is written in Rust, and we typically do not accept
 contributions in other languages. If you have a compelling reason to
