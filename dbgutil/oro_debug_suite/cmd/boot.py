@@ -93,13 +93,6 @@ class BootCmdLimine(gdb.Command):
         # Fetch Limine if it doesn't exist
         limine_dir = fetch_limine()
 
-        # Do we have everything we need to make the ISO?
-        if not check_bin_deps("xorriso", "git", "make"):
-            error(
-                "missing required PATH utilities to build Limine ISO; install them and try again"
-            )
-            return
-
         # Are we currently the kernel file?
         current_progspace = gdb.current_progspace()
         if not current_progspace:
@@ -120,7 +113,9 @@ class BootCmdLimine(gdb.Command):
 
         if kernel_arch == "x86_64":
             efi_basename = None
+            qemu_arg0 = "qemu-system-x86_64"
         elif kernel_arch == "aarch64":
+            qemu_arg0 = "qemu-system-aarch64"
             efi_basename = "BOOTAA64.EFI"
         else:
             error(f"unsupported architecture: {kernel_arch}")
@@ -131,7 +126,92 @@ class BootCmdLimine(gdb.Command):
             error(f"limine bootloader file not found: {limine_path}")
             return
 
-        # Assemble an ISO directory for Limine
+        # Do we have everything we need to make the ISO?
+        if not check_bin_deps("xorriso", "git", "make"):
+            error(
+                "missing required PATH utilities to build Limine ISO; install them and try again"
+            )
+            return
+
+        iso_path = path.join(get_site_packages_dir(), f"oro-{kernel_arch}.iso")
+        extra_iso_files = []
+
+        # Do we have QEMU?
+        qemu_program = shutil.which(qemu_arg0)
+        if not qemu_program:
+            error(
+                f"{qemu_arg0} is required to boot the kernel, but was not found on PATH"
+            )
+            return
+
+        if not check_bin_dep(qemu_program, "--version"):
+            error(
+                f"'{qemu_program} --version' failed to execute; ensure QEMU is installed correctly and try again"
+            )
+            return
+
+        # Set up the architecture-specific QEMU arguments
+        if kernel_arch == "x86_64":
+            qemu_args = [
+                "-cdrom",
+                iso_path,
+                "-serial",
+                "stdio",
+                "-no-reboot",
+                "-no-shutdown",
+                "-smp",
+                f"cores={num_cores}",
+                "-m",
+                "1G",
+                *rest_args,
+            ]
+        elif kernel_arch == "aarch64":
+            # either QEMU_EFI env var, defaulting to "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"
+            qemu_efi_path = os.getenv(
+                "QEMU_EFI", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"
+            )
+            if not os.path.exists(qemu_efi_path):
+                error(f"QEMU_EFI path does not exist: {qemu_efi_path}")
+                error(f"set QEMU_EFI to the correct path and try again")
+                error(
+                    f"alternatively, install the QEMU UEFI firmware package for your distro (e.g. qemu-efi-aarch64)"
+                )
+                return
+
+            qemu_args = [
+                "-M",
+                "virt",
+                "-cpu",
+                "cortex-a57",
+                "-no-reboot",
+                "-no-shutdown",
+                "-serial",
+                "stdio",
+                "-cdrom",
+                iso_path,
+                "-smp",
+                f"{num_cores}",
+                "-m",
+                "1G",
+                "-bios",
+                qemu_efi_path,
+                *rest_args,
+            ]
+
+            # Generate the device tree blob
+            dtb_path = path.join(get_site_packages_dir(), "oro-aarch64-qemu.dtb")
+            dtb_gen_args = [qemu_program, *qemu_args, "-machine", f"dumpdtb={dtb_path}"]
+            debug("generating QEMU device tree blob with args:", repr(dtb_gen_args))
+            subprocess.run(
+                dtb_gen_args,
+                check=True,
+            )
+            extra_iso_files.append((dtb_path, "oro-device-tree.dtb"))
+        else:
+            error(f"unsupported QEMU architecture: {kernel_arch}")
+            return
+
+        # Create an ISO directory for Limine
         iso_dir = path.join(get_site_packages_dir(), "limine_iso")
         if path.exists(iso_dir):
             log("removing existing Limine ISO directory:", iso_dir)
@@ -141,6 +221,7 @@ class BootCmdLimine(gdb.Command):
         os.mkdir(path.join(iso_dir, "EFI"))
         os.mkdir(path.join(iso_dir, "EFI", "BOOT"))
 
+        # Populate the ISO directory
         def copyfile(src, dst):
             log("copy:", src, "->", dst)
             shutil.copyfile(src, dst)
@@ -180,9 +261,11 @@ class BootCmdLimine(gdb.Command):
                 path.join(iso_dir, "EFI", "BOOT", efi_basename),
             )
 
+        for src, dst in extra_iso_files:
+            copyfile(src, path.join(iso_dir, dst))
+
         # Run xorriso to create the ISO
         log("creating Limine ISO")
-        iso_path = path.join(get_site_packages_dir(), f"oro-{kernel_arch}.iso")
         subprocess.run(
             [
                 "xorriso",
@@ -211,72 +294,6 @@ class BootCmdLimine(gdb.Command):
             [path.join(limine_dir, "limine"), "bios-install", iso_path],
             check=True,
         )
-
-        # Do we have QEMU for the specified arch?
-        if kernel_arch == "x86_64":
-            qemu_arg0 = "qemu-system-x86_64"
-            qemu_args = [
-                "-cdrom",
-                iso_path,
-                "-serial",
-                "stdio",
-                "-no-reboot",
-                "-no-shutdown",
-                "-smp",
-                f"cores={num_cores}",
-                "-m",
-                "1G",
-                *rest_args,
-            ]
-        elif kernel_arch == "aarch64":
-            # either QEMU_EFI env var, defaulting to "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"
-            qemu_efi_path = os.getenv(
-                "QEMU_EFI", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"
-            )
-            if not os.path.exists(qemu_efi_path):
-                error(f"QEMU_EFI path does not exist: {qemu_efi_path}")
-                error(f"set QEMU_EFI to the correct path and try again")
-                error(
-                    f"alternatively, install the QEMU UEFI firmware package for your distro (e.g. qemu-efi-aarch64)"
-                )
-                return
-
-            qemu_arg0 = "qemu-system-aarch64"
-            qemu_args = [
-                "-M",
-                "virt",
-                "-cpu",
-                "cortex-a57",
-                "-no-reboot",
-                "-no-shutdown",
-                "-serial",
-                "stdio",
-                "-cdrom",
-                iso_path,
-                "-smp",
-                f"{num_cores}",
-                "-m",
-                "1G",
-                "-bios",
-                qemu_efi_path,
-                *rest_args,
-            ]
-        else:
-            error(f"unsupported QEMU architecture: {kernel_arch}")
-            return
-
-        qemu_program = shutil.which(qemu_arg0)
-        if not qemu_program:
-            error(
-                f"{qemu_arg0} is required to boot the kernel, but was not found on PATH"
-            )
-            return
-
-        if not check_bin_dep(qemu_program, "--version"):
-            error(
-                f"'{qemu_program} --version' failed to execute; ensure QEMU is installed correctly and try again"
-            )
-            return
 
         # Spawn the process in the background and get a handle to it
         QEMU.spawn_and_connect([qemu_program, *qemu_args])
