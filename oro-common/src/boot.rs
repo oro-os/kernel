@@ -24,4 +24,7 @@ pub struct BootConfig {
 	pub core_count:        u64,
 	/// The virtual offset of the linear map of physical memory.
 	pub linear_map_offset: usize,
+	/// The physical address of the RSDP structure.
+	/// Set to `u64::MAX` if the RSDP is not present.
+	pub rsdp_phys:         u64,
 }

@@ -38,6 +38,12 @@ where
 		memory_regions: P::MemoryRegionIterator,
 		/// The physical-to-virtual address translator for the core
 		physical_address_translator: P::PhysicalAddressTranslator,
+		/// The RSDP **PHYSICAL** address, if any.
+		///
+		/// Some bootloaders will provide this as a virtual address.
+		/// It must be eligible for mapping (even if it's mapped as
+		/// unusable), meaning the region must be >0 bytes long.
+		rsdp_address: Option<u64>,
 		/// The module definition for the Oro kernel itself.
 		kernel_module: ModuleDef,
 	},

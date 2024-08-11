@@ -22,9 +22,14 @@ name = "oro-kernel-aarch64"
 path = "bin/aarch64.rs"
 doc = false
 
+[features]
+default = ["acpi"]
+acpi = ["dep:acpi"]
+
 [dependencies]
 oro-arch.workspace = true
 oro-common.workspace = true
+acpi = { workspace = true, optional = true, default-features = false }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 oro-arch-x86_64.workspace = true
