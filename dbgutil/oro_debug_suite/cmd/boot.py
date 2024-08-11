@@ -226,7 +226,6 @@ class BootCmdLimine(gdb.Command):
                 f"cores={num_cores}",
                 "-m",
                 "1G",
-                "-S",
                 *rest_args,
             ]
         elif kernel_arch == "aarch64":
