@@ -255,3 +255,52 @@ unsafe trait AssertFitsWithin<Larger: Sized>: Sized {
 }
 
 unsafe impl<Smaller: Sized, Larger: Sized> AssertFitsWithin<Larger> for Smaller {}
+
+/// Asserts that the two given offsets value are equal.
+///
+/// **Not meant to be used publicly; it's only publicized for the sake of the
+/// `offset_eq!` macro.**
+///
+/// > **Note:** This trait on its own is rather useless; it's just an equality
+/// > check. However its error message is specific to offsets, so its usage
+/// > in other scenarios is discouraged.
+///
+/// # Safety
+/// The assertion **does not trigger** unless the above explicit usage of the
+/// `ASSERT` associated constant is used. There's, unfortunately, no great way
+/// to enforce this at the type level.
+#[doc(hidden)]
+pub unsafe trait AssertOffsetEq<const LHS: usize, const RHS: usize> {
+	/// Performs the assertion that the two offsets are equal.
+	///
+	/// This must be referenced somewhere in the code at each usage site,
+	/// like so:
+	///
+	/// ```rust
+	/// () = <T as AssertOffsetEq<LHS, RHS>>::ASSERT;
+	/// ```
+	///
+	/// This will cause a compile-time error if the assertion does not hold.
+	const ASSERT: () = assert!(
+		LHS == RHS,
+		"offsets are not equal (check `$T` and `$field_name`)"
+	);
+}
+
+unsafe impl<const LHS: usize, const RHS: usize> AssertOffsetEq<LHS, RHS> for () {}
+
+/// Asserts that the offset of the given field is equal to the specified value.
+///
+/// **The field must be visible to the callsite.**
+///
+/// Can be used exactly like the [`core::mem::offset_of!`] macro, but with
+/// only a single field.
+#[macro_export]
+macro_rules! offset_of {
+	($T:ty, $field_name:ident, $offset:expr) => {{
+		const _: () = <() as $crate::AssertOffsetEq<
+			$offset,
+			{ ::core::mem::offset_of!($T, $field_name) },
+		>>::ASSERT;
+	}};
+}
