@@ -89,6 +89,11 @@ pub const fn size_of<T: Sized, const SIZE: usize>() {
 	() = <T as AssertSizeOf<SIZE>>::ASSERT;
 }
 
+/// One-off assertion that a type is a certain size using value references.
+pub const fn size_of1<T: Sized, const SIZE: usize>(_v: &T) {
+	() = <T as AssertSizeOf<SIZE>>::ASSERT;
+}
+
 /// Asserts that two types have the same size.
 ///
 /// # Safety
