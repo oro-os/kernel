@@ -14,6 +14,7 @@ members = [
 	"oro-boot",
 	"oro-bootloader-limine",
 	"oro-common",
+	"oro-common-assertions",
 	"oro-common-proc",
 	"oro-kernel",
 	"oro-serial-pl011",
@@ -25,6 +26,7 @@ oro-arch-aarch64 = { path = "oro-arch-aarch64" }
 oro-arch-x86_64 = { path = "oro-arch-x86_64" }
 oro-boot = { path = "oro-boot" }
 oro-common = { path = "oro-common" }
+oro-common-assertions = { path = "oro-common-assertions" }
 oro-common-proc = { path = "oro-common-proc" }
 oro-kernel = { path = "oro-kernel" }
 oro-serial-pl011 = { path = "oro-serial-pl011" }
