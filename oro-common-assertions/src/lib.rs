@@ -40,22 +40,22 @@ unsafe trait AssertFits<const SIZE: usize>: Sized {
 unsafe impl<T: Sized, const SIZE: usize> AssertFits<SIZE> for T {}
 
 /// One-off assertion that a type fits within a certain size.
-pub const fn assert_fits1<Smaller: Sized, const SIZE: usize>(_v: &Smaller) {
+pub const fn fits1<Smaller: Sized, const SIZE: usize>(_v: &Smaller) {
 	() = <Smaller as AssertFits<SIZE>>::ASSERT;
 }
 
 /// One-off assertion that a type fits within another type size-wise.
-pub const fn assert_fits_within<Smaller: Sized, Larger: Sized>() {
+pub const fn fits_within<Smaller: Sized, Larger: Sized>() {
 	() = <Smaller as AssertFitsWithin<Larger>>::ASSERT;
 }
 
 /// One-off assertion that a type fits within another type size-wise using the smaller's value reference.
-pub const fn assert_fits_within1<Smaller: Sized, Larger: Sized>(_v: &Smaller) {
+pub const fn fits_within1<Smaller: Sized, Larger: Sized>(_v: &Smaller) {
 	() = <Smaller as AssertFitsWithin<Larger>>::ASSERT;
 }
 
 /// One-off assertion that a type fits within another type size-wise using value references.
-pub const fn assert_fits_within2<Smaller: Sized, Larger: Sized>(_v: &Smaller, _u: &Larger) {
+pub const fn fits_within2<Smaller: Sized, Larger: Sized>(_v: &Smaller, _u: &Larger) {
 	() = <Smaller as AssertFitsWithin<Larger>>::ASSERT;
 }
 
@@ -85,7 +85,7 @@ unsafe trait AssertSizeOf<const SIZE: usize>: Sized {
 unsafe impl<T: Sized, const SIZE: usize> AssertSizeOf<SIZE> for T {}
 
 /// One-off assertion that a type is a certain size.
-pub const fn assert_size_of<T: Sized, const SIZE: usize>() {
+pub const fn size_of<T: Sized, const SIZE: usize>() {
 	() = <T as AssertSizeOf<SIZE>>::ASSERT;
 }
 
@@ -115,7 +115,7 @@ unsafe trait AssertSizeEq<U: Sized>: Sized {
 unsafe impl<T: Sized, U: Sized> AssertSizeEq<U> for T {}
 
 /// One-off assertion that asserts two types have the same size.
-pub const fn assert_size_eq<T: Sized, U: Sized>() {
+pub const fn size_eq<T: Sized, U: Sized>() {
 	() = <T as AssertSizeEq<U>>::ASSERT;
 }
 
@@ -148,7 +148,7 @@ unsafe impl<T: ?Sized> AssertNoDrop for T {}
 
 /// Asserts that a type does not require a destructor to be called
 /// (i.e. does not implement `Drop`, nor has any fields that require `Drop`).
-pub const fn assert_no_drop<T: ?Sized>() {
+pub const fn no_drop<T: ?Sized>() {
 	() = <T as AssertNoDrop>::ASSERT;
 }
 
@@ -180,7 +180,7 @@ unsafe impl<Smaller: Sized, Larger: Sized> AssertAlignsWithin<Larger> for Smalle
 
 /// One-off assertion that a type has equal or less alignment requirements
 /// than a given size.
-pub const fn assert_aligns_to<Smaller: Sized, const ALIGN: usize>() {
+pub const fn aligns_to<Smaller: Sized, const ALIGN: usize>() {
 	() = assert!(ALIGN.is_power_of_two(), "ALIGN must be a power of two");
 	// This is a sanity check; it should always be true.
 	// If it's not, a language-level guarantee has been violated.
@@ -196,7 +196,7 @@ pub const fn assert_aligns_to<Smaller: Sized, const ALIGN: usize>() {
 
 /// One-off assertion that a type has equal or less alignment requirements
 /// than another type.
-pub const fn assert_aligns_within1<Smaller: Sized, Larger: Sized>(_v: &Smaller) {
+pub const fn aligns_within1<Smaller: Sized, Larger: Sized>(_v: &Smaller) {
 	// These are sanity checks; they should always be true.
 	// If they're not, a language-level guarantee has been violated.
 	() = assert!(
@@ -212,7 +212,7 @@ pub const fn assert_aligns_within1<Smaller: Sized, Larger: Sized>(_v: &Smaller) 
 
 /// One-off assertion that a type has equal or less alignment requirements
 /// than another type using value references.
-pub const fn assert_aligns_within2<Smaller: Sized, Larger: Sized>(_v: &Smaller, _u: &Larger) {
+pub const fn aligns_within2<Smaller: Sized, Larger: Sized>(_v: &Smaller, _u: &Larger) {
 	// These are sanity checks; they should always be true.
 	// If they're not, a language-level guarantee has been violated.
 	() = assert!(
