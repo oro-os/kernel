@@ -297,6 +297,16 @@ unsafe impl Arch for Aarch64 {
 	}
 }
 
+/// Aarch64-specific configuration for the Oro kernel.
+pub struct Config {
+	/// The **physical** address of the Device Tree Blob (DTB)
+	/// that was passed to the kernel.
+	///
+	/// This can be a module or baked-in value, but it is
+	/// required to a contiguous physical block of memory.
+	pub dtb_phys: u64,
+}
+
 /// Initializes the primary core in the preboot environment.
 ///
 /// This function MUST be called by preboot environments prior
