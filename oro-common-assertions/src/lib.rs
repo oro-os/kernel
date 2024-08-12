@@ -304,3 +304,33 @@ macro_rules! offset_of {
 		>>::ASSERT;
 	}};
 }
+
+/// Asserts that the alignment of a type is equal to the specified value.
+///
+/// # Safety
+/// The assertion **does not trigger** unless the above explicit usage of the
+/// `ASSERT` associated constant is used. There's, unfortunately, no great way
+/// to enforce this at the type level.
+unsafe trait AlignOf<const ALIGN: usize>: Sized {
+	/// Performs the assertion that the type has the specified alignment.
+	///
+	/// This must be referenced somewhere in the code at each usage site,
+	/// like so:
+	///
+	/// ```rust
+	/// () = <T as AlignOf<ALIGN>>::ASSERT;
+	/// ```
+	///
+	/// This will cause a compile-time error if the assertion does not hold.
+	const ASSERT: () = assert!(
+		core::mem::align_of::<Self>() == ALIGN,
+		"value does not align to the specified size (check ALIGN)"
+	);
+}
+
+unsafe impl<T: Sized, const ALIGN: usize> AlignOf<ALIGN> for T {}
+
+/// One-off assertion that a type has a certain alignment.
+pub const fn align_of<T: Sized, const ALIGN: usize>() {
+	() = <T as AlignOf<ALIGN>>::ASSERT;
+}
