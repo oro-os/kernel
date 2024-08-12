@@ -363,6 +363,17 @@ unsafe impl Arch for X86_64 {
 	}
 }
 
+/// X86_64-specific configuration.
+pub struct Config {
+	/// The **physical** address of the RSDP table.
+	///
+	/// If the bootloader provides a mapped RSDP table
+	/// pointer as a virtual address, it must first
+	/// have its linear offset un-applied to it before
+	/// being passed to this field.
+	pub rdsp_phys: u64,
+}
+
 /// Initializes the primary core in the preboot environment.
 ///
 /// This function MUST be called by preboot environments prior
