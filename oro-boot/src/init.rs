@@ -429,7 +429,7 @@ where
 
 			for region in memory_regions.clone() {
 				dbg!(
-					"boot-to-kernel",
+					"boot_to_kernel",
 					"mapping direct map segment: {:?}: {:#016X?} <{:X?}>",
 					region.region_type(),
 					region.base(),
