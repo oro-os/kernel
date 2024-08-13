@@ -78,7 +78,7 @@ macro_rules! oro_boot_protocol {
 					///
 					/// The union memory that is populated must match the revision
 					/// of the request that was specified by the kernel.
-					pub response: %<snake_case:$ReqName>%::$ReqName %% Data,
+					pub response: ::core::mem::MaybeUninit<%<snake_case:$ReqName>%::$ReqName %% Data>,
 				}
 
 				const _: () = {
@@ -97,7 +97,7 @@ macro_rules! oro_boot_protocol {
 					/// or `None` if the response was not populated.
 					pub const fn response(&self) -> Option<&%<snake_case:$ReqName>%::$ReqName %% Data> {
 						if self.populated == 0xFF {
-							Some(&self.response)
+							unsafe { Some(&self.response.assume_init_ref()) }
 						} else {
 							None
 						}
