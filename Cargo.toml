@@ -16,6 +16,7 @@ members = [
 	"oro-common",
 	"oro-common-assertions",
 	"oro-common-proc",
+	"oro-common-proc/tests",
 	"oro-kernel",
 	"oro-serial-pl011",
 ]

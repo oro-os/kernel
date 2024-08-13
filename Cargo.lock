@@ -107,6 +107,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "oro-common-proc-tests"
+version = "0.0.0"
+dependencies = [
+ "oro-common-proc",
+]
+
+[[package]]
 name = "oro-kernel"
 version = "0.0.0"
 dependencies = [
