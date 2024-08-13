@@ -12,6 +12,7 @@ members = [
 	"oro-arch-aarch64",
 	"oro-arch-x86_64",
 	"oro-boot",
+	"oro-boot-protocol",
 	"oro-bootloader-limine",
 	"oro-common",
 	"oro-common-assertions",
