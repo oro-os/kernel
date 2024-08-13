@@ -1,8 +1,9 @@
 //! Implements ACPI-related functionality.
 
 use ::acpi::handler::{AcpiHandler, PhysicalMapping};
-use ::oro_common::mem::translate::PhysicalAddressTranslator;
 use core::ptr::NonNull;
+use oro_common::mem::translate::PhysicalAddressTranslator;
+use oro_common_assertions as assert;
 
 /// A newtype that implements an [`AcpiHandler`] for
 /// any [`PhysicalAddressTranslator`].
@@ -26,7 +27,7 @@ impl<P: PhysicalAddressTranslator> AcpiHandler for TranslatorAcpiHandler<P> {
 		physical_address: usize,
 		size: usize,
 	) -> PhysicalMapping<Self, T> {
-		() = ::oro_common::util::assertions::assert_fits_within::<usize, u64>();
+		() = assert::fits_within::<usize, u64>();
 
 		PhysicalMapping::new(
 			physical_address,

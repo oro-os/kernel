@@ -18,7 +18,7 @@ use oro_common::{
 	preboot::{PrebootConfig, PrebootPrimaryConfig},
 	ser2mem::Serialize,
 	sync::{barrier::SpinBarrier, spinlock::unfair::UnfairSpinlock},
-	util::{assertions, erased::Erased},
+	util::erased::Erased,
 };
 
 /// Initializes and transfers execution to the Oro kernel.
@@ -258,7 +258,7 @@ where
 			let shared_pfa = UnfairSpinlock::new(shared_pfa);
 
 			// Make sure that we're not exceeding our page size.
-			assertions::assert_fits1::<_, 4096>(&shared_pfa);
+			oro_common_assertions::fits1::<_, 4096>(&shared_pfa);
 
 			// Store the PFA in the type inference helper then pop
 			// it back out again. This is a dance to get the type

@@ -150,7 +150,7 @@ where
 		// and 'free' the new slots to register them in the list.
 		if last_free == u32::MAX {
 			// Otherwise, we can't cast safely.
-			::oro_common::util::assertions::assert_fits_within::<u32, usize>();
+			::oro_common_assertions::fits_within::<u32, usize>();
 
 			let num_slots_u32 = self.num_slots.load(Ordering::Acquire);
 			// SAFETY(qix-): We can safely cast this to a usize since we've

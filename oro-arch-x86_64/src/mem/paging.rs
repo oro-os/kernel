@@ -7,6 +7,7 @@ use core::{
 	fmt,
 	ops::{Index, IndexMut},
 };
+use oro_common_assertions as assert;
 
 /// A page table for the x86_64 architecture.
 #[derive(Debug, Clone)]
@@ -16,7 +17,7 @@ pub struct PageTable {
 	entries: [PageTableEntry; 512],
 }
 
-const _: () = oro_common::util::assertions::assert_size_of::<PageTable, 4096>();
+const _: () = assert::size_of::<PageTable, 4096>();
 
 impl Default for PageTable {
 	#[inline]
@@ -79,7 +80,7 @@ impl PageTable {
 pub struct PageTableEntry(u64);
 
 #[allow(clippy::missing_docs_in_private_items)]
-const _: () = oro_common::util::assertions::assert_size_of::<PageTableEntry, 8>();
+const _: () = assert::size_of::<PageTableEntry, 8>();
 
 impl fmt::Debug for PageTableEntry {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

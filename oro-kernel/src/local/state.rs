@@ -13,6 +13,7 @@ use oro_common::{
 		translate::PhysicalAddressTranslator,
 	},
 };
+use oro_common_assertions as assert;
 
 /// Stores the pointer to the core-local state.
 ///
@@ -90,7 +91,7 @@ where
 
 	// TODO(qix-): This once again assumes 4KiB pages. Might need to adjust
 	// TODO(qix-): in the future.
-	::oro_common::util::assertions::assert_aligns_to::<CoreState, 4096>();
+	assert::aligns_to::<CoreState, 4096>();
 
 	let core_state = segment.range().0 as *mut CoreState;
 

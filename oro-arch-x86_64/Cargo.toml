@@ -13,5 +13,6 @@ license = "MPL-2.0"
 
 [dependencies]
 oro-common.workspace = true
+oro-common-assertions.workspace = true
 uart_16550.workspace = true
 acpi = { workspace = true, default-features = false }
