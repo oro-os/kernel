@@ -89,6 +89,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "oro-boot-protocol"
+version = "0.0.0"
+dependencies = [
+ "oro-common-assertions",
+ "oro-common-proc",
+]
+
+[[package]]
 name = "oro-bootloader-limine"
 version = "0.0.0"
 dependencies = [
@@ -105,6 +113,10 @@ version = "0.0.0"
 dependencies = [
  "oro-common-proc",
 ]
+
+[[package]]
+name = "oro-common-assertions"
+version = "0.0.0"
 
 [[package]]
 name = "oro-common-proc"
