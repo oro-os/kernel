@@ -27,6 +27,7 @@ oro-arch = { path = "oro-arch" }
 oro-arch-aarch64 = { path = "oro-arch-aarch64" }
 oro-arch-x86_64 = { path = "oro-arch-x86_64" }
 oro-boot = { path = "oro-boot" }
+oro-boot-protocol = { path = "oro-boot-protocol" }
 oro-common = { path = "oro-common" }
 oro-common-assertions = { path = "oro-common-assertions" }
 oro-common-proc = { path = "oro-common-proc" }
