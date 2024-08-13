@@ -13,9 +13,6 @@ mod enum_as;
 mod enum_iterator;
 mod gdb_autoload;
 mod paste;
-mod ser2mem;
-
-pub(crate) mod syn_ex;
 
 /// Derive macro for the `EnumIterator` trait.
 ///
@@ -123,7 +120,7 @@ pub fn derive_enum_iterator(input: proc_macro::TokenStream) -> proc_macro::Token
 #[proc_macro]
 pub fn paste(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	match self::paste::paste(input) {
-		Ok(output) => output.into(),
+		Ok(output) => output,
 		Err(err) => err.to_compile_error().into(),
 	}
 }
@@ -147,22 +144,4 @@ pub fn enum_as_u32(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 #[proc_macro]
 pub fn gdb_autoload_inline(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	self::gdb_autoload::gdb_autoload_inline(input)
-}
-
-/// Automatically derives seralization for a structure to be deserialized via a pointer
-/// cast.
-///
-/// Used exclusively by the boot protocol; its use should not be used for anything else.
-///
-/// **This macro only works within the `oro_common` crate.** It is not intended to be
-/// used outside of the boot protocol, and thus won't compile in any other crate due to
-/// the usage of the `crate` keyword. It is not advisable to try to work around this;
-/// `ser2mem` is very unsafe and has a lot of restrictions, and there's no guarantee that
-/// all of those restrictions are checked by the proc macros or implementations.
-#[proc_macro_derive(Ser2Mem)]
-pub fn derive_ser2mem(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	match self::ser2mem::derive_ser2mem(input) {
-		Ok(is) => is,
-		Err(e) => e.to_compile_error().into(),
-	}
 }

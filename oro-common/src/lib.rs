@@ -39,6 +39,5 @@ pub mod interrupt;
 pub mod mem;
 pub mod preboot;
 pub mod proc;
-pub mod ser2mem;
 pub mod sync;
 pub mod util;

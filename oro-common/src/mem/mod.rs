@@ -4,5 +4,4 @@
 pub mod mapper;
 pub mod pfa;
 pub mod region;
-pub mod ser2mem;
 pub mod translate;
