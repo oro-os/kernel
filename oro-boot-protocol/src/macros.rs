@@ -102,6 +102,20 @@ macro_rules! oro_boot_protocol {
 							None
 						}
 					}
+
+					/// Creates a new request with the given revision.
+					pub const fn with_revision(revision: u64) -> Self {
+						Self {
+							header: RequestHeader {
+								magic:    Self::TAG,
+								revision,
+								reserved: [0; 16],
+							},
+							populated: 0,
+							reserved:  [0; 15],
+							response:  ::core::mem::MaybeUninit::uninit(),
+						}
+					}
 				}
 			)*
 		}
