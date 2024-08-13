@@ -57,3 +57,38 @@ fn paste_multi() {
 	assert_eq!(991833, value_b_1);
 	assert_eq!(374498, value_b_2);
 }
+
+#[test]
+fn paste_snake_case() {
+	paste! {
+		let %<snake_case:someSnakeCase>% = 42;
+		assert_eq!(42, some_snake_case);
+	}
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn paste_title_case() {
+	paste! {
+		let %<title_case:someTitle_Case>% = 42;
+		assert_eq!(42, SomeTitleCase);
+	}
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn paste_camel_case() {
+	paste! {
+		let %<camel_case:SOME_camel_case>% = 42;
+		assert_eq!(42, someCamelCase);
+	}
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn paste_const_case() {
+	paste! {
+		let %<const_case:someConst_Case>% = 42;
+		assert_eq!(42, SOME_CONST_CASE);
+	}
+}

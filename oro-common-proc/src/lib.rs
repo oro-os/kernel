@@ -60,10 +60,72 @@ pub fn derive_enum_iterator(input: proc_macro::TokenStream) -> proc_macro::Token
 ///
 /// All tokens are concatenated together into a single identifier.
 /// Concatenated tokens MUST be identifiers.
+///
+/// # Manipulation
+/// Identifiers (or identifier-like) tokens can be manipulated
+/// to generate new identifiers that wouldn't otherwise be possible
+/// with regular Rust syntax.
+///
+/// The syntax is `#operation:token`, where `operation` is one of
+/// the manipulation operations, and `token` is the identifier to
+/// manipulate.
+///
+/// Note that nothing can immediately precede the `#` symbol.
+///
+/// ## `title_case`
+/// Converts the token to TitleCase.
+///
+/// Numbers and symbols are treated as word boundaries.
+///
+/// ```no_run
+/// paste! {
+///    const #title_case:some_value = 42;
+///    assert_eq!(SomeValue, 42);
+/// }
+/// ```
+///
+/// ## `snake_case`
+/// Converts the token to snake_case.
+///
+/// Numbers and symbols are treated as word boundaries.
+///
+/// ```no_run
+/// paste! {
+///    const #snake_case:SomeValue = 42;
+///    assert_eq!(some_value, 42);
+/// }
+/// ```
+///
+/// ## `camel_case`
+/// Converts the token to camelCase.
+///
+/// Numbers and symbols are treated as word boundaries.
+///
+/// ```no_run
+/// paste! {
+///    const #camel_case:SomeValue = 42;
+///    assert_eq!(someValue, 42);
+/// }
+/// ```
+///
+/// ## `const_case`
+/// Converts the token to CONST_CASE.
+///
+/// Numbers and symbols are treated as word boundaries.
+///
+/// ```no_run
+/// paste! {
+///    const #const_case:SomeValue = 42;
+///    assert_eq!(SOME_VALUE, 42);
+/// }
+/// ```
 #[allow(clippy::missing_panics_doc)]
 #[proc_macro]
 pub fn paste(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	self::paste::paste(input)
+	match self::paste::paste(input) {
+		Ok(output) => output.into(),
+		Err(err) => err.to_compile_error().into(),
+	}
 }
 
 /// Derive macro that allows unit enums with designators to be safely
