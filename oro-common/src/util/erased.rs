@@ -1,7 +1,7 @@
 //! Provides the [`Erased`] type, which is a type-safe, type-erased container for a single value
 //! within a fixed size buffer.
 
-use super::assertions::{AssertFits, AssertNoDrop};
+use oro_common_assertions as assert;
 
 /// An opaque wrapper around an initialized value.
 ///
@@ -42,9 +42,9 @@ impl<const SIZE: usize> Erased<SIZE> {
 	/// The value must have a size less than or equal to `SIZE`, and
 	/// cannot have a destructor (`impl Drop` or have any fields that
 	/// implement `Drop`). This is enforced at compile time.
-	pub fn from<T: Sized + AssertFits<SIZE> + AssertNoDrop + 'static>(v: T) -> Self {
-		() = <T as AssertFits<SIZE>>::ASSERT;
-		() = <T as AssertNoDrop>::ASSERT;
+	pub fn from<T: Sized + 'static>(v: T) -> Self {
+		() = assert::fits::<T, SIZE>();
+		() = assert::no_drop::<T>();
 
 		unsafe {
 			// SAFETY: This is technically undefined behavior, but given that
@@ -77,11 +77,9 @@ impl<const SIZE: usize> Erased<SIZE> {
 	// NOTE(qix-): break any lifetime guarantees in the future.
 	#[allow(clippy::needless_lifetimes)]
 	#[must_use]
-	pub fn as_ref<'a, T: Sized + AssertFits<SIZE> + AssertNoDrop + 'static>(
-		&'a self,
-	) -> Option<&'a T> {
-		() = <T as AssertFits<SIZE>>::ASSERT;
-		() = <T as AssertNoDrop>::ASSERT;
+	pub fn as_ref<'a, T: Sized + 'static>(&'a self) -> Option<&'a T> {
+		() = assert::fits::<T, SIZE>();
+		() = assert::no_drop::<T>();
 
 		match self {
 			Erased::Uninit => None,
@@ -97,9 +95,9 @@ impl<const SIZE: usize> Erased<SIZE> {
 	///
 	/// If the proxy is `Uninit`, or if `T` does not match the same type,
 	/// from the call to `from()`, this function will return `None`.
-	pub fn take<T: Sized + AssertFits<SIZE> + AssertNoDrop + 'static>(&mut self) -> Option<T> {
-		() = <T as AssertFits<SIZE>>::ASSERT;
-		() = <T as AssertNoDrop>::ASSERT;
+	pub fn take<T: Sized + 'static>(&mut self) -> Option<T> {
+		() = assert::fits::<T, SIZE>();
+		() = assert::no_drop::<T>();
 
 		if let Erased::Value(ErasedValue { tid, buf: _ }) = self {
 			if tid != &core::any::TypeId::of::<T>() {

@@ -40,6 +40,11 @@ unsafe trait AssertFits<const SIZE: usize>: Sized {
 unsafe impl<T: Sized, const SIZE: usize> AssertFits<SIZE> for T {}
 
 /// One-off assertion that a type fits within a certain size.
+pub const fn fits<Smaller: Sized, const SIZE: usize>() {
+	() = <Smaller as AssertFits<SIZE>>::ASSERT;
+}
+
+/// One-off assertion that a type fits within a certain size given a ref.
 pub const fn fits1<Smaller: Sized, const SIZE: usize>(_v: &Smaller) {
 	() = <Smaller as AssertFits<SIZE>>::ASSERT;
 }

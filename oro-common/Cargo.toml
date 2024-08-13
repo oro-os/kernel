@@ -20,3 +20,4 @@ dbgutil = []
 
 [dependencies]
 oro-common-proc.workspace = true
+oro-common-assertions.workspace = true
