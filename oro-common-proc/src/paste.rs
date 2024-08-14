@@ -3,6 +3,7 @@
 
 use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenTree};
+use std::collections::VecDeque;
 use syn::{Error, Ident};
 
 #[allow(clippy::missing_panics_doc)]
@@ -115,7 +116,7 @@ where
 	I: Iterator<Item = TokenTree>,
 {
 	inner: I,
-	cache: std::collections::VecDeque<TokenTree>,
+	cache: VecDeque<TokenTree>,
 }
 
 impl<I> CaseTransformationIterator<I>
@@ -125,7 +126,7 @@ where
 	fn new(inner: I) -> Self {
 		Self {
 			inner,
-			cache: Default::default(),
+			cache: VecDeque::default(),
 		}
 	}
 
@@ -216,7 +217,7 @@ where
 			unknown => {
 				Some(Err(syn::Error::new(
 					op_span,
-					format!("unknown `paste!` operation: {}", unknown),
+					format!("unknown `paste!` operation: {unknown}"),
 				)))
 			}
 		}
