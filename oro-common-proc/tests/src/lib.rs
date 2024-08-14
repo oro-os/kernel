@@ -1,4 +1,5 @@
 //! Unit tests for the [`oro-common-proc`] crate.
+#![cfg_attr(not(test), no_std)]
 #![cfg(test)]
 
 use oro_common_proc::*;
