@@ -32,7 +32,6 @@
 mod dbgutil;
 
 pub mod arch;
-pub mod boot;
 pub mod dbg;
 pub mod elf;
 pub mod interrupt;

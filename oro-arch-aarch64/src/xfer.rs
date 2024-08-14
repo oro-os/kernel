@@ -34,10 +34,6 @@ pub struct TransferToken {
 	pub ttbr0_page_table_phys: u64,
 	/// The address of the core-local stubs (identity mapped)
 	pub stubs_addr: usize,
-	/// The core ID.
-	pub core_id: u64,
-	/// Whether or not the core is the primary core.
-	pub core_is_primary: bool,
 }
 
 /// The result of mapping in the stubs
@@ -98,19 +94,12 @@ where
 /// # Safety
 /// Only to be called ONCE per core, and only by the
 /// [`oro_common::arch::Arch`] implementation.
-pub unsafe fn transfer(
-	entry: usize,
-	transfer_token: &TransferToken,
-	boot_config_virt: usize,
-	pfa_head: u64,
-) -> ! {
+pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
 	let page_table_phys: u64 = transfer_token.ttbr1_page_table_phys;
 	let stack_addr: usize = transfer_token.stack_ptr;
 	let mair_value: u64 = MairEntry::build_mair().into();
 	let stubs_addr: usize = transfer_token.stubs_addr;
 	let stubs_page_table_phys: u64 = transfer_token.ttbr0_page_table_phys;
-	let core_id: u64 = transfer_token.core_id;
-	let core_is_primary: u64 = u64::from(transfer_token.core_is_primary);
 
 	// Construct the final TCR_EL1 register value
 	// We load the current value and modify it instead of
@@ -181,11 +170,7 @@ pub unsafe fn transfer(
 		in("x3") mair_value,
 		in("x4") stubs_addr,
 		in("x5") tcr_el1_raw,
-		in("x6") core_id,
-		in("x7") core_is_primary,
 		// SAFETY(qix-): Do not use `x8` or `x9` for transferring values.
-		in("x10") boot_config_virt,
-		in("x11") pfa_head,
 		options(noreturn)
 	);
 }
@@ -233,25 +218,4 @@ unsafe extern "C" fn transfer_stubs() -> ! {
 		"br x2",
 		options(noreturn),
 	);
-}
-
-/// Extracts important information from the registers when the kernel
-/// entry point is hit, used to popular the kernel's `CoreConfig` structs.
-///
-/// # Safety
-/// This function is ONLY meant to be called from architecture-specific
-/// entry points in the kernel. DO NOT USE THIS MACRO IN PRE-BOOT ENVIRONMENTS.
-#[macro_export]
-macro_rules! transfer_params {
-	($core_id:path, $core_is_primary:path, $boot_config_virt:path, $pfa_head:path) => {{
-		::oro_common::assert_unsafe!();
-		::core::arch::asm!(
-			"",
-			out("x6") $core_id,
-			out("x7") $core_is_primary,
-			out("x10") $boot_config_virt,
-			out("x11") $pfa_head,
-			options(nostack, nomem),
-		);
-	}};
 }

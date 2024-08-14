@@ -22,15 +22,6 @@
 /// to enforce this at the type level.
 unsafe trait AssertFits<const SIZE: usize>: Sized {
 	/// Performs the assertion that the type fits within the specified size.
-	///
-	/// This must be referenced somewhere in the code at each usage site,
-	/// like so:
-	///
-	/// ```rust
-	/// () = <T as AssertFits<SIZE>>::ASSERT;
-	/// ```
-	///
-	/// This will cause a compile-time error if the assertion does not hold.
 	const ASSERT: () = assert!(
 		core::mem::size_of::<Self>() <= SIZE,
 		"value does not fit into the specified size (check SIZE)"
@@ -72,15 +63,6 @@ pub const fn fits_within2<Smaller: Sized, Larger: Sized>(_v: &Smaller, _u: &Larg
 /// to enforce this at the type level.
 unsafe trait AssertSizeOf<const SIZE: usize>: Sized {
 	/// Performs the assertion that the type is exactly the specified size.
-	///
-	/// This must be referenced somewhere in the code at each usage site,
-	/// like so:
-	///
-	/// ```rust
-	/// () = <T as AssertSizeOf<SIZE>>::ASSERT;
-	/// ```
-	///
-	/// This will cause a compile-time error if the assertion does not hold.
 	const ASSERT: () = assert!(
 		core::mem::size_of::<Self>() == SIZE,
 		"value is not the specified size (check SIZE)"
@@ -107,15 +89,6 @@ pub const fn size_of1<T: Sized, const SIZE: usize>(_v: &T) {
 /// to enforce this at the type level.
 unsafe trait AssertSizeEq<U: Sized>: Sized {
 	/// Performs the assertion that two types have the same size.
-	///
-	/// This must be referenced somewhere in the code at each usage site,
-	/// like so:
-	///
-	/// ```rust
-	/// () = <T as AssertSizeEq<U>>::ASSERT;
-	/// ```
-	///
-	/// This will cause a compile-time error if the assertion does not hold.
 	const ASSERT: () = assert!(
 		core::mem::size_of::<Self>() == core::mem::size_of::<U>(),
 		"types do not have the same size"
@@ -138,15 +111,6 @@ pub const fn size_eq<T: Sized, U: Sized>() {
 /// to enforce this at the type level.
 unsafe trait AssertNoDrop {
 	/// Performs the assertion that the type does not have a destructor.
-	///
-	/// This must be referenced somewhere in the code at each usage site,
-	/// like so:
-	///
-	/// ```rust
-	/// () = <T as AssertNoDrop>::ASSERT;
-	/// ```
-	///
-	/// This will cause a compile-time error if the assertion does not hold.
 	const ASSERT: () = assert!(
 		!core::mem::needs_drop::<Self>(),
 		"the value must not have a destructor (drop method) or have any fields that require a \
@@ -171,15 +135,6 @@ pub const fn no_drop<T: ?Sized>() {
 unsafe trait AssertAlignsWithin<Larger: Sized>: Sized {
 	/// Performs the assertion that the type has equal or less alignment requirements
 	/// than another type.
-	///
-	/// This must be referenced somewhere in the code at each usage site,
-	/// like so:
-	///
-	/// ```rust
-	/// () = <Smaller as AssertAlignsWithin<Larger>>::ASSERT;
-	/// ```
-	///
-	/// This will cause a compile-time error if the assertion does not hold.
 	const ASSERT: () = assert!(
 		core::mem::align_of::<Self>() <= core::mem::align_of::<Larger>(),
 		"value does not align within the specified type (check Larger type)"
@@ -244,15 +199,6 @@ pub const fn aligns_within2<Smaller: Sized, Larger: Sized>(_v: &Smaller, _u: &La
 /// to enforce this at the type level.
 unsafe trait AssertFitsWithin<Larger: Sized>: Sized {
 	/// Performs the assertion that the type fits within another type size-wise.
-	///
-	/// This must be referenced somewhere in the code at each usage site,
-	/// like so:
-	///
-	/// ```rust
-	/// () = <Smaller as AssertFitsWithin<Larger>>::ASSERT;
-	/// ```
-	///
-	/// This will cause a compile-time error if the assertion does not hold.
 	const ASSERT: () = assert!(
 		core::mem::size_of::<Self>() <= core::mem::size_of::<Larger>(),
 		"value does not fit within the specified type (check Larger type)"
@@ -277,15 +223,6 @@ unsafe impl<Smaller: Sized, Larger: Sized> AssertFitsWithin<Larger> for Smaller 
 #[doc(hidden)]
 pub unsafe trait AssertOffsetEq<const LHS: usize, const RHS: usize> {
 	/// Performs the assertion that the two offsets are equal.
-	///
-	/// This must be referenced somewhere in the code at each usage site,
-	/// like so:
-	///
-	/// ```rust
-	/// () = <T as AssertOffsetEq<LHS, RHS>>::ASSERT;
-	/// ```
-	///
-	/// This will cause a compile-time error if the assertion does not hold.
 	const ASSERT: () = assert!(
 		LHS == RHS,
 		"offsets are not equal (check `$T` and `$field_name`)"
@@ -318,15 +255,6 @@ macro_rules! offset_of {
 /// to enforce this at the type level.
 unsafe trait AlignOf<const ALIGN: usize>: Sized {
 	/// Performs the assertion that the type has the specified alignment.
-	///
-	/// This must be referenced somewhere in the code at each usage site,
-	/// like so:
-	///
-	/// ```rust
-	/// () = <T as AlignOf<ALIGN>>::ASSERT;
-	/// ```
-	///
-	/// This will cause a compile-time error if the assertion does not hold.
 	const ASSERT: () = assert!(
 		core::mem::align_of::<Self>() == ALIGN,
 		"value does not align to the specified size (check ALIGN)"

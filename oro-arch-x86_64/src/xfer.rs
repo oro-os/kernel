@@ -43,17 +43,10 @@ pub fn target_address() -> usize {
 /// # Safety
 /// Only to be called ONCE per core, and only by the
 /// [`oro_common::arch::Arch`] implementation.
-pub unsafe fn transfer(
-	entry: usize,
-	transfer_token: &TransferToken,
-	boot_config_virt: usize,
-	pfa_head: u64,
-) -> ! {
+pub unsafe fn transfer(entry: usize, transfer_token: &TransferToken) -> ! {
 	let page_table_phys: u64 = transfer_token.page_table_phys;
 	let stack_addr: usize = transfer_token.stack_ptr;
 	let stubs_addr: usize = crate::xfer::target_address();
-	let core_id: u64 = transfer_token.core_id;
-	let core_is_primary: u64 = u64::from(transfer_token.core_is_primary);
 	let gdt_base: usize = AddressSpaceLayout::gdt().range().0;
 
 	// Tell dbgutil we're about to switch
@@ -64,14 +57,10 @@ pub unsafe fn transfer(
 	// SAFETY(qix-): Do NOT use `ax`, `bx`, `dx`, `cx` for transfer registers.
 	asm!(
 		"jmp r12",
-		in("r8") pfa_head,
 		in("r9") page_table_phys,
 		in("r10") stack_addr,
 		in("r11") entry,
 		in("r12") stubs_addr,
-		in("r13") core_id,
-		in("r14") core_is_primary,
-		in("r15") boot_config_virt,
 		in("rdi") gdt_base,
 		options(noreturn)
 	);
@@ -149,25 +138,4 @@ unsafe extern "C" fn transfer_stubs() -> ! {
 		CR0_MASK = const CR0_MASK,
 		options(noreturn),
 	}
-}
-
-/// Extracts important information from the registers when the kernel
-/// entry point is hit, used to popular the kernel's `CoreConfig` structs.
-///
-/// # Safety
-/// This function is ONLY meant to be called from architecture-specific
-/// entry points in the kernel. DO NOT USE THIS MACRO IN PRE-BOOT ENVIRONMENTS.
-#[macro_export]
-macro_rules! transfer_params {
-	($core_id:path, $core_is_primary:path, $boot_config_virt:path, $pfa_head:path) => {{
-		::oro_common::assert_unsafe!();
-		::core::arch::asm!(
-			"",
-			out("r8") $pfa_head,
-			out("r13") $core_id,
-			out("r14") $core_is_primary,
-			out("r15") $boot_config_virt,
-			options(nostack, nomem),
-		);
-	}};
 }

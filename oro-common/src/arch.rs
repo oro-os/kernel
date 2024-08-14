@@ -199,23 +199,8 @@ pub unsafe trait Arch {
 	/// Implementations MUST NOT affect ANY resources that are not
 	/// local to the CPU core being prepared.
 	///
-	/// The boot config virtual address MUST NOT be zero, and MUST be
-	/// a valid, readable readable address (as specified by
-	/// [`crate::mem::mapper::AddressSpace::boot_info()`]) mapped into the
-	/// kernel's eventual address space, whereby a cast to a pointer to
-	/// [`crate::boot::BootConfig`] is valid and dereferenceable without
-	/// invoking undefined behavior.
-	///
-	/// Implementations MUST NOT derefence the boot config virtual address
-	/// as it is not valid in the pre-boot memory map.
-	///
 	/// This method **must not panic**.
-	unsafe fn transfer(
-		entry: usize,
-		transfer_token: Self::TransferToken,
-		boot_config_virt: usize,
-		pfa_head: u64,
-	) -> !;
+	unsafe fn transfer(entry: usize, transfer_token: Self::TransferToken) -> !;
 
 	/// Cleans up resources after the transfer has been completed.
 	/// Execution is now in the kernel; all architecture-specific
@@ -287,4 +272,32 @@ pub unsafe trait Arch {
 	/// 1. the shared resource, if any, is properly guarded.
 	/// 2. no recursive calls to `log` are made (e.g. by calling `dbg!` from within `log`).
 	fn log(message: fmt::Arguments);
+
+	/// Returns the total number of cores in the system.
+	#[deprecated(
+		note = "This is a stop-gap solution during a major refactor; don't rely on this function \
+		        being here."
+	)]
+	fn num_cores() -> u64;
+
+	/// Returns whether or not this core is the primary core.
+	#[deprecated(
+		note = "This is a stop-gap solution during a major refactor; don't rely on this function \
+		        being here."
+	)]
+	fn is_primary_core() -> bool;
+
+	/// Returns the linear offset of direct map.
+	#[deprecated(
+		note = "This is a stop-gap solution during a major refactor; don't rely on this function \
+		        being here."
+	)]
+	fn linear_map_offset() -> usize;
+
+	/// Returns the head physical address of the PFA before boot.
+	#[deprecated(
+		note = "This function will be removed in the future. Don't use it too heavily, as the PFA \
+		        is undergoing a major refactor."
+	)]
+	fn pfa_head() -> u64;
 }

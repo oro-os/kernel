@@ -17,3 +17,4 @@ doctest = false
 [dependencies]
 oro-arch.workspace = true
 oro-common.workspace = true
+oro-common-assertions.workspace = true
