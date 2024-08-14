@@ -14,6 +14,10 @@ license = "MPL-2.0"
 [lib]
 doctest = false
 
+[features]
+default = []
+utils = []
+
 [dependencies]
 oro-common-assertions.workspace = true
 oro-common-proc.workspace = true
