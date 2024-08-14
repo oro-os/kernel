@@ -2,6 +2,13 @@
 //! of the requests/responses/tags/versions/etc
 //! for the Oro kernel boot protocol.
 
+/// Sealed trait for the request tags.
+///
+/// Prevents implementation of new request types
+/// outside of this crate when using the types
+/// provided by the `utils` feature.
+pub(crate) trait Sealed {}
+
 /// Main Oro boot protocol definition macro.
 macro_rules! oro_boot_protocol {
 	(
@@ -38,6 +45,13 @@ macro_rules! oro_boot_protocol {
 				::oro_common_assertions::offset_of!(RequestHeader, magic, 0);
 				::oro_common_assertions::offset_of!(RequestHeader, revision, 8);
 			};
+
+			/// Holds the `TAG` constant for each request type.
+			#[allow(private_bounds)]
+			pub trait RequestTag: crate::macros::Sealed {
+				/// The tag for the request.
+				const TAG: u64;
+			}
 
 			$(
 				#[doc = concat!("The response data structures for the [`", stringify!($ReqName), "Request`], across all revisions.")]
@@ -86,13 +100,17 @@ macro_rules! oro_boot_protocol {
 					::oro_common_assertions::align_of::<$ReqName %% Request, 16>();
 				};
 
-				impl $ReqName %% Request {
+				impl crate::macros::Sealed for $ReqName %% Request {}
+
+				impl RequestTag for $ReqName %% Request {
 					#[doc = concat!("The tag for the [`", stringify!($ReqName), "Request`].")]
-					pub const TAG: u64 = {
+					const TAG: u64 = {
 						::oro_common_assertions::size_of1::<_, 8>($TAG);
 						unsafe { ::core::mem::transmute_copy($TAG) }
 					};
+				}
 
+				impl $ReqName %% Request {
 					/// Returns the response data for the request,
 					/// or `None` if the response was not populated.
 					#[must_use]

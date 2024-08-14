@@ -83,6 +83,8 @@
 )]
 
 mod macros;
+#[cfg(feature = "utils")]
+pub mod utils;
 
 macros::oro_boot_protocol! {
 	/// Main settings for the kernel.
