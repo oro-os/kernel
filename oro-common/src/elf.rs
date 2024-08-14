@@ -11,6 +11,9 @@ use core::{
 
 /// Marks a segment header as a kernel code segment.
 const ORO_ELF_FLAGTYPE_KERNEL_CODE: u32 = 1 << 20;
+/// Marks a segment header as the Oro boot protocol segment.
+/// Can only be one.
+const ORO_ELF_FLAGTYPE_KERNEL_BOOT_PROTOCOL: u32 = 1 << 21;
 
 /// Main entrypoint for an ELF file.
 ///
@@ -404,7 +407,13 @@ impl<'a> ElfSegment for ElfSegmentHeader<'a> {
 			match (is_x, is_w, is_r) {
 				(true, false, true) => ElfSegmentType::KernelCode,
 				(false, true, true) => ElfSegmentType::KernelData,
-				(false, false, true) => ElfSegmentType::KernelRoData,
+				(false, false, true) => {
+					if os_flags & ORO_ELF_FLAGTYPE_KERNEL_BOOT_PROTOCOL != 0 {
+						ElfSegmentType::KernelRequests
+					} else {
+						ElfSegmentType::KernelRoData
+					}
+				}
 				_ => ElfSegmentType::Invalid { flags, ptype },
 			}
 		} else {
@@ -487,6 +496,8 @@ pub enum ElfSegmentType {
 	KernelData,
 	/// Kernel read-only data segment
 	KernelRoData,
+	/// Kernel configuration requests (read-only)
+	KernelRequests,
 }
 
 /// An ELF64 header.
