@@ -161,7 +161,7 @@ pub const fn aligns_to<Smaller: Sized, const ALIGN: usize>() {
 
 /// One-off assertion that a type has equal or less alignment requirements
 /// than another type.
-pub const fn aligns_within1<Smaller: Sized, Larger: Sized>(_v: &Smaller) {
+pub const fn aligns_within<Smaller: Sized, Larger: Sized>() {
 	// These are sanity checks; they should always be true.
 	// If they're not, a language-level guarantee has been violated.
 	() = assert!(
@@ -176,19 +176,15 @@ pub const fn aligns_within1<Smaller: Sized, Larger: Sized>(_v: &Smaller) {
 }
 
 /// One-off assertion that a type has equal or less alignment requirements
+/// than another type.
+pub const fn aligns_within1<Smaller: Sized, Larger: Sized>(_v: &Smaller) {
+	aligns_within::<Smaller, Larger>();
+}
+
+/// One-off assertion that a type has equal or less alignment requirements
 /// than another type using value references.
 pub const fn aligns_within2<Smaller: Sized, Larger: Sized>(_v: &Smaller, _u: &Larger) {
-	// These are sanity checks; they should always be true.
-	// If they're not, a language-level guarantee has been violated.
-	() = assert!(
-		core::mem::align_of::<Smaller>().is_power_of_two(),
-		"(sanity check) Smaller type has non-power-of-two alignment!"
-	);
-	() = assert!(
-		core::mem::align_of::<Larger>().is_power_of_two(),
-		"(sanity check) Larger type has non-power-of-two alignment!"
-	);
-	() = <Smaller as AssertAlignsWithin<Larger>>::ASSERT;
+	aligns_within::<Smaller, Larger>();
 }
 
 /// Asserts that a type fits within another type size-wise.
