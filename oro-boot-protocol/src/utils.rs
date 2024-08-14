@@ -3,7 +3,7 @@
 //! This module is **optional** and is enabled via the `utils` feature.
 //! See the crate documentation for information on how to populate
 //! the kernel requests without using this module.
-use crate::{RequestHeader, RequestTag};
+use crate::{Request, RequestHeader, RequestTag, Tag};
 use oro_common_assertions as assert;
 
 /// A scanner for scanning for the kernel's requests.
@@ -18,7 +18,7 @@ use oro_common_assertions as assert;
 /// you are copying the kernel to a new location).
 pub struct RequestScanner {
 	/// The base address of the requests segment.
-	base: *mut u64,
+	base: *mut Tag,
 	/// The length of the requests segment.
 	len:  usize,
 }
@@ -32,12 +32,12 @@ impl RequestScanner {
 	#[must_use]
 	pub unsafe fn new(base: *mut u8, len: usize) -> Self {
 		// Make sure it's aligned.
-		assert::aligns_within::<u64, RequestHeader>();
+		assert::aligns_within::<Tag, RequestHeader>();
 		let align_offset = base.align_offset(::core::mem::align_of::<RequestHeader>());
 		let len = len.saturating_sub(align_offset);
 		// SAFETY(qix-): We've already aligned the pointer.
 		#[allow(clippy::cast_ptr_alignment)]
-		let base = base.add(align_offset).cast::<u64>();
+		let base = base.add(align_offset).cast::<Tag>();
 
 		Self { base, len }
 	}
@@ -47,6 +47,11 @@ impl RequestScanner {
 	/// If the request is found, a mutable reference to the
 	/// request header is returned. If the request is not found,
 	/// `None` is returned.
+	///
+	/// > **Note**: This function is tricky to make safe
+	/// > and is inefficient to use more than once.
+	/// > It is recommended to use the `iter_mut()` function
+	/// > instead with a `match` statement.
 	///
 	/// # Safety
 	/// Caller must ensure no other threads are modifying the
@@ -68,7 +73,7 @@ impl RequestScanner {
 		let mut ptr = self.base;
 
 		// A little bit of a hack to get around the division ban.
-		let shift = (::core::mem::size_of_val(&T::TAG) - 1).count_ones();
+		let shift = (::core::mem::size_of::<Tag>() - 1).count_ones();
 		let end = self.base.add(self.len >> shift);
 
 		// SAFETY(qix-): We are guaranteed to have valid alignment
@@ -85,6 +90,54 @@ impl RequestScanner {
 			// Gets the alignment requirements, and then divides by
 			// the tag size
 			ptr = ptr.add(::core::mem::align_of::<RequestHeader>() >> shift);
+		}
+
+		None
+	}
+
+	/// Returns an iterator over all requests in the segment.
+	///
+	/// # Safety
+	/// The `response` field of the returned request header **must not**
+	/// be used. It is only safe to use the `Request` element of the returned
+	/// tuple.
+	#[must_use]
+	pub unsafe fn iter_mut(&self) -> RequestScannerIter {
+		// A little bit of a hack to get around the division ban.
+		let shift = (::core::mem::size_of::<Tag>() - 1).count_ones();
+		// SAFETY(qix-): Len will never have the high bit set.
+		let end = unsafe { self.base.add(self.len >> shift) };
+
+		RequestScannerIter {
+			ptr: self.base,
+			end,
+			_phantom: ::core::marker::PhantomData,
+		}
+	}
+}
+
+/// An iterator over the requests in a request segment.
+pub struct RequestScannerIter<'a> {
+	/// The next pointer we'll attempt to read.
+	ptr:      *mut Tag,
+	/// The first pointer after the end of the segment.
+	end:      *mut Tag,
+	/// Just enforces that the lifetime is used, keeping
+	/// this iterator from being used after the scanner
+	/// that created it drops.
+	_phantom: ::core::marker::PhantomData<&'a ()>,
+}
+
+impl<'a> Iterator for RequestScannerIter<'a> {
+	type Item = (&'a mut RequestHeader, Request<'a>);
+
+	fn next(&mut self) -> Option<Self::Item> {
+		while self.ptr < self.end {
+			let maybe_req = unsafe { super::request_from_tag(&mut *(self.ptr.cast())) };
+			self.ptr = unsafe { self.ptr.add(1) };
+			if maybe_req.is_some() {
+				return maybe_req;
+			}
 		}
 
 		None
