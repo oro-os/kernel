@@ -24,6 +24,7 @@ doc = false
 
 [dependencies]
 oro-arch.workspace = true
+oro-boot-protocol.workspace = true
 oro-common.workspace = true
 oro-common-assertions.workspace = true
 

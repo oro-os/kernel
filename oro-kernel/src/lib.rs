@@ -11,7 +11,8 @@
 #![allow(
 	clippy::module_name_repetitions,
 	clippy::struct_field_names,
-	clippy::too_many_lines
+	clippy::too_many_lines,
+	deprecated // XXX TODO(qix-) temporary during refactor
 )]
 // NOTE(qix-): `adt_const_params` isn't strictly necessary but is on track for acceptance,
 // NOTE(qix-): and the open questions (e.g. mangling) are not of concern here.
@@ -28,6 +29,7 @@ pub(crate) mod id;
 pub(crate) mod local;
 pub(crate) mod module;
 pub(crate) mod port;
+pub(crate) mod protocol;
 pub(crate) mod registry;
 pub(crate) mod ring;
 
@@ -35,7 +37,6 @@ use core::mem::MaybeUninit;
 use oro_arch::Target;
 use oro_common::{
 	arch::Arch,
-	boot::BootConfig,
 	dbg, dbg_err,
 	mem::{
 		mapper::AddressSpace, pfa::filo::FiloPageFrameAllocator,
@@ -56,42 +57,6 @@ type Pfa = FiloPageFrameAllocator<PhysicalTranslator>;
 /// Holds the shared PFA.
 static mut PFA: MaybeUninit<UnfairCriticalSpinlock<Pfa>> = MaybeUninit::uninit();
 
-/// Core-specific boot information.
-///
-/// It is up to the architecture-specific implementations
-/// to properly initialize this structure and pass it to
-/// [`boot()`].
-///
-/// All general, system-wide configuration should be stored
-/// in the boot protocol configuration otherwise.
-#[repr(C, align(16))]
-pub struct CoreConfig {
-	/// The core ID.
-	pub core_id:     u64,
-	/// The core type.
-	///
-	/// # Safety
-	/// Exactly one core must be marked as primary.
-	pub core_type:   CoreType,
-	/// The boot protocol configuration.
-	pub boot_config: &'static BootConfig,
-	/// The head of the page frame allocator directly
-	/// before the transfer.
-	pub pfa_head:    u64,
-}
-
-/// The core type.
-#[derive(PartialEq, Eq, Copy, Clone)]
-pub enum CoreType {
-	/// The core is the primary core.
-	///
-	/// # Safety
-	/// Exactly one core must be marked as primary.
-	Primary,
-	/// The core is a secondary core.
-	Secondary,
-}
-
 /// Runs the kernel.
 ///
 /// This is the main entry point for the kernel.
@@ -107,15 +72,18 @@ pub enum CoreType {
 /// Specifically, all safety requirements must be met, such as
 /// marking exactly one core as primary.
 #[allow(clippy::missing_panics_doc)] // XXX DEBUG
-pub unsafe fn boot(core_config: &CoreConfig) -> ! {
+pub unsafe fn boot() -> ! {
+	let is_primary_core = Target::is_primary_core();
+	let core_count = Target::num_cores();
+
 	#[allow(clippy::missing_docs_in_private_items)]
 	macro_rules! wait_for_all_cores {
 		() => {{
 			static BARRIER: ::oro_common::sync::barrier::SpinBarrier =
 				::oro_common::sync::barrier::SpinBarrier::new();
 
-			if core_config.core_type == CoreType::Primary {
-				BARRIER.set_total::<Target>(core_config.boot_config.core_count);
+			if is_primary_core {
+				BARRIER.set_total::<Target>(core_count);
 			}
 
 			BARRIER.wait();
@@ -126,10 +94,10 @@ pub unsafe fn boot(core_config: &CoreConfig) -> ! {
 			static AFTER_BARRIER: ::oro_common::sync::barrier::SpinBarrier =
 				::oro_common::sync::barrier::SpinBarrier::new();
 
-			if core_config.core_type == CoreType::Primary {
+			if is_primary_core {
 				$primary
-				BARRIER.set_total::<Target>(core_config.boot_config.core_count);
-				AFTER_BARRIER.set_total::<Target>(core_config.boot_config.core_count);
+				BARRIER.set_total::<Target>(core_count);
+				AFTER_BARRIER.set_total::<Target>(core_count);
 				BARRIER.wait();
 			} else {
 				BARRIER.wait();
@@ -154,13 +122,12 @@ pub unsafe fn boot(core_config: &CoreConfig) -> ! {
 	wait_for_all_cores!();
 
 	// Set up the PFA.
-	let translator =
-		OffsetPhysicalAddressTranslator::new(core_config.boot_config.linear_map_offset);
+	let translator = OffsetPhysicalAddressTranslator::new(Target::linear_map_offset());
 	let kernel_addr_space = <Target as Arch>::AddressSpace::current_supervisor_space(&translator);
 
-	if core_config.core_type == CoreType::Primary {
+	if is_primary_core {
 		PFA.write(UnfairCriticalSpinlock::new(
-			FiloPageFrameAllocator::with_last_free(translator.clone(), core_config.pfa_head),
+			FiloPageFrameAllocator::with_last_free(translator.clone(), Target::pfa_head()),
 		));
 
 		Target::strong_memory_barrier();
@@ -178,11 +145,11 @@ pub unsafe fn boot(core_config: &CoreConfig) -> ! {
 			&kernel_addr_space,
 			&translator,
 			&mut *pfa,
-			core_config.core_type == CoreType::Primary,
+			is_primary_core,
 		);
 	}}
 
-	if core_config.core_type == CoreType::Primary {
+	if is_primary_core {
 		// Initialize the registries.
 		{
 			use crate::registry::RegistryTarget;
@@ -251,14 +218,14 @@ pub unsafe fn boot(core_config: &CoreConfig) -> ! {
 	self::local::state::initialize_core_state(
 		unsafe { &mut *pfa.lock::<Target>() },
 		&translator,
-		core_config.core_type == CoreType::Primary,
+		is_primary_core,
 	)
 	.expect("failed to initialize core local state");
 	wait_for_all_cores!();
 	Target::initialize_interrupts::<self::local::interrupt::KernelInterruptHandler>();
 	wait_for_all_cores!();
 
-	if core_config.core_type == CoreType::Primary {
+	if is_primary_core {
 		dbg!("kernel", "kernel transfer ok");
 	}
 

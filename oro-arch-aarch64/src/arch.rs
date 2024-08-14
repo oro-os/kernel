@@ -192,18 +192,11 @@ unsafe impl Arch for Aarch64 {
 			ttbr1_page_table_phys: mapper.base_phys,
 			ttbr0_page_table_phys: stubs.ttbr0_addr,
 			stubs_addr: stubs.stubs_addr,
-			core_id: config.core_id(),
-			core_is_primary: matches!(config, PrebootConfig::Primary { .. }),
 		}
 	}
 
-	unsafe fn transfer(
-		entry: usize,
-		transfer_token: Self::TransferToken,
-		boot_config_virt: usize,
-		pfa_head: u64,
-	) -> ! {
-		crate::xfer::transfer(entry, &transfer_token, boot_config_virt, pfa_head);
+	unsafe fn transfer(entry: usize, transfer_token: Self::TransferToken) -> ! {
+		crate::xfer::transfer(entry, &transfer_token);
 	}
 
 	unsafe fn after_transfer<A, P>(
@@ -294,6 +287,22 @@ unsafe impl Arch for Aarch64 {
 
 		alloc.free(tt0_phys);
 		crate::asm::store_ttbr0(0);
+	}
+
+	fn num_cores() -> u64 {
+		todo!();
+	}
+
+	fn is_primary_core() -> bool {
+		todo!();
+	}
+
+	fn linear_map_offset() -> usize {
+		todo!();
+	}
+
+	fn pfa_head() -> u64 {
+		todo!();
 	}
 }
 

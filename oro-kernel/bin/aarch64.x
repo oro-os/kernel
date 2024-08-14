@@ -4,13 +4,19 @@ OUTPUT_ARCH(aarch64)
 ENTRY(_start)
 
 PHDRS {
-	text     PT_LOAD    FLAGS((1 << 0) | (1 << 2) | (1 << 20)); /* rx + oro-kernel */
-	rodata   PT_LOAD    FLAGS((1 << 2)            | (1 << 20)); /* r  + oro-kernel */
-	data     PT_LOAD    FLAGS((1 << 1) | (1 << 2) | (1 << 20)); /* rw + oro-kernel */
+	oro_boot PT_LOAD    FLAGS((1 << 2)            | (1 << 20) | (1 << 21)); /* r  + oro-kernel + oro-boot */
+	text     PT_LOAD    FLAGS((1 << 0) | (1 << 2) | (1 << 20)            ); /* rx + oro-kernel */
+	rodata   PT_LOAD    FLAGS((1 << 2)            | (1 << 20)            ); /* r  + oro-kernel */
+	data     PT_LOAD    FLAGS((1 << 1) | (1 << 2) | (1 << 20)            ); /* rw + oro-kernel */
 }
 
 SECTIONS {
 	. = 0xFFFFFFFF80000000;
+
+	/* Put these as early as possible. */
+	.oro_boot : {
+		KEEP(*(.oro_boot .oro_boot.*))
+	} :oro_boot
 }
 
 INCLUDE "oro-arch-aarch64/arch.x"

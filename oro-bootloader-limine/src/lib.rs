@@ -170,7 +170,8 @@ pub unsafe fn init<C: CpuId>() -> ! {
 
 	let memory_regions = make_memory_map_iterator();
 
-	let rsdp_address = if let Some(rsdp_response) = REQ_RSDP.get_response() {
+	// TODO(qix-): do something with this (temporary during major refactor)
+	let _rsdp_address = if let Some(rsdp_response) = REQ_RSDP.get_response() {
 		let addr = rsdp_response.address() as u64;
 		let offset = hhdm_response.offset();
 		if addr < offset {
@@ -207,7 +208,6 @@ pub unsafe fn init<C: CpuId>() -> ! {
 			hhdm_response.offset() as usize
 		),
 		memory_regions,
-		rsdp_address,
 		kernel_module: ModuleDef {
 			base:   kernel_module.addr() as usize,
 			length: kernel_module.size(),

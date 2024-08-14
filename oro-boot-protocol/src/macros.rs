@@ -95,6 +95,7 @@ macro_rules! oro_boot_protocol {
 
 					/// Returns the response data for the request,
 					/// or `None` if the response was not populated.
+					#[must_use]
 					pub const fn response(&self) -> Option<&%<snake_case:$ReqName>%::$ReqName %% Data> {
 						if self.populated == 0xFF {
 							unsafe { Some(&self.response.assume_init_ref()) }
@@ -104,6 +105,7 @@ macro_rules! oro_boot_protocol {
 					}
 
 					/// Creates a new request with the given revision.
+					#[must_use]
 					pub const fn with_revision(revision: u64) -> Self {
 						Self {
 							header: RequestHeader {

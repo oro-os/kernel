@@ -68,6 +68,7 @@ name = "oro-arch-aarch64"
 version = "0.0.0"
 dependencies = [
  "oro-common",
+ "oro-common-assertions",
  "oro-serial-pl011",
 ]
 
@@ -87,6 +88,7 @@ version = "0.0.0"
 dependencies = [
  "oro-arch",
  "oro-common",
+ "oro-common-assertions",
 ]
 
 [[package]]
@@ -144,6 +146,7 @@ dependencies = [
  "oro-arch",
  "oro-arch-aarch64",
  "oro-arch-x86_64",
+ "oro-boot-protocol",
  "oro-common",
  "oro-common-assertions",
 ]

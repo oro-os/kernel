@@ -3,7 +3,6 @@
 use oro_arch::Target;
 use oro_common::{
 	arch::Arch,
-	boot::BootConfig,
 	dbg,
 	elf::{ElfSegment, ElfSegmentType},
 	mem::{
@@ -16,7 +15,6 @@ use oro_common::{
 		translate::PhysicalAddressTranslator,
 	},
 	preboot::{PrebootConfig, PrebootPrimaryConfig},
-	ser2mem::Serialize,
 	sync::{barrier::SpinBarrier, spinlock::unfair::UnfairSpinlock},
 	util::erased::Erased,
 };
@@ -313,7 +311,6 @@ where
 			num_instances,
 			memory_regions,
 			physical_address_translator,
-			rsdp_address,
 			..
 		} => {
 			let mut pfa = pfa.lock::<Target>();
@@ -358,7 +355,9 @@ where
 					}
 					ElfSegmentType::KernelCode => <Target as Arch>::AddressSpace::kernel_code(),
 					ElfSegmentType::KernelData => <Target as Arch>::AddressSpace::kernel_data(),
-					ElfSegmentType::KernelRoData => <Target as Arch>::AddressSpace::kernel_rodata(),
+					ElfSegmentType::KernelRoData | ElfSegmentType::KernelRequests => {
+						<Target as Arch>::AddressSpace::kernel_rodata()
+					}
 				};
 
 				// NOTE(qix-): This will almost definitely be improved in the future.
@@ -501,30 +500,8 @@ where
 			);
 
 			#[allow(clippy::cast_possible_truncation)]
-			let linear_map_offset = dm_start - (min_phys_addr as usize);
-
-			let boot_config = <BootConfig as oro_common::ser2mem::Proxy>::Proxy {
-				core_count: *num_instances,
-				linear_map_offset,
-				rsdp_phys: rsdp_address.unwrap_or(u64::MAX),
-			};
-
-			// FIXME(qix-): The strange types here are required to work around a
-			// FIXME(qix-): bug in rustc (rust-lang/rust#121613)
-			let pfa_mut = &mut *pfa;
-			let mut serializer = oro_common::mem::ser2mem::PfaSerializer::<
-				_,
-				_,
-				<Target as Arch>::AddressSpace,
-			>::new(pfa_mut, physical_address_translator, &kernel_mapper);
-
-			let boot_config_target_virt = boot_config
-				.serialize(&mut serializer)
-				.expect("failed to serialize boot config");
-
-			SHARED_BOOT_CONFIG_VIRT = ::core::ptr::from_ref(boot_config_target_virt) as usize;
-
-			dbg!("boot_to_kernel", "boot config serialized to kernel memory");
+			#[allow(clippy::no_effect_underscore_binding)] // XXX TODO(qix-)
+			let _linear_map_offset = dm_start - (min_phys_addr as usize); // XXX TODO(qix-) do something with this.
 
 			// Store the kernel address space handle and entry point for cloning later.
 			KERNEL_ADDRESS_SPACE = Erased::from(kernel_mapper);
@@ -601,12 +578,6 @@ where
 		dbg!("boot_to_kernel", "all {} core(s) online", num_instances);
 	}
 
-	// Make sure we got the boot config virtual address.
-	assert_ne!(
-		SHARED_BOOT_CONFIG_VIRT, 0,
-		"boot config virtual address not set"
-	);
-
 	// Inform the architecture we are about to jump to the kernel.
 	// This allows for any architecture-specific, **potentially destructive**
 	// operations to be performed before the kernel is entered.
@@ -637,7 +608,8 @@ where
 	// We do this here since allocations may fail, cores may panic, etc.
 	wait_for_all_cores!();
 
-	let pfa_head = {
+	// XXX TODO(qix-): Do something with this.
+	let _pfa_head = {
 		let last_free = pfa.lock::<Target>().last_free();
 		// SAFETY(qix-): We do this here to prevent any further usage of the PFA prior to transfer.
 		let _ = pfa;
@@ -645,12 +617,7 @@ where
 	};
 
 	// Finally, jump to the kernel entry point.
-	Target::transfer(
-		KERNEL_ENTRY_POINT,
-		transfer_token,
-		SHARED_BOOT_CONFIG_VIRT,
-		pfa_head,
-	)
+	Target::transfer(KERNEL_ENTRY_POINT, transfer_token)
 }
 
 /// A page-aligned page of bytes.

@@ -257,13 +257,8 @@ unsafe impl Arch for X86_64 {
 		}
 	}
 
-	unsafe fn transfer(
-		entry: usize,
-		transfer_token: Self::TransferToken,
-		boot_config_virt: usize,
-		pfa_head: u64,
-	) -> ! {
-		crate::xfer::transfer(entry, &transfer_token, boot_config_virt, pfa_head)
+	unsafe fn transfer(entry: usize, transfer_token: Self::TransferToken) -> ! {
+		crate::xfer::transfer(entry, &transfer_token)
 	}
 
 	unsafe fn after_transfer<A, P>(
@@ -360,6 +355,22 @@ unsafe impl Arch for X86_64 {
 		unsafe {
 			core::arch::asm!("mfence", options(nostack, preserves_flags),);
 		}
+	}
+
+	fn num_cores() -> u64 {
+		todo!();
+	}
+
+	fn is_primary_core() -> bool {
+		todo!();
+	}
+
+	fn linear_map_offset() -> usize {
+		todo!();
+	}
+
+	fn pfa_head() -> u64 {
+		todo!();
 	}
 }
 
