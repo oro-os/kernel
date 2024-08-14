@@ -81,10 +81,14 @@
 	clippy::integer_division,
 	clippy::missing_docs_in_private_items
 )]
+#![allow(clippy::too_many_lines)] // Seems to be a bug in clippy with the macro expansion
 
 mod macros;
 #[cfg(feature = "utils")]
 pub mod utils;
+
+/// The type of the kernel request tag.
+pub type Tag = u64;
 
 macros::oro_boot_protocol! {
 	/// Main settings for the kernel.

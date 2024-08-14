@@ -10,6 +10,7 @@
 pub(crate) trait Sealed {}
 
 /// Main Oro boot protocol definition macro.
+#[allow(clippy::too_many_lines)]
 macro_rules! oro_boot_protocol {
 	(
 		$(
@@ -32,7 +33,7 @@ macro_rules! oro_boot_protocol {
 			#[repr(C, align(16))]
 			pub struct RequestHeader {
 				/// The tag magic value.
-				pub magic:    u64,
+				pub magic:    crate::Tag,
 				/// The tag revision. Provided by the Kernel.
 				pub revision: u64,
 				/// Reserved for future use. Must be ignored by the bootloader.
@@ -50,7 +51,7 @@ macro_rules! oro_boot_protocol {
 			#[allow(private_bounds)]
 			pub trait RequestTag: crate::macros::Sealed {
 				/// The tag for the request.
-				const TAG: u64;
+				const TAG: crate::Tag;
 			}
 
 			$(
@@ -71,6 +72,15 @@ macro_rules! oro_boot_protocol {
 						$(
 							#[doc = concat!("The response data for version ", stringify!($revision), " of the [`super::", stringify!($ReqName), "Request`].")]
 							pub v %% $revision: $ReqName %% DataV %% $revision,
+						)*
+					}
+
+					#[cfg(feature = "utils")]
+					#[doc = concat!("A helper enum for the [`super::", stringify!($ReqName), "Request`] response data based on revision number.")]
+					pub enum $ReqName %% Kind<'a> {
+						$(
+							#[doc = concat!("The response data for version ", stringify!($revision), " of the [`super::", stringify!($ReqName), "Request`].")]
+							V %% $revision (&'a mut ::core::mem::MaybeUninit<$ReqName %% DataV %% $revision>),
 						)*
 					}
 				}
@@ -104,7 +114,7 @@ macro_rules! oro_boot_protocol {
 
 				impl RequestTag for $ReqName %% Request {
 					#[doc = concat!("The tag for the [`", stringify!($ReqName), "Request`].")]
-					const TAG: u64 = {
+					const TAG: crate::Tag = {
 						::oro_common_assertions::size_of1::<_, 8>($TAG);
 						unsafe { ::core::mem::transmute_copy($TAG) }
 					};
@@ -137,7 +147,60 @@ macro_rules! oro_boot_protocol {
 						}
 					}
 				}
+
 			)*
+
+			/// An enum of all possible requests.
+			#[cfg(feature = "utils")]
+			pub enum Request<'a> {
+				$(
+					#[doc = concat!("The [`", stringify!($ReqName), "Request`].")]
+					$ReqName(%<snake_case:$ReqName>% :: $ReqName %% Kind<'a>),
+				)*
+			}
+
+			/// Attempts to look up a request by a pointer to a tag value.
+			///
+			/// Returns `None` if the tag is not recognized.
+			///
+			/// # Safety
+			/// Must only be called to references into the kernel's requests
+			/// segment.
+			///
+			/// The `response` field of the returned request header **must not**
+			/// be used. It is only safe to use the `Request` element of the returned
+			/// tuple.
+			#[cfg(feature = "utils")]
+			#[must_use]
+			pub unsafe fn request_from_tag(tag: &mut crate::Tag) -> Option<(&mut RequestHeader, Request)> {
+				if ::core::ptr::from_mut(tag).align_offset(::core::mem::align_of::<RequestHeader>()) != 0 {
+					return None;
+				}
+
+				match *tag {
+					$(
+						$ReqName %% Request::TAG => {
+							// SAFETY(qix-): We've already checked that it aligns properly.
+							#[allow(clippy::cast_ptr_alignment)]
+							let req = unsafe { &mut *::core::ptr::from_mut(tag).cast::<$ReqName %% Request>() };
+							match req.header.revision {
+								$(
+									$revision => Some((
+										&mut req.header,
+										Request::$ReqName(
+											%<snake_case:$ReqName>% :: $ReqName %% Kind::V %% $revision(
+												unsafe { &mut *(req.response).as_mut_ptr().cast() }
+											)
+										)
+									)),
+								)*
+								_ => None,
+							}
+						},
+					)*
+					_ => None,
+				}
+			}
 		}
 	};
 }
