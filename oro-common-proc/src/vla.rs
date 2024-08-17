@@ -129,20 +129,38 @@ pub fn vla(
 
 	let (gen_impl, gen_params, gen_where) = struct_item.generics.split_for_impl();
 
+	let vla_doc = format!(
+		r"
+		Returns an immutable slice of the VLA field with
+		a count of `self.{vla_len_field}`.
+
+		# Safety
+		Caller must ensure that `self.{vla_len_field}` is a valid
+		count of the array.
+
+		# Panics
+		Panics if the count is not a valid `usize`."
+	);
+
+	let vla_mut_doc = format!(
+		r"
+		Returns a mutable slice of the VLA field with
+		a count of `self.{vla_len_field}`.
+
+		# Safety
+		Caller must ensure that `self.{vla_len_field}` is a valid
+		count of the array.
+
+		# Panics
+		Panics if the count is not a valid `usize`."
+	);
+
 	Ok(quote::quote! {
 		#struct_item
 
 		#[automatically_derived]
 		impl #gen_impl #struct_name #gen_params #gen_where {
-			/// Returns an immutable slice of the VLA field with
-			/// a count of `self.#vla_len_field`.
-			///
-			/// # Safety
-			/// Caller must ensure that `self.#vla_len_field` is a valid
-			/// count of the array.
-			///
-			/// # Panics
-			/// Panics if the count is not a valid `usize`.
+			#[doc = #vla_doc]
 			#[must_use]
 			#vis unsafe fn #last_field_name(&self) -> &[#concrete_type] {
 				let len = usize::try_from(self.#vla_len_field).unwrap();
@@ -150,15 +168,7 @@ pub fn vla(
 				core::slice::from_raw_parts(start, len)
 			}
 
-			/// Returns a mutable slice of the VLA field with
-			/// a count of `self.#vla_len_field`.
-			///
-			/// # Safety
-			/// Caller must ensure that `self.#vla_len_field` is a valid
-			/// count of the array.
-			///
-			/// # Panics
-			/// Panics if the count is not a valid `usize`.
+			#[doc = #vla_mut_doc]
 			#[must_use]
 			#vis unsafe fn #last_field_mut_name(&mut self) -> &mut [#concrete_type] {
 				let len = usize::try_from(self.#vla_len_field).unwrap();
