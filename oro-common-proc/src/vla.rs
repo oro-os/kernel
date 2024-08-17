@@ -140,8 +140,12 @@ pub fn vla(
 			/// # Safety
 			/// Caller must ensure that `self.#vla_len_field` is a valid
 			/// count of the array.
+			///
+			/// # Panics
+			/// Panics if the count is not a valid `usize`.
+			#[must_use]
 			#vis unsafe fn #last_field_name(&self) -> &[#concrete_type] {
-				let len = usize::from(self.#vla_len_field);
+				let len = usize::try_from(self.#vla_len_field).unwrap();
 				let start = (self.#last_field_name).as_ptr();
 				core::slice::from_raw_parts(start, len)
 			}
@@ -152,8 +156,12 @@ pub fn vla(
 			/// # Safety
 			/// Caller must ensure that `self.#vla_len_field` is a valid
 			/// count of the array.
+			///
+			/// # Panics
+			/// Panics if the count is not a valid `usize`.
+			#[must_use]
 			#vis unsafe fn #last_field_mut_name(&mut self) -> &mut [#concrete_type] {
-				let len = usize::from(self.#vla_len_field);
+				let len = usize::try_from(self.#vla_len_field).unwrap();
 				let start = (self.#last_field_name).as_mut_ptr();
 				core::slice::from_raw_parts_mut(start, len)
 			}
