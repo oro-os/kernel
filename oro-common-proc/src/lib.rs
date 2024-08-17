@@ -159,7 +159,8 @@ pub fn gdb_autoload_inline(input: proc_macro::TokenStream) -> proc_macro::TokenS
 /// a field in the structure that is a count of the array.
 ///
 /// The struct field can be any unsigned numeric type as long
-/// as it can be converted to a `usize` via `usize::from`.
+/// as it can be converted to a `usize` via `usize::try_from`.
+/// The implementation will panic if the conversion fails.
 ///
 /// An additional `impl` block is emitted with `vla_field()`
 /// and `vla_field_mut()` methods (where the `vla_field`
