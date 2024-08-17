@@ -54,7 +54,26 @@ pub fn paste(input: proc_macro::TokenStream) -> syn::Result<proc_macro::TokenStr
 								"peek gave a value for punct_second but next() returned None",
 							);
 
-							match iter_branch.next().transpose()? {
+							let maybe_token = iter_branch.next().transpose()?;
+
+							// Unwrap groups if they have a single token.
+							let maybe_token = match maybe_token {
+								Some(TokenTree::Group(group)) => {
+									let mut iter_group = group.stream().into_iter();
+									if let Some(token) = iter_group.next() {
+										if iter_group.next().is_none() {
+											Some(token)
+										} else {
+											Some(TokenTree::Group(group))
+										}
+									} else {
+										Some(TokenTree::Group(group))
+									}
+								}
+								other => other,
+							};
+
+							match maybe_token {
 								Some(TokenTree::Ident(ident)) => {
 									idents.push((ident.to_string(), ident.span()));
 								}
