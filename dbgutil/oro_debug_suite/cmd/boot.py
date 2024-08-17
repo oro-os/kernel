@@ -53,7 +53,7 @@ class BootCmdLimine(gdb.Command):
 
         switch = False
         autoload_kernel = True
-        num_cores = 2
+        num_cores = 1
         auto_continue = True
 
         argi = 0
