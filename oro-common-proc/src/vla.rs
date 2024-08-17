@@ -3,6 +3,7 @@
 use std::collections::HashSet;
 use syn::spanned::Spanned;
 
+#[allow(clippy::too_many_lines)]
 pub fn vla(
 	attr: proc_macro::TokenStream,
 	input: proc_macro::TokenStream,
@@ -108,8 +109,8 @@ pub fn vla(
 		return Err(syn::Error::new_spanned(
 			&vla_len_field,
 			format!(
-				"#[vla] field array length must be a struct field (`{}` not found in struct)",
-				vla_len_field
+				"#[vla] field array length must be a struct field (`{vla_len_field}` not found in \
+				 struct)",
 			),
 		));
 	}
@@ -121,7 +122,7 @@ pub fn vla(
 
 	last_field.ident = Some(last_field_name.clone());
 	let last_field_mut_name =
-		syn::Ident::new(&format!("{}_mut", last_field_name), last_field_name.span());
+		syn::Ident::new(&format!("{last_field_name}_mut"), last_field_name.span());
 
 	let vis = last_field.vis.clone();
 	last_field.vis = syn::Visibility::Inherited;
