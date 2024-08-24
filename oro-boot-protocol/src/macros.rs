@@ -15,9 +15,10 @@ macro_rules! oro_boot_protocol {
 	(
 		$(
 			$(#[$meta:meta])*
-			$ReqName:ident [ $TAG:literal ] {
+			 $TAG:literal  => $ReqName:ident {
 				$(
-					$revision:tt => {
+					$(#[$revision_meta:meta])*
+					$revision:literal => {
 						$($tt:tt)*
 					}
 				)*
@@ -57,9 +58,13 @@ macro_rules! oro_boot_protocol {
 			$(
 				#[doc = concat!("The response data structures for the [`", stringify!($ReqName), "Request`], across all revisions.")]
 				pub mod %<snake_case:$ReqName>% {
+					#[allow(unused_imports)]
+					use super::*;
+
 					$(
 						#[doc = concat!("The response data for version ", stringify!($revision), " of the [`super::", stringify!($ReqName), "Request`].")]
-						#[derive(Debug, Clone, Copy)]
+						#[derive(Debug, Clone)]
+						#[::oro_common_proc::vla(allow_missing)]
 						#[repr(C, align(16))]
 						pub struct $ReqName %% DataV %% $revision {
 							$($tt)*
@@ -71,17 +76,40 @@ macro_rules! oro_boot_protocol {
 					pub union $ReqName %% Data {
 						$(
 							#[doc = concat!("The response data for version ", stringify!($revision), " of the [`super::", stringify!($ReqName), "Request`].")]
-							pub v %% $revision: $ReqName %% DataV %% $revision,
+							pub v %% $revision: ::core::mem::ManuallyDrop<$ReqName %% DataV %% $revision>,
 						)*
 					}
 
 					#[cfg(feature = "utils")]
-					#[doc = concat!("A helper enum for the [`super::", stringify!($ReqName), "Request`] response data based on revision number.")]
-					pub enum $ReqName %% Kind<'a> {
+					#[doc = concat!("A helper enum for the [`super::", stringify!($ReqName), "Request`] response data based on revision number. Holds a mutable reference to the data.")]
+					pub enum $ReqName %% KindMut<'a> {
 						$(
 							#[doc = concat!("The response data for version ", stringify!($revision), " of the [`super::", stringify!($ReqName), "Request`].")]
 							V %% $revision (&'a mut ::core::mem::MaybeUninit<$ReqName %% DataV %% $revision>),
 						)*
+					}
+
+					#[cfg(feature = "utils")]
+					#[doc = concat!("A helper enum for the [`super::", stringify!($ReqName), "Request`] response data based on revision number. Holds an immutable reference to the data.")]
+					pub enum $ReqName %% Kind<'a> {
+						$(
+							#[doc = concat!("The response data for version ", stringify!($revision), " of the [`super::", stringify!($ReqName), "Request`].")]
+							V %% $revision (&'a ::core::mem::MaybeUninit<$ReqName %% DataV %% $revision>),
+						)*
+					}
+
+					#[cfg(feature = "utils")]
+					impl<'a> From<$ReqName %% KindMut<'a>> for $ReqName %% Kind<'a> {
+						fn from(kind: $ReqName %% KindMut<'a>) -> Self {
+							match kind {
+								$(
+									$ReqName %% KindMut::V %% $revision(data) => {
+										// SAFETY: We can safely cast the mutable reference to an immutable reference.
+										$ReqName %% Kind::V %% $revision(data)
+									},
+								)*
+							}
+						}
 					}
 				}
 
@@ -102,7 +130,7 @@ macro_rules! oro_boot_protocol {
 					///
 					/// The union memory that is populated must match the revision
 					/// of the request that was specified by the kernel.
-					pub response: ::core::mem::MaybeUninit<%<snake_case:$ReqName>%::$ReqName %% Data>,
+					pub response: %<snake_case:$ReqName>%::$ReqName %% Data,
 				}
 
 				const _: () = {
@@ -121,17 +149,6 @@ macro_rules! oro_boot_protocol {
 				}
 
 				impl $ReqName %% Request {
-					/// Returns the response data for the request,
-					/// or `None` if the response was not populated.
-					#[must_use]
-					pub const fn response(&self) -> Option<&%<snake_case:$ReqName>%::$ReqName %% Data> {
-						if self.populated == 0xFF {
-							unsafe { Some(&self.response.assume_init_ref()) }
-						} else {
-							None
-						}
-					}
-
 					/// Creates a new request with the given revision.
 					#[must_use]
 					pub const fn with_revision(revision: u64) -> Self {
@@ -143,7 +160,54 @@ macro_rules! oro_boot_protocol {
 							},
 							populated: 0,
 							reserved:  [0; 15],
-							response:  ::core::mem::MaybeUninit::uninit(),
+							// SAFETY(qix-): All of the members are `MaybeUninit`, so this is safe.
+							response:  unsafe { ::core::mem::zeroed() },
+						}
+					}
+
+					/// Returns the response data for the request
+					/// or `None` if the response was not populated
+					/// or if the revision number is not recognized.
+					#[must_use]
+					#[cfg(feature = "utils")]
+					pub fn response<'a>(&'a self) -> Option<%<snake_case:$ReqName>%::$ReqName %% Kind<'a>> {
+						if self.populated == 0 {
+							return None;
+						}
+
+						match self.header.revision {
+							$(
+								$revision => {
+									// SAFETY(qix-): We can safely cast a const pointer to a `MaybeUninit` reference.
+									unsafe { Some(
+										%<snake_case:$ReqName>% :: $ReqName %% Kind::V %% $revision(
+											&*(::core::ptr::from_ref(&self.response).cast())
+										)
+									) }
+								},
+							)*
+							_ => None,
+						}
+					}
+
+					/// Returns a mutable reference to the response data for the request,
+					/// based on the revision. Returns `None` if the revision number is not
+					/// recognized. **Does not check if the response was populated.**
+					#[cfg(feature = "utils")]
+					#[must_use]
+					pub unsafe fn response_mut_unchecked<'a>(&'a mut self) -> Option<%<snake_case:$ReqName>%::$ReqName %% KindMut<'a>> {
+						match self.header.revision {
+							$(
+								$revision => {
+									// SAFETY: We can safely create the mutable reference as this is a `&mut self` method.
+									unsafe { Some(
+										%<snake_case:$ReqName>% :: $ReqName %% KindMut::V %% $revision(
+											&mut *(::core::ptr::from_mut(&mut self.response).cast())
+										)
+									) }
+								},
+							)*
+							_ => None,
 						}
 					}
 				}
@@ -189,7 +253,7 @@ macro_rules! oro_boot_protocol {
 										&mut req.header,
 										Request::$ReqName(
 											%<snake_case:$ReqName>% :: $ReqName %% Kind::V %% $revision(
-												unsafe { &mut *(req.response).as_mut_ptr().cast() }
+												unsafe { &mut *(::core::ptr::from_mut(&mut req.response).cast()) }
 											)
 										)
 									)),

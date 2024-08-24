@@ -87,6 +87,7 @@ name = "oro-boot"
 version = "0.0.0"
 dependencies = [
  "oro-arch",
+ "oro-boot-protocol",
  "oro-common",
  "oro-common-assertions",
 ]

@@ -11,8 +11,7 @@
 #![allow(
 	clippy::module_name_repetitions,
 	clippy::struct_field_names,
-	clippy::too_many_lines,
-	deprecated // XXX TODO(qix-) temporary during refactor
+	clippy::too_many_lines
 )]
 // NOTE(qix-): `adt_const_params` isn't strictly necessary but is on track for acceptance,
 // NOTE(qix-): and the open questions (e.g. mangling) are not of concern here.
@@ -29,7 +28,6 @@ pub(crate) mod id;
 pub(crate) mod local;
 pub(crate) mod module;
 pub(crate) mod port;
-pub(crate) mod protocol;
 pub(crate) mod registry;
 pub(crate) mod ring;
 
@@ -57,6 +55,16 @@ type Pfa = FiloPageFrameAllocator<PhysicalTranslator>;
 /// Holds the shared PFA.
 static mut PFA: MaybeUninit<UnfairCriticalSpinlock<Pfa>> = MaybeUninit::uninit();
 
+/// TODO(qix-): TEMPORARY SOLUTION during the boot sequence refactor.
+#[doc(hidden)]
+#[allow(missing_docs)]
+pub mod config {
+	pub static mut IS_PRIMARY_CORE: bool = false;
+	pub static mut NUM_CORES: u64 = 0;
+	pub static mut LINEAR_MAP_OFFSET: usize = 0;
+	pub static mut PFA_HEAD: u64 = 0;
+}
+
 /// Runs the kernel.
 ///
 /// This is the main entry point for the kernel.
@@ -73,8 +81,8 @@ static mut PFA: MaybeUninit<UnfairCriticalSpinlock<Pfa>> = MaybeUninit::uninit()
 /// marking exactly one core as primary.
 #[allow(clippy::missing_panics_doc)] // XXX DEBUG
 pub unsafe fn boot() -> ! {
-	let is_primary_core = Target::is_primary_core();
-	let core_count = Target::num_cores();
+	let is_primary_core = config::IS_PRIMARY_CORE;
+	let core_count = config::NUM_CORES;
 
 	#[allow(clippy::missing_docs_in_private_items)]
 	macro_rules! wait_for_all_cores {
@@ -122,12 +130,12 @@ pub unsafe fn boot() -> ! {
 	wait_for_all_cores!();
 
 	// Set up the PFA.
-	let translator = OffsetPhysicalAddressTranslator::new(Target::linear_map_offset());
+	let translator = OffsetPhysicalAddressTranslator::new(config::LINEAR_MAP_OFFSET);
 	let kernel_addr_space = <Target as Arch>::AddressSpace::current_supervisor_space(&translator);
 
 	if is_primary_core {
 		PFA.write(UnfairCriticalSpinlock::new(
-			FiloPageFrameAllocator::with_last_free(translator.clone(), Target::pfa_head()),
+			FiloPageFrameAllocator::with_last_free(translator.clone(), config::PFA_HEAD),
 		));
 
 		Target::strong_memory_barrier();
