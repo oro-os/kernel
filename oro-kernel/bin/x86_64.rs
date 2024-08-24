@@ -49,7 +49,15 @@ pub unsafe extern "C" fn _start() -> ! {
 			} else {
 				panic!("kernel settings response is not v0");
 			};
-		::oro_kernel::config::PFA_HEAD = 0;
+		::oro_kernel::config::PFA_HEAD =
+			if let ::oro_boot_protocol::pfa_head::PfaHeadKind::V0(data) = PFA_REQUEST
+				.response()
+				.expect("PFA request was not populated")
+			{
+				data.assume_init_ref().pfa_head
+			} else {
+				panic!("PFA request response is not v0");
+			};
 	}
 
 	::oro_kernel::boot()
