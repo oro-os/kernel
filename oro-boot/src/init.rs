@@ -532,6 +532,7 @@ where
 						settings.write(oro_boot_protocol::kernel_settings::KernelSettingsDataV0 {
 							linear_map_offset,
 						});
+						kernel_request.populated = 1;
 					}
 					#[allow(unreachable_patterns)]
 					_ => {
@@ -677,6 +678,7 @@ where
 			{
 				V0(pfa_head_res) => {
 					pfa_head_res.write(oro_boot_protocol::pfa_head::PfaHeadDataV0 { pfa_head });
+					pfa_request.populated = 1;
 				}
 				#[allow(unreachable_patterns)]
 				_ => {
