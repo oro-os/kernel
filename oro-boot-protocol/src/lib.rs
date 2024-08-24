@@ -85,19 +85,138 @@
 
 mod macros;
 #[cfg(feature = "utils")]
-pub mod utils;
+pub mod util;
 
 /// The type of the kernel request tag.
 pub type Tag = u64;
 
 macros::oro_boot_protocol! {
 	/// Main settings for the kernel.
-	KernelSettings [b"ORO_KRNL"] {
+	b"ORO_KRNL" => KernelSettings {
 		0 => {
-			/// The total number of cores being booted.
-			pub core_count: u64,
 			/// The virtual offset of the linear map of physical memory.
 			pub linear_map_offset: usize,
 		}
 	}
+
+	/// A request for the memory map.
+	b"ORO_MMAP" => MemoryMap {
+		0 => {
+			/// The number of entries in the memory map.
+			pub entry_count: u64,
+			/// The memory map entries.
+			#[vla(entry_count)]
+			pub entries: [MemoryMapEntry; 0],
+		}
+	}
+
+	/// A request for CPU core information.
+	b"ORO_CPUS" => Cpus {
+		0 => {
+			/// The ID of the BSP (bootstrap) core.
+			///
+			/// The ID doesn't need to be 0 nor 1, but it must be unique
+			/// among all core IDs.
+			///
+			/// # x86_64
+			/// On x86_64, this is the APIC ID of the core.
+			///
+			/// # AArch64
+			/// On AArch64, this is the MPIDR of the core.
+			pub bsp_id: u64,
+			/// The number of CPUs being booted, **EXCLUDING** the BSP
+			/// (primary / bootstrap processor) core.
+			///
+			/// For example, if this is a single core system, this value is
+			/// `0`, if this is a dual-core system, this value is `1`, etc.
+			///
+			/// `entries` must contain all secondary core information.
+			pub num_cpus: u32,
+			/// The CPU core information entries.
+			#[vla(num_cpus)]
+			pub entries: [SecondaryCpu; 0],
+		}
+	}
+
+	/// **THIS IS TEMPORARY AND WILL BE REMOVED.**
+	///
+	/// Temporary request for the PFA head. This is to be removed
+	/// after the kernel boot sequence is refactored.
+	b"ORO_PFAH" => PfaHead {
+		0 => {
+			/// The physical address of the PFA head.
+			pub pfa_head: u64,
+		}
+	}
+}
+
+/// A memory map entry, representing a chunk of physical memory
+/// available to the system.
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct MemoryMapEntry {
+	/// The base address of the memory region.
+	pub base:   u64,
+	/// The length of the memory region.
+	pub length: usize,
+	/// The type of the memory region.
+	pub ty:     MemoryMapEntryType,
+}
+
+impl PartialOrd for MemoryMapEntry {
+	fn partial_cmp(&self, other: &Self) -> Option<::core::cmp::Ordering> {
+		self.base.partial_cmp(&other.base)
+	}
+}
+
+impl PartialEq for MemoryMapEntry {
+	fn eq(&self, other: &Self) -> bool {
+		self.base == other.base
+	}
+}
+
+/// The type of a memory map entry.
+///
+/// For any unknown types, the bootloader should specify
+/// [`MemoryMapEntryType::Unknown`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(C)]
+pub enum MemoryMapEntryType {
+	/// Memory that is either unusable or reserved, or some type
+	/// of memory that is available to the system but not any
+	/// specific type usable by the kernel.
+	Unknown           = 0,
+	/// General memory immediately usable by the kernel.
+	Usable            = 1,
+	/// Memory that is used by the bootloader but that can be
+	/// reclaimed by the kernel.
+	BootloaderReclaim = 2,
+	/// Memory that holds either the kernel itself, root ring modules,
+	/// or other boot-time binary data (e.g. `DeviceTree` blobs).
+	///
+	/// This memory is not reclaimed nor written to by the kernel.
+	Modules           = 3,
+	/// Bad memory. This memory is functionally equivalent to
+	/// `Unknown`, but is used to denote memory that is known to
+	/// be bad, broken, or malfunctioning. It is reported to the user
+	/// as such.
+	Bad               = 4,
+}
+
+/// A secondary CPU core.
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct SecondaryCpu {
+	/// The ID of the CPU core.
+	///
+	/// # x86_64
+	/// On x86_64, this is the APIC ID of the core.
+	///
+	/// # AArch64
+	/// On AArch64, this is the MPIDR of the core.
+	pub id:    u64,
+	/// The entry point of the CPU core. The kernel
+	/// will perform a volatile write to this address
+	/// to wake the core.
+	pub entry: usize,
 }

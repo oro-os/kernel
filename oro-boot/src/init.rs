@@ -3,7 +3,7 @@
 use oro_arch::Target;
 use oro_common::{
 	arch::Arch,
-	dbg,
+	dbg, dbg_warn,
 	elf::{ElfSegment, ElfSegmentType},
 	mem::{
 		mapper::{AddressSegment, AddressSpace},
@@ -286,6 +286,12 @@ where
 	// Finally, for good measure, make sure that we barrier here so we're all on the same page.
 	wait_for_all_cores!();
 
+	// A place to store the kernel request scanner.
+	// `None` for secondary cores.
+	// TODO(qix-): This is a temporary solution until the entire boot sequence is moved
+	// TODO(qix-): into the kernel, during this refactor period.
+	let mut kernel_request_scanner = None;
+
 	// Next, we create the supervisor mapper. This has two steps, as the value returned
 	// is going to be different for every core.
 	//
@@ -369,6 +375,17 @@ where
 						panic!("failed to allocate page for kernel segment: out of memory");
 					};
 
+					if page == 0 && segment.ty() == ElfSegmentType::KernelRequests {
+						kernel_request_scanner =
+							Some(oro_boot_protocol::util::RequestScanner::new(
+								physical_address_translator
+								 	// TODO(qix-): This is temporary until the entire boot sequence is moved
+									// TODO(qix-): into the kernel, during this refactor period.
+									.to_virtual_addr(phys_addr) as *mut u8,
+								segment.target_size(),
+							));
+					}
+
 					let byte_offset = page << 12;
 					// Saturating sub here since the target size might exceed the file size,
 					// in which case we have to keep allocating those pages and zeroing them.
@@ -376,9 +393,7 @@ where
 					let load_virt = segment.load_address() + byte_offset;
 					let target_virt = segment.target_address() + byte_offset;
 
-					let local_page_virt = config
-						.physical_address_translator()
-						.to_virtual_addr(phys_addr);
+					let local_page_virt = physical_address_translator.to_virtual_addr(phys_addr);
 
 					let dest = core::slice::from_raw_parts_mut(local_page_virt as *mut u8, 4096);
 					let src = core::slice::from_raw_parts(load_virt as *const u8, load_size);
@@ -501,7 +516,37 @@ where
 
 			#[allow(clippy::cast_possible_truncation)]
 			#[allow(clippy::no_effect_underscore_binding)] // XXX TODO(qix-)
-			let _linear_map_offset = dm_start - (min_phys_addr as usize); // XXX TODO(qix-) do something with this.
+			let linear_map_offset = dm_start - (min_phys_addr as usize);
+			if let Some(kernel_request) = kernel_request_scanner
+				.as_mut()
+				.expect("no kernel request scanner")
+				.get::<oro_boot_protocol::KernelSettingsRequest>()
+			{
+				use oro_boot_protocol::kernel_settings::KernelSettingsKindMut::*;
+
+				match kernel_request.response_mut_unchecked().expect(
+					"kernel settings request exists in kernel but is an unsupported revision",
+				) {
+					V0(settings) => {
+						settings.write(oro_boot_protocol::kernel_settings::KernelSettingsDataV0 {
+							linear_map_offset,
+						});
+					}
+					#[allow(unreachable_patterns)]
+					_ => {
+						panic!(
+							"kernel settings request exists in the kernel but the initialization \
+							 routine doesn't support revision {}",
+							kernel_request.header.revision
+						)
+					}
+				}
+			} else {
+				dbg_warn!(
+					"boot_to_kernel",
+					"kernel didn't request kernel settings; is this an Oro kernel?"
+				);
+			}
 
 			// Store the kernel address space handle and entry point for cloning later.
 			KERNEL_ADDRESS_SPACE = Erased::from(kernel_mapper);
@@ -608,13 +653,45 @@ where
 	// We do this here since allocations may fail, cores may panic, etc.
 	wait_for_all_cores!();
 
-	// XXX TODO(qix-): Do something with this.
-	let _pfa_head = {
+	// XXX TODO(qix-): temporary workaround during the boot sequence refactor.
+	let pfa_head = {
 		let last_free = pfa.lock::<Target>().last_free();
 		// SAFETY(qix-): We do this here to prevent any further usage of the PFA prior to transfer.
 		let _ = pfa;
 		last_free
 	};
+
+	if matches!(config, PrebootConfig::Primary { .. }) {
+		use oro_boot_protocol::pfa_head::PfaHeadKindMut::*;
+
+		if let Some(pfa_request) = kernel_request_scanner
+			.as_mut()
+			.expect("no kernel request scanner")
+			.get::<oro_boot_protocol::PfaHeadRequest>()
+		{
+			match pfa_request
+				.response_mut_unchecked()
+				.expect("pfa head request exists in kernel but is an unsupported revision")
+			{
+				V0(pfa_head_res) => {
+					pfa_head_res.write(oro_boot_protocol::pfa_head::PfaHeadDataV0 { pfa_head });
+				}
+				#[allow(unreachable_patterns)]
+				_ => {
+					panic!(
+						"pfa head request exists in the kernel but the initialization routine \
+						 doesn't support revision {}",
+						pfa_request.header.revision
+					)
+				}
+			}
+		} else {
+			dbg_warn!(
+				"boot_to_kernel",
+				"kernel didn't request PFA head; is this an Oro kernel?"
+			);
+		}
+	}
 
 	// Finally, jump to the kernel entry point.
 	Target::transfer(KERNEL_ENTRY_POINT, transfer_token)

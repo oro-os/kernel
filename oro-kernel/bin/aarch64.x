@@ -17,6 +17,8 @@ SECTIONS {
 	.oro_boot : {
 		KEEP(*(.oro_boot .oro_boot.*))
 	} :oro_boot
+
+	. = ALIGN(4096);
 }
 
 INCLUDE "oro-arch-aarch64/arch.x"

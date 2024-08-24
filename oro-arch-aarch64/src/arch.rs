@@ -288,22 +288,6 @@ unsafe impl Arch for Aarch64 {
 		alloc.free(tt0_phys);
 		crate::asm::store_ttbr0(0);
 	}
-
-	fn num_cores() -> u64 {
-		todo!();
-	}
-
-	fn is_primary_core() -> bool {
-		todo!();
-	}
-
-	fn linear_map_offset() -> usize {
-		todo!();
-	}
-
-	fn pfa_head() -> u64 {
-		todo!();
-	}
 }
 
 /// Aarch64-specific configuration for the Oro kernel.

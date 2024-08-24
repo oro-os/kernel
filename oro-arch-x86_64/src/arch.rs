@@ -356,22 +356,6 @@ unsafe impl Arch for X86_64 {
 			core::arch::asm!("mfence", options(nostack, preserves_flags),);
 		}
 	}
-
-	fn num_cores() -> u64 {
-		todo!();
-	}
-
-	fn is_primary_core() -> bool {
-		todo!();
-	}
-
-	fn linear_map_offset() -> usize {
-		todo!();
-	}
-
-	fn pfa_head() -> u64 {
-		todo!();
-	}
 }
 
 /// X86_64-specific configuration.
