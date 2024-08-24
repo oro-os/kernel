@@ -32,6 +32,7 @@ unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 #[inline(never)]
 #[cold]
 #[no_mangle]
+#[allow(clippy::missing_panics_doc)] // XXX(qix-) DEBUG
 pub unsafe extern "C" fn _start() -> ! {
 	// TODO(qix-): temporary workaround during the boot sequence refactor.
 	#[allow(irrefutable_let_patterns)]

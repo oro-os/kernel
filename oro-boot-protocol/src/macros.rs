@@ -170,6 +170,7 @@ macro_rules! oro_boot_protocol {
 					/// or if the revision number is not recognized.
 					#[must_use]
 					#[cfg(feature = "utils")]
+					#[allow(clippy::needless_lifetimes)]
 					pub fn response<'a>(&'a self) -> Option<%<snake_case:$ReqName>%::$ReqName %% Kind<'a>> {
 						if self.populated == 0 {
 							return None;
@@ -193,8 +194,14 @@ macro_rules! oro_boot_protocol {
 					/// Returns a mutable reference to the response data for the request,
 					/// based on the revision. Returns `None` if the revision number is not
 					/// recognized. **Does not check if the response was populated.**
+					///
+					/// # Safety
+					/// Accesses to the response data must ensure that the data has been
+					/// properly initialized before read, and that the the proper revision
+					/// is being accessed.
 					#[cfg(feature = "utils")]
 					#[must_use]
+					#[allow(clippy::needless_lifetimes)]
 					pub unsafe fn response_mut_unchecked<'a>(&'a mut self) -> Option<%<snake_case:$ReqName>%::$ReqName %% KindMut<'a>> {
 						match self.header.revision {
 							$(

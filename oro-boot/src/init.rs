@@ -522,6 +522,7 @@ where
 				.expect("no kernel request scanner")
 				.get::<oro_boot_protocol::KernelSettingsRequest>()
 			{
+				#[allow(clippy::enum_glob_use)]
 				use oro_boot_protocol::kernel_settings::KernelSettingsKindMut::*;
 
 				match kernel_request.response_mut_unchecked().expect(
@@ -662,6 +663,7 @@ where
 	};
 
 	if matches!(config, PrebootConfig::Primary { .. }) {
+		#[allow(clippy::enum_glob_use)]
 		use oro_boot_protocol::pfa_head::PfaHeadKindMut::*;
 
 		if let Some(pfa_request) = kernel_request_scanner
