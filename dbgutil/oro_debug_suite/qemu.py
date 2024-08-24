@@ -14,7 +14,10 @@ from queue import SimpleQueue
 import time
 import signal
 import errno
-from .log import debug
+from .log import debug, error
+import re
+
+GVA2GPA_PATTERN = re.compile(r"gpa: 0x([0-9a-fA-F]+)\r\n")
 
 
 class QmpThread(threading.Thread):
@@ -219,6 +222,20 @@ class QemuProcess(object):
 
         assert len(result) == size
         return result
+
+    def gva2gpa(self, addr):
+        """
+        Converts a guest virtual address to a guest physical address.
+
+        Uses the QEMU monitor command `gva-to-gpa`.
+        """
+
+        result = self.monitor_command(f"gva2gpa {addr}")
+        match = GVA2GPA_PATTERN.search(result)
+        if match is None:
+            error(f"failed to convert GVA to GPA: {result}")
+            return None
+        return int(match.group(1), 16)
 
     def monitor_command(self, command):
         """

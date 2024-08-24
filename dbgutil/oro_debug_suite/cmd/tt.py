@@ -524,6 +524,16 @@ class TtCmdAt(gdb.Command):
 
                 if not from_tty:
                     return pa
+        elif arch == "i386:x86-64":
+            # Best we can do is to use QEMU's gva2gpa command.
+            qemu = QEMU.session
+            translated = qemu.gva2gpa(virt)
+            if translated is None:
+                error("tt: translation failed")
+                return
+            log(f"tt: translation OK: 0x{translated:016x}")
+            if not from_tty:
+                return translated
         else:
             error(f"tt: unsupported architecture '{arch}'")
 
