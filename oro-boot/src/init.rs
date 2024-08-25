@@ -530,7 +530,7 @@ where
 				) {
 					V0(settings) => {
 						settings.write(oro_boot_protocol::kernel_settings::KernelSettingsDataV0 {
-							linear_map_offset,
+							linear_map_offset: linear_map_offset.try_into().unwrap(),
 						});
 						kernel_request.populated = 1;
 					}
