@@ -116,6 +116,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/rust
+      - run: rm -f ${CARGO_TARGET_DIR:-target}/oro-boot.h
       - name: Generate Boot Protocol C/C++ Header
         run: cargo build -p oro-boot-protocol --release
         env:
