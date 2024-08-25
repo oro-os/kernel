@@ -64,7 +64,6 @@ macro_rules! oro_boot_protocol {
 					$(
 						#[doc = concat!("The response data for version ", stringify!($revision), " of the [`super::", stringify!($ReqName), "Request`].")]
 						#[derive(Debug, Clone)]
-						#[::oro_common_proc::vla(allow_missing)]
 						#[repr(C, align(16))]
 						pub struct $ReqName %% DataV %% $revision {
 							$($tt)*
