@@ -38,7 +38,8 @@ macro_rules! oro_boot_protocol {
 				/// The tag revision. Provided by the Kernel.
 				pub revision: u64,
 				/// Reserved for future use. Must be ignored by the bootloader.
-				pub reserved: [u8; 16],
+				#[allow(clippy::pub_underscore_fields)]
+				pub _reserved: [u8; 16],
 			}
 
 			const _: () = {
@@ -124,7 +125,8 @@ macro_rules! oro_boot_protocol {
 					/// by the bootloader.
 					pub populated: u8,
 					/// Reserved for future use. Ignored by the kernel.
-					pub reserved:  [u8; 15],
+					#[allow(clippy::pub_underscore_fields)]
+					pub _reserved:  [u8; 15],
 					/// The response data. Filled in by the bootloader.
 					///
 					/// The union memory that is populated must match the revision
@@ -155,12 +157,12 @@ macro_rules! oro_boot_protocol {
 							header: RequestHeader {
 								magic:    Self::TAG,
 								revision,
-								reserved: [0; 16],
+								_reserved: [0; 16],
 							},
 							populated: 0,
-							reserved:  [0; 15],
+							_reserved: [0; 15],
 							// SAFETY(qix-): All of the members are `MaybeUninit`, so this is safe.
-							response:  unsafe { ::core::mem::zeroed() },
+							response: unsafe { ::core::mem::zeroed() },
 						}
 					}
 
