@@ -13,7 +13,6 @@ mod enum_as;
 mod enum_iterator;
 mod gdb_autoload;
 mod paste;
-mod vla;
 
 /// Derive macro for the `EnumIterator` trait.
 ///
@@ -145,81 +144,4 @@ pub fn enum_as_u32(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 #[proc_macro]
 pub fn gdb_autoload_inline(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	self::gdb_autoload::gdb_autoload_inline(input)
-}
-
-/// Marks a structure as a VLA (Variable Length Array).
-///
-/// This structure expects the last structure field to be marked
-/// with a `#[vla]` attribute in order to prevent accidental
-/// usages.
-///
-/// The last attribute must have a "type" that is an array
-/// of type `T` with a length of 0. It must be annotated with
-/// `#[vla(count_field)]`, where `count_field` is the name of
-/// a field in the structure that is a count of the array.
-///
-/// The struct field can be any unsigned numeric type as long
-/// as it can be converted to a `usize` via `usize::try_from`.
-/// The implementation will panic if the conversion fails.
-///
-/// An additional `impl` block is emitted with `vla_field()`
-/// and `vla_field_mut()` methods (where the `vla_field`
-/// is the name of the VLA field) that return a slice of
-/// `count_field` elements of `T`.
-///
-/// The length field must be a **count** of the array,
-/// **not the byte size**. It does not have to be `pub`.
-///
-/// The VLA field will be set to private, and the two
-/// methods will be set to the original visibility of the
-/// `#[vla(...)]` field.
-///
-/// # Example
-/// ```no_run
-/// use oro_common::proc::vla;
-///
-/// #[vla]
-/// struct MyVla {
-/// 	some_other_field: &'static str,
-/// 	vla_count:        u32,
-/// 	#[vla(vla_count)]
-/// 	pub vla_items:    [SomeEntry; 0], // `pub` optional
-/// }
-/// ```
-///
-/// `#[vla]` will then emit the following structure and `impl`:
-///
-/// ```no_run
-/// struct MyVla {
-/// 	some_other_field: &'static str,
-/// 	vla_count:        u32,
-/// 	vla_items:        [SomeEntry; 0],
-/// }
-///
-/// #[automatically_derived]
-/// impl MyVla {
-/// 	// `pub` because the original field was `pub`.
-/// 	pub unsafe fn vla_items(&self) -> &[SomeEntry] {
-/// 		// ...
-/// 	}
-///
-/// 	pub unsafe fn vla_items_mut(&mut self) -> &mut [SomeEntry] {
-/// 		// ...
-/// 	}
-/// }
-/// ```
-///
-/// # Usage in Macros
-/// Macro rules macros cannot use proc-macros in `$(#[$attr:meta])*` expansions.
-/// Macros that expect a VLA structure can use `#[vla(allow_missing)]` on the struct
-/// to allow the macro to compile without the VLA field.
-#[proc_macro_attribute]
-pub fn vla(
-	attr: proc_macro::TokenStream,
-	item: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-	match self::vla::vla(attr, item) {
-		Ok(output) => output,
-		Err(err) => err.to_compile_error().into(),
-	}
 }
