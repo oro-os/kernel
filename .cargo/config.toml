@@ -1,9 +1,3 @@
-[build]
-target = [
-	"oro-arch-x86_64/x86_64-unknown-oro.json",
-	"oro-arch-aarch64/aarch64-unknown-oro.json"
-]
-
 [alias]
 aarch64 = "build --target oro-arch-aarch64/aarch64-unknown-oro.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
 x86_64 = "build --target oro-arch-x86_64/x86_64-unknown-oro.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
