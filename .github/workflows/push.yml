@@ -111,3 +111,14 @@ jobs:
       - name: Test
         run: |
           cargo oro-test --target $(rustc -vV | sed -n 's|host: ||p')
+  boot-protocol-header:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/rust
+      - name: Generate Boot Protocol C/C++ Header
+        run: cargo build -p oro-boot-protocol --release
+        env:
+          ORO_BOOT_PROTOCOL_HEADER: 1
+      - name: Check
+        run: bash ./oro-boot-protocol/test-boot-header.sh
