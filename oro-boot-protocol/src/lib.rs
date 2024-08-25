@@ -95,7 +95,7 @@ macros::oro_boot_protocol! {
 	b"ORO_KRNL" => KernelSettings {
 		0 => {
 			/// The virtual offset of the linear map of physical memory.
-			pub linear_map_offset: usize,
+			pub linear_map_offset: u64,
 		}
 	}
 
@@ -134,7 +134,7 @@ pub struct MemoryMapEntry {
 	/// The base address of the memory region.
 	pub base:   u64,
 	/// The length of the memory region.
-	pub length: usize,
+	pub length: u64,
 	/// The type of the memory region.
 	pub ty:     MemoryMapEntryType,
 	/// The physical address of the next entry in the list,
@@ -159,7 +159,7 @@ impl PartialEq for MemoryMapEntry {
 /// For any unknown types, the bootloader should specify
 /// [`MemoryMapEntryType::Unknown`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[repr(C)]
+#[repr(u16)]
 pub enum MemoryMapEntryType {
 	/// Memory that is either unusable or reserved, or some type
 	/// of memory that is available to the system but not any

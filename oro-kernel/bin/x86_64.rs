@@ -45,7 +45,7 @@ pub unsafe extern "C" fn _start() -> ! {
 					.response()
 					.expect("kernel settings were not populated")
 			{
-				data.assume_init_ref().linear_map_offset
+				usize::try_from(data.assume_init_ref().linear_map_offset).unwrap()
 			} else {
 				panic!("kernel settings response is not v0");
 			};
