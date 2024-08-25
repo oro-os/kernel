@@ -104,37 +104,13 @@ macros::oro_boot_protocol! {
 		0 => {
 			/// The number of entries in the memory map.
 			pub entry_count: u64,
-			/// The memory map entries.
-			#[vla(entry_count)]
-			pub entries: [MemoryMapEntry; 0],
-		}
-	}
-
-	/// A request for CPU core information.
-	b"ORO_CPUS" => Cpus {
-		0 => {
-			/// The ID of the BSP (bootstrap) core.
+			/// The physical address of the first [`MemoryMapEntrye`] in the list.
+			/// Must be aligned to the same alignment as the `MemoryMapEntry` structure.
 			///
-			/// The ID doesn't need to be 0 nor 1, but it must be unique
-			/// among all core IDs.
-			///
-			/// # x86_64
-			/// On x86_64, this is the APIC ID of the core.
-			///
-			/// # AArch64
-			/// On AArch64, this is the MPIDR of the core.
-			pub bsp_id: u64,
-			/// The number of CPUs being booted, **EXCLUDING** the BSP
-			/// (primary / bootstrap processor) core.
-			///
-			/// For example, if this is a single core system, this value is
-			/// `0`, if this is a dual-core system, this value is `1`, etc.
-			///
-			/// `entries` must contain all secondary core information.
-			pub num_cpus: u32,
-			/// The CPU core information entries.
-			#[vla(num_cpus)]
-			pub entries: [SecondaryCpu; 0],
+			/// If there are no entries, this value is ignored by the kernel - however,
+			/// note that the kernel will expect at least one entry (otherwise it cannot
+			/// initialize and will be effectively useless).
+			pub entries: u64,
 		}
 	}
 
@@ -161,6 +137,9 @@ pub struct MemoryMapEntry {
 	pub length: usize,
 	/// The type of the memory region.
 	pub ty:     MemoryMapEntryType,
+	/// The physical address of the next entry in the list,
+	/// or `0` if this is the last entry.
+	pub next:   u64,
 }
 
 impl PartialOrd for MemoryMapEntry {
@@ -201,22 +180,4 @@ pub enum MemoryMapEntryType {
 	/// be bad, broken, or malfunctioning. It is reported to the user
 	/// as such.
 	Bad               = 4,
-}
-
-/// A secondary CPU core.
-#[repr(C)]
-#[derive(Debug, Clone)]
-pub struct SecondaryCpu {
-	/// The ID of the CPU core.
-	///
-	/// # x86_64
-	/// On x86_64, this is the APIC ID of the core.
-	///
-	/// # AArch64
-	/// On AArch64, this is the MPIDR of the core.
-	pub id:    u64,
-	/// The entry point of the CPU core. The kernel
-	/// will perform a volatile write to this address
-	/// to wake the core.
-	pub entry: usize,
 }
