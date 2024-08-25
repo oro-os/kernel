@@ -12,6 +12,7 @@ macro_rules! warn {
 	};
 }
 
+#[allow(clippy::too_many_lines)]
 fn main() {
 	println!("cargo::rustc-check-cfg=cfg(oro_build_protocol_header)");
 	println!("cargo::rerun-if-env-changed=ORO_BUILD_PROTOCOL_HEADER");
@@ -83,8 +84,6 @@ fn main() {
 		path.join("oro-boot.h")
 	};
 
-	warn!("output file: {:?}", output_file);
-
 	let mut out = std::fs::File::create(&output_file).unwrap_or_else(|_| {
 		panic!("failed to create Oro boot protocol header file: {output_file:?}")
 	});
@@ -133,9 +132,15 @@ fn main() {
 	writeln!(out, "*/\n").unwrap();
 	writeln!(out, "#ifdef __cplusplus").unwrap();
 	writeln!(out, "#include <cstdint>").unwrap();
+	writeln!(out, "#define ORO_BOOT_ENUM(ty, name) name").unwrap();
 	writeln!(out, "namespace oro_boot {{").unwrap();
 	writeln!(out, "#else").unwrap();
 	writeln!(out, "#include <stdint.h>").unwrap();
+	writeln!(
+		out,
+		"#define ORO_BOOT_ENUM(ty, name) ORO_BOOT_##ty##_##name"
+	)
+	.unwrap();
 	writeln!(out, "#endif\n").unwrap();
 	writeln!(out, "#ifndef ORO_BOOT_ALIGN").unwrap();
 	writeln!(out, "#ifdef _MSC_VER").unwrap();
@@ -246,7 +251,7 @@ fn process_tags<W: Write>(items: &[syn::Item], w: &mut W) -> Result<()> {
 
 					let target_ident = target_ident.to_case(Case::ScreamingSnake);
 
-					write!(w, "#define ORO_REQ_{target_ident}_ID (*(oro_tag_t*)\"")?;
+					write!(w, "#define ORO_BOOT_REQ_{target_ident}_ID (*(oro_tag_t*)\"")?;
 					w.write_all(&bs.value())?;
 					writeln!(w, "\")")?;
 				}
@@ -358,8 +363,16 @@ fn process_mod<W: Write>(items: &[syn::Item], w: &mut W) -> Result<()> {
 					.map_err(|e| format!("failed to process enum {}: {e}", item.ident))?;
 
 				let Some(repr_type) = &reprc.base_type else {
-					panic!("enums must have a concrete base type: {}", item.ident);
+					return Err(format!("enums must have a repr type: {}", item.ident).into());
 				};
+
+				if reprc.alignment.is_some() {
+					return Err(format!(
+						"enums cannot have an alignment (and must be marked #[repr(C)]): {}",
+						item.ident
+					)
+					.into());
+				}
 
 				// SAFETY(qix-): repr_type is guaranteed to be a valid type since we check it in parse_repr_c
 				let (ctype, arr) = type_to_ctype(repr_type).unwrap();
@@ -371,13 +384,15 @@ fn process_mod<W: Write>(items: &[syn::Item], w: &mut W) -> Result<()> {
 					warn!("missing documentation for enum: {}", item.ident);
 				}
 
-				if let Some(align) = reprc.alignment {
-					write!(w, "ORO_BOOT_ALIGN({align}, ")?;
-				}
-
 				let ident = to_hungarian(&item.ident.to_string());
+				let enum_ident = item.ident.to_string().to_case(Case::ScreamingSnake);
 
-				writeln!(w, "typedef enum {ident} : {ctype} {{")?;
+				writeln!(w, "#ifdef __cplusplus")?;
+				writeln!(w, "enum {ident} : {ctype} {{")?;
+				writeln!(w, "#else")?;
+				writeln!(w, "typedef {ctype} {ident};")?;
+				writeln!(w, "enum {ident} {{")?;
+				writeln!(w, "#endif")?;
 				for variant in &item.variants {
 					assert!(
 						variant.fields.is_empty(),
@@ -418,13 +433,13 @@ fn process_mod<W: Write>(items: &[syn::Item], w: &mut W) -> Result<()> {
 
 					let ident = variant.ident.to_string().to_case(Case::ScreamingSnake);
 
-					writeln!(w, "\t{ident} = {},", disc.base10_digits())?;
+					writeln!(
+						w,
+						"\tORO_BOOT_ENUM({enum_ident}, {ident}) = {},",
+						disc.base10_digits()
+					)?;
 				}
-				write!(w, "}}")?;
-				if reprc.alignment.is_some() {
-					write!(w, ")")?;
-				}
-				writeln!(w, " {ident};\n\n")?;
+				writeln!(w, "}};\n\n")?;
 			}
 			syn::Item::Union(item) => {
 				if item.fields.named.is_empty() {

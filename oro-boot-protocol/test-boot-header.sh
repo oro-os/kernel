@@ -23,14 +23,30 @@ set -x
 $CC --version
 $CXX --version
 
-$CC -Wall -Wextra -Werror -Wno-fixed-enum-extension -std=c99 -pedantic -o /dev/null -x c - <<EOF
+$CC -Wall -Wextra -Werror -std=c99 -pedantic -o /dev/null -x c - <<EOF
 #include "$PTH"
-int main(void) { return 0; }
+int main(void) {
+	oro_kernel_settings_data_v0_t data;
+	data.linear_map_offset = 1234;
+	oro_memory_map_entry_t entry;
+	entry.base = 1234;
+	entry.length = 5678;
+	entry.ty = ORO_BOOT_MEMORY_MAP_ENTRY_TYPE_USABLE;
+	return 0;
+}
 EOF
 
 $CXX -Wall -Wextra -Werror -std=c++11 -pedantic -o /dev/null -x c++ - <<EOF
 #include "$PTH"
-int main() { return 0; }
+int main() {
+	oro_boot::oro_kernel_settings_data_v0_t data;
+	data.linear_map_offset = 1234;
+	oro_boot::oro_memory_map_entry_t entry;
+	entry.base = 1234;
+	entry.length = 5678;
+	entry.ty = oro_boot::oro_memory_map_entry_type_t::USABLE;
+	return 0;
+}
 EOF
 
 set +x
