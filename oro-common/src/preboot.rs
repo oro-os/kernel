@@ -40,6 +40,9 @@ where
 		physical_address_translator: P::PhysicalAddressTranslator,
 		/// The module definition for the Oro kernel itself.
 		kernel_module: ModuleDef,
+		/// For systems that support ACPI, the physical address of the RSDP.
+		/// Must be relative to the linear offset base.
+		rsdp: Option<u64>,
 	},
 	/// A secondary core configuration
 	Secondary {
