@@ -413,10 +413,12 @@ pub unsafe fn init_preboot_primary() {
 /// This function MUST only be called on the primary core.
 ///
 /// This function MUST NOT be called from the preboot environment.
-pub unsafe fn init_kernel_primary() {
+#[allow(clippy::missing_panics_doc)]
+pub unsafe fn init_kernel_primary(rsdp_virt: usize) {
 	X86_64::disable_interrupts();
 
-	// TODO(qix-): Unlock the latch barrier
+	let rsdp = &*(rsdp_virt as *const ::acpi::rsdp::Rsdp);
+	rsdp.validate().expect("RSDP table is invalid");
 
 	init_kernel_secondary();
 }

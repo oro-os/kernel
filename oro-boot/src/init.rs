@@ -317,6 +317,7 @@ where
 			num_instances,
 			memory_regions,
 			physical_address_translator,
+			rsdp,
 			..
 		} => {
 			let mut pfa = pfa.lock::<Target>();
@@ -515,7 +516,6 @@ where
 			);
 
 			#[allow(clippy::cast_possible_truncation)]
-			#[allow(clippy::no_effect_underscore_binding)] // XXX TODO(qix-)
 			let linear_map_offset = dm_start - (min_phys_addr as usize);
 			if let Some(kernel_request) = kernel_request_scanner
 				.as_mut()
@@ -548,6 +548,41 @@ where
 					"boot_to_kernel",
 					"kernel didn't request kernel settings; is this an Oro kernel?"
 				);
+			}
+
+			if let Some(kernel_request) = kernel_request_scanner
+				.as_mut()
+				.expect("no kernel request scanner")
+				.get::<oro_boot_protocol::AcpiRequest>()
+			{
+				if let Some(rsdp) = rsdp {
+					#[allow(clippy::enum_glob_use)]
+					use oro_boot_protocol::acpi::AcpiKindMut::*;
+
+					match kernel_request
+						.response_mut_unchecked()
+						.expect("ACPI request exists in kernel but is an unsupported revision")
+					{
+						V0(settings) => {
+							settings.write(oro_boot_protocol::acpi::AcpiDataV0 { rsdp: *rsdp });
+							kernel_request.populated = 1;
+						}
+						#[allow(unreachable_patterns)]
+						_ => {
+							panic!(
+								"acpi request exists in the kernel but the initialization routine \
+								 doesn't support revision {}",
+								kernel_request.header.revision
+							)
+						}
+					}
+				} else {
+					dbg_warn!(
+						"boot_to_kernel",
+						"kernel requested ACPI RSDP pointer but bootloader didn't provide one; \
+						 kernel will be upset to learn about this"
+					);
+				}
 			}
 
 			// Store the kernel address space handle and entry point for cloning later.
@@ -663,6 +698,8 @@ where
 		last_free
 	};
 
+	// XXX TODO(qix-): Note that this is a temporary workaround. It effectively makes it
+	// XXX TODO(qix-): impossible to boot more than one core at the moment.
 	if matches!(config, PrebootConfig::Primary { .. }) {
 		#[allow(clippy::enum_glob_use)]
 		use oro_boot_protocol::pfa_head::PfaHeadKindMut::*;

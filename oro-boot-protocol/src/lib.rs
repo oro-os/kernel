@@ -117,6 +117,25 @@ macros::oro_boot_protocol! {
 		}
 	}
 
+	/// Kernel request for the Advanced Configuration and
+	/// Power Interface (ACPI) Root System Description
+	/// Pointer (RSDP).
+	///
+	/// On x86, this is mandatory.
+	///
+	/// On other architectures that support other
+	/// forms of configuration (e.g. DeviceTree, PSCI),
+	/// this is optional.
+	///
+	/// If a device tree blob or PSCI configuration is used
+	/// it takes precedence over the RSDP.
+	b"ORO_ACPI" => Acpi {
+		0 => {
+			/// The physical address of the RSDP.
+			pub rsdp: u64,
+		}
+	}
+
 	/// **THIS IS TEMPORARY AND WILL BE REMOVED.**
 	///
 	/// Temporary request for the PFA head. This is to be removed
