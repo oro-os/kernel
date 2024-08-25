@@ -119,6 +119,6 @@ jobs:
       - name: Generate Boot Protocol C/C++ Header
         run: cargo build -p oro-boot-protocol --release
         env:
-          ORO_BOOT_PROTOCOL_HEADER: 1
+          ORO_BUILD_PROTOCOL_HEADER: 1
       - name: Check
         run: bash ./oro-boot-protocol/test-boot-header.sh
