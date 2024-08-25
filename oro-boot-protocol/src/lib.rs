@@ -83,6 +83,9 @@
 )]
 #![allow(clippy::too_many_lines)] // Seems to be a bug in clippy with the macro expansion
 
+#[cfg(all(feature = "utils", oro_build_protocol_header))]
+compile_error!("The `utils` feature cannot be enabled when building the boot protocol C header.");
+
 mod macros;
 #[cfg(feature = "utils")]
 pub mod util;

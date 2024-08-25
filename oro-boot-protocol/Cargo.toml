@@ -11,6 +11,8 @@ homepage = "https://oro.sh"
 repository = "https://github.com/oro-os/kernel"
 license = "MPL-2.0"
 
+build = "build.rs"
+
 [lib]
 doctest = false
 
@@ -21,3 +23,7 @@ utils = []
 [dependencies]
 oro-common-assertions.workspace = true
 oro-common-proc.workspace = true
+
+[build-dependencies]
+syn.workspace = true
+convert_case.workspace = true

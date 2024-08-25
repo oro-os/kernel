@@ -96,8 +96,10 @@ dependencies = [
 name = "oro-boot-protocol"
 version = "0.0.0"
 dependencies = [
+ "convert_case",
  "oro-common-assertions",
  "oro-common-proc",
+ "syn",
 ]
 
 [[package]]

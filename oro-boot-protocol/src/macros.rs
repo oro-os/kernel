@@ -142,11 +142,14 @@ macro_rules! oro_boot_protocol {
 				impl crate::macros::Sealed for $ReqName %% Request {}
 
 				impl RequestTag for $ReqName %% Request {
-					#[doc = concat!("The tag for the [`", stringify!($ReqName), "Request`].")]
+					#[cfg(not(oro_build_protocol_header))]
+					#[doc = concat!("The tag for the [`", stringify!($ReqName), "Request`]: equivalent to `", stringify!($TAG), "`")]
 					const TAG: crate::Tag = {
 						::oro_common_assertions::size_of1::<_, 8>($TAG);
 						unsafe { ::core::mem::transmute_copy($TAG) }
 					};
+					#[cfg(oro_build_protocol_header)]
+					const TAG: crate::Tag = $TAG;
 				}
 
 				impl $ReqName %% Request {
