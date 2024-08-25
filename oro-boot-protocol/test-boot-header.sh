@@ -28,10 +28,12 @@ $CC -Wall -Wextra -Werror -std=c99 -pedantic -o /dev/null -x c - <<EOF
 int main(void) {
 	oro_kernel_settings_data_v0_t data;
 	data.linear_map_offset = 1234;
+	(void)data;
 	oro_memory_map_entry_t entry;
 	entry.base = 1234;
 	entry.length = 5678;
 	entry.ty = ORO_BOOT_MEMORY_MAP_ENTRY_TYPE_USABLE;
+	(void)entry;
 	return 0;
 }
 EOF
@@ -41,10 +43,12 @@ $CXX -Wall -Wextra -Werror -std=c++11 -pedantic -o /dev/null -x c++ - <<EOF
 int main() {
 	oro_boot::oro_kernel_settings_data_v0_t data;
 	data.linear_map_offset = 1234;
+	(void)data;
 	oro_boot::oro_memory_map_entry_t entry;
 	entry.base = 1234;
 	entry.length = 5678;
 	entry.ty = oro_boot::oro_memory_map_entry_type_t::USABLE;
+	(void)entry;
 	return 0;
 }
 EOF
