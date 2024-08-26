@@ -181,6 +181,8 @@ fn main() {
 	writeln!(out, "#endif").unwrap();
 
 	out.flush().unwrap();
+
+	println!("cargo:rerun-if-changed={}", output_file.to_str().unwrap());
 }
 
 fn process_tags<W: Write>(items: &[syn::Item], w: &mut W) -> Result<()> {
