@@ -24,7 +24,7 @@ class BootCmdLimine(gdb.Command):
     Boot the kernel under QEMU using the Limine bootloader.
 
     Usage:
-        oro boot limine [-sC] [-n <num_cores>]
+        oro boot limine [-sbCK] [-n <num_cores>]
 
     Options:
         -s, --switch         Switch to the Limine executable before booting.
@@ -32,6 +32,7 @@ class BootCmdLimine(gdb.Command):
         -C, --no-continue    Do not automatically continue execution after booting.
         -K, --no-autokernel  Do not automatically load the kernel image during transfer.
                              (Only useful with --switch)
+        -b, --break          Break at the start of the kernel image after transfer.
     """
 
     def __init__(self):
@@ -55,6 +56,7 @@ class BootCmdLimine(gdb.Command):
         autoload_kernel = True
         num_cores = 1
         auto_continue = True
+        break_at_start = False
 
         argi = 0
         while argi < len(args):
@@ -81,6 +83,8 @@ class BootCmdLimine(gdb.Command):
                 auto_continue = False
             elif arg in ["--no-autokernel", "-K"]:
                 autoload_kernel = False
+            elif arg in ["--break", "-b"]:
+                break_at_start = True
             elif arg == "--":
                 rest_args = args[argi + 1 :]
                 break
@@ -317,8 +321,9 @@ class BootCmdLimine(gdb.Command):
                     )
 
         if auto_continue:
-            log("setting _start breakpoint")
-            gdb.Breakpoint("_start", internal=True, temporary=True, qualified=True)
+            if break_at_start:
+                log("setting _start breakpoint")
+                gdb.Breakpoint("_start", internal=True, temporary=True, qualified=True)
 
             log("kernel booted; continuing execution")
             gdb.execute("continue", to_string=False, from_tty=True)
