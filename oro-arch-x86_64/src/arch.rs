@@ -414,11 +414,20 @@ pub unsafe fn init_preboot_primary() {
 ///
 /// This function MUST NOT be called from the preboot environment.
 #[allow(clippy::missing_panics_doc)]
-pub unsafe fn init_kernel_primary(rsdp_virt: usize) {
+pub unsafe fn init_kernel_primary<P: PhysicalAddressTranslator>(rsdp_phys: u64, pat: P) {
 	X86_64::disable_interrupts();
 
-	let rsdp = &*(rsdp_virt as *const ::acpi::rsdp::Rsdp);
-	rsdp.validate().expect("RSDP table is invalid");
+	let rsdp_virt = pat.to_virtual_addr(rsdp_phys);
+	let rsdp_raw = &*(rsdp_virt as *const ::oro_acpi::sys::acpi_table_rsdp);
+	oro_common::dbg!(X86_64, "DEBUG", "RSDP RAW: {:#?}", rsdp_raw);
+	let rsdp = ::oro_acpi::Rsdp::get(rsdp_phys, pat).expect("failed to get/validate RSDP");
+	oro_common::dbg!(X86_64, "DEBUG", "RSDP WRAPPED: {:#?}", rsdp);
+
+	let sdt = rsdp.sdt().expect("failed to get/validate SDT");
+	let fadt = sdt
+		.find::<::oro_acpi::Fadt<_>>()
+		.expect("failed to find/validate FADT");
+	oro_common::dbg!(X86_64, "DEBUG", "FADT: {:#?}", fadt);
 
 	init_kernel_secondary();
 }

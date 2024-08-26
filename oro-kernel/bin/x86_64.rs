@@ -2,6 +2,7 @@
 #![no_main]
 
 use oro_boot_protocol::{AcpiRequest, KernelSettingsRequest, PfaHeadRequest};
+use oro_common::mem::translate::OffsetPhysicalAddressTranslator;
 
 /// The general kernel settings. Applies to all cores.
 ///
@@ -75,10 +76,10 @@ pub unsafe extern "C" fn _start() -> ! {
 		panic!("ACPI request response is not v0");
 	};
 
-	let rsdp_pointer =
-		usize::try_from(rsdp_pointer).unwrap() + ::oro_kernel::config::LINEAR_MAP_OFFSET;
-
-	::oro_arch_x86_64::init_kernel_primary(rsdp_pointer);
+	::oro_arch_x86_64::init_kernel_primary(
+		rsdp_pointer,
+		OffsetPhysicalAddressTranslator::new(::oro_kernel::config::LINEAR_MAP_OFFSET),
+	);
 
 	::oro_kernel::boot()
 }
