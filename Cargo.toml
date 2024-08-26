@@ -38,7 +38,6 @@ oro-serial-pl011 = { path = "oro-serial-pl011" }
 
 oro-acpica-sys = { git = "https://github.com/oro-os/oro-acpica-sys.git", tag = "20240322" }
 limine = "0.2.0"
-acpi = { version = "5.0.0", default-features = false }
 uart_16550 = "0.3.0"
 volatile-register = "0.2.2"
 
