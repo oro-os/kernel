@@ -4,8 +4,8 @@ OUTPUT_ARCH(i386:x86-64)
 ENTRY(_start)
 
 PHDRS {
-	text     PT_LOAD    FLAGS((1 << 0) | (1 << 2) | (1 << 20)            ); /* rx + oro-kernel */
 	oro_boot PT_LOAD    FLAGS((1 << 2)            | (1 << 20) | (1 << 21)); /* r  + oro-kernel + oro-boot */
+	text     PT_LOAD    FLAGS((1 << 0) | (1 << 2) | (1 << 20)            ); /* rx + oro-kernel */
 	rodata   PT_LOAD    FLAGS((1 << 2)            | (1 << 20)            ); /* r  + oro-kernel */
 	data     PT_LOAD    FLAGS((1 << 1) | (1 << 2) | (1 << 20)            ); /* rw + oro-kernel */
 }
