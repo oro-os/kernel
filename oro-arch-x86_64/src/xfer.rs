@@ -88,7 +88,6 @@ unsafe extern "C" fn transfer_stubs() -> ! {
 	const CR0_BITS: u64 = Cr0::new()
 		.with_monitor_coprocessor()
 		.with_emulation()
-		.with_write_protect()
 		.with_alignment_mask()
 		.with_paging_enable()
 		.bits();
