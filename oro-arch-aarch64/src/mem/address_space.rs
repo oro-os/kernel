@@ -165,6 +165,37 @@ impl AddressSpaceLayout {
 	}
 }
 
+/// L0 intermediate PTE for the kernel executable segment.
+///
+/// Defined here as a constant since it's used within overlapping
+/// segments and any differences will cause indeterministic behavior.
+const KERNEL_EXE_L0: L0PageTableDescriptor = unsafe {
+	L0PageTableDescriptor::new()
+		.with_valid()
+		.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
+		.with_user_no_exec()
+};
+/// L1 intermediate PTE for the kernel executable segment.
+///
+/// Defined here as a constant since it's used within overlapping
+/// segments and any differences will cause indeterministic behavior.
+const KERNEL_EXE_L1: L1PageTableDescriptor = unsafe {
+	L1PageTableDescriptor::new()
+		.with_valid()
+		.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
+		.with_user_no_exec()
+};
+/// L2 intermediate PTE for the kernel executable segment.
+///
+/// Defined here as a constant since it's used within overlapping
+/// segments and any differences will cause indeterministic behavior.
+const KERNEL_EXE_L2: L2PageTableDescriptor = unsafe {
+	L2PageTableDescriptor::new()
+		.with_valid()
+		.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
+		.with_user_no_exec()
+};
+
 unsafe impl AddressSpace for AddressSpaceLayout {
 	type SupervisorHandle = AddressSpaceHandle;
 	type SupervisorSegment = &'static Segment;
@@ -231,18 +262,9 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 					AddressSpaceLayout::KERNEL_EXE_IDX,
 					AddressSpaceLayout::KERNEL_EXE_IDX,
 				),
-				l0_template:       L0PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec(),
-				l1_table_template: L1PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec(),
-				l2_table_template: L2PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec(),
+				l0_template:       KERNEL_EXE_L0,
+				l1_table_template: KERNEL_EXE_L1,
+				l2_table_template: KERNEL_EXE_L2,
 				l3_template:       L3PageTableBlockDescriptor::new()
 					.with_valid()
 					.with_block_access_permissions(
@@ -265,21 +287,9 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 					AddressSpaceLayout::KERNEL_EXE_IDX,
 					AddressSpaceLayout::KERNEL_EXE_IDX,
 				),
-				l0_template:       L0PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l1_table_template: L1PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l2_table_template: L2PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
+				l0_template:       KERNEL_EXE_L0,
+				l1_table_template: KERNEL_EXE_L1,
+				l2_table_template: KERNEL_EXE_L2,
 				l3_template:       L3PageTableBlockDescriptor::new()
 					.with_valid()
 					.with_block_access_permissions(
@@ -303,21 +313,9 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 					AddressSpaceLayout::KERNEL_EXE_IDX,
 					AddressSpaceLayout::KERNEL_EXE_IDX,
 				),
-				l0_template:       L0PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l1_table_template: L1PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l2_table_template: L2PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
+				l0_template:       KERNEL_EXE_L0,
+				l1_table_template: KERNEL_EXE_L1,
+				l2_table_template: KERNEL_EXE_L2,
 				l3_template:       L3PageTableBlockDescriptor::new()
 					.with_valid()
 					.with_block_access_permissions(
