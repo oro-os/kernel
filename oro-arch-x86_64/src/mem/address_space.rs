@@ -122,6 +122,16 @@ impl AddressSpaceLayout {
 	}
 }
 
+/// Intermediate page table entry template for the kernel code segment.
+///
+/// Defined here so that the overlapping kernel segments can share the same
+/// intermediate entry, differences between which would cause indeterministic
+/// behavior.
+const KERNEL_EXE_INTERMEDIATE_ENTRY: PageTableEntry = PageTableEntry::new()
+	.with_user()
+	.with_global()
+	.with_present();
+
 // TODO(qix-): When const trait methods are stabilized, mark these as const.
 unsafe impl AddressSpace for AddressSpaceLayout {
 	type SupervisorHandle = AddressSpaceHandle;
@@ -188,10 +198,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 				.with_user()
 				.with_global()
 				.with_present(),
-			intermediate_entry_template: PageTableEntry::new()
-				.with_user()
-				.with_global()
-				.with_present(),
+			intermediate_entry_template: KERNEL_EXE_INTERMEDIATE_ENTRY,
 		};
 
 		&DESCRIPTOR
@@ -209,10 +216,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 				.with_present()
 				.with_no_exec()
 				.with_writable(),
-			intermediate_entry_template: PageTableEntry::new()
-				.with_user()
-				.with_global()
-				.with_present(),
+			intermediate_entry_template: KERNEL_EXE_INTERMEDIATE_ENTRY,
 		};
 
 		&DESCRIPTOR
@@ -229,10 +233,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 				.with_global()
 				.with_present()
 				.with_no_exec(),
-			intermediate_entry_template: PageTableEntry::new()
-				.with_user()
-				.with_global()
-				.with_present(),
+			intermediate_entry_template: KERNEL_EXE_INTERMEDIATE_ENTRY,
 		};
 
 		&DESCRIPTOR
