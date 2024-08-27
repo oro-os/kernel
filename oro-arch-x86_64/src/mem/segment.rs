@@ -37,12 +37,19 @@ pub trait MapperHandle {
 /// as a static reference.
 pub struct AddressSegment {
 	/// The valid range of L4/L5 indices.
-	pub valid_range:    (usize, usize),
+	pub valid_range: (usize, usize),
 	/// A template for the page table entry to use for this segment.
 	/// This holds all flags except the address field, which are then
 	/// copied into the actual page table entry when new entries are
 	/// created.
 	pub entry_template: PageTableEntry,
+	/// A template for intermediate page table entries. This is used
+	/// to create intermediate page tables when mapping a new address
+	/// whereby level 4/3/2 entries are created.
+	///
+	/// For any mappings that may overlap with other segments,
+	/// the entry template MUST be identical across all such segments.
+	pub intermediate_entry_template: PageTableEntry,
 }
 
 impl AddressSegment {
@@ -84,16 +91,16 @@ impl AddressSegment {
 			} else {
 				let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
 
-				// SAFETY(qix-): We set writable here since if two L4/L3/L2 regions
-				// SAFETY(qix-): overlap and one is writable, mapping the unwritable
-				// SAFETY(qix-): first would otherwise cause a fault for any writes
-				// SAFETY(qix-): to the overlapping region. Since the leaf pages
-				// SAFETY(qix-): ultimately have their R/W bits set correctly, we set
-				// SAFETY(qix-): the intermediate pages to writable to avoid this.
+				// SAFETY(qix-): For all intermediates, we use a common-denominator
+				// SAFETY(qix-): page table entry template, which is guaranteed to
+				// SAFETY(qix-): traverse for all leaf entries (executable, RO, writable,
+				// SAFETY(qix-): etc). If multiple types of pages are mapped to the same
+				// SAFETY(qix-): L4/3/2 segments, the first to map would otherwise dictate
+				// SAFETY(qix-): the permissions for all subsequent mappings, which causes
+				// SAFETY(qix-): problems.
 				*entry = self
-					.entry_template
-					.with_address(frame_phys_addr)
-					.with_writable();
+					.intermediate_entry_template
+					.with_address(frame_phys_addr);
 
 				let frame_virt_addr = translator.to_virtual_addr(frame_phys_addr);
 				crate::asm::invlpg(frame_virt_addr);
