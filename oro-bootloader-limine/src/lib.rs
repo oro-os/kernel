@@ -6,11 +6,6 @@
 //! and individual, architecture-specific binaries.
 //! See the `bin/` directory for architecture-specific entry points.
 #![no_std]
-#![deny(
-	missing_docs,
-	clippy::integer_division,
-	clippy::missing_docs_in_private_items
-)]
 #![feature(type_alias_impl_trait)]
 
 use core::ffi::CStr;

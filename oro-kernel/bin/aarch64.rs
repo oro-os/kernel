@@ -1,3 +1,4 @@
+//! Main entry point for the Oro kernel on the AArch64 architecture.
 #![no_std]
 #![no_main]
 
@@ -15,6 +16,7 @@ pub static KERNEL_SETTINGS: KernelSettingsRequest = KernelSettingsRequest::with_
 #[link_section = ".oro_boot"]
 pub static PFA_REQUEST: PfaHeadRequest = PfaHeadRequest::with_revision(0);
 
+/// Panic handler for the kernel.
 #[inline(never)]
 #[cold]
 #[panic_handler]

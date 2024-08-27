@@ -76,11 +76,6 @@
 //! `0x00` before populating the request, as a sanity check that
 //! some bug or corruption did not occur.
 #![cfg_attr(not(test), no_std)]
-#![deny(
-	missing_docs,
-	clippy::integer_division,
-	clippy::missing_docs_in_private_items
-)]
 #![allow(clippy::too_many_lines)] // Seems to be a bug in clippy with the macro expansion
 
 #[cfg(all(feature = "utils", oro_build_protocol_header))]

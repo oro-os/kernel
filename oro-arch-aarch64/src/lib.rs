@@ -22,12 +22,7 @@
 //! preboot environment, as the preboot environment MUST NOT rely on TTBR0 for any resource
 //! allocation or mapping.
 #![no_std]
-#![deny(
-	missing_docs,
-	clippy::integer_division,
-	clippy::missing_docs_in_private_items
-)]
-#![allow(internal_features, clippy::module_name_repetitions)]
+#![allow(internal_features)]
 #![feature(core_intrinsics, naked_functions)]
 #![cfg(not(all(doc, not(target_arch = "aarch64"))))]
 

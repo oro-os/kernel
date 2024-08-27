@@ -1,6 +1,9 @@
+//! Main entry point for the Limine bootloader stage
+//! of the Oro kernel on the x86_64 architecture.
 #![no_std]
 #![no_main]
 
+/// Panic handler for the kernel.
 #[inline(never)]
 #[panic_handler]
 unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
@@ -21,6 +24,7 @@ pub unsafe extern "C" fn _start() -> ! {
 	::oro_bootloader_limine::init::<LapicCpuId>()
 }
 
+/// Uses the LAPIC ID as the CPU ID.
 struct LapicCpuId;
 
 impl ::oro_bootloader_limine::CpuId for LapicCpuId {

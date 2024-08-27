@@ -15,3 +15,6 @@ license = "MPL-2.0"
 oro-common.workspace = true
 oro-common-assertions.workspace = true
 oro-serial-pl011.workspace = true
+
+[lints]
+workspace = true

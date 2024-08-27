@@ -14,3 +14,6 @@ license = "MPL-2.0"
 [dependencies]
 oro-common.workspace = true
 volatile-register.workspace = true
+
+[lints]
+workspace = true

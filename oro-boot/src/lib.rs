@@ -14,11 +14,6 @@
 //! sequence; please read _and understand_ the documentation for the
 //! [`boot_to_kernel`] function before calling it.
 #![cfg_attr(not(test), no_std)]
-#![deny(
-	missing_docs,
-	clippy::integer_division,
-	clippy::missing_docs_in_private_items
-)]
 #![feature(more_qualified_paths)]
 
 mod init;

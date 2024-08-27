@@ -1,11 +1,6 @@
 //! Oro support for the Advanced Configuration and Power Interface (ACPI)
 //! specification.
 #![cfg_attr(not(test), no_std)]
-#![deny(
-	missing_docs,
-	clippy::integer_division,
-	clippy::missing_docs_in_private_items
-)]
 // SAFETY(qix-): This is approved, just moving slowly.
 // SAFETY(qix-): It's also not critical to the operation of the crate.
 // https://github.com/rust-lang/rust/issues/48214
