@@ -8,11 +8,6 @@
 //!
 //! Must not depend on any other crate.
 #![cfg_attr(not(test), no_std)]
-#![deny(
-	missing_docs,
-	clippy::integer_division,
-	clippy::missing_docs_in_private_items
-)]
 
 /// Asserts that a type is *within* a number of bytes (i.e. `size_of::<T>() <= SIZE`).
 ///

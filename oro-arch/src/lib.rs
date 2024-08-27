@@ -26,11 +26,6 @@
 //! to e.g. ACPI, device tree information, etc.,
 //! depending on the architecture.
 #![cfg_attr(not(test), no_std)]
-#![deny(
-	missing_docs,
-	clippy::integer_division,
-	clippy::missing_docs_in_private_items
-)]
 #![feature(type_alias_impl_trait)]
 
 // A little anecdote about the `Config` type being exported here.

@@ -3,8 +3,7 @@
 //! Note that this is a very primitive implementation, suitable for only what
 //! the Oro kernel needs.
 #![no_std]
-#![deny(missing_docs)]
-#![allow(internal_features)]
+#![allow(internal_features, clippy::missing_docs_in_private_items)]
 #![feature(core_intrinsics)]
 
 use oro_common::{arch::Arch, unsafe_precondition};

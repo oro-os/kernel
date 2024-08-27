@@ -14,17 +14,7 @@
 //! If you are implementing an architecture for Oro, see the
 //! [`crate::arch::Arch`] trait.
 #![cfg_attr(not(test), no_std)]
-#![deny(
-	missing_docs,
-	clippy::integer_division,
-	clippy::missing_docs_in_private_items
-)]
-#![allow(
-	clippy::module_name_repetitions,
-	clippy::missing_errors_doc,
-	internal_features,
-	rustdoc::private_doc_tests
-)]
+#![allow(internal_features)]
 #![feature(core_intrinsics, debug_closure_helpers)]
 #![cfg_attr(debug_assertions, feature(naked_functions))]
 

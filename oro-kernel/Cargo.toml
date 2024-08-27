@@ -33,3 +33,6 @@ oro-arch-x86_64.workspace = true
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 oro-arch-aarch64.workspace = true
+
+[lints]
+workspace = true

@@ -46,6 +46,23 @@ quote = "1.0.36"
 proc-macro2 = "1.0.81"
 convert_case = "0.6.0"
 
+[workspace.lints.rust]
+missing_docs = "warn"
+
+[workspace.lints.rustdoc]
+private_doc_tests = "allow"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+missing_docs_in_private_items = "warn"
+integer_division = "warn"
+module_name_repetitions = "allow"
+verbose_bit_mask = "allow"
+too_many_lines = "allow"
+missing_errors_doc = "allow"
+struct_field_names = "allow"
+
 [profile.dev]
 panic = "abort"            # Use "abort" panic strategy
 debug = "full"             # Full debugging symbols

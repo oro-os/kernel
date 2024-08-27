@@ -16,3 +16,6 @@ oro-common.workspace = true
 oro-common-assertions.workspace = true
 oro-acpi.workspace = true
 uart_16550.workspace = true
+
+[lints]
+workspace = true

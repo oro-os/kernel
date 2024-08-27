@@ -13,3 +13,6 @@ license = "MPL-2.0"
 
 [lib]
 doctest = false
+
+[lints]
+workspace = true

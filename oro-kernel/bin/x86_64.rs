@@ -1,3 +1,4 @@
+//! Main entry point for the Oro Kernel on the x86_64 architecture.
 #![no_std]
 #![no_main]
 
@@ -23,6 +24,7 @@ pub static PFA_REQUEST: PfaHeadRequest = PfaHeadRequest::with_revision(0);
 #[link_section = ".oro_boot"]
 pub static ACPI_REQUEST: AcpiRequest = AcpiRequest::with_revision(0);
 
+/// Panic handler for the kernel.
 #[inline(never)]
 #[cold]
 #[panic_handler]

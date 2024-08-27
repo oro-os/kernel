@@ -3,16 +3,6 @@
 //! This crate includes both a library, with code common to all architectures,
 //! and individual, architecture-specific binaries located in `bin/`.
 #![no_std]
-#![deny(
-	missing_docs,
-	clippy::integer_division,
-	clippy::missing_docs_in_private_items
-)]
-#![allow(
-	clippy::module_name_repetitions,
-	clippy::struct_field_names,
-	clippy::too_many_lines
-)]
 // NOTE(qix-): `adt_const_params` isn't strictly necessary but is on track for acceptance,
 // NOTE(qix-): and the open questions (e.g. mangling) are not of concern here.
 // NOTE(qix-): https://github.com/rust-lang/rust/issues/95174

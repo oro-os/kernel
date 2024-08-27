@@ -27,3 +27,6 @@ oro-common-proc.workspace = true
 [build-dependencies]
 syn.workspace = true
 convert_case.workspace = true
+
+[lints]
+workspace = true

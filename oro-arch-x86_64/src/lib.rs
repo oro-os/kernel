@@ -54,16 +54,7 @@
 //! environment can be placed there for automatic cleanup by the kernel
 //! once it has booted.
 #![no_std]
-#![deny(
-	missing_docs,
-	clippy::integer_division,
-	clippy::missing_docs_in_private_items
-)]
-#![allow(
-	internal_features,
-	clippy::verbose_bit_mask,
-	clippy::module_name_repetitions
-)]
+#![allow(internal_features)]
 #![feature(naked_functions, core_intrinsics, asm_const)]
 #![cfg(not(all(doc, not(target_arch = "x86_64"))))]
 

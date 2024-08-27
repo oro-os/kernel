@@ -22,11 +22,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/rust
       - name: Lint (clippy) [common]
-        run: cargo oro-clippy-common
+        run: cargo oro-clippy-common -- -D warnings
       - name: Lint (clippy) [x86_64]
-        run: cargo oro-clippy-x86_64
+        run: cargo oro-clippy-x86_64 -- -D warnings
       - name: Lint (clippy) [aarch64]
-        run: cargo oro-clippy-aarch64
+        run: cargo oro-clippy-aarch64 -- -D warnings
   lint-docs:
     runs-on: ubuntu-latest
     steps:
