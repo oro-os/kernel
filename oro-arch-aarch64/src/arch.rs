@@ -6,10 +6,7 @@ use crate::{
 	mem::{address_space::AddressSpaceLayout, paging::PageTable},
 	xfer::TransferToken,
 };
-use core::{
-	arch::asm,
-	fmt::{self, Write},
-};
+use core::arch::asm;
 use oro_common::{
 	arch::Arch,
 	interrupt::InterruptHandler,
@@ -21,16 +18,9 @@ use oro_common::{
 	preboot::{PrebootConfig, PrebootPlatformConfig},
 };
 use oro_common_elf::{ElfClass, ElfEndianness, ElfMachine};
-use oro_common_sync::spinlock::unfair_critical::UnfairCriticalSpinlock;
-use oro_serial_pl011 as pl011;
 
 /// The number of pages to allocate for the kernel stack.
 const KERNEL_STACK_PAGES: usize = 8;
-
-/// The shared serial port for the system.
-// NOTE(qix-): This is a temporary solution until pre-boot module loading
-// NOTE(qix-): is implemented.
-static SERIAL: UnfairCriticalSpinlock<Option<pl011::PL011>> = UnfairCriticalSpinlock::new(None);
 
 /// aarch64 architecture support implementation for the Oro kernel.
 pub struct Aarch64;
@@ -78,18 +68,6 @@ unsafe impl Arch for Aarch64 {
 		unsafe {
 			core::arch::asm!("dsb sy", options(nostack, preserves_flags),);
 		}
-	}
-
-	fn log(message: fmt::Arguments) {
-		// NOTE(qix-): This unsafe block MUST NOT PANIC.
-		unsafe {
-			if let Some(serial) = SERIAL.lock::<Self>().as_mut() {
-				writeln!(serial, "{message}")
-			} else {
-				Ok(())
-			}
-		}
-		.unwrap();
 	}
 
 	unsafe fn prepare_primary_page_tables<A, C>(

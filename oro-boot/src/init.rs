@@ -7,7 +7,6 @@ use oro_arch::Target;
 use oro_boot_protocol::pfa_head::PfaHeadKindMut::*;
 use oro_common::{
 	arch::Arch,
-	dbg, dbg_warn,
 	mem::{
 		mapper::{AddressSegment, AddressSpace},
 		pfa::{
@@ -21,6 +20,7 @@ use oro_common::{
 	util::erased::Erased,
 };
 use oro_common_elf::{ElfSegment, ElfSegmentType};
+use oro_debug::{dbg, dbg_warn};
 
 /// Initializes and transfers execution to the Oro kernel.
 ///

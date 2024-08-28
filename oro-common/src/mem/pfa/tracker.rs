@@ -3,13 +3,13 @@
 
 use crate::{
 	arch::Arch,
-	dbg_warn,
 	mem::{
 		pfa::alloc::{PageFrameAllocate, PageFrameFree},
 		region::{MemoryRegion, MemoryRegionType},
 	},
 };
 use core::fmt;
+use oro_debug::dbg_warn;
 
 /// Provides statistics about the memory usage of the allocator (typically, reflecting
 /// that of the system, too).
@@ -116,7 +116,6 @@ impl<Alloc> AllocatorStatsTracker<Alloc> {
 						*total_bad_memory += original_length;
 					} else {
 						dbg_warn!(
-							A,
 							"allocator_stats",
 							"bad memory region provided, but bad memory not marked as supported \
 							 by bootloader; marking as unusable"

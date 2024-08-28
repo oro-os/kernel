@@ -18,11 +18,7 @@
 #![feature(core_intrinsics)]
 #![cfg_attr(debug_assertions, feature(naked_functions))]
 
-#[cfg(any(debug_assertions, feature = "dbgutil"))]
-mod dbgutil;
-
 pub mod arch;
-pub mod dbg;
 pub mod interrupt;
 pub mod mem;
 pub mod preboot;

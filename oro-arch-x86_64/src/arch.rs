@@ -6,11 +6,7 @@ use crate::{
 	mem::{address_space::AddressSpaceLayout, paging::PageTable},
 	xfer::TransferToken,
 };
-use core::{
-	arch::asm,
-	fmt::{self, Write},
-	ptr::from_ref,
-};
+use core::{arch::asm, ptr::from_ref};
 use oro_common::{
 	arch::Arch,
 	interrupt::InterruptHandler,
@@ -22,17 +18,9 @@ use oro_common::{
 	preboot::{PrebootConfig, PrebootPlatformConfig},
 };
 use oro_common_elf::{ElfClass, ElfEndianness, ElfMachine};
-use oro_common_sync::spinlock::unfair_critical::UnfairCriticalSpinlock;
-use uart_16550::SerialPort;
 
 /// The number of pages to allocate for the kernel stack.
 const KERNEL_STACK_PAGES: usize = 8;
-
-/// The shared serial port for the system.
-// NOTE(qix-): This is a temporary solution until pre-boot module loading
-// NOTE(qix-): is implemented.
-static SERIAL: UnfairCriticalSpinlock<SerialPort> =
-	UnfairCriticalSpinlock::new(unsafe { SerialPort::new(0x3F8) });
 
 /// x86_64 architecture support implementation for the Oro kernel.
 pub struct X86_64;
@@ -73,11 +61,6 @@ unsafe impl Arch for X86_64 {
 		unsafe {
 			asm!("push {}", "popfq", in(reg) state, options(nostack));
 		}
-	}
-
-	fn log(message: fmt::Arguments) {
-		// NOTE(qix-): This unsafe block MUST NOT PANIC.
-		unsafe { writeln!(SERIAL.lock::<Self>(), "{message}") }.unwrap();
 	}
 
 	unsafe fn prepare_primary_page_tables<A, C>(

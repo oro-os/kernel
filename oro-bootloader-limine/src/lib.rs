@@ -18,9 +18,10 @@ use limine::{
 	BaseRevision,
 };
 use oro_boot::{
-	dbg, dbg_err, dbg_warn, Arch, MemoryRegion, MemoryRegionType, ModuleDef,
-	OffsetPhysicalAddressTranslator, PrebootConfig, PrebootPlatformConfig, Target,
+	Arch, MemoryRegion, MemoryRegionType, ModuleDef, OffsetPhysicalAddressTranslator,
+	PrebootConfig, PrebootPlatformConfig, Target,
 };
+use oro_debug::{dbg, dbg_err, dbg_warn};
 
 /// The path to where the Oro kernel is expected.
 /// The bootloader does **not** expect it to be listed
@@ -106,6 +107,8 @@ macro_rules! get_response {
 /// # Panics
 /// Panics if required responses aren't populated by Limine
 pub unsafe fn init() -> ! {
+	#[cfg(debug_assertions)]
+	oro_debug::init();
 	dbg!("limine", "boot");
 
 	let module_response = get_response!(REQ_MODULES, "module listing");
@@ -189,6 +192,7 @@ fn make_memory_map_iterator() -> LimineMemoryRegionIterator {
 /// # Safety
 /// Do **NOT** call this function directly.
 /// It is only called by the architecture-specific binaries.
+#[allow(unused_variables)]
 pub unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 	dbg_err!("limine", "panic: {:?}", info);
 	Target::halt()

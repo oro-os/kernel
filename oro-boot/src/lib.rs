@@ -24,7 +24,6 @@ pub use self::init::boot_to_kernel;
 pub use oro_arch::Target;
 pub use oro_common::{
 	arch::Arch,
-	dbg, dbg_err, dbg_warn,
 	mem::{
 		region::{MemoryRegion, MemoryRegionType},
 		translate::{OffsetPhysicalAddressTranslator, PhysicalAddressTranslator},

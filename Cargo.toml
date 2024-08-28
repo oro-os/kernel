@@ -22,7 +22,9 @@ members = [
 	"oro-common-proc",
 	"oro-common-proc-macros",
 	"oro-kernel",
-	"oro-serial-pl011",
+	"oro-debug",
+	"oro-debug-pl011",
+	"oro-debug-uart16550",
 ]
 
 [workspace.dependencies]
@@ -39,7 +41,9 @@ oro-common-proc-macros = { path = "oro-common-proc-macros" }
 oro-common-elf = { path = "oro-common-elf" }
 oro-common-sync = { path = "oro-common-sync" }
 oro-kernel = { path = "oro-kernel" }
-oro-serial-pl011 = { path = "oro-serial-pl011" }
+oro-debug = { path = "oro-debug" }
+oro-debug-pl011 = { path = "oro-debug-pl011" }
+oro-debug-uart16550 = { path = "oro-debug-uart16550" }
 
 oro-acpica-sys = { git = "https://github.com/oro-os/oro-acpica-sys.git", tag = "20240322" }
 limine = "0.2.0"

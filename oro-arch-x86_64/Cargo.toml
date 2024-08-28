@@ -30,7 +30,6 @@ oro-common-assertions.workspace = true
 oro-common-elf.workspace = true
 oro-common-sync.workspace = true
 oro-acpi.workspace = true
-uart_16550.workspace = true
 
 [lints]
 workspace = true
