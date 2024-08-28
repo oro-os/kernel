@@ -45,10 +45,22 @@ pub unsafe fn boot_primary() -> ! {
 	let rsdp_phys = rsdp_response.assume_init_ref().rsdp;
 	dbg!("ACPI response OK: RSDP at {rsdp_phys:016?}");
 
-	// Make sure the ACPI tables are valid.
 	let rsdp = oro_acpi::Rsdp::get(rsdp_phys, pat.clone())
 		.expect("RSDP failed to validate; check RSDP pointer");
 	dbg!("RSDP revision: {}", rsdp.revision());
+
+	let sdt = rsdp
+		.sdt()
+		.expect("ACPI tables are missing either the RSDT or XSDT table");
+
+	let madt = sdt
+		.find::<oro_acpi::Madt<_>>()
+		.expect("MADT table not found in ACPI tables");
+
+	if madt.has_8259() {
+		dbg!("8259 PIC detected; disabling it");
+		crate::asm::disable_8259();
+	}
 
 	<crate::X86_64 as oro_common::arch::Arch>::halt();
 }

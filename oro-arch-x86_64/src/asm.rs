@@ -48,3 +48,16 @@ pub fn cr3() -> u64 {
 pub unsafe fn _set_cr3(value: u64) {
 	asm!("mov cr3, {}", in(reg) value, options(nostack, preserves_flags));
 }
+
+/// Disables the 8259 PIC by masking off all interrupts.
+#[inline(always)]
+pub fn disable_8259() {
+	unsafe {
+		asm!(
+			"mov al, 0xFF",
+			"out 0x21, al",
+			"out 0xA1, al",
+			options(nostack, preserves_flags)
+		);
+	}
+}
