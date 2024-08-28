@@ -209,6 +209,7 @@ dependencies = [
  "oro-common-assertions",
  "oro-common-elf",
  "oro-common-sync",
+ "oro-debug",
  "oro-kernel",
 ]
 
