@@ -52,8 +52,6 @@ impl AddressSpaceLayout {
 	pub const GDT_IDX: usize = 258;
 	/// The direct map range
 	pub const DIRECT_MAP_IDX: (usize, usize) = (259, 300);
-	/// The index for the kernel boot protocol.
-	pub const BOOT_INFO_IDX: usize = 302;
 	/// The index for the kernel core-local segment.
 	pub const KERNEL_CORE_LOCAL_IDX: usize = 350;
 	/// The segment for the ring registry
@@ -337,24 +335,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 				.with_present()
 				.with_no_exec()
 				.with_writable(),
-		};
-
-		&DESCRIPTOR
-	}
-
-	fn boot_info() -> Self::SupervisorSegment {
-		#[allow(clippy::missing_docs_in_private_items)]
-		const DESCRIPTOR: AddressSegment = AddressSegment {
-			valid_range: (
-				AddressSpaceLayout::BOOT_INFO_IDX,
-				AddressSpaceLayout::BOOT_INFO_IDX,
-			),
-			entry_template: PageTableEntry::new()
-				.with_global()
-				.with_present()
-				.with_no_exec()
-				.with_write_through(),
-			intermediate_entry_template: PageTableEntry::new().with_present().with_no_exec(),
 		};
 
 		&DESCRIPTOR

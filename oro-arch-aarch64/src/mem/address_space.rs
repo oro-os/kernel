@@ -41,8 +41,6 @@ impl AddressSpaceLayout {
 	pub const KERNEL_STACK_IDX: usize = 257;
 	/// The direct map range
 	pub const DIRECT_MAP_IDX: (usize, usize) = (258, 300);
-	/// The index for the kernel boot protocol.
-	pub const BOOT_INFO_IDX: usize = 302;
 	/// The index for the kernel core-local segment.
 	pub const KERNEL_CORE_LOCAL_IDX: usize = 350;
 	/// The segment for the ring registry
@@ -512,44 +510,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 					.with_kernel_no_exec()
 					.with_not_secure()
 					.with_mair_index(MairEntry::DirectMap.index() as u64),
-			}
-		};
-
-		&DESCRIPTOR
-	}
-
-	fn boot_info() -> Self::SupervisorSegment {
-		#[allow(clippy::missing_docs_in_private_items)]
-		static DESCRIPTOR: Segment = unsafe {
-			Segment {
-				valid_range:       (
-					AddressSpaceLayout::BOOT_INFO_IDX,
-					AddressSpaceLayout::BOOT_INFO_IDX,
-				),
-				l0_template:       L0PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l1_table_template: L1PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l2_table_template: L2PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l3_template:       L3PageTableBlockDescriptor::new()
-					.with_valid()
-					.with_block_access_permissions(
-						PageTableEntryBlockAccessPerm::KernelROUserNoAccess,
-					)
-					.with_user_no_exec()
-					.with_kernel_no_exec()
-					.with_not_secure()
-					.with_mair_index(MairEntry::NormalMemory.index() as u64),
 			}
 		};
 
