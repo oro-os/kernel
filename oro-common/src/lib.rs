@@ -15,7 +15,7 @@
 //! [`crate::arch::Arch`] trait.
 #![cfg_attr(not(test), no_std)]
 #![allow(internal_features)]
-#![feature(core_intrinsics, debug_closure_helpers)]
+#![feature(core_intrinsics)]
 #![cfg_attr(debug_assertions, feature(naked_functions))]
 
 #[cfg(any(debug_assertions, feature = "dbgutil"))]
@@ -23,7 +23,6 @@ mod dbgutil;
 
 pub mod arch;
 pub mod dbg;
-pub mod elf;
 pub mod interrupt;
 pub mod mem;
 pub mod preboot;

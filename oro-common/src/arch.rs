@@ -5,7 +5,6 @@
 //! types for interacting with underlying architecture-specific data (e.g.
 //! memory management facilities).
 use crate::{
-	elf::{ElfClass, ElfEndianness, ElfMachine},
 	interrupt::InterruptHandler,
 	mem::{
 		mapper::AddressSpace,
@@ -15,6 +14,7 @@ use crate::{
 	preboot::{PrebootConfig, PrebootPrimaryConfig},
 };
 use core::fmt;
+use oro_common_elf::{ElfClass, ElfEndianness, ElfMachine};
 
 /// Every architecture that Oro supports must implement this trait.
 /// It provides the kernel working knowledge and subroutines that

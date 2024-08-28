@@ -192,6 +192,7 @@ version = "0.0.0"
 dependencies = [
  "oro-common",
  "oro-common-assertions",
+ "oro-common-elf",
  "oro-serial-pl011",
 ]
 
@@ -202,6 +203,7 @@ dependencies = [
  "oro-acpi",
  "oro-common",
  "oro-common-assertions",
+ "oro-common-elf",
  "uart_16550",
 ]
 
@@ -213,6 +215,7 @@ dependencies = [
  "oro-boot-protocol",
  "oro-common",
  "oro-common-assertions",
+ "oro-common-elf",
 ]
 
 [[package]]
@@ -241,12 +244,20 @@ name = "oro-common"
 version = "0.0.0"
 dependencies = [
  "oro-common-assertions",
+ "oro-common-elf",
  "oro-common-proc",
 ]
 
 [[package]]
 name = "oro-common-assertions"
 version = "0.0.0"
+
+[[package]]
+name = "oro-common-elf"
+version = "0.0.0"
+dependencies = [
+ "oro-common-assertions",
+]
 
 [[package]]
 name = "oro-common-proc"

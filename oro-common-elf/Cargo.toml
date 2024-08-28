@@ -1,7 +1,7 @@
 [package]
-name = "oro-arch-x86_64"
+name = "oro-common-elf"
 version.workspace = true
-description = "Oro operating system x86_64 architecture support"
+description = "Common ELF parser for the Oro kernel and bootloader development"
 publish = false
 edition = "2021"
 authors = [
@@ -11,12 +11,12 @@ homepage = "https://oro.sh"
 repository = "https://github.com/oro-os/kernel"
 license = "MPL-2.0"
 
+[lib]
+doctest = false
+
 [dependencies]
-oro-common.workspace = true
 oro-common-assertions.workspace = true
-oro-common-elf.workspace = true
-oro-acpi.workspace = true
-uart_16550.workspace = true
 
 [lints]
 workspace = true
+
