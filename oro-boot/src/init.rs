@@ -52,7 +52,7 @@ where
 
 	Target::disable_interrupts();
 
-	dbg!("boot_to_kernel", "booting to kernel");
+	dbg!("booting to kernel");
 
 	let PrebootConfig {
 		memory_regions,
@@ -140,11 +140,7 @@ where
 		};
 
 		let num_segments = kernel_elf.segments().count();
-		dbg!(
-			"boot_to_kernel",
-			"mapping {} kernel segments...",
-			num_segments
-		);
+		dbg!("mapping {} kernel segments...", num_segments);
 
 		assert!(num_segments > 0, "kernel ELF has no segments");
 
@@ -220,7 +216,6 @@ where
 			}
 
 			dbg!(
-				"boot_to_kernel",
 				"mapped kernel segment: {:#016X?} <{:X?}> -> {:?} <{:X?}>",
 				segment.target_address(),
 				segment.target_size(),
@@ -240,7 +235,6 @@ where
 
 		for region in memory_regions.clone() {
 			dbg!(
-				"boot_to_kernel",
 				"mapping direct map segment: {:?}: {:#016X?} <{:X?}>",
 				region.region_type(),
 				region.base(),
@@ -264,15 +258,12 @@ where
 			}
 		}
 
-		dbg!("boot_to_kernel", "direct mapped all memory regions");
+		dbg!("direct mapped all memory regions");
 
 		// Allow the architecture to prepare any additional mappings.
 		Target::prepare_primary_page_tables(&kernel_mapper, &config, &mut pfa);
 
-		dbg!(
-			"boot_to_kernel",
-			"architecture prepared primary page tables"
-		);
+		dbg!("architecture prepared primary page tables");
 
 		// Make each of the registry segments shared.
 		Target::make_segment_shared(
@@ -282,7 +273,7 @@ where
 			&mut pfa,
 		);
 
-		dbg!("boot_to_kernel", "initialized shared port registry segment");
+		dbg!("initialized shared port registry segment");
 
 		Target::make_segment_shared(
 			&kernel_mapper,
@@ -291,10 +282,7 @@ where
 			&mut pfa,
 		);
 
-		dbg!(
-			"boot_to_kernel",
-			"initialized shared module instance registry segment"
-		);
+		dbg!("initialized shared module instance registry segment");
 
 		Target::make_segment_shared(
 			&kernel_mapper,
@@ -303,7 +291,7 @@ where
 			&mut pfa,
 		);
 
-		dbg!("boot_to_kernel", "initialized shared ring registry segment");
+		dbg!("initialized shared ring registry segment");
 
 		// Write the boot config.
 		assert!(
@@ -341,10 +329,7 @@ where
 				}
 			}
 		} else {
-			dbg_warn!(
-				"boot_to_kernel",
-				"kernel didn't request kernel settings; is this an Oro kernel?"
-			);
+			dbg_warn!("kernel didn't request kernel settings; is this an Oro kernel?");
 		}
 
 		if let Some(kernel_request) = kernel_request_scanner
@@ -375,7 +360,6 @@ where
 				}
 			} else {
 				dbg_warn!(
-					"boot_to_kernel",
 					"kernel requested ACPI RSDP pointer but bootloader didn't provide one; kernel \
 					 will be upset to learn about this"
 				);
@@ -387,19 +371,12 @@ where
 		KERNEL_ENTRY_POINT = kernel_elf.entry_point();
 
 		dbg!(
-			"boot_to_kernel",
 			"primary core ready to duplicate kernel address space to secondaries; synchronizing..."
 		);
 
-		dbg!(
-			"boot_to_kernel",
-			"secondaries duplicating kernel address space..."
-		);
+		dbg!("secondaries duplicating kernel address space...");
 
-		dbg!(
-			"boot_to_kernel",
-			"all cores have duplicated kernel address space"
-		);
+		dbg!("all cores have duplicated kernel address space");
 
 		// SAFETY: If unwrap fails, another core took the handle (a bug in this function alone).
 		KERNEL_ADDRESS_SPACE.take().unwrap()
@@ -443,10 +420,7 @@ where
 			}
 		}
 	} else {
-		dbg_warn!(
-			"boot_to_kernel",
-			"kernel didn't request PFA head; is this an Oro kernel?"
-		);
+		dbg_warn!("kernel didn't request PFA head; is this an Oro kernel?");
 	}
 
 	// Finally, jump to the kernel entry point.

@@ -116,7 +116,6 @@ impl<Alloc> AllocatorStatsTracker<Alloc> {
 						*total_bad_memory += original_length;
 					} else {
 						dbg_warn!(
-							"allocator_stats",
 							"bad memory region provided, but bad memory not marked as supported \
 							 by bootloader; marking as unusable"
 						);
