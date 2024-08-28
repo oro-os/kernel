@@ -2,7 +2,6 @@
 
 #![allow(clippy::module_name_repetitions)]
 
-use crate::{arch::Arch, unsafe_precondition};
 use core::sync::atomic::{AtomicU64, Ordering};
 
 /// An atomic, spin-based barrier used to synchronize multiprocessor
@@ -37,12 +36,7 @@ impl SpinBarrier {
 	/// # Safety
 	/// Consumers must ensure that this function is called exactly ONCE
 	/// from a SINGLE core.
-	pub unsafe fn set_total<A: Arch>(&self, total: u64) {
-		unsafe_precondition!(
-			A,
-			self.total.load(Ordering::Acquire) == 0,
-			"total already set"
-		);
+	pub unsafe fn set_total(&self, total: u64) {
 		self.total.store(total, Ordering::Release);
 	}
 
