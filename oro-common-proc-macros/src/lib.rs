@@ -1,8 +1,6 @@
-//! Common proc macros used by the `oro-common` crate.
+//! Common proc macros used by the Oro kernel.
 //!
-//! > **NOTE:** Do NOT use this crate directly. It is only intended
-//! > to be used by the `oro-common` crate; anything meant to be used
-//! > by other crates will be re-exported by `oro-common`.
+//! > **NOTE:** Don't use this crate directly; instead, use the `oro-common-proc` crate.
 #![deny(missing_docs, clippy::missing_docs_in_private_items)]
 #![allow(clippy::module_name_repetitions, clippy::missing_errors_doc)]
 // TODO(qix-): Remove this when <https://github.com/rust-lang/rust-clippy/issues/12425> is fixed
@@ -25,7 +23,7 @@ mod paste;
 /// # Example
 ///
 /// ```rust
-/// use oro_common::proc::EnumIterator;
+/// use oro_common_proc::EnumIterator;
 ///
 /// #[derive(EnumIterator, Debug)]
 /// enum MyEnum {
