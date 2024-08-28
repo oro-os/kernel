@@ -82,6 +82,7 @@ macro_rules! oro_boot_protocol {
 
 					#[cfg(feature = "utils")]
 					#[doc = concat!("A helper enum for the [`super::", stringify!($ReqName), "Request`] response data based on revision number. Holds a mutable reference to the data.")]
+					#[non_exhaustive]
 					pub enum $ReqName %% KindMut<'a> {
 						$(
 							#[doc = concat!("The response data for version ", stringify!($revision), " of the [`super::", stringify!($ReqName), "Request`].")]
@@ -91,6 +92,7 @@ macro_rules! oro_boot_protocol {
 
 					#[cfg(feature = "utils")]
 					#[doc = concat!("A helper enum for the [`super::", stringify!($ReqName), "Request`] response data based on revision number. Holds an immutable reference to the data.")]
+					#[non_exhaustive]
 					pub enum $ReqName %% Kind<'a> {
 						$(
 							#[doc = concat!("The response data for version ", stringify!($revision), " of the [`super::", stringify!($ReqName), "Request`].")]
@@ -227,6 +229,7 @@ macro_rules! oro_boot_protocol {
 
 			/// An enum of all possible requests.
 			#[cfg(feature = "utils")]
+			#[non_exhaustive]
 			pub enum Request<'a> {
 				$(
 					#[doc = concat!("The [`", stringify!($ReqName), "Request`].")]
