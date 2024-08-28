@@ -14,16 +14,12 @@ use limine::request::StackSizeRequest;
 use limine::{
 	memory_map::EntryType,
 	modules::InternalModule,
-	request::{
-		BootTimeRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, RsdpRequest, SmpRequest,
-	},
-	response::SmpResponse,
-	smp::Cpu,
+	request::{BootTimeRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, RsdpRequest},
 	BaseRevision,
 };
 use oro_boot::{
 	dbg, dbg_err, dbg_warn, Arch, MemoryRegion, MemoryRegionType, ModuleDef,
-	OffsetPhysicalAddressTranslator, PrebootConfig, PrebootPrimaryConfig, Target,
+	OffsetPhysicalAddressTranslator, PrebootConfig, PrebootPlatformConfig, Target,
 };
 
 /// The path to where the Oro kernel is expected.
@@ -63,16 +59,6 @@ static REQ_TIME: BootTimeRequest = BootTimeRequest::with_revision(0);
 #[used]
 static REQ_RSDP: RsdpRequest = RsdpRequest::with_revision(0);
 
-/// Requests that Limine initializes secondary cores and provides
-/// us a way to instruct them to jump to the boot stage entry point.
-///
-/// Note that the mere presence of this request causes Limine to
-/// bootstrap those cores.
-///
-/// Marked as mutable since we have to write to the `GotoAddress` field.
-#[used]
-static mut REQ_SMP: SmpRequest = SmpRequest::with_revision(0);
-
 /// In debug builds, stack size is very quickly exhausted. At time
 /// of writing, Limine allocates 64KiB of stack space per core, but
 /// this is not enough for debug builds.
@@ -111,29 +97,6 @@ macro_rules! get_response {
 	}};
 }
 
-/// Allows the extraction of a CPU ID from the [`Cpu`] structure
-/// and for the identification of the bootstrap CPU.
-///
-/// This must be implemented by each architecture binary.
-pub trait CpuId {
-	/// Extracts the CPU ID from the [`Cpu`] structure.
-	///
-	/// # Safety
-	/// The returned ID **must** be unique for each CPU.
-	unsafe fn cpu_id(smp: &Cpu) -> u64;
-
-	/// Returns the bootstrap CPU ID. This must match the exact,
-	/// unique ID returned by `cpu_id` for the bootstrap CPU.
-	///
-	/// If no CPU is the bootstrap CPU, this function must return `None`.
-	/// The bootloader will panic in this case.
-	///
-	/// # Safety
-	/// This function MUST return the `cpu_id` for the bootstrap CPU,
-	/// and for no others.
-	unsafe fn bootstrap_cpu_id(response: &SmpResponse) -> Option<u64>;
-}
-
 /// Runs the Limine bootloader.
 ///
 /// # Safety
@@ -141,11 +104,10 @@ pub trait CpuId {
 /// It is only called by the architecture-specific binaries.
 ///
 /// # Panics
-/// Panics if a bootstrap CPU is not found.
-pub unsafe fn init<C: CpuId>() -> ! {
+/// Panics if required responses aren't populated by Limine
+pub unsafe fn init() -> ! {
 	dbg!("limine", "boot");
 
-	let smp_response = get_response!(mut REQ_SMP, "smp");
 	let module_response = get_response!(REQ_MODULES, "module listing");
 	let hhdm_response = get_response!(REQ_HHDM, "hhdm offset");
 	let _time_response = get_response!(REQ_TIME, "bios timestamp response");
@@ -160,8 +122,6 @@ pub unsafe fn init<C: CpuId>() -> ! {
 	let Some(kernel_module) = kernel_module else {
 		panic!("failed to find kernel module: {KERNEL_PATH:?}");
 	};
-
-	let num_instances = smp_response.cpus().len() as u64;
 
 	let memory_regions = make_memory_map_iterator();
 
@@ -182,21 +142,9 @@ pub unsafe fn init<C: CpuId>() -> ! {
 		None
 	};
 
-	// Find the primary CPU first, and error if we don't have it.
-	let primary_cpu_id = C::bootstrap_cpu_id(smp_response).expect("no bootstrap CPU found");
-
-	for cpu in smp_response.cpus_mut() {
-		if C::cpu_id(cpu) != primary_cpu_id {
-			dbg!("limine", "booting seconary cpu: {}", C::cpu_id(cpu));
-			cpu.goto_address.write(trampoline_to_init::<C>);
-		}
-	}
-
 	// Finally, jump the bootstrap core to the kernel.
-	dbg!("limine", "booting primary cpu: {primary_cpu_id}");
-	initialize_kernel(PrebootConfig::<LiminePrimaryConfig>::Primary {
-		core_id: primary_cpu_id,
-		num_instances,
+	dbg!("limine", "booting primary cpu");
+	oro_boot::boot_to_kernel(PrebootConfig::<LiminePrimaryConfig> {
 		#[allow(clippy::cast_possible_truncation)]
 		physical_address_translator: OffsetPhysicalAddressTranslator::new(
 			hhdm_response.offset() as usize
@@ -236,27 +184,6 @@ fn make_memory_map_iterator() -> LimineMemoryRegionIterator {
 		.filter(|region: &LimineMemoryRegion| region.length() > 0)
 }
 
-/// # Safety
-/// Must ONLY be called ONCE by SECONDARY cores. DO NOT CALL FROM PRIMARY.
-/// Call `initialize_kernel` directly from the bootstrap (primary) core instead.
-unsafe extern "C" fn trampoline_to_init<C: CpuId>(smp: &Cpu) -> ! {
-	let hhdm_res = get_response!(REQ_HHDM, "hhdm offset");
-
-	initialize_kernel(PrebootConfig::Secondary {
-		core_id: C::cpu_id(smp),
-		#[allow(clippy::cast_possible_truncation)]
-		physical_address_translator: OffsetPhysicalAddressTranslator::new(
-			hhdm_res.offset() as usize
-		),
-	})
-}
-
-/// # Safety
-/// MUST be called EXACTLY ONCE per core.
-unsafe fn initialize_kernel(preboot_config: PrebootConfig<LiminePrimaryConfig>) -> ! {
-	oro_boot::boot_to_kernel::<_>(preboot_config);
-}
-
 /// Panic handler for the Limine bootloader stage.
 ///
 /// # Safety
@@ -271,7 +198,7 @@ pub unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 /// in initializing and booting the Oro kernel.
 struct LiminePrimaryConfig;
 
-impl PrebootPrimaryConfig for LiminePrimaryConfig {
+impl PrebootPlatformConfig for LiminePrimaryConfig {
 	type MemoryRegion = LimineMemoryRegion;
 	type MemoryRegionIterator = LimineMemoryRegionIterator;
 	type PhysicalAddressTranslator = OffsetPhysicalAddressTranslator;

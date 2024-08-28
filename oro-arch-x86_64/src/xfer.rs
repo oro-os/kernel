@@ -23,10 +23,6 @@ pub struct TransferToken {
 	pub stack_ptr:       usize,
 	/// The physical address of the root page table entry for the kernel.
 	pub page_table_phys: u64,
-	/// The core ID.
-	pub core_id:         u64,
-	/// Whether or not the core is the primary core.
-	pub core_is_primary: bool,
 }
 
 /// Returns the target virtual address of the stubs based on

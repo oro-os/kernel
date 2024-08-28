@@ -11,7 +11,7 @@ use crate::{
 		pfa::alloc::{PageFrameAllocate, PageFrameFree},
 		translate::PhysicalAddressTranslator,
 	},
-	preboot::{PrebootConfig, PrebootPrimaryConfig},
+	preboot::{PrebootConfig, PrebootPlatformConfig},
 };
 use core::fmt;
 use oro_common_elf::{ElfClass, ElfEndianness, ElfMachine};
@@ -110,7 +110,7 @@ pub unsafe trait Arch {
 		config: &PrebootConfig<C>,
 		alloc: &mut A,
 	) where
-		C: PrebootPrimaryConfig,
+		C: PrebootPlatformConfig,
 		A: PageFrameAllocate + PageFrameFree;
 
 	/// Maps the pages in an address space segment such that they are
@@ -134,7 +134,7 @@ pub unsafe trait Arch {
 		config: &PrebootConfig<C>,
 		alloc: &mut A,
 	) where
-		C: PrebootPrimaryConfig,
+		C: PrebootPlatformConfig,
 		A: PageFrameAllocate + PageFrameFree;
 
 	/// Prepares the CPU for an execution control transfer.
@@ -184,7 +184,7 @@ pub unsafe trait Arch {
 	) -> Self::TransferToken
 	where
 		A: PageFrameAllocate + PageFrameFree,
-		C: PrebootPrimaryConfig;
+		C: PrebootPlatformConfig;
 
 	/// Transfers control to the kernel.
 	///
@@ -222,7 +222,6 @@ pub unsafe trait Arch {
 		mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
 		translator: &P,
 		alloc: &mut A,
-		is_primary: bool,
 	) where
 		A: PageFrameAllocate + PageFrameFree,
 		P: PhysicalAddressTranslator;

@@ -5,7 +5,7 @@ use crate::mem::{region::MemoryRegion, translate::PhysicalAddressTranslator};
 
 /// Provides the types used by the primary core configuration values
 /// specified in [`PrebootConfig`].
-pub trait PrebootPrimaryConfig {
+pub trait PrebootPlatformConfig {
 	/// The type of memory region provided by the pre-boot environment.
 	type MemoryRegion: MemoryRegion + Sized + 'static;
 
@@ -19,66 +19,23 @@ pub trait PrebootPrimaryConfig {
 	const BAD_MEMORY_REPORTED: bool;
 }
 
-/// Provides the initialization routine with configuration information for
-/// each of the cores.
+/// Provides the initialization routine with configuration information.
 ///
 /// # Safety
 /// See `oro_boot::boot_to_kernel()` for information regarding the safe use of this enum.
-pub enum PrebootConfig<P>
+pub struct PrebootConfig<P>
 where
-	P: PrebootPrimaryConfig,
+	P: PrebootPlatformConfig,
 {
-	/// The primary core configuration
-	Primary {
-		/// The **unique** core ID
-		core_id: u64,
-		/// The number of instances that are being booted
-		num_instances: u64,
-		/// An iterator over all memory regions available to the system
-		memory_regions: P::MemoryRegionIterator,
-		/// The physical-to-virtual address translator for the core
-		physical_address_translator: P::PhysicalAddressTranslator,
-		/// The module definition for the Oro kernel itself.
-		kernel_module: ModuleDef,
-		/// For systems that support ACPI, the physical address of the RSDP.
-		/// Must be relative to the linear offset base.
-		rsdp: Option<u64>,
-	},
-	/// A secondary core configuration
-	Secondary {
-		/// The **unique** core ID
-		core_id: u64,
-		/// The physical-to-virtual address translator for the core
-		physical_address_translator: P::PhysicalAddressTranslator,
-	},
-}
-
-impl<P> PrebootConfig<P>
-where
-	P: PrebootPrimaryConfig,
-{
-	/// Returns the core ID of the configuration.
-	pub fn core_id(&self) -> u64 {
-		match self {
-			PrebootConfig::Primary { core_id, .. } | PrebootConfig::Secondary { core_id, .. } => {
-				*core_id
-			}
-		}
-	}
-
-	/// Returns a reference to the physical-to-virtual address translator for the core.
-	pub fn physical_address_translator(&self) -> &P::PhysicalAddressTranslator {
-		match self {
-			PrebootConfig::Primary {
-				physical_address_translator,
-				..
-			}
-			| PrebootConfig::Secondary {
-				physical_address_translator,
-				..
-			} => physical_address_translator,
-		}
-	}
+	/// An iterator over all memory regions available to the system
+	pub memory_regions: P::MemoryRegionIterator,
+	/// The physical-to-virtual address translator for the core
+	pub physical_address_translator: P::PhysicalAddressTranslator,
+	/// The module definition for the Oro kernel itself.
+	pub kernel_module: ModuleDef,
+	/// For systems that support ACPI, the physical address of the RSDP.
+	/// Must be relative to the linear offset base.
+	pub rsdp: Option<u64>,
 }
 
 /// A module definition, providing base locations, lengths, and
