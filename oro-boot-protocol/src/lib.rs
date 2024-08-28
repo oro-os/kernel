@@ -132,8 +132,6 @@ macros::oro_boot_protocol! {
 	}
 
 	/// **THIS IS TEMPORARY AND WILL BE REMOVED.**
-	///
-	/// Temporary request for the PFA head. This is to be removed
 	/// after the kernel boot sequence is refactored.
 	b"ORO_PFAH" => PfaHead {
 		0 => {

@@ -190,10 +190,12 @@ dependencies = [
 name = "oro-arch-aarch64"
 version = "0.0.0"
 dependencies = [
+ "oro-boot-protocol",
  "oro-common",
  "oro-common-assertions",
  "oro-common-elf",
  "oro-common-proc",
+ "oro-kernel",
  "oro-serial-pl011",
 ]
 
@@ -202,9 +204,11 @@ name = "oro-arch-x86_64"
 version = "0.0.0"
 dependencies = [
  "oro-acpi",
+ "oro-boot-protocol",
  "oro-common",
  "oro-common-assertions",
  "oro-common-elf",
+ "oro-kernel",
  "uart_16550",
 ]
 
@@ -281,10 +285,6 @@ dependencies = [
 name = "oro-kernel"
 version = "0.0.0"
 dependencies = [
- "oro-arch",
- "oro-arch-aarch64",
- "oro-arch-x86_64",
- "oro-boot-protocol",
  "oro-common",
  "oro-common-assertions",
 ]
