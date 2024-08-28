@@ -19,7 +19,7 @@ members = [
 	"oro-common-assertions",
 	"oro-common-elf",
 	"oro-common-proc",
-	"oro-common-proc/tests",
+	"oro-common-proc-macros",
 	"oro-kernel",
 	"oro-serial-pl011",
 ]
@@ -34,6 +34,7 @@ oro-boot-protocol = { path = "oro-boot-protocol" }
 oro-common = { path = "oro-common" }
 oro-common-assertions = { path = "oro-common-assertions" }
 oro-common-proc = { path = "oro-common-proc" }
+oro-common-proc-macros = { path = "oro-common-proc-macros" }
 oro-common-elf = { path = "oro-common-elf" }
 oro-kernel = { path = "oro-kernel" }
 oro-serial-pl011 = { path = "oro-serial-pl011" }

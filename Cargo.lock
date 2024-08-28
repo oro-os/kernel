@@ -263,17 +263,17 @@ dependencies = [
 name = "oro-common-proc"
 version = "0.0.0"
 dependencies = [
+ "oro-common-proc-macros",
+]
+
+[[package]]
+name = "oro-common-proc-macros"
+version = "0.0.0"
+dependencies = [
  "convert_case",
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "oro-common-proc-tests"
-version = "0.0.0"
-dependencies = [
- "oro-common-proc",
 ]
 
 [[package]]

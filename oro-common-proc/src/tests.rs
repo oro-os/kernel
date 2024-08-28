@@ -2,7 +2,7 @@
 #![cfg_attr(not(test), no_std)]
 #![cfg(test)]
 
-use oro_common_proc::*;
+use crate::*;
 
 #[test]
 fn paste_noop() {
