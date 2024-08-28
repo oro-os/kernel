@@ -29,5 +29,5 @@ pub use oro_common::{
 		region::{MemoryRegion, MemoryRegionType},
 		translate::{OffsetPhysicalAddressTranslator, PhysicalAddressTranslator},
 	},
-	preboot::{ModuleDef, PrebootConfig, PrebootPrimaryConfig},
+	preboot::{ModuleDef, PrebootConfig, PrebootPlatformConfig},
 };

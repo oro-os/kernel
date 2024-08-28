@@ -19,7 +19,7 @@ use oro_common::{
 		pfa::alloc::{PageFrameAllocate, PageFrameFree},
 		translate::PhysicalAddressTranslator,
 	},
-	preboot::{PrebootConfig, PrebootPrimaryConfig},
+	preboot::{PrebootConfig, PrebootPlatformConfig},
 	sync::spinlock::unfair_critical::UnfairCriticalSpinlock,
 };
 use oro_common_elf::{ElfClass, ElfEndianness, ElfMachine};
@@ -85,10 +85,10 @@ unsafe impl Arch for X86_64 {
 		config: &PrebootConfig<C>,
 		alloc: &mut A,
 	) where
-		C: PrebootPrimaryConfig,
+		C: PrebootPlatformConfig,
 		A: PageFrameAllocate + PageFrameFree,
 	{
-		let translator = config.physical_address_translator();
+		let translator = &config.physical_address_translator;
 
 		// Allocate and write the GDT.
 		let gdt_page = alloc.allocate().expect("failed to allocate page for GDT");
@@ -134,7 +134,7 @@ unsafe impl Arch for X86_64 {
 		let dest = stubs_base as *mut u8;
 
 		let current_mapper =
-			Self::AddressSpace::current_supervisor_space(config.physical_address_translator());
+			Self::AddressSpace::current_supervisor_space(&config.physical_address_translator);
 
 		for page_offset in 0..num_pages {
 			let phys = alloc
@@ -180,10 +180,10 @@ unsafe impl Arch for X86_64 {
 		config: &PrebootConfig<C>,
 		alloc: &mut A,
 	) where
-		C: PrebootPrimaryConfig,
+		C: PrebootPlatformConfig,
 		A: PageFrameAllocate + PageFrameFree,
 	{
-		let translator = config.physical_address_translator();
+		let translator = &config.physical_address_translator;
 
 		segment
 			.make_top_level_present(mapper, alloc, translator)
@@ -198,9 +198,9 @@ unsafe impl Arch for X86_64 {
 	) -> Self::TransferToken
 	where
 		A: PageFrameAllocate + PageFrameFree,
-		C: PrebootPrimaryConfig,
+		C: PrebootPlatformConfig,
 	{
-		let translator = config.physical_address_translator();
+		let translator = &config.physical_address_translator;
 
 		// Allocate a stack for the kernel
 		let last_stack_page_virt = AddressSpaceLayout::kernel_stack().range().1 & !0xFFF;
@@ -252,8 +252,6 @@ unsafe impl Arch for X86_64 {
 		TransferToken {
 			stack_ptr:       last_stack_page_virt,
 			page_table_phys: mapper.base_phys,
-			core_id:         config.core_id(),
-			core_is_primary: matches!(config, PrebootConfig::Primary { .. }),
 		}
 	}
 
@@ -265,7 +263,6 @@ unsafe impl Arch for X86_64 {
 		mapper: &<<Self as Arch>::AddressSpace as AddressSpace>::SupervisorHandle,
 		translator: &P,
 		alloc: &mut A,
-		is_primary: bool,
 	) where
 		A: PageFrameAllocate + PageFrameFree,
 		P: PhysicalAddressTranslator,
@@ -273,68 +270,49 @@ unsafe impl Arch for X86_64 {
 		// Unmap and reclaim anything in the lower half.
 		let l4 = &mut *(translator.to_virtual_addr(mapper.base_phys) as *mut PageTable);
 
-		if is_primary {
-			for l4_idx in 0..=255 {
-				let l4_entry = &mut l4[l4_idx];
-				if l4_entry.present() {
-					let l3 =
-						&mut *(translator.to_virtual_addr(l4_entry.address()) as *mut PageTable);
+		for l4_idx in 0..=255 {
+			let l4_entry = &mut l4[l4_idx];
+			if l4_entry.present() {
+				let l3 = &mut *(translator.to_virtual_addr(l4_entry.address()) as *mut PageTable);
 
-					for l3_idx in 0..512 {
-						let l3_entry = &mut l3[l3_idx];
-						if l3_entry.present() {
-							let l2 = &mut *(translator.to_virtual_addr(l3_entry.address())
-								as *mut PageTable);
+				for l3_idx in 0..512 {
+					let l3_entry = &mut l3[l3_idx];
+					if l3_entry.present() {
+						let l2 = &mut *(translator.to_virtual_addr(l3_entry.address())
+							as *mut PageTable);
 
-							for l2_idx in 0..512 {
-								let l2_entry = &mut l2[l2_idx];
-								if l2_entry.present() {
-									let l1 = &mut *(translator.to_virtual_addr(l2_entry.address())
-										as *mut PageTable);
+						for l2_idx in 0..512 {
+							let l2_entry = &mut l2[l2_idx];
+							if l2_entry.present() {
+								let l1 = &mut *(translator.to_virtual_addr(l2_entry.address())
+									as *mut PageTable);
 
-									for l1_idx in 0..512 {
-										let l1_entry = &mut l1[l1_idx];
-										if l1_entry.present() {
-											alloc.free(l1_entry.address());
-										}
+								for l1_idx in 0..512 {
+									let l1_entry = &mut l1[l1_idx];
+									if l1_entry.present() {
+										alloc.free(l1_entry.address());
 									}
-
-									let _ = l1;
-									alloc.free(l2_entry.address());
 								}
+
+								let _ = l1;
+								alloc.free(l2_entry.address());
 							}
-
-							let _ = l2;
-							alloc.free(l3_entry.address());
 						}
-					}
 
-					let _ = l3;
-					alloc.free(l4_entry.address());
+						let _ = l2;
+						alloc.free(l3_entry.address());
+					}
 				}
 
-				l4_entry.reset();
+				let _ = l3;
+				alloc.free(l4_entry.address());
 			}
 
-			// Make sure other cores see writes.
-			Self::strong_memory_barrier();
-		} else {
-			// We simply need to reset the L4 entries in the lower half.
-			// All of the addresses they have pointed to have been freed
-			// by the primary.
-			//
-			// SAFETY(qix-): The specification of this method guarantees that
-			// SAFETY(qix-): this method is called on the primary core first.
-			// SAFETY(qix-): This means that the primary core has already freed
-			// SAFETY(qix-): all of the pages that the secondary core's L4
-			// SAFETY(qix-): entries point to, and those entries are now zombies.
-			// SAFETY(qix-): We can further guarantee this is the case since
-			// SAFETY(qix-): the secondary cores shallow clone the L4 table when
-			// SAFETY(qix-): bootstrapping.
-			for l4_idx in 0..=255 {
-				l4[l4_idx].reset();
-			}
+			l4_entry.reset();
 		}
+
+		// Make sure other cores see writes.
+		Self::strong_memory_barrier();
 
 		// Flush the TLB
 		asm!(
@@ -367,88 +345,4 @@ pub struct Config {
 	/// have its linear offset un-applied to it before
 	/// being passed to this field.
 	pub rdsp_phys: u64,
-}
-
-/// Initializes the primary core in the preboot environment.
-///
-/// This function MUST be called by preboot environments prior
-/// to starting any initialization sequences.
-///
-/// It is assumed the preboot environment initializes itself on
-/// a single (primary) core prior to beginning execution on other
-/// cores. It is assumed that the preboot routine will properly
-/// initialize other cores and/or copy over the base settings
-/// of the primary core to them prior to jumping to the kernel.
-///
-/// Because of this, there is no `init_preboot_secondary` function.
-///
-/// This function *may* be reserved (i.e. do nothing) on certain
-/// platforms. However, it is still necessary that the function
-/// be called to be future-proof, as it may change at a later date.
-///
-/// # Safety
-/// This function MUST be called EXACTLY once.
-///
-/// The kernel MUST NOT call this function.
-pub unsafe fn init_preboot_primary() {
-	X86_64::disable_interrupts();
-
-	// Initialize the serial port
-	// NOTE(qix-): This is an early-development-stage stop-gap solution
-	// NOTE(qix-): to the logging and debugging problem. This will be
-	// NOTE(qix-): replaced with a proper pre-boot module loading system
-	// NOTE(qix-): in the future.
-	SERIAL.lock::<X86_64>().init();
-}
-
-/// Initializes the primary core in the kernel.
-///
-/// This function *may* be reserved (i.e. do nothing) on certain
-/// platforms. However, it is still necessary that the function
-/// be called to be future-proof, as it may change at a later date.
-///
-/// # Safety
-/// This function MUST be called EXACTLY once.
-///
-/// This function MUST only be called on the primary core.
-///
-/// This function MUST NOT be called from the preboot environment.
-#[allow(clippy::missing_panics_doc)]
-pub unsafe fn init_kernel_primary<P: PhysicalAddressTranslator>(rsdp_phys: u64, pat: P) {
-	X86_64::disable_interrupts();
-
-	let rsdp_virt = pat.to_virtual_addr(rsdp_phys);
-	let rsdp_raw = &*(rsdp_virt as *const ::oro_acpi::sys::acpi_table_rsdp);
-	oro_common::dbg!(X86_64, "DEBUG", "RSDP RAW: {:#?}", rsdp_raw);
-	let rsdp = ::oro_acpi::Rsdp::get(rsdp_phys, pat).expect("failed to get/validate RSDP");
-	oro_common::dbg!(X86_64, "DEBUG", "RSDP WRAPPED: {:#?}", rsdp);
-
-	let sdt = rsdp.sdt().expect("failed to get/validate SDT");
-	let fadt = sdt
-		.find::<::oro_acpi::Fadt<_>>()
-		.expect("failed to find/validate FADT");
-	oro_common::dbg!(X86_64, "DEBUG", "FADT: {:#?}", fadt);
-
-	init_kernel_secondary();
-}
-
-/// Initializes a seconary core in the kernel.
-///
-/// This function *may* be reserved (i.e. do nothing) on certain
-/// platforms. However, it is still necessary that the function
-/// be called to be future-proof, as it may change at a later date.
-///
-/// # Safety
-/// This function MUST be called EXACTLY once for each secondary core.
-/// If no secondary cores are present, this function MUST NOT be called.
-///
-/// This function MUST only be called on secondary cores.
-///
-/// This function MUST NOT be called from the preboot environment.
-///
-/// This function MAY block until `init_kernel_primary()` has completed.
-pub unsafe fn init_kernel_secondary() {
-	X86_64::disable_interrupts();
-
-	// TODO(qix-): Wait for latch barrier
 }

@@ -143,7 +143,6 @@ pub unsafe fn boot() -> ! {
 			&kernel_addr_space,
 			&translator,
 			&mut *pfa,
-			is_primary_core,
 		);
 	}}
 
