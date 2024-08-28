@@ -36,7 +36,7 @@ pub fn derive_enum_iterator(input: proc_macro::TokenStream) -> proc_macro::Token
 			}
 
 			#[automatically_derived]
-			impl ::oro_common::proc::EnumIterator for #name {
+			impl ::oro_common_proc::EnumIterator for #name {
 				fn iter_all() -> impl Iterator<Item = Self> + Sized + 'static {
 					EnumIteratorImpl { index: 0 }
 				}

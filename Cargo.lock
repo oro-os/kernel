@@ -193,6 +193,7 @@ dependencies = [
  "oro-common",
  "oro-common-assertions",
  "oro-common-elf",
+ "oro-common-proc",
  "oro-serial-pl011",
 ]
 
