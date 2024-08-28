@@ -3,7 +3,6 @@
 
 #![allow(clippy::module_name_repetitions)]
 
-use crate::arch::Arch;
 use core::{
 	cell::UnsafeCell,
 	sync::atomic::{AtomicBool, Ordering},
@@ -15,7 +14,7 @@ use core::{
 ///
 /// Note that this implementation does _not_ put the system into a critical section.
 /// If that behavior is desired, consider using an
-///  [`crate::sync::spinlock::unfair_critical::UnfairCriticalSpinlock`] instead.
+/// [`crate::spinlock::unfair_critical::UnfairCriticalSpinlock`] instead.
 pub struct UnfairSpinlock<T> {
 	/// The value protected by the lock.
 	value: UnsafeCell<T>,
@@ -43,9 +42,7 @@ impl<T> UnfairSpinlock<T> {
 	/// This function is not reentrant.
 	#[inline]
 	#[must_use]
-	pub unsafe fn try_lock<A: Arch>(&self) -> Option<UnfairSpinlockGuard<T>> {
-		A::strong_memory_barrier();
-
+	pub unsafe fn try_lock(&self) -> Option<UnfairSpinlockGuard<T>> {
 		self.owned
 			.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
 			.ok()
@@ -63,9 +60,9 @@ impl<T> UnfairSpinlock<T> {
 	/// This function is not reentrant.
 	#[inline]
 	#[must_use]
-	pub unsafe fn lock<A: Arch>(&self) -> UnfairSpinlockGuard<T> {
+	pub unsafe fn lock(&self) -> UnfairSpinlockGuard<T> {
 		loop {
-			if let Some(guard) = self.try_lock::<A>() {
+			if let Some(guard) = self.try_lock() {
 				return guard;
 			}
 		}
@@ -83,13 +80,6 @@ pub struct UnfairSpinlockGuard<'a, T> {
 impl<T> Drop for UnfairSpinlockGuard<'_, T> {
 	#[inline]
 	fn drop(&mut self) {
-		// NOTE(qix-): Please do not re-order. It is important
-		// NOTE(qix-): that the interrupt state is restored after
-		// NOTE(qix-): the lock is released, as there may be
-		// NOTE(qix-): an interrupt that comes in between the
-		// NOTE(qix-): lock release and the interrupt state
-		// NOTE(qix-): restoration, causing starvation of other cores
-		// NOTE(qix-): for the duration of the interrupt handler.
 		self.lock.store(false, Ordering::Release);
 	}
 }

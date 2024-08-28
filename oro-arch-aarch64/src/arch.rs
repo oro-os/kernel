@@ -19,9 +19,9 @@ use oro_common::{
 		translate::PhysicalAddressTranslator,
 	},
 	preboot::{PrebootConfig, PrebootPlatformConfig},
-	sync::spinlock::unfair_critical::UnfairCriticalSpinlock,
 };
 use oro_common_elf::{ElfClass, ElfEndianness, ElfMachine};
+use oro_common_sync::spinlock::unfair_critical::UnfairCriticalSpinlock;
 use oro_serial_pl011 as pl011;
 
 /// The number of pages to allocate for the kernel stack.
@@ -276,4 +276,21 @@ pub struct Config {
 	/// This can be a module or baked-in value, but it is
 	/// required to a contiguous physical block of memory.
 	pub dtb_phys: u64,
+}
+
+// XXX(qix-): Temporary workaround.
+impl oro_common_sync::spinlock::unfair_critical::InterruptController for Aarch64 {
+	type InterruptState = <Self as Arch>::InterruptState;
+
+	fn disable_interrupts() {
+		<Self as Arch>::disable_interrupts();
+	}
+
+	fn fetch_interrupts() -> Self::InterruptState {
+		<Self as Arch>::fetch_interrupts()
+	}
+
+	fn restore_interrupts(state: Self::InterruptState) {
+		<Self as Arch>::restore_interrupts(state);
+	}
 }

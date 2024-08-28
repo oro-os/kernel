@@ -26,5 +26,4 @@ pub mod dbg;
 pub mod interrupt;
 pub mod mem;
 pub mod preboot;
-pub mod sync;
 pub mod util;

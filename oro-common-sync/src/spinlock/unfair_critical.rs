@@ -4,12 +4,27 @@
 
 #![allow(clippy::module_name_repetitions)]
 
-use crate::arch::Arch;
 use core::{
 	cell::UnsafeCell,
 	marker::PhantomData,
 	sync::atomic::{AtomicBool, Ordering},
 };
+
+/// Allows for an architecture-specific means of disabling and re-enabling
+/// interrupts.
+pub trait InterruptController {
+	/// The interrupt state for the architecture.
+	type InterruptState: Copy;
+
+	/// Disables interrupts.
+	fn disable_interrupts();
+
+	/// Restores interrupts to the given state.
+	fn restore_interrupts(state: Self::InterruptState);
+
+	/// Fetches the current interrupt state.
+	fn fetch_interrupts() -> Self::InterruptState;
+}
 
 /// The unfair critical spinlock is a simple spinlock that does not guarantee
 /// fairness and may result in starvation. It is used in the kernel for its
@@ -51,15 +66,15 @@ impl<T> UnfairCriticalSpinlock<T> {
 	/// This function is not reentrant.
 	#[inline]
 	#[must_use]
-	pub unsafe fn try_lock<A: Arch>(&self) -> Option<UnfairCriticalSpinlockGuard<A, T>> {
-		A::strong_memory_barrier();
-
+	pub unsafe fn try_lock<C: InterruptController>(
+		&self,
+	) -> Option<UnfairCriticalSpinlockGuard<C, T>> {
 		self.owned
 			.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
 			.ok()
 			.map(|_| {
-				let interrupt_state = A::fetch_interrupts();
-				A::disable_interrupts();
+				let interrupt_state = C::fetch_interrupts();
+				C::disable_interrupts();
 
 				UnfairCriticalSpinlockGuard {
 					lock: &self.owned,
@@ -79,12 +94,12 @@ impl<T> UnfairCriticalSpinlock<T> {
 	/// This function is not reentrant.
 	#[inline]
 	#[must_use]
-	pub unsafe fn lock<A: Arch>(&self) -> UnfairCriticalSpinlockGuard<A, T> {
-		let interrupt_state = A::fetch_interrupts();
-		A::disable_interrupts();
+	pub unsafe fn lock<C: InterruptController>(&self) -> UnfairCriticalSpinlockGuard<C, T> {
+		let interrupt_state = C::fetch_interrupts();
+		C::disable_interrupts();
 
 		loop {
-			if let Some(guard) = self.try_lock_with_interrupt_state::<A>(interrupt_state) {
+			if let Some(guard) = self.try_lock_with_interrupt_state::<C>(interrupt_state) {
 				return guard;
 			}
 		}
@@ -99,10 +114,10 @@ impl<T> UnfairCriticalSpinlock<T> {
 	/// This function is not reentrant.
 	#[inline]
 	#[must_use]
-	unsafe fn try_lock_with_interrupt_state<A: Arch>(
+	unsafe fn try_lock_with_interrupt_state<C: InterruptController>(
 		&self,
-		interrupt_state: A::InterruptState,
-	) -> Option<UnfairCriticalSpinlockGuard<A, T>> {
+		interrupt_state: C::InterruptState,
+	) -> Option<UnfairCriticalSpinlockGuard<C, T>> {
 		self.owned
 			.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
 			.ok()
@@ -118,19 +133,19 @@ impl<T> UnfairCriticalSpinlock<T> {
 }
 
 /// A lock held by an [`UnfairCriticalSpinlock`].
-pub struct UnfairCriticalSpinlockGuard<'a, A: Arch, T> {
+pub struct UnfairCriticalSpinlockGuard<'a, C: InterruptController, T> {
 	/// The interrupt state before the lock was acquired.
-	interrupt_state: A::InterruptState,
+	interrupt_state: C::InterruptState,
 	/// A handle to the `owned` flag in the spinlock.
 	lock: &'a AtomicBool,
 	/// The value protected by the lock.
 	value: *mut T,
 	/// The architecture this spinlock guard is for.
 	/// Used to restore interrupts on drop.
-	_arch: PhantomData<A>,
+	_arch: PhantomData<C>,
 }
 
-impl<A: Arch, T> Drop for UnfairCriticalSpinlockGuard<'_, A, T> {
+impl<C: InterruptController, T> Drop for UnfairCriticalSpinlockGuard<'_, C, T> {
 	#[inline]
 	fn drop(&mut self) {
 		// NOTE(qix-): Please do not re-order. It is important
@@ -141,7 +156,7 @@ impl<A: Arch, T> Drop for UnfairCriticalSpinlockGuard<'_, A, T> {
 		// NOTE(qix-): restoration, causing starvation of other cores
 		// NOTE(qix-): for the duration of the interrupt handler.
 		self.lock.store(false, Ordering::Release);
-		A::restore_interrupts(self.interrupt_state);
+		C::restore_interrupts(self.interrupt_state);
 	}
 }
 
@@ -155,7 +170,7 @@ where
 	}
 }
 
-impl<A: Arch, T> core::ops::Deref for UnfairCriticalSpinlockGuard<'_, A, T> {
+impl<C: InterruptController, T> core::ops::Deref for UnfairCriticalSpinlockGuard<'_, C, T> {
 	type Target = T;
 
 	#[inline]
@@ -164,7 +179,7 @@ impl<A: Arch, T> core::ops::Deref for UnfairCriticalSpinlockGuard<'_, A, T> {
 	}
 }
 
-impl<A: Arch, T> core::ops::DerefMut for UnfairCriticalSpinlockGuard<'_, A, T> {
+impl<C: InterruptController, T> core::ops::DerefMut for UnfairCriticalSpinlockGuard<'_, C, T> {
 	#[inline]
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		unsafe { &mut *self.value }

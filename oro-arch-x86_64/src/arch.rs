@@ -20,9 +20,9 @@ use oro_common::{
 		translate::PhysicalAddressTranslator,
 	},
 	preboot::{PrebootConfig, PrebootPlatformConfig},
-	sync::spinlock::unfair_critical::UnfairCriticalSpinlock,
 };
 use oro_common_elf::{ElfClass, ElfEndianness, ElfMachine};
+use oro_common_sync::spinlock::unfair_critical::UnfairCriticalSpinlock;
 use uart_16550::SerialPort;
 
 /// The number of pages to allocate for the kernel stack.
@@ -345,4 +345,21 @@ pub struct Config {
 	/// have its linear offset un-applied to it before
 	/// being passed to this field.
 	pub rdsp_phys: u64,
+}
+
+// XXX(qix-): Temporary workaround.
+impl oro_common_sync::spinlock::unfair_critical::InterruptController for X86_64 {
+	type InterruptState = <Self as Arch>::InterruptState;
+
+	fn disable_interrupts() {
+		<Self as Arch>::disable_interrupts();
+	}
+
+	fn fetch_interrupts() -> Self::InterruptState {
+		<Self as Arch>::fetch_interrupts()
+	}
+
+	fn restore_interrupts(state: Self::InterruptState) {
+		<Self as Arch>::restore_interrupts(state);
+	}
 }

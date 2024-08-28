@@ -195,6 +195,7 @@ dependencies = [
  "oro-common-assertions",
  "oro-common-elf",
  "oro-common-proc",
+ "oro-common-sync",
  "oro-kernel",
  "oro-serial-pl011",
 ]
@@ -208,6 +209,7 @@ dependencies = [
  "oro-common",
  "oro-common-assertions",
  "oro-common-elf",
+ "oro-common-sync",
  "oro-kernel",
  "uart_16550",
 ]
@@ -251,6 +253,7 @@ dependencies = [
  "oro-common-assertions",
  "oro-common-elf",
  "oro-common-proc",
+ "oro-common-sync",
 ]
 
 [[package]]
@@ -280,6 +283,10 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "oro-common-sync"
+version = "0.0.0"
 
 [[package]]
 name = "oro-kernel"
