@@ -1,7 +1,7 @@
 [package]
-name = "oro-serial-pl011"
+name = "oro-debug-uart16550"
 version.workspace = true
-description = "PL011 UART driver for memory-mapped serial devices, used for Oro kernel debug output"
+description = "16550 UART driver for x86_64 I/O port serial output, used for Oro kernel debug output"
 publish = false
 edition = "2021"
 authors = [
@@ -12,8 +12,8 @@ repository = "https://github.com/oro-os/kernel"
 license = "MPL-2.0"
 
 [dependencies]
-oro-common.workspace = true
-volatile-register.workspace = true
+oro-common-sync.workspace = true
+uart_16550.workspace = true
 
 [lints]
 workspace = true

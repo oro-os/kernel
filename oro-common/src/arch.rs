@@ -13,7 +13,6 @@ use crate::{
 	},
 	preboot::{PrebootConfig, PrebootPlatformConfig},
 };
-use core::fmt;
 use oro_common_elf::{ElfClass, ElfEndianness, ElfMachine};
 
 /// Every architecture that Oro supports must implement this trait.
@@ -251,24 +250,4 @@ pub unsafe trait Arch {
 	///
 	/// This method **must not panic**.
 	unsafe fn initialize_interrupts<H: InterruptHandler>();
-
-	/// Logs a message to the debug logger (typically a serial port).
-	///
-	/// The message should be newline-terminated for streams,
-	/// or otherwise 'chunked' as a single message for non-streams.
-	///
-	/// This should NOT be used directly; instead, use the `dbg!` et al
-	/// macros from the [`oro-common`] crate.
-	///
-	/// May panic.
-	///
-	/// # Safety
-	/// Only call this function when you are certain that it is safe
-	/// to do so. You should probably be using the [`crate::dbg!`] macro instead.
-	///
-	/// Implementations must ensure
-	///
-	/// 1. the shared resource, if any, is properly guarded.
-	/// 2. no recursive calls to `log` are made (e.g. by calling `dbg!` from within `log`).
-	fn log(message: fmt::Arguments);
 }

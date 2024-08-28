@@ -5,6 +5,7 @@ This python script will attempt to configure the paths to the
 Oro kernel debug suite and load them when GDB loads.
 """
 
+import gdb  # type: ignore
 import sys
 from os import path, getenv
 

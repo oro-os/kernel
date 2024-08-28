@@ -1,12 +1,5 @@
-//! PL011 UART support used for debugging output on certain architectures/platforms.
-//!
-//! Note that this is a very primitive implementation, suitable for only what
-//! the Oro kernel needs.
-#![no_std]
-#![allow(internal_features, clippy::missing_docs_in_private_items)]
-#![feature(core_intrinsics)]
+#![allow(dead_code, clippy::missing_docs_in_private_items)]
 
-use oro_common::{arch::Arch, unsafe_precondition};
 use volatile_register::{RO, RW, WO};
 
 const FR_BUSY: u32 = 1 << 3;
@@ -106,7 +99,7 @@ impl PL011 {
 	/// Caller must ensure that `base` is aligned to a 4-byte boundary
 	/// and points to the base register block of the PL011 UART.
 	#[must_use]
-	pub unsafe fn new<A: Arch>(
+	pub unsafe fn new(
 		base: usize,
 		base_clock: u32,
 		baud_rate: u32,
@@ -114,12 +107,6 @@ impl PL011 {
 		stop_bits: StopBits,
 		parity: Parity,
 	) -> Self {
-		unsafe_precondition!(
-			A,
-			base % 4 == 0,
-			"base must be aligned to a 4-byte boundary"
-		);
-
 		let s = Self {
 			registers: base as *const RegisterBlock,
 			base_clock,

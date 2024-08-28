@@ -197,7 +197,6 @@ dependencies = [
  "oro-common-proc",
  "oro-common-sync",
  "oro-kernel",
- "oro-serial-pl011",
 ]
 
 [[package]]
@@ -211,7 +210,6 @@ dependencies = [
  "oro-common-elf",
  "oro-common-sync",
  "oro-kernel",
- "uart_16550",
 ]
 
 [[package]]
@@ -223,6 +221,7 @@ dependencies = [
  "oro-common",
  "oro-common-assertions",
  "oro-common-elf",
+ "oro-debug",
 ]
 
 [[package]]
@@ -244,6 +243,7 @@ dependencies = [
  "oro-arch-aarch64",
  "oro-arch-x86_64",
  "oro-boot",
+ "oro-debug",
 ]
 
 [[package]]
@@ -254,6 +254,7 @@ dependencies = [
  "oro-common-elf",
  "oro-common-proc",
  "oro-common-sync",
+ "oro-debug",
 ]
 
 [[package]]
@@ -289,19 +290,36 @@ name = "oro-common-sync"
 version = "0.0.0"
 
 [[package]]
+name = "oro-debug"
+version = "0.0.0"
+dependencies = [
+ "oro-common-proc",
+ "oro-debug-pl011",
+ "oro-debug-uart16550",
+]
+
+[[package]]
+name = "oro-debug-pl011"
+version = "0.0.0"
+dependencies = [
+ "oro-common-sync",
+ "volatile-register",
+]
+
+[[package]]
+name = "oro-debug-uart16550"
+version = "0.0.0"
+dependencies = [
+ "oro-common-sync",
+ "uart_16550",
+]
+
+[[package]]
 name = "oro-kernel"
 version = "0.0.0"
 dependencies = [
  "oro-common",
  "oro-common-assertions",
-]
-
-[[package]]
-name = "oro-serial-pl011"
-version = "0.0.0"
-dependencies = [
- "oro-common",
- "volatile-register",
 ]
 
 [[package]]
