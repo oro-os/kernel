@@ -1,7 +1,7 @@
 [package]
 name = "oro-arch-aarch64"
 version.workspace = true
-description = "Oro operating system aarch64 architecture support"
+description = "Oro operating system AArch64 architecture kernel implementation"
 publish = false
 edition = "2021"
 authors = [
@@ -10,8 +10,21 @@ authors = [
 homepage = "https://oro.sh"
 repository = "https://github.com/oro-os/kernel"
 license = "MPL-2.0"
+autobins = false
+
+build = "build.rs"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "oro-kernel-aarch64"
+path = "entry.rs"
+doc = false
 
 [dependencies]
+oro-kernel.workspace = true
+oro-boot-protocol.workspace = true
 oro-common.workspace = true
 oro-common-assertions.workspace = true
 oro-common-elf.workspace = true
