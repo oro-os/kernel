@@ -41,8 +41,8 @@ pub fn log(message: core::fmt::Arguments) {
 #[macro_export]
 //#[collapse_debuginfo(yes)]
 macro_rules! dbg {
-	($tag:literal, $($arg:tt)*) => {{
-		$crate::log(format_args!("{}:I:{}", $tag, format_args!($($arg)*)));
+	($($arg:tt)*) => {{
+		$crate::log(format_args!("{}:{}:I:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
 	}};
 }
 
@@ -50,8 +50,8 @@ macro_rules! dbg {
 #[macro_export]
 //#[collapse_debuginfo(yes)]
 macro_rules! dbg_err {
-	($tag:literal, $($arg:tt)*) => {{
-		$crate::log(format_args!("{}:E:{}", $tag, format_args!($($arg)*)));
+	($($arg:tt)*) => {{
+		$crate::log(format_args!("{}:{}:E:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
 	}};
 }
 
@@ -59,7 +59,7 @@ macro_rules! dbg_err {
 #[macro_export]
 //#[collapse_debuginfo(yes)]
 macro_rules! dbg_warn {
-	($tag:literal, $($arg:tt)*) => {{
-		$crate::log(format_args!("{}:W:{}", $tag, format_args!($($arg)*)));
+	($($arg:tt)*) => {{
+		$crate::log(format_args!("{}:{}:W:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
 	}};
 }

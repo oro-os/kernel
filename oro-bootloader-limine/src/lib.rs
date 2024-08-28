@@ -109,7 +109,7 @@ macro_rules! get_response {
 pub unsafe fn init() -> ! {
 	#[cfg(debug_assertions)]
 	oro_debug::init();
-	dbg!("limine", "boot");
+	dbg!("bootstrapping Oro kernel with Limine bootloader");
 
 	let module_response = get_response!(REQ_MODULES, "module listing");
 	let hhdm_response = get_response!(REQ_HHDM, "hhdm offset");
@@ -133,7 +133,6 @@ pub unsafe fn init() -> ! {
 		let offset = hhdm_response.offset();
 		if addr < offset {
 			dbg_warn!(
-				"limine",
 				"RSDP address is below HHDM offset! ignoring RSDP (addr: {addr:#016X?}, offset: \
 				 {offset:#016X?})"
 			);
@@ -146,7 +145,7 @@ pub unsafe fn init() -> ! {
 	};
 
 	// Finally, jump the bootstrap core to the kernel.
-	dbg!("limine", "booting primary cpu");
+	dbg!("booting primary cpu");
 	oro_boot::boot_to_kernel(PrebootConfig::<LiminePrimaryConfig> {
 		#[allow(clippy::cast_possible_truncation)]
 		physical_address_translator: OffsetPhysicalAddressTranslator::new(
@@ -194,7 +193,7 @@ fn make_memory_map_iterator() -> LimineMemoryRegionIterator {
 /// It is only called by the architecture-specific binaries.
 #[allow(unused_variables)]
 pub unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
-	dbg_err!("limine", "panic: {:?}", info);
+	dbg_err!("panic: {:?}", info);
 	Target::halt()
 }
 
