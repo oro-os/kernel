@@ -69,4 +69,6 @@ pub(crate) mod mem;
 pub(crate) mod reg;
 pub(crate) mod xfer;
 
+pub mod boot;
+
 pub use self::arch::{Config, X86_64};
