@@ -12,7 +12,6 @@ use core::{
 };
 use oro_common::{
 	arch::Arch,
-	elf::{ElfClass, ElfEndianness, ElfMachine},
 	interrupt::InterruptHandler,
 	mem::{
 		mapper::{AddressSegment, AddressSpace, UnmapError},
@@ -22,6 +21,7 @@ use oro_common::{
 	preboot::{PrebootConfig, PrebootPrimaryConfig},
 	sync::spinlock::unfair_critical::UnfairCriticalSpinlock,
 };
+use oro_common_elf::{ElfClass, ElfEndianness, ElfMachine};
 use oro_serial_pl011 as pl011;
 
 /// The number of pages to allocate for the kernel stack.

@@ -1,8 +1,13 @@
 //! ELF parser. This parser is quite bare-bones as it's only
 //! needed for loading the kernel and modules and extracting
 //! the module metadata.
+#![cfg_attr(not(test), no_std)]
+// SAFETY(qix-): This is approved and is to be merged soon.
+// SAFETY(qix-): It's not used for anything critical, and the changes
+// SAFETY(qix-): to the API after stabilization will be minor.
+// SAFETY(qix-): https://github.com/rust-lang/rust/issues/117729
+#![feature(debug_closure_helpers)]
 
-use crate::arch::Arch;
 use core::{
 	fmt,
 	mem::{transmute, ManuallyDrop},
@@ -60,7 +65,13 @@ impl Elf {
 	/// The parser will check that all data falls within
 	/// the length, but does not enforce that the ELF is
 	/// _exactly_ `length` bytes long.
-	pub unsafe fn parse<A: Arch>(base_addr: usize, length: u64) -> Result<&'static Self, ElfError> {
+	pub unsafe fn parse(
+		base_addr: usize,
+		length: u64,
+		endianness: ElfEndianness,
+		class: ElfClass,
+		machine: ElfMachine,
+	) -> Result<&'static Self, ElfError> {
 		if base_addr & 3 != 0 {
 			return Err(ElfError::UnalignedBaseAddr);
 		}
@@ -79,10 +90,10 @@ impl Elf {
 			)));
 		}
 
-		if elf.ident.class != A::ELF_CLASS {
+		if elf.ident.class != class {
 			return Err(ElfError::ClassMismatch {
-				elf:  elf.ident.class,
-				arch: A::ELF_CLASS,
+				elf:      elf.ident.class,
+				expected: class,
 			});
 		}
 
@@ -95,10 +106,10 @@ impl Elf {
 			)));
 		}
 
-		if elf.ident.endian != A::ELF_ENDIANNESS {
+		if elf.ident.endian != endianness {
 			return Err(ElfError::EndiannessMismatch {
-				elf:  elf.ident.endian,
-				arch: A::ELF_ENDIANNESS,
+				elf:      elf.ident.endian,
+				expected: endianness,
 			});
 		}
 
@@ -123,16 +134,16 @@ impl Elf {
 
 		/// Validate arch-specific fields.
 		macro_rules! validate_arch_header {
-			($Arch:ty, $hdr:expr, $end_excl:expr) => {{
+			($hdr:expr, $end_excl:expr) => {{
 				// 2 == `ET_EXEC`, which is the only thing we support.
 				if $hdr.ty != 2 {
 					return Err(ElfError::NotExecutable($hdr.ty));
 				}
 
-				if $hdr.machine != <$Arch>::ELF_MACHINE {
+				if $hdr.machine != machine {
 					return Err(ElfError::MachineMismatch {
-						elf:  $hdr.machine,
-						arch: <$Arch>::ELF_MACHINE,
+						elf:      $hdr.machine,
+						expected: machine,
 					});
 				}
 
@@ -167,8 +178,8 @@ impl Elf {
 		}
 
 		match elf.ident.class {
-			ElfClass::Class32 => validate_arch_header!(A, &elf.endian.elf32, end_excl),
-			ElfClass::Class64 => validate_arch_header!(A, &elf.endian.elf64, end_excl),
+			ElfClass::Class32 => validate_arch_header!(&elf.endian.elf32, end_excl),
+			ElfClass::Class64 => validate_arch_header!(&elf.endian.elf64, end_excl),
 		}
 
 		Ok(elf)
@@ -674,16 +685,16 @@ pub enum ElfError {
 	/// Class mismatch between ELF file and architecture
 	ClassMismatch {
 		/// The ELF class
-		elf:  ElfClass,
-		/// The architecture's ELF class
-		arch: ElfClass,
+		elf:      ElfClass,
+		/// The expected ELF class
+		expected: ElfClass,
 	},
 	/// Endianness mismatch between ELF file and architecture
 	EndiannessMismatch {
 		/// The ELF endianness
-		elf:  ElfEndianness,
-		/// The architecture's ELF endianness
-		arch: ElfEndianness,
+		elf:      ElfEndianness,
+		/// The expected ELF endianness
+		expected: ElfEndianness,
 	},
 	/// Invalid ELF ident section version
 	InvalidIdentVersion(u8),
@@ -698,9 +709,9 @@ pub enum ElfError {
 	/// Machine mismatch between ELF file and architecture
 	MachineMismatch {
 		/// The ELF machine
-		elf:  ElfMachine,
-		/// The architecture's ELF machine
-		arch: ElfMachine,
+		elf:      ElfMachine,
+		/// The expected ELF machine
+		expected: ElfMachine,
 	},
 	/// The ELF file is not executable.
 	NotExecutable(u16),

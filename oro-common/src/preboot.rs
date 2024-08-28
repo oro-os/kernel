@@ -84,10 +84,6 @@ where
 /// A module definition, providing base locations, lengths, and
 /// per-module initialization configuration for both the kernel
 /// and root-ring modules.
-///
-/// Modules must be ELF files (see the [`crate::elf`] module for
-/// more information on what constitutes an ELF file valid for
-/// the Oro operating system).
 #[derive(Clone, Copy, Debug)]
 pub struct ModuleDef {
 	/// The base address of the module.

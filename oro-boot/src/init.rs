@@ -4,7 +4,6 @@ use oro_arch::Target;
 use oro_common::{
 	arch::Arch,
 	dbg, dbg_warn,
-	elf::{ElfSegment, ElfSegmentType},
 	mem::{
 		mapper::{AddressSegment, AddressSpace},
 		pfa::{
@@ -18,6 +17,7 @@ use oro_common::{
 	sync::{barrier::SpinBarrier, spinlock::unfair::UnfairSpinlock},
 	util::erased::Erased,
 };
+use oro_common_elf::{ElfSegment, ElfSegmentType};
 
 /// Initializes and transfers execution to the Oro kernel.
 ///
@@ -323,9 +323,12 @@ where
 			let mut pfa = pfa.lock::<Target>();
 
 			// Parse the kernel ELF module.
-			let kernel_elf = match oro_common::elf::Elf::parse::<Target>(
+			let kernel_elf = match oro_common_elf::Elf::parse(
 				kernel_module.base,
 				kernel_module.length,
+				Target::ELF_ENDIANNESS,
+				Target::ELF_CLASS,
+				Target::ELF_MACHINE,
 			) {
 				Ok(elf) => elf,
 				Err(e) => {
