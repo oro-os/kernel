@@ -95,6 +95,14 @@ pub unsafe trait AddressSpace {
 	/// **Must overlap with [`Self::kernel_code()`]**
 	fn kernel_rodata() -> Self::SupervisorSegment;
 
+	/// Returns the layout descriptor for the kernel's stack segment.
+	///
+	/// This must be read-write, non-user accessible, and is
+	/// **not** executable.
+	///
+	/// Must **not** overlap with any other segment.
+	fn kernel_stack() -> Self::SupervisorSegment;
+
 	/// Returns the layout descriptor for the kernel's Ring registry.
 	///
 	/// This must be read-write, non-user accessible, and is
@@ -147,14 +155,6 @@ pub unsafe trait AddressSpace {
 	/// core as possible; at no time will any backing memory be shared
 	/// between cores.
 	fn kernel_core_local() -> Self::SupervisorSegment;
-
-	/// Returns the layout descriptor for the direct map of physical addresses.
-	///
-	/// This must be read-write, non-user accessible, and is
-	/// **not** executable.
-	///
-	/// Must **not** overlap with any other segment.
-	fn direct_map() -> Self::SupervisorSegment;
 }
 
 /// An address space segment descriptor. Segments are architecture specified

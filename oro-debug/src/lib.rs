@@ -11,10 +11,14 @@
 //! if used improperly.
 #![cfg_attr(not(test), no_std)]
 
-#[cfg(any(debug_assertions, feature = "dbgutil"))]
+#[cfg(not(debug_assertions))]
+compile_error!("The `oro-debug` crate should only be used in debug builds.");
+
+use core::arch::asm;
+#[cfg(feature = "dbgutil")]
 use oro_common_proc::gdb_autoload_inline;
 
-#[cfg(any(debug_assertions, feature = "dbgutil"))]
+#[cfg(feature = "dbgutil")]
 gdb_autoload_inline!("dbgutil.py");
 
 /// Initializes the debug logger, if one is enabled.
@@ -62,4 +66,16 @@ macro_rules! dbg_warn {
 	($($arg:tt)*) => {{
 		$crate::log(format_args!("{}:{}:W:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
 	}};
+}
+
+/// Transfer marker stub for `gdbutil` that allows the debugger to switch
+/// to the kernel image at an opportune time.
+#[no_mangle]
+#[link_section = ".text.force_keep"]
+#[cfg(feature = "dbgutil")]
+pub extern "C" fn __oro_dbgutil_kernel_will_transfer() {
+	// SAFETY(qix-): This is a marker function for GDB to switch to the kernel image.
+	unsafe {
+		asm!("nop", options(nostack, nomem, preserves_flags));
+	}
 }

@@ -1,8 +1,7 @@
 //! Structures and implementations for managing
 //! descriptor tables and their entries.
 
-use crate::mem::address_space::AddressSpaceLayout;
-use oro_common::mem::mapper::AddressSegment;
+use core::arch::asm;
 
 /// A global descriptor table (GDT) entry.
 #[repr(transparent)]
@@ -125,21 +124,17 @@ enum Dpl {
 	Ring3 = 3,
 }
 
-/// Writes the GDT to the given slice.
-///
-/// Writes the GDT descriptor first, followed by the GDT entries.
-/// Thus, `lgdt` can be called with the kernel's eventual base
-/// address of the slice.
-///
-/// # Safety
-/// The slice must be 16-byte aligned.
-///
-/// It must also be at least a page long.
-///
-/// The slice must live exactly at the base range
-/// of the [`AddressSpaceLayout::GDT_IDX`]
-/// range when the kernel boots.
-pub unsafe fn write_gdt(dest: &mut [u8]) {
+/// Installs the GDT.
+pub fn install_gdt() {
+	/// The GDT.
+	static GDT: [GdtEntry; 5] = [
+		GdtEntry::null_descriptor(),
+		GdtEntry::kernel_code_segment(), // kernel code MUST be index 1
+		GdtEntry::kernel_data_segment(),
+		GdtEntry::user_code_segment(),
+		GdtEntry::user_data_segment(),
+	];
+
 	/// A GDT descriptor. Used exclusively by the `lgdt` instruction.
 	///
 	/// Must be packed, order matters.
@@ -151,40 +146,43 @@ pub unsafe fn write_gdt(dest: &mut [u8]) {
 		base:  u64,
 	}
 
-	let gdt = [
-		GdtEntry::null_descriptor(),
-		GdtEntry::kernel_code_segment(), // kernel code MUST be index 1
-		GdtEntry::kernel_data_segment(),
-		GdtEntry::user_code_segment(),
-		GdtEntry::user_data_segment(),
-	];
-
-	// Calculate the GDT's base address.
-	// It's the descriptor + whatever bytes are required
-	// to align to 16 bytes.
-	let gdt_base_offset = core::mem::size_of::<GdtDescriptor>();
-	let gdt_base_offset = (gdt_base_offset + 15) & !15;
-
-	let base = (AddressSpaceLayout::gdt().range().0 + gdt_base_offset) as u64;
-	let gdt_size = gdt.len() * core::mem::size_of::<GdtEntry>();
+	let base = GDT.as_ptr() as u64;
+	let gdt_size = core::mem::size_of_val(&GDT);
 	#[allow(clippy::cast_possible_truncation)]
 	let limit = (gdt_size - 1) as u16;
 
 	let gdt_descriptor = GdtDescriptor { limit, base };
 
-	// Write the GDT descriptor first
-	core::ptr::write_volatile(
-		dest[..core::mem::size_of::<GdtDescriptor>()]
-			.as_mut_ptr()
-			.cast(),
-		gdt_descriptor,
-	);
-
-	// Write the GDT entries
-	core::ptr::write_volatile(
-		dest[gdt_base_offset..(gdt_base_offset + gdt_size)]
-			.as_mut_ptr()
-			.cast(),
-		gdt,
-	);
+	// SAFETY(qix-): The GDT is a static array, so it's always valid.
+	// SAFETY(qix-): There's also nothing about marking this function
+	// SAFETY(qix-): as 'unsafe' that would prevent a crash on incorrect
+	// SAFETY(qix-): GDT configuration.
+	unsafe {
+		asm! {
+			// Load the GDT.
+			"lgdt [{0}]",
+			// Set up code segment.
+			// CS is at offset 0x08, and we can't just move into CS,
+			// so we must push the segment selector onto the stack and
+			// then return to it.
+			"sub rsp, 16",
+			"mov qword ptr[rsp + 8], 0x08",
+			"lea rax, [rip + 2f]",
+			"mov qword ptr[rsp], rax",
+			"retfq",
+			// Using 2f instead of 0/1 due to LLVM bug
+			// (https://bugs.llvm.org/show_bug.cgi?id=36144)
+			// causing them to be parsed as binary literals
+			// under intel syntax.
+			"2:",
+			// Set up non-code segments.
+			"mov ax, 0x10",
+			"mov ds, ax",
+			"mov es, ax",
+			"mov fs, ax",
+			"mov gs, ax",
+			"mov ss, ax",
+			in(reg) &gdt_descriptor
+		};
+	}
 }

@@ -529,6 +529,8 @@ class TtCmdAt(gdb.Command):
             qemu = QEMU.session
             translated = qemu.gva2gpa(virt)
             if translated is None:
+                error("tt: note: page tables may be valid, but gva2gpa will not succeed")
+                error("tt: note: if the translated physical address isn't a real address")
                 error("tt: translation failed")
                 return
             log(f"tt: translation OK: 0x{translated:016x}")

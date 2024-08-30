@@ -7,6 +7,8 @@
 #[cold]
 #[panic_handler]
 unsafe fn panic(_info: &::core::panic::PanicInfo) -> ! {
+	#[cfg(debug_assertions)]
+	oro_debug::dbg_err!("panic: {_info:?}");
 	<oro_arch_x86_64::X86_64 as oro_common::arch::Arch>::halt();
 }
 
@@ -20,7 +22,6 @@ unsafe fn panic(_info: &::core::panic::PanicInfo) -> ! {
 #[inline(never)]
 #[cold]
 #[no_mangle]
-#[allow(clippy::missing_panics_doc, irrefutable_let_patterns)] // XXX(qix-) DEBUG
 pub unsafe extern "C" fn _start() -> ! {
 	::oro_arch_x86_64::boot::boot_primary();
 }

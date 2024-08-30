@@ -178,15 +178,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "oro-arch"
-version = "0.0.0"
-dependencies = [
- "oro-arch-aarch64",
- "oro-arch-x86_64",
- "oro-common",
-]
-
-[[package]]
 name = "oro-arch-aarch64"
 version = "0.0.0"
 dependencies = [
@@ -217,7 +208,8 @@ dependencies = [
 name = "oro-boot"
 version = "0.0.0"
 dependencies = [
- "oro-arch",
+ "oro-arch-aarch64",
+ "oro-arch-x86_64",
  "oro-boot-protocol",
  "oro-common",
  "oro-common-assertions",
@@ -240,10 +232,8 @@ name = "oro-bootloader-limine"
 version = "0.0.0"
 dependencies = [
  "limine",
- "oro-arch",
- "oro-arch-aarch64",
- "oro-arch-x86_64",
  "oro-boot",
+ "oro-boot-protocol",
  "oro-debug",
 ]
 

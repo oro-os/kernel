@@ -9,7 +9,6 @@ version = "0.0.0"
 resolver = "2"
 members = [
 	"oro-acpi",
-	"oro-arch",
 	"oro-arch-aarch64",
 	"oro-arch-x86_64",
 	"oro-boot",
@@ -29,7 +28,6 @@ members = [
 
 [workspace.dependencies]
 oro-acpi = { path = "oro-acpi" }
-oro-arch = { path = "oro-arch" }
 oro-arch-aarch64 = { path = "oro-arch-aarch64" }
 oro-arch-x86_64 = { path = "oro-arch-x86_64" }
 oro-boot = { path = "oro-boot" }

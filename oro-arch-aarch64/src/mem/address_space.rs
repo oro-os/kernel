@@ -31,6 +31,7 @@ pub struct AddressSpaceHandle {
 /// The Oro-specific address space layout implementation for the Aarch64 architecture.
 pub struct AddressSpaceLayout;
 
+// NOTE(qix-): Please keep this sorted.
 #[rustfmt::skip]
 impl AddressSpaceLayout {
 	/// The index for kernel transfer stubs.

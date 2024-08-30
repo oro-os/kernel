@@ -32,15 +32,8 @@ pub struct OffsetPhysicalAddressTranslator {
 
 impl OffsetPhysicalAddressTranslator {
 	/// Creates a new offset physical frame translator.
-	///
-	/// # Safety
-	/// Caller must ensure the offset is correct and that all
-	/// memory is direct mapped.
-	///
-	/// Further, **caller must ensure that a cast between
-	/// `u64` and `usize` is valid.**
 	#[must_use]
-	pub unsafe fn new(offset: usize) -> Self {
+	pub fn new(offset: usize) -> Self {
 		Self { offset }
 	}
 }

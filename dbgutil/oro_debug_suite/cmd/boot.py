@@ -5,6 +5,7 @@ from ..log import log, error, warn, debug
 from .. import gdb_util
 import subprocess
 from ..service import QEMU, SYMBOLS
+from ..service.autosym import SYM_KERNEL_TRANSFER
 
 
 class BootCmd(gdb.Command):
@@ -311,7 +312,7 @@ class BootCmdLimine(gdb.Command):
 
             if autoload_kernel:
                 # Set an auto-switch breakpoint if we found one
-                kernel_will_switch_sym = SYMBOLS.get_kernel_will_transfer()
+                kernel_will_switch_sym = SYMBOLS.get_if_tracked(SYM_KERNEL_TRANSFER)
                 if kernel_will_switch_sym:
                     log("setting kernel switch breakpoint")
                     SwitchKernelBreakpoint(kernel_will_switch_sym, kernel_path)

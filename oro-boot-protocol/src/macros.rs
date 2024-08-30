@@ -56,6 +56,22 @@ macro_rules! oro_boot_protocol {
 				const TAG: crate::Tag;
 			}
 
+			/// Specifies which Request a given data structure
+			/// is for.
+			#[allow(private_bounds)]
+			pub trait Data: crate::macros::Sealed {
+				/// The request this data is for.
+				type Request: RequestTag;
+			}
+
+			/// Specifies which revision of a Request the data
+			/// structure is for.
+			#[allow(private_bounds)]
+			pub trait DataRevision: Data+ crate::macros::Sealed {
+				/// The revision of the request.
+				const REVISION: u64;
+			}
+
 			$(
 				#[doc = concat!("The response data structures for the [`", stringify!($ReqName), "Request`], across all revisions.")]
 				pub mod %<snake_case:$ReqName>% {
@@ -69,6 +85,16 @@ macro_rules! oro_boot_protocol {
 						pub struct $ReqName %% DataV %% $revision {
 							$($tt)*
 						}
+
+						impl crate::macros::Sealed for $ReqName %% DataV %% $revision {}
+
+						impl super::DataRevision for $ReqName %% DataV %% $revision {
+							const REVISION: u64 = $revision;
+						}
+
+						impl super::Data for $ReqName %% DataV %% $revision {
+							type Request = super::$ReqName %% Request;
+						}
 					)*
 
 					#[doc = concat!("The response data for the [`super::", stringify!($ReqName), "Request`].")]
@@ -78,6 +104,12 @@ macro_rules! oro_boot_protocol {
 							#[doc = concat!("The response data for version ", stringify!($revision), " of the [`super::", stringify!($ReqName), "Request`].")]
 							pub v %% $revision: ::core::mem::ManuallyDrop<$ReqName %% DataV %% $revision>,
 						)*
+					}
+
+					impl crate::macros::Sealed for $ReqName %% Data {}
+
+					impl super::Data for $ReqName %% Data {
+						type Request = super::$ReqName %% Request;
 					}
 
 					#[cfg(feature = "utils")]
@@ -152,6 +184,21 @@ macro_rules! oro_boot_protocol {
 					};
 					#[cfg(oro_build_protocol_header)]
 					const TAG: crate::Tag = $TAG;
+				}
+
+				#[cfg(feature = "utils")]
+				impl crate::util::RequestData for $ReqName %% Request {
+					unsafe fn response_data(&mut self) -> *mut u8 {
+						::core::ptr::from_mut(&mut self.response).cast()
+					}
+
+					fn revision(&self) -> u64 {
+						self.header.revision
+					}
+
+					fn mark_populated(&mut self) {
+						self.populated = 0xFF;
+					}
 				}
 
 				impl $ReqName %% Request {

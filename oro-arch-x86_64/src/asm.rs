@@ -17,6 +17,36 @@ pub fn invlpg(virtual_address: usize) {
 	}
 }
 
+/// Flushes the Translation Lookaside Buffer (TLB) for the current CPU.
+///
+/// This is *very* expensive and should be used sparingly.
+///
+/// Assumes there's a stack.
+#[inline(always)]
+pub fn flush_tlb() {
+	unsafe {
+		asm!(
+			// Store and disable the interrupts
+			// We do this because there's a race condition where,
+			// in a very unlikely event, an interrupt could be
+			// triggered between the `mov` instructions and we
+			// end up restoring an old `cr3` value. So we
+			// disable interrupts to prevent this.
+			"pushfq",
+			"cli",
+			// Read and write back the CR3 value,
+			// which triggers a full TLB flush on x86.
+			"mov rax, cr3",
+			"mov cr3, rax",
+			// Restore interrupts.
+			"popfq",
+			// Mark that we clobbered the `rax` register.
+			out("rax") _,
+			options(nostack, preserves_flags, nomem)
+		);
+	}
+}
+
 /// Returns whether or not 5-level paging is enabled.
 #[inline(always)]
 #[must_use]
@@ -59,5 +89,13 @@ pub fn disable_8259() {
 			"out 0xA1, al",
 			options(nostack, preserves_flags)
 		);
+	}
+}
+
+/// Disables all interrupts.
+#[inline(always)]
+pub fn disable_interrupts() {
+	unsafe {
+		asm!("cli", options(nostack, preserves_flags));
 	}
 }
