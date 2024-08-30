@@ -2,22 +2,12 @@
 #![no_std]
 #![no_main]
 
-use oro_boot_protocol::KernelSettingsRequest;
-
-/// The general kernel settings. Applies to all cores.
-///
-/// Required.
-#[used]
-#[link_section = ".oro_boot"]
-pub static KERNEL_SETTINGS: KernelSettingsRequest = KernelSettingsRequest::with_revision(0);
-
 /// Panic handler for the kernel.
 #[inline(never)]
 #[cold]
 #[panic_handler]
-unsafe fn panic(_info: &::core::panic::PanicInfo) -> ! {
-	#[cfg(debug_assertions)]
-	oro_debug::dbg_err!("panic: {_info:?}");
+unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
+	oro_debug::dbg_err!("panic: {info:?}");
 	<oro_arch_aarch64::Aarch64 as oro_common::arch::Arch>::halt();
 }
 
@@ -32,5 +22,5 @@ unsafe fn panic(_info: &::core::panic::PanicInfo) -> ! {
 #[cold]
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {
-	<oro_arch_aarch64::Aarch64 as oro_common::arch::Arch>::halt();
+	oro_arch_aarch64::boot::boot_primary();
 }

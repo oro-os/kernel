@@ -22,18 +22,15 @@
 //! preboot environment, as the preboot environment MUST NOT rely on TTBR0 for any resource
 //! allocation or mapping.
 #![no_std]
-#![allow(internal_features)]
-#![feature(core_intrinsics, naked_functions)]
 #![cfg(not(all(doc, not(target_arch = "aarch64"))))]
+#![allow(internal_features)]
+#![feature(core_intrinsics)]
 
-#[cfg(debug_assertions)]
-pub(crate) mod dbgutil;
+pub mod arch;
+pub mod asm;
+pub mod boot;
+pub mod mair;
+pub mod mem;
+pub mod reg;
 
-pub(crate) mod arch;
-pub(crate) mod asm;
-pub(crate) mod mair;
-pub(crate) mod mem;
-pub(crate) mod reg;
-pub(crate) mod xfer;
-
-pub use self::arch::{Aarch64, Config};
+pub use self::arch::Aarch64;

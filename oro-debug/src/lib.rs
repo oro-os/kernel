@@ -9,6 +9,7 @@
 //! not intended to be used in production (release builds).
 //! Namely, it's not interrupt-safe and may cause deadlocks
 //! if used improperly.
+#![feature(naked_functions)]
 #![cfg_attr(not(test), no_std)]
 
 #[cfg(not(debug_assertions))]
@@ -77,5 +78,20 @@ pub extern "C" fn __oro_dbgutil_kernel_will_transfer() {
 	// SAFETY(qix-): This is a marker function for GDB to switch to the kernel image.
 	unsafe {
 		asm!("nop", options(nostack, nomem, preserves_flags));
+	}
+}
+
+/// Performs a translation as though it were EL1 with
+/// read permissions. The result is stored in
+/// `PAR_EL1`.
+///
+/// Pass the virtual address to translate in `x0`.
+#[cfg(target_arch = "aarch64")]
+#[link_section = ".text.force_keep"]
+#[no_mangle]
+#[naked]
+pub extern "C" fn __oro_dbgutil_ATS1E1R() -> ! {
+	unsafe {
+		asm!("AT S1E1R, x0", "nop", options(noreturn));
 	}
 }

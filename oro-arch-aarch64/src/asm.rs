@@ -86,3 +86,12 @@ pub unsafe fn store_ttbr0(phys: u64) {
 		);
 	}
 }
+
+/// Disables interrupts on the current core.
+pub fn disable_interrupts() {
+	unsafe {
+		unsafe {
+			asm!("msr daifset, 0xf", options(nostack, nomem, preserves_flags));
+		}
+	}
+}

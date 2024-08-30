@@ -6,9 +6,8 @@
 #[inline(never)]
 #[cold]
 #[panic_handler]
-unsafe fn panic(_info: &::core::panic::PanicInfo) -> ! {
-	#[cfg(debug_assertions)]
-	oro_debug::dbg_err!("panic: {_info:?}");
+unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
+	oro_debug::dbg_err!("panic: {info:?}");
 	<oro_arch_x86_64::X86_64 as oro_common::arch::Arch>::halt();
 }
 
