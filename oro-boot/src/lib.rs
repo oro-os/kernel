@@ -205,8 +205,8 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 	pub fn boot_to_kernel(mut self) -> Result<!> {
 		// SAFETY(qix-): There's nothing we can really do to make this 'safe' by marking it as such;
 		// SAFETY(qix-): the bootstrap class removes most of the danger associated with this method.
-		unsafe {
-			self::target::prepare_transfer(&mut self.supervisor_space, &mut self.pfa, &self.pat)?;
+		let prepare_data = unsafe {
+			self::target::prepare_transfer(&mut self.supervisor_space, &mut self.pfa, &self.pat)?
 		};
 
 		// Consume the PFA and write out the memory map.
@@ -229,6 +229,7 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 				&mut self.supervisor_space,
 				self.kernel_entry,
 				self.stack_addr,
+				prepare_data,
 			)
 			.map_err(Error::MapError)?
 		}

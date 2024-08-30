@@ -30,6 +30,7 @@ oro-common-assertions.workspace = true
 oro-common-elf.workspace = true
 oro-common-sync.workspace = true
 oro-common-proc.workspace = true
+oro-debug.workspace = true
 
 [lints]
 workspace = true

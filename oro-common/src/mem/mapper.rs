@@ -141,20 +141,6 @@ pub unsafe trait AddressSpace {
 	///
 	/// Must NOT border the beginning or end of an address space.
 	fn kernel_module_instance_registry() -> Self::SupervisorSegment;
-
-	/// Returns the layout descriptor for the kernel's core-local segment.
-	///
-	/// This must be read-write, non-user accessible, and is
-	/// **not** executable.
-	///
-	/// Must **not** overlap with any other segment.
-	///
-	/// This segment should be small. Only a few pages are needed.
-	///
-	/// The memory/caching model should be as local to the individual
-	/// core as possible; at no time will any backing memory be shared
-	/// between cores.
-	fn kernel_core_local() -> Self::SupervisorSegment;
 }
 
 /// An address space segment descriptor. Segments are architecture specified

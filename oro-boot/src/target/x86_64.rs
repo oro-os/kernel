@@ -1,5 +1,5 @@
 //! Contains the transfer stubs when the kernel is being switched to
-//! from the preboot environment.
+//! from the preboot environment on x86_64.
 
 use core::{arch::asm, ptr::from_ref};
 use oro_arch_x86_64::mem::{
@@ -47,10 +47,6 @@ pub fn target_address() -> usize {
 
 /// Prepares the system for a transfer. Called before the memory map
 /// is written, after which `transfer` is called.
-///
-/// Among other things, will map the root page table into the new
-/// address space in the lower half and return that virtual address
-/// so the kernel can perform its own linear mapping.
 pub unsafe fn prepare_transfer<
 	P: PhysicalAddressTranslator,
 	A: PageFrameAllocate + PageFrameFree,
@@ -59,6 +55,11 @@ pub unsafe fn prepare_transfer<
 	alloc: &mut A,
 	pat: &P,
 ) -> crate::Result<()> {
+	debug_assert!(
+		(from_ref(&_ORO_STUBS_LEN) as usize) <= 4096,
+		"transfer stubs are larger than a 4KiB page"
+	);
+
 	// Map in the recursive entry.
 	AddressSpaceLayout::map_recursive_entry(mapper, pat);
 
@@ -125,14 +126,11 @@ pub unsafe fn prepare_transfer<
 }
 
 /// Performs the transfer from pre-boot to the kernel.
-///
-/// # Safety
-/// Only to be called ONCE per core, and only by the
-/// [`oro_common::arch::Arch`] implementation.
 pub unsafe fn transfer(
 	mapper: &mut AddressSpaceHandle,
 	kernel_entry: usize,
 	stack_addr: usize,
+	_prepare_data: (),
 ) -> Result<!, MapError> {
 	let page_table_phys: u64 = mapper.base_phys();
 	let stubs_addr: usize = target_address();

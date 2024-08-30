@@ -31,18 +31,6 @@ unsafe impl Arch for X86_64 {
 	}
 }
 
-/// X86_64-specific configuration.
-pub struct Config {
-	/// The **physical** address of the RSDP table.
-	///
-	/// If the bootloader provides a mapped RSDP table
-	/// pointer as a virtual address, it must first
-	/// have its linear offset un-applied to it before
-	/// being passed to this field.
-	pub rdsp_phys: u64,
-}
-
-// XXX(qix-): Temporary workaround.
 impl oro_common_sync::spinlock::unfair_critical::InterruptController for X86_64 {
 	type InterruptState = <Self as Arch>::InterruptState;
 

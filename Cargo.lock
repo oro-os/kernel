@@ -187,6 +187,7 @@ dependencies = [
  "oro-common-elf",
  "oro-common-proc",
  "oro-common-sync",
+ "oro-debug",
  "oro-kernel",
 ]
 

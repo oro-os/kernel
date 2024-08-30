@@ -66,4 +66,4 @@ pub mod boot;
 pub mod mem;
 pub mod reg;
 
-pub use self::arch::{Config, X86_64};
+pub use self::arch::X86_64;
