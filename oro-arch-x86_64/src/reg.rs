@@ -1,5 +1,7 @@
 //! Provides abstractions for certain x86_64 registers.
 
+use core::arch::asm;
+
 /// The CR0 register.
 #[repr(transparent)]
 pub struct Cr0(u64);
@@ -94,6 +96,33 @@ impl Cr0 {
 	// TODO(qix-): in lieu of a const `From` trait impl.
 	pub const fn bits(self) -> u64 {
 		self.0
+	}
+
+	/// Inherits any unused bits from the current CR0 register.
+	///
+	/// Should be called after setting any new bits.
+	///
+	/// # Safety
+	/// Interrupts should be disabled before calling this
+	/// function if the value is to be immediately loaded,
+	/// in order to make sure no race conditions occur.
+	pub unsafe fn inherit(mut self) -> Self {
+		let mut current = 0;
+		asm!("mov {}, cr0", inout(reg) current);
+		self.0 |= current & Self::mask();
+		self
+	}
+
+	/// Loads the CR0 register.
+	pub fn load(self) {
+		// SAFETY(qix-): This is safe because the CR0 register is a
+		// SAFETY(qix-): well-defined register in the x86_64 architecture.
+		// SAFETY(qix-): One might argue this is unsafe because it can crash
+		// SAFETY(qix-): the kernel but there's nothing regarding the `unsafe`
+		// SAFETY(qix-): keyword that can prevent that.
+		unsafe {
+			asm!("mov cr0, {}", in(reg) self.0);
+		}
 	}
 }
 

@@ -75,8 +75,32 @@
 //! `0xFF`. Bootloaders _should_ first make sure that the value was
 //! `0x00` before populating the request, as a sanity check that
 //! some bug or corruption did not occur.
+//!
+//! # C Header Generation
+//! This crate supports generating a C header file that can be used
+//! to boot into the Oro kernel from C or other languages.
+//!
+//! To generate the header file, you can run the following command
+//! (or equivalent for your platform):
+//!
+//! ```sh
+//! env ORO_BUILD_PROTOCOL_HEADER=1 cargo build -p oro-boot-protocol
+//! ```
+//!
+//! The resulting header file is emitted to `$CARGO_TARGET_DIR/oro-boot.h`.
 #![cfg_attr(not(test), no_std)]
 #![allow(clippy::too_many_lines)] // Seems to be a bug in clippy with the macro expansion
+
+// NOTE(qix-): This module is quite hairy with macros, both procedural and otherwise.
+// NOTE(qix-): If you're trying to make sense of the types in here, it's probably
+// NOTE(qix-): best to generate the documentation via `cargo doc --open` and refer to
+// NOTE(qix-): that, as it will very nicely lay out all of the types and their
+// NOTE(qix-): relationships - especially since rust-analyzer has an especially hard time
+// NOTE(qix-): with this module.
+// NOTE(qix-):
+// NOTE(qix-): Alternatively, you can generate the C header file (emits to
+// NOTE(qix-): `$CARGO_TARGET_DIR/oro-boot.h`) and read the types / docs from there.
+// NOTE(qix-): See the crate comments for more information on how to do that.
 
 #[cfg(all(feature = "utils", oro_build_protocol_header))]
 compile_error!("The `utils` feature cannot be enabled when building the boot protocol C header.");
@@ -89,26 +113,16 @@ pub mod util;
 pub type Tag = u64;
 
 macros::oro_boot_protocol! {
-	/// Main settings for the kernel.
-	b"ORO_KRNL" => KernelSettings {
-		0 => {
-			/// The virtual offset of the linear map of physical memory.
-			pub linear_map_offset: u64,
-		}
-	}
-
 	/// A request for the memory map.
 	b"ORO_MMAP" => MemoryMap {
 		0 => {
-			/// The number of entries in the memory map.
-			pub entry_count: u64,
 			/// The physical address of the first [`MemoryMapEntrye`] in the list.
 			/// Must be aligned to the same alignment as the `MemoryMapEntry` structure.
 			///
-			/// If there are no entries, this value is ignored by the kernel - however,
+			/// If there are no entries, this value must be zero - however,
 			/// note that the kernel will expect at least one entry (otherwise it cannot
 			/// initialize and will be effectively useless).
-			pub entries: u64,
+			pub next: u64,
 		}
 	}
 
@@ -131,27 +145,70 @@ macros::oro_boot_protocol! {
 		}
 	}
 
-	/// **THIS IS TEMPORARY AND WILL BE REMOVED.**
-	/// after the kernel boot sequence is refactored.
-	b"ORO_PFAH" => PfaHead {
+	/// Kernel request for a list of modules to load and
+	/// place onto the root ring.
+	b"ORO_MODS" => Modules {
 		0 => {
-			/// The physical address of the PFA head.
-			pub pfa_head: u64,
+			/// The physical address of the first [`Module`] in the list.
+			/// Must be aligned to the same alignment as the `Module` structure.
+			///
+			/// If there are no modules, this value must be zero - however,
+			/// note that the kernel will not do anything particularly useful
+			/// without additional application-specific modules.
+			///
+			/// # ⚠️ Security Advisory ⚠️
+			///
+			/// These modules have **full, unrestricted access to the system**
+			/// They are not sandboxed in any way. **Untrusted modules should not
+			/// be loaded** unless you know what you're doing.
+			pub next: u64,
 		}
 	}
+}
+
+/// A module to load into the kernel on the root ring.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Module {
+	/// The physical base address of the module.
+	pub base:   u64,
+	/// The length of the module.
+	pub length: u64,
+	/// The physical address of the next module in the list,
+	/// or `0` if this is the last module.
+	pub next:   u64,
 }
 
 /// A memory map entry, representing a chunk of physical memory
 /// available to the system.
 #[repr(C)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct MemoryMapEntry {
 	/// The base address of the memory region.
+	///
+	/// This is _not_ guaranteed to be aligned to any particular
+	/// value; the kernel will handle alignment internally.
 	pub base:   u64,
 	/// The length of the memory region.
+	///
+	/// This is _not_ guaranteed to be aligned to any particular
+	/// value; the kernel will handle alignment internally.
 	pub length: u64,
 	/// The type of the memory region.
 	pub ty:     MemoryMapEntryType,
+	/// How much of this memory region, in bytes, was
+	/// used by the bootloader. That memory will be
+	/// reclaimed by the kernel after the bootloader
+	/// requests have been processed.
+	///
+	/// This field is ignored for regions not marked
+	/// as [`MemoryMapEntryType::Usable`], and should
+	/// be 0 for those regions.
+	///
+	/// Note that this is _not_ guaranteed to be aligned
+	/// to any particular value; the kernel will handle
+	/// alignment internally.
+	pub used:   u64,
 	/// The physical address of the next entry in the list,
 	/// or `0` if this is the last entry.
 	pub next:   u64,
@@ -173,26 +230,24 @@ impl PartialEq for MemoryMapEntry {
 ///
 /// For any unknown types, the bootloader should specify
 /// [`MemoryMapEntryType::Unknown`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[repr(u16)]
 pub enum MemoryMapEntryType {
 	/// Memory that is either unusable or reserved, or some type
 	/// of memory that is available to the system but not any
 	/// specific type usable by the kernel.
-	Unknown           = 0,
+	#[default]
+	Unknown = 0,
 	/// General memory immediately usable by the kernel.
-	Usable            = 1,
-	/// Memory that is used by the bootloader but that can be
-	/// reclaimed by the kernel.
-	BootloaderReclaim = 2,
+	Usable  = 1,
 	/// Memory that holds either the kernel itself, root ring modules,
 	/// or other boot-time binary data (e.g. `DeviceTree` blobs).
 	///
 	/// This memory is not reclaimed nor written to by the kernel.
-	Modules           = 3,
+	Modules = 2,
 	/// Bad memory. This memory is functionally equivalent to
 	/// `Unknown`, but is used to denote memory that is known to
 	/// be bad, broken, or malfunctioning. It is reported to the user
 	/// as such.
-	Bad               = 4,
+	Bad     = 3,
 }

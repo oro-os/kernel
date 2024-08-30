@@ -6,7 +6,6 @@
 //! and individual, architecture-specific binaries.
 //! See the `bin/` directory for architecture-specific entry points.
 #![no_std]
-#![feature(type_alias_impl_trait)]
 
 use core::ffi::CStr;
 #[cfg(debug_assertions)]
@@ -17,11 +16,10 @@ use limine::{
 	request::{BootTimeRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, RsdpRequest},
 	BaseRevision,
 };
-use oro_boot::{
-	Arch, MemoryRegion, MemoryRegionType, ModuleDef, OffsetPhysicalAddressTranslator,
-	PrebootConfig, PrebootPlatformConfig, Target,
-};
-use oro_debug::{dbg, dbg_err, dbg_warn};
+use oro_debug::{dbg, dbg_err};
+
+/// The number of 4KiB stack pages to allocate for the kernel.
+const KERNEL_STACK_PAGES: usize = 16;
 
 /// The path to where the Oro kernel is expected.
 /// The bootloader does **not** expect it to be listed
@@ -74,10 +72,6 @@ static REQ_RSDP: RsdpRequest = RsdpRequest::with_revision(0);
 #[used]
 static REQ_STKSZ: StackSizeRequest = StackSizeRequest::with_revision(0).with_size(16 * 1024 * 1024);
 
-/// A TAIT definition that extracts the type of the memory region iterator
-/// without needing to spell it out in full.
-type LimineMemoryRegionIterator = impl Iterator<Item = LimineMemoryRegion> + Clone + 'static;
-
 /// Macro to get a response from a request, panicking if it fails.
 /// All request fetches must go through this macro.
 macro_rules! get_response {
@@ -111,53 +105,116 @@ pub unsafe fn init() -> ! {
 	oro_debug::init();
 	dbg!("bootstrapping Oro kernel with Limine bootloader");
 
-	let module_response = get_response!(REQ_MODULES, "module listing");
 	let hhdm_response = get_response!(REQ_HHDM, "hhdm offset");
-	let _time_response = get_response!(REQ_TIME, "bios timestamp response");
-	#[cfg(debug_assertions)]
-	let _stksz_response = get_response!(REQ_STKSZ, "debug stack size adjustment");
+	let hhdm_offset = hhdm_response.offset();
 
-	let kernel_module = module_response
-		.modules()
-		.iter()
-		.find(|module| module.path() == KERNEL_PATH.to_bytes());
+	(|| {
+		Err(oro_boot::OroBootstrapper::bootstrap(
+			hhdm_offset,
+			KERNEL_STACK_PAGES,
+			{
+				use oro_boot_protocol::{MemoryMapEntry, MemoryMapEntryType};
 
-	let Some(kernel_module) = kernel_module else {
-		panic!("failed to find kernel module: {KERNEL_PATH:?}");
-	};
+				let mmap_response = get_response!(REQ_MMAP, "memory mapping");
 
-	let memory_regions = make_memory_map_iterator();
+				mmap_response.entries().iter().map(|region| {
+					MemoryMapEntry {
+						next:   0,
+						base:   region.base,
+						length: region.length,
+						ty:     match region.entry_type {
+							EntryType::USABLE | EntryType::BOOTLOADER_RECLAIMABLE => {
+								MemoryMapEntryType::Usable
+							}
+							EntryType::KERNEL_AND_MODULES => MemoryMapEntryType::Modules,
+							EntryType::BAD_MEMORY => MemoryMapEntryType::Bad,
+							_ => MemoryMapEntryType::Unknown,
+						},
+						used:   if region.entry_type == EntryType::BOOTLOADER_RECLAIMABLE {
+							region.length
+						} else {
+							0
+						},
+					}
+				})
+			},
+			{
+				use oro_boot_protocol::Module;
 
-	let rsdp = if let Some(rsdp_response) = REQ_RSDP.get_response() {
-		let addr = rsdp_response.address() as u64;
-		let offset = hhdm_response.offset();
-		if addr < offset {
-			dbg_warn!(
-				"RSDP address is below HHDM offset! ignoring RSDP (addr: {addr:#016X?}, offset: \
-				 {offset:#016X?})"
-			);
-			None
-		} else {
-			Some(addr - offset)
-		}
-	} else {
-		None
-	};
+				let module_response = get_response!(REQ_MODULES, "module listing");
+				let kernel_module = module_response
+					.modules()
+					.iter()
+					.find(|module| module.path() == KERNEL_PATH.to_bytes());
 
+				let Some(kernel_module) = kernel_module else {
+					panic!("failed to find kernel module: {KERNEL_PATH:?}");
+				};
+
+				Module {
+					// Expects a physical address but the Limine system gives us
+					// a virtual address. We have to un-translate it.
+					base:   u64::try_from(kernel_module.addr() as usize).unwrap() - hhdm_offset,
+					length: kernel_module.size(),
+					next:   0,
+				}
+			},
+		)?
+		.send(oro_boot_protocol::acpi::AcpiDataV0 {
+			rsdp: get_response!(REQ_RSDP, "rsdp pointer").address() as u64 - hhdm_offset,
+		})
+		.boot_to_kernel()
+		.unwrap_err())
+	})()
+	.unwrap()
+
+	// let module_response = get_response!(REQ_MODULES, "module listing");
+	// let hhdm_response = get_response!(REQ_HHDM, "hhdm offset");
+	// let _time_response = get_response!(REQ_TIME, "bios timestamp response");
+	// #[cfg(debug_assertions)]
+	// let _stksz_response = get_response!(REQ_STKSZ, "debug stack size adjustment");
+	//
+	// let kernel_module = module_response
+	// .modules()
+	// .iter()
+	// .find(|module| module.path() == KERNEL_PATH.to_bytes());
+	//
+	// let Some(kernel_module) = kernel_module else {
+	// panic!("failed to find kernel module: {KERNEL_PATH:?}");
+	// };
+	//
+	// let memory_regions = make_memory_map_iterator();
+	//
+	// let rsdp = if let Some(rsdp_response) = REQ_RSDP.get_response() {
+	// let addr = rsdp_response.address() as u64;
+	// let offset = hhdm_response.offset();
+	// if addr < offset {
+	// dbg_warn!(
+	// "RSDP address is below HHDM offset! ignoring RSDP (addr: {addr:#016X?}, offset: \
+	// {offset:#016X?})"
+	// );
+	// None
+	// } else {
+	// Some(addr - offset)
+	// }
+	// } else {
+	// None
+	// };
+	//
 	// Finally, jump the bootstrap core to the kernel.
-	dbg!("booting primary cpu");
-	oro_boot::boot_to_kernel(PrebootConfig::<LiminePrimaryConfig> {
-		#[allow(clippy::cast_possible_truncation)]
-		physical_address_translator: OffsetPhysicalAddressTranslator::new(
-			hhdm_response.offset() as usize
-		),
-		memory_regions,
-		kernel_module: ModuleDef {
-			base:   kernel_module.addr() as usize,
-			length: kernel_module.size(),
-		},
-		rsdp,
-	})
+	// dbg!("booting primary cpu");
+	// oro_boot::boot_to_kernel(PrebootConfig::<LiminePrimaryConfig> {
+	// #[allow(clippy::cast_possible_truncation)]
+	// physical_address_translator: OffsetPhysicalAddressTranslator::new(
+	// hhdm_response.offset() as usize
+	// ),
+	// memory_regions,
+	// kernel_module: ModuleDef {
+	// base:   kernel_module.addr() as usize,
+	// length: kernel_module.size(),
+	// },
+	// rsdp,
+	// })
 }
 
 /// Creates a memory map iterator from the Limine memory map response,
@@ -165,26 +222,75 @@ pub unsafe fn init() -> ! {
 ///
 /// This is split out solely for the purpose of populating the [`LimineMemoryRegionIterator`]
 /// with the implicit type of the iterator without needing to spell it out.
-fn make_memory_map_iterator() -> LimineMemoryRegionIterator {
-	let mmap_response = get_response!(REQ_MMAP, "memory mapping");
-
-	mmap_response
-		.entries()
-		.iter()
-		.map(|region| {
-			LimineMemoryRegion {
-				base:       region.base,
-				length:     region.length,
-				entry_type: match region.entry_type {
-					EntryType::USABLE => MemoryRegionType::Usable,
-					EntryType::BOOTLOADER_RECLAIMABLE => MemoryRegionType::Boot,
-					EntryType::BAD_MEMORY => MemoryRegionType::Bad,
-					_ => MemoryRegionType::Unusable,
-				},
-			}
-		})
-		.filter(|region: &LimineMemoryRegion| region.length() > 0)
-}
+// fn make_memory_map_iterator() -> LimineMemoryRegionIterator {
+// let mmap_response = get_response!(REQ_MMAP, "memory mapping");
+//
+// mmap_response
+// .entries()
+// .iter()
+// .map(|region| {
+// LimineMemoryRegion {
+// base:       region.base,
+// length:     region.length,
+// entry_type: match region.entry_type {
+// EntryType::USABLE => MemoryRegionType::Usable,
+// EntryType::BOOTLOADER_RECLAIMABLE => MemoryRegionType::Boot,
+// EntryType::BAD_MEMORY => MemoryRegionType::Bad,
+// _ => MemoryRegionType::Unusable,
+// },
+// }
+// })
+// .filter(|region: &LimineMemoryRegion| region.length() > 0)
+// }
+//
+//
+// Provides Limine-specific types to the boot sequence for use
+// in initializing and booting the Oro kernel.
+// struct LiminePrimaryConfig;
+//
+// impl PrebootPlatformConfig for LiminePrimaryConfig {
+// type MemoryRegion = LimineMemoryRegion;
+// type MemoryRegionIterator = LimineMemoryRegionIterator;
+// type PhysicalAddressTranslator = OffsetPhysicalAddressTranslator;
+//
+// const BAD_MEMORY_REPORTED: bool = true;
+// }
+//
+// A simple Oro-compatible memory region type; mapped to from Limine
+// memory region types by the [`make_memory_map_iterator`] function.
+// struct LimineMemoryRegion {
+// The base address of the memory region.
+// base:       u64,
+// The length of the memory region.
+// length:     u64,
+// The Oro memory region type.
+// entry_type: MemoryRegionType,
+// }
+//
+// impl MemoryRegion for LimineMemoryRegion {
+// #[inline]
+// fn base(&self) -> u64 {
+// self.base
+// }
+//
+// #[inline]
+// fn length(&self) -> u64 {
+// self.length
+// }
+//
+// #[inline]
+// fn region_type(&self) -> MemoryRegionType {
+// self.entry_type
+// }
+//
+// fn new_with(&self, base: u64, length: u64) -> Self {
+// Self {
+// base,
+// length,
+// entry_type: self.entry_type,
+// }
+// }
+// }
 
 /// Panic handler for the Limine bootloader stage.
 ///
@@ -193,54 +299,13 @@ fn make_memory_map_iterator() -> LimineMemoryRegionIterator {
 /// It is only called by the architecture-specific binaries.
 #[allow(unused_variables)]
 pub unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
+	use core::arch::asm;
+
 	dbg_err!("panic: {:?}", info);
-	Target::halt()
-}
-
-/// Provides Limine-specific types to the boot sequence for use
-/// in initializing and booting the Oro kernel.
-struct LiminePrimaryConfig;
-
-impl PrebootPlatformConfig for LiminePrimaryConfig {
-	type MemoryRegion = LimineMemoryRegion;
-	type MemoryRegionIterator = LimineMemoryRegionIterator;
-	type PhysicalAddressTranslator = OffsetPhysicalAddressTranslator;
-
-	const BAD_MEMORY_REPORTED: bool = true;
-}
-
-/// A simple Oro-compatible memory region type; mapped to from Limine
-/// memory region types by the [`make_memory_map_iterator`] function.
-struct LimineMemoryRegion {
-	/// The base address of the memory region.
-	base:       u64,
-	/// The length of the memory region.
-	length:     u64,
-	/// The Oro memory region type.
-	entry_type: MemoryRegionType,
-}
-
-impl MemoryRegion for LimineMemoryRegion {
-	#[inline]
-	fn base(&self) -> u64 {
-		self.base
-	}
-
-	#[inline]
-	fn length(&self) -> u64 {
-		self.length
-	}
-
-	#[inline]
-	fn region_type(&self) -> MemoryRegionType {
-		self.entry_type
-	}
-
-	fn new_with(&self, base: u64, length: u64) -> Self {
-		Self {
-			base,
-			length,
-			entry_type: self.entry_type,
-		}
+	loop {
+		#[cfg(target_arch = "x86_64")]
+		asm!("hlt");
+		#[cfg(target_arch = "aarch64")]
+		asm!("wfi");
 	}
 }

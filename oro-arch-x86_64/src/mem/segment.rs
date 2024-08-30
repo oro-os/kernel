@@ -23,6 +23,8 @@ macro_rules! sign_extend {
 	};
 }
 
+pub(crate) use sign_extend;
+
 /// A utility trait for extracting information about a mapper handle.
 pub trait MapperHandle {
 	/// Returns the base physical address of the page table.
@@ -91,6 +93,11 @@ impl AddressSegment {
 			} else {
 				let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
 
+				// We zero it before placing it into the page table
+				// so as to not thrash the TLB.
+				let frame_virt_addr = translator.to_virtual_addr(frame_phys_addr);
+				core::slice::from_raw_parts_mut(frame_virt_addr as *mut u8, 4096).fill(0);
+
 				// SAFETY(qix-): For all intermediates, we use a common-denominator
 				// SAFETY(qix-): page table entry template, which is guaranteed to
 				// SAFETY(qix-): traverse for all leaf entries (executable, RO, writable,
@@ -102,10 +109,8 @@ impl AddressSegment {
 					.intermediate_entry_template
 					.with_address(frame_phys_addr);
 
-				let frame_virt_addr = translator.to_virtual_addr(frame_phys_addr);
 				crate::asm::invlpg(frame_virt_addr);
 
-				core::slice::from_raw_parts_mut(frame_virt_addr as *mut u8, 4096).fill(0);
 				frame_virt_addr
 			};
 		}

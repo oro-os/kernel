@@ -13,7 +13,7 @@ SECTIONS {
 	. = 0xFFFFFFFF80000000;
 }
 
-INCLUDE "oro-arch-x86_64/preboot.x"
+INCLUDE "oro-boot/xfer.x"
 
 SECTIONS {
 	.text : {

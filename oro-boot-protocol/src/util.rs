@@ -95,6 +95,42 @@ impl RequestScanner {
 		None
 	}
 
+	/// Attempts to write response data to the Kernel.
+	///
+	/// Returns an error if either the request is not found (i.e.
+	/// not requested by the kernel) or if the revision of the
+	/// request does not match the revision of the response.
+	#[must_use]
+	pub fn try_send<R: crate::DataRevision>(&self, data: R) -> Result<(), TrySendError>
+	where
+		R::Request: RequestData,
+	{
+		// SAFETY(qix-): We're controlling the lifetimes and the
+		// SAFETY(qix-): references, so none of the safety invariants
+		// SAFETY(qix-): specified by the scanner are violated.
+		let Some(req) = (unsafe { self.get::<<R as crate::Data>::Request>() }) else {
+			return Err(TrySendError::NotRequested);
+		};
+
+		if req.revision() != R::REVISION {
+			return Err(TrySendError::WrongRevision {
+				expected: req.revision(),
+			});
+		}
+
+		// SAFETY(qix-): We've already checked the revision and tag, and the unions
+		// SAFETY(qix-): are marked as `#[repr(C)]` so we know that a write to the
+		// SAFETY(qix-): union's base address is safe (if it was not `#[repr(C)]`,
+		// SAFETY(qix-): the union may have non-zero field offsets).
+		unsafe {
+			req.response_data().cast::<R>().write(data);
+		}
+
+		req.mark_populated();
+
+		Ok(())
+	}
+
 	/// Returns an iterator over all requests in the segment.
 	///
 	/// # Safety
@@ -114,6 +150,18 @@ impl RequestScanner {
 			_phantom: ::core::marker::PhantomData,
 		}
 	}
+}
+
+/// An error that can occur when attempting to send a response.
+#[derive(Debug, Clone, Copy)]
+pub enum TrySendError {
+	/// The request was not requested by the kernel.
+	NotRequested,
+	/// The request was requested, but the revision was incorrect.
+	WrongRevision {
+		/// The revision that the kernel instead requested
+		expected: u64,
+	},
 }
 
 /// An iterator over the requests in a request segment.
@@ -142,4 +190,32 @@ impl<'a> Iterator for RequestScannerIter<'a> {
 
 		None
 	}
+}
+
+/// Lower level data manipulation for a request.
+///
+/// Used internally by the request scanner;
+/// you should probably use higher level methods
+/// or direct field accesses instead, as this trait
+/// is only enabled with the `utils` feature.
+pub trait RequestData: crate::RequestTag {
+	/// Returns a mutable pointer to the base of the response data.
+	///
+	/// Used internally by the request scanner; you should probably
+	/// use the higher level `response()` method instead.
+	///
+	/// # Safety
+	/// The caller must ensure that writes to this pointer
+	/// are valid data responses for the request, and that
+	/// the written response revision matches the request revision.
+	unsafe fn response_data(&mut self) -> *mut u8;
+
+	/// Returns the revision of the request.
+	///
+	/// Used internally by the request scanner; you should
+	/// probably use the `revision` field directly.
+	fn revision(&self) -> u64;
+
+	/// Marks the request as populated.
+	fn mark_populated(&mut self);
 }

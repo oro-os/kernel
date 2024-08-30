@@ -16,6 +16,8 @@ pub static KERNEL_SETTINGS: KernelSettingsRequest = KernelSettingsRequest::with_
 #[cold]
 #[panic_handler]
 unsafe fn panic(_info: &::core::panic::PanicInfo) -> ! {
+	#[cfg(debug_assertions)]
+	oro_debug::dbg_err!("panic: {_info:?}");
 	<oro_arch_aarch64::Aarch64 as oro_common::arch::Arch>::halt();
 }
 

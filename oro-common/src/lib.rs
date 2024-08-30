@@ -15,11 +15,9 @@
 //! [`crate::arch::Arch`] trait.
 #![cfg_attr(not(test), no_std)]
 #![allow(internal_features)]
-#![feature(core_intrinsics)]
+#![feature(core_intrinsics, never_type)]
 #![cfg_attr(debug_assertions, feature(naked_functions))]
 
 pub mod arch;
-pub mod interrupt;
 pub mod mem;
-pub mod preboot;
 pub mod util;

@@ -55,20 +55,15 @@
 //! once it has booted.
 #![no_std]
 #![allow(internal_features)]
-#![feature(naked_functions, core_intrinsics, asm_const)]
+#![feature(naked_functions, core_intrinsics)]
 #![cfg(not(all(doc, not(target_arch = "x86_64"))))]
-
-#[cfg(debug_assertions)]
-pub(crate) mod dbgutil;
 
 pub(crate) mod arch;
 pub(crate) mod asm;
 pub(crate) mod gdt;
-pub(crate) mod interrupt;
-pub(crate) mod mem;
-pub(crate) mod reg;
-pub(crate) mod xfer;
 
 pub mod boot;
+pub mod mem;
+pub mod reg;
 
 pub use self::arch::{Config, X86_64};

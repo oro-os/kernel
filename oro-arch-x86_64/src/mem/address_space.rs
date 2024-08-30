@@ -40,18 +40,15 @@ impl MapperHandle for AddressSpaceHandle {
 /// used for each segment.
 pub struct AddressSpaceLayout;
 
+// NOTE(qix-): Please keep this sorted.
 #[rustfmt::skip]
 impl AddressSpaceLayout {
-	/// The index for kernel transfer stubs.
-	/// NOTE(qix-): All lower-half indices are automatically reclaimed
-	/// NOTE(qix-): by the kernel after boot.
-	pub const STUBS_IDX: usize = 255;
+	/// The recursive index for the page table.
+	pub const RECURSIVE_IDX: usize = 256;
 	/// The stack space range
 	pub const KERNEL_STACK_IDX: usize = 257;
-	/// The index for where the GDT lives.
-	pub const GDT_IDX: usize = 258;
 	/// The direct map range
-	pub const DIRECT_MAP_IDX: (usize, usize) = (259, 300);
+	pub const LINEAR_MAP_IDX: (usize, usize) = (259, 320);
 	/// The index for the kernel core-local segment.
 	pub const KERNEL_CORE_LOCAL_IDX: usize = 350;
 	/// The segment for the ring registry
@@ -65,55 +62,36 @@ impl AddressSpaceLayout {
 }
 
 impl AddressSpaceLayout {
-	/// Returns an internal descriptor used to map the kernel transfer stubs.
-	#[inline(always)]
-	pub const fn stubs() -> <Self as AddressSpace>::SupervisorSegment {
-		#[allow(clippy::missing_docs_in_private_items)]
-		const DESCRIPTOR: AddressSegment = AddressSegment {
-			valid_range: (AddressSpaceLayout::STUBS_IDX, AddressSpaceLayout::STUBS_IDX),
-			entry_template: PageTableEntry::new().with_present().with_writable(),
-			intermediate_entry_template: PageTableEntry::new().with_present().with_writable(),
-		};
-
-		&DESCRIPTOR
-	}
-
-	/// Returns an internal descriptor used to map the kernel stack.
-	#[inline(always)]
-	pub const fn kernel_stack() -> <Self as AddressSpace>::SupervisorSegment {
-		#[allow(clippy::missing_docs_in_private_items)]
-		const DESCRIPTOR: AddressSegment = AddressSegment {
-			valid_range: (
-				AddressSpaceLayout::KERNEL_STACK_IDX,
-				AddressSpaceLayout::KERNEL_STACK_IDX,
-			),
-			entry_template: PageTableEntry::new()
+	/// Adds the recursive mapping to the provided page table.
+	pub fn map_recursive_entry<P: PhysicalAddressTranslator>(handle: &AddressSpaceHandle, pat: &P) {
+		// SAFETY(qix-): We can reasonably assuming that the `AddressSpaceHandle`
+		// SAFETY(qix-): is valid if it's been constructed by us.
+		unsafe {
+			(&mut *(pat.to_virtual_addr(handle.base_phys) as *mut PageTable))
+				[Self::RECURSIVE_IDX] = PageTableEntry::new()
 				.with_present()
 				.with_writable()
-				.with_no_exec(),
-			intermediate_entry_template: PageTableEntry::new()
-				.with_present()
-				.with_writable()
-				.with_no_exec(),
-		};
-
-		&DESCRIPTOR
+				.with_no_exec()
+				.with_global()
+				.with_address(handle.base_phys);
+		}
 	}
 
-	/// Returns an internal descriptor used to map the GDT.
-	#[inline(always)]
-	pub const fn gdt() -> <Self as AddressSpace>::SupervisorSegment {
+	/// Returns the linear map segment for the supervisor space.
+	pub fn linear_map() -> &'static AddressSegment {
 		#[allow(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
-			valid_range: (AddressSpaceLayout::GDT_IDX, AddressSpaceLayout::GDT_IDX),
+			valid_range: AddressSpaceLayout::LINEAR_MAP_IDX,
 			entry_template: PageTableEntry::new()
+				.with_global()
 				.with_present()
 				.with_no_exec()
-				.with_global(),
+				.with_writable()
+				.with_write_through(),
 			intermediate_entry_template: PageTableEntry::new()
 				.with_present()
 				.with_no_exec()
-				.with_global(),
+				.with_writable(),
 		};
 
 		&DESCRIPTOR
@@ -128,7 +106,8 @@ impl AddressSpaceLayout {
 const KERNEL_EXE_INTERMEDIATE_ENTRY: PageTableEntry = PageTableEntry::new()
 	.with_user()
 	.with_global()
-	.with_present();
+	.with_present()
+	.with_writable();
 
 // TODO(qix-): When const trait methods are stabilized, mark these as const.
 unsafe impl AddressSpace for AddressSpaceLayout {
@@ -237,6 +216,26 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		&DESCRIPTOR
 	}
 
+	fn kernel_stack() -> <Self as AddressSpace>::SupervisorSegment {
+		#[allow(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range: (
+				AddressSpaceLayout::KERNEL_STACK_IDX,
+				AddressSpaceLayout::KERNEL_STACK_IDX,
+			),
+			entry_template: PageTableEntry::new()
+				.with_present()
+				.with_writable()
+				.with_no_exec(),
+			intermediate_entry_template: PageTableEntry::new()
+				.with_present()
+				.with_writable()
+				.with_no_exec(),
+		};
+
+		&DESCRIPTOR
+	}
+
 	fn kernel_ring_registry() -> Self::SupervisorSegment {
 		#[allow(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
@@ -312,25 +311,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 				.with_present()
 				.with_no_exec()
 				.with_writable(),
-			intermediate_entry_template: PageTableEntry::new()
-				.with_present()
-				.with_no_exec()
-				.with_writable(),
-		};
-
-		&DESCRIPTOR
-	}
-
-	fn direct_map() -> Self::SupervisorSegment {
-		#[allow(clippy::missing_docs_in_private_items)]
-		const DESCRIPTOR: AddressSegment = AddressSegment {
-			valid_range: AddressSpaceLayout::DIRECT_MAP_IDX,
-			entry_template: PageTableEntry::new()
-				.with_global()
-				.with_present()
-				.with_no_exec()
-				.with_writable()
-				.with_write_through(),
 			intermediate_entry_template: PageTableEntry::new()
 				.with_present()
 				.with_no_exec()
