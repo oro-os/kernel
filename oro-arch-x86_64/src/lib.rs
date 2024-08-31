@@ -58,11 +58,11 @@
 #![feature(naked_functions, core_intrinsics)]
 #![cfg(not(all(doc, not(target_arch = "x86_64"))))]
 
-pub(crate) mod arch;
-pub(crate) mod asm;
-pub(crate) mod gdt;
-
+pub mod arch;
+pub mod asm;
 pub mod boot;
+pub mod gdt;
+pub mod lapic;
 pub mod mem;
 pub mod reg;
 
