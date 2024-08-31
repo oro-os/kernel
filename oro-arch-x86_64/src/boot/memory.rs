@@ -62,6 +62,35 @@ pub unsafe fn prepare_memory() -> (
 		panic!("recursive entry not mapped");
 	}
 
+	// Next, we validate that, at least at a basic level, some invariants
+	// about the 1MiB reserved region are true.
+	//
+	// - For any region fully within the first 1MiB, the `used` field
+	//   should be the length of the region.
+	// - For any region that overlaps the first 1MiB, the `used` field
+	//   should be at minimum the number of bytes below the 1MiB boundary.
+	let otf_mapper = OnTheFlyMapper::new();
+	let mmap_iterator = MemoryMapIterator::new(&otf_mapper);
+
+	for region in mmap_iterator.clone() {
+		if region.base < 0x100000 {
+			let end = region.base + region.length;
+			let end_1mib = end.min(0x100000);
+			let min_used = end_1mib - region.base;
+			if region.used < min_used {
+				panic!(
+					"region {:016X}:{} overlaps the first 1MiB (reserved), but has less used \
+					 bytes than are within the first 1MiB: {} used bytes (min {}, {} short)",
+					region.base,
+					region.length,
+					region.used,
+					min_used,
+					min_used - region.used
+				);
+			}
+		}
+	}
+
 	// Next we use a recursive mapper specifically for the linear map.
 	//
 	// It works by iterating over the memory map provided to us by the
@@ -76,8 +105,6 @@ pub unsafe fn prepare_memory() -> (
 	// We'll then get back an iterator of the remaining usable regions
 	// and free them back into a new page frame allocator, thus resulting
 	// in a primed PFA with all actual usable memory regions made available.
-	let otf_mapper = OnTheFlyMapper::new();
-	let mmap_iterator = MemoryMapIterator::new(&otf_mapper);
 	let mut mmap_pfa = MemoryMapPfa::new(mmap_iterator.clone());
 	let linear_offset = linear_map_regions(&otf_mapper, &mut mmap_pfa, mmap_iterator)
 		.expect("system ran out of memory during linear map");
@@ -95,17 +122,18 @@ pub unsafe fn prepare_memory() -> (
 
 	for region in pfa_iter {
 		let base = region.base + region.used;
+
 		// NOTE(qix-): Technically the saturating sub isn't necessary here
 		// NOTE(qix-): assuming the bootloader has done its job correctly.
 		// NOTE(qix-): However it's good to keep the spaceship flying.
 		let length = region.length.saturating_sub(region.used);
-		let base = (base + 4095) & !4095;
-		let length = length.saturating_sub(base - region.base);
+		let aligned_base = (base + 4095) & !4095;
+		let length = length.saturating_sub(aligned_base - base);
 
-		debug_assert_eq!(base % 4096, 0);
+		debug_assert_eq!(aligned_base % 4096, 0);
 		debug_assert_eq!(length % 4096, 0);
 
-		for page in (base..(base + length)).step_by(4096) {
+		for page in (aligned_base..(aligned_base + length)).step_by(4096) {
 			pfa.free(page);
 		}
 	}
