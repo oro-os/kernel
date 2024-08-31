@@ -110,21 +110,6 @@ pub unsafe fn prepare_memory() -> (
 		}
 	}
 
-	// DBG
-	{
-		let mut current_next =
-			if let MemoryMapKind::V0(d) = super::protocol::MMAP_REQUEST.response().unwrap() {
-				d.assume_init_ref().next
-			} else {
-				unreachable!()
-			};
-		while current_next != 0 {
-			let entry = *(pat.to_virtual_addr(current_next) as *const MemoryMapEntry);
-			dbg!("pat'd entry: {:?}", entry);
-			current_next = entry.next;
-		}
-	}
-
 	// Uninstall the recursive mapping.
 	let l4 = &mut *(pat.to_virtual_addr(crate::asm::cr3()) as *mut crate::mem::paging::PageTable);
 	l4[RIDX].reset();
@@ -190,15 +175,22 @@ unsafe fn linear_map_regions<'a>(
 		"mmap_offset is not 2MiB page-aligned"
 	);
 
-	for region in regions {
-		// Do we care about mapping this region?
-		if !matches!(
-			region.ty,
-			MemoryMapEntryType::Usable | MemoryMapEntryType::Modules
-		) {
-			continue;
-		}
+	// We hack in a synthetic region to map the first
+	// 4GiB of memory to the linear map, since much
+	// of the ACPI tables and other MMIO are located
+	// there and bootloaders tend not to report them
+	// to us in the memory map.
+	let regions = [MemoryMapEntry {
+		base:   0,
+		length: 1 << 32,
+		ty:     MemoryMapEntryType::Unknown,
+		used:   0,
+		next:   0,
+	}]
+	.into_iter()
+	.chain(regions);
 
+	for region in regions {
 		// Calculate the virtual base address (where this region
 		// starts in our virtual memory).
 		let mut base_phys = region.base;
