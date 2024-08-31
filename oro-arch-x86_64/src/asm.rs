@@ -99,3 +99,31 @@ pub fn disable_interrupts() {
 		asm!("cli", options(nostack, preserves_flags));
 	}
 }
+
+/// Sends a byte to the specified I/O port.
+#[inline(always)]
+pub fn outb(port: u16, value: u8) {
+	unsafe {
+		asm!(
+			"out dx, al",
+			in("dx") port,
+			in("al") value,
+			options(nostack, preserves_flags)
+		);
+	}
+}
+
+/// Reads a word from the specified I/O port.
+#[inline(always)]
+pub fn inw(port: u16) -> u16 {
+	let value: u16;
+	unsafe {
+		asm!(
+			"in ax, dx",
+			out("ax") value,
+			in("dx") port,
+			options(nostack, preserves_flags)
+		);
+	}
+	value
+}

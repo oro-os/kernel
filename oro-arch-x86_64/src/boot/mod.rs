@@ -2,7 +2,12 @@
 mod memory;
 pub(crate) mod protocol;
 
+use oro_acpi::{
+	madt::{LocalApicEx as _, MadtEntry},
+	sys as acpi_sys, AcpiTable,
+};
 use oro_boot_protocol::acpi::AcpiKind;
+use oro_common::mem::translate::PhysicalAddressTranslator as _;
 use oro_debug::dbg;
 
 /// Boots the primary core (boostrap processor) of the system.
@@ -52,6 +57,34 @@ pub unsafe fn boot_primary() -> ! {
 		.sdt()
 		.expect("ACPI tables are missing either the RSDT or XSDT table");
 
+	let fadt = sdt
+		.find::<oro_acpi::Fadt<_>>()
+		.expect("FADT table not found in ACPI tables");
+	let fadt = fadt.inner_ref();
+
+	// Enable ACPI if need be.
+	if (fadt.Flags & acpi_sys::ACPI_FADT_HW_REDUCED) == 0
+		&& !(fadt.SmiCommand == 0 && fadt.AcpiEnable == 0 && (fadt.Pm1aControlBlock & 1) != 0)
+	{
+		dbg!("enabling ACPI");
+		crate::asm::outb(
+			u16::try_from(fadt.SmiCommand)
+				.expect("ACPI provided an SMI command port that was too large"),
+			fadt.AcpiEnable,
+		);
+
+		dbg!("enabled ACPI; waiting for it to take effect...");
+		let pma1 = u16::try_from(fadt.Pm1aControlBlock)
+			.expect("ACPI provided a PM1A control block port that was too large");
+		while (crate::asm::inw(pma1) & 1) == 0 {
+			core::hint::spin_loop();
+		}
+
+		dbg!("ACPI enabled");
+	} else {
+		dbg!("ACPI already enabled");
+	}
+
 	let madt = sdt
 		.find::<oro_acpi::Madt<_>>()
 		.expect("MADT table not found in ACPI tables");
@@ -61,8 +94,26 @@ pub unsafe fn boot_primary() -> ! {
 		crate::asm::disable_8259();
 	}
 
+	// Get our local LAPIC ID.
+	let lapic = crate::lapic::Lapic::new(pat.to_virtual_addr(madt.lapic_phys()) as *mut u8);
+
+	dbg!("local APIC version: {:08X}", lapic.version());
+	dbg!("local APIC ID: {}", lapic.id());
+
 	for entry in madt.entries() {
 		dbg!("MADT entry: {:?}", entry);
+		if let Ok(MadtEntry::LocalApic(apic)) = entry {
+			if apic.can_init() {
+				if apic.id() == lapic.id() {
+					dbg!("cpu {}: not booting (primary core)", apic.id());
+				} else {
+					dbg!("cpu {}: booting...", apic.id());
+					lapic.boot_core(apic.id());
+				}
+			} else {
+				dbg!("cpu {}: not booting (disabled)", apic.id());
+			}
+		}
 	}
 
 	<crate::X86_64 as oro_common::arch::Arch>::halt();
