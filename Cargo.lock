@@ -164,6 +164,7 @@ dependencies = [
  "oro-acpica-sys",
  "oro-common",
  "oro-common-assertions",
+ "oro-common-proc",
 ]
 
 [[package]]

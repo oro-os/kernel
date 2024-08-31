@@ -61,5 +61,9 @@ pub unsafe fn boot_primary() -> ! {
 		crate::asm::disable_8259();
 	}
 
+	for entry in madt.entries() {
+		dbg!("MADT entry: {:?}", entry);
+	}
+
 	<crate::X86_64 as oro_common::arch::Arch>::halt();
 }
