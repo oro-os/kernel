@@ -11,7 +11,7 @@ use core::{alloc::Layout, ptr::from_ref};
 use oro_common::mem::translate::PhysicalAddressTranslator as Pat;
 use oro_common_assertions as assert;
 
-mod madt;
+pub mod madt;
 
 /// RSDP structure.
 pub struct Rsdp<P: Pat> {
