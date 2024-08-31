@@ -18,7 +18,7 @@ impl<P: PhysicalAddressTranslator> crate::Madt<P> {
 	/// Returns the physical address of the local APIC.
 	#[must_use]
 	pub fn lapic_phys(&self) -> u64 {
-		u64::from(self.ptr.Address)
+		u64::from(u32::from_le(self.ptr.Address))
 	}
 
 	/// Returns an iterator over all of the MADT entries.
@@ -83,6 +83,7 @@ macro_rules! madt_entries {
 	($($(#[$meta:meta])* $name:tt = $tyid:literal),* $(,)?) => {
 		paste! {
 			/// Represents an entry in the MADT table.
+			#[allow(missing_docs)]
 			#[non_exhaustive]
 			pub enum MadtEntry<'a> {
 				$(
@@ -113,6 +114,7 @@ macro_rules! madt_entries {
 			}
 
 			/// A union of all APIC types. Used by the [`MadtIterator`].
+			#[allow(missing_docs)]
 			#[repr(C)]
 			union MadtData {
 				header: ManuallyDrop<sys::ACPI_SUBTABLE_HEADER>,
@@ -137,4 +139,29 @@ madt_entries! {
 	interrupt_source = 8,
 	local_x2apic = 9,
 	local_x2apic_nmi = 10,
+}
+
+/// Extension trait for Local APIC MADT entries.
+pub trait LocalApicEx {
+	/// Returns the entry.
+	fn inner_ref(&self) -> &sys::acpi_madt_local_apic;
+
+	/// Returns the local APIC ID.
+	fn id(&self) -> u8 {
+		u8::from_le(self.inner_ref().Id)
+	}
+
+	/// Returns whether or not this CPU can be initialized.
+	/// If this returns `false`, this entry should be ignored
+	/// and the boot routine should not attempt any initialization.
+	fn can_init(&self) -> bool {
+		self.inner_ref().LapicFlags & 3 != 0
+	}
+}
+
+impl LocalApicEx for sys::acpi_madt_local_apic {
+	#[inline(always)]
+	fn inner_ref(&self) -> &sys::acpi_madt_local_apic {
+		self
+	}
 }
