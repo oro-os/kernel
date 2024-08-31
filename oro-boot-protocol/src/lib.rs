@@ -208,6 +208,14 @@ pub struct MemoryMapEntry {
 	/// Note that this is _not_ guaranteed to be aligned
 	/// to any particular value; the kernel will handle
 	/// alignment internally.
+	///
+	/// # x86 / x86_64 Specific
+	/// On x86 / x86_64, the first 1MiB of memory is
+	/// reserved and **must not** be used by the bootloader.
+	///
+	/// All bytes that fall under this region, regardless of
+	/// their type, should be added to the `used` field's
+	/// count.
 	pub used:   u64,
 	/// The physical address of the next entry in the list,
 	/// or `0` if this is the last entry.
