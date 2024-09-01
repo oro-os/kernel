@@ -7,6 +7,7 @@
 #![allow(clippy::tabs_in_doc_comments)]
 #![feature(let_chains, proc_macro_span)]
 
+mod asm_buffer;
 mod enum_as;
 mod enum_iterator;
 mod gdb_autoload;
@@ -142,4 +143,20 @@ pub fn enum_as_u32(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 #[proc_macro]
 pub fn gdb_autoload_inline(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	self::gdb_autoload::gdb_autoload_inline(input)
+}
+
+/// Converts a `#[naked]`-like assembly block into a byte buffer of assembly
+/// instructions.
+///
+/// This macro uses the same [`core::arch::asm!`] syntax, but instead of embedding
+/// the instructions inline into the binary, it generates a constant byte buffer
+/// literal with the encoded instructions.
+///
+/// # Limitations
+/// This macro only works with instructions that would otherwise work in a `#[naked]`
+/// function. This means that the instructions must not reference any local variables
+/// or function arguments.
+#[proc_macro]
+pub fn asm_buffer(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+	self::asm_buffer::asm_buffer(input)
 }
