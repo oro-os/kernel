@@ -93,3 +93,16 @@ fn paste_const_case() {
 		assert_eq!(42, SOME_CONST_CASE);
 	}
 }
+
+#[test]
+#[cfg_attr(not(target_arch = "x86_64"), ignore)]
+fn inline_asm_x86_64() {
+	let asm = asm_buffer! {
+		"nop",
+		"4:",
+		"hlt",
+		"jmp 4b",
+	};
+
+	assert_eq!(asm, [0x90, 0xF4, 0xEB, 0xFD]);
+}
