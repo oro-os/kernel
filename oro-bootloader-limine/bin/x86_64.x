@@ -11,11 +11,7 @@ PHDRS {
 
 SECTIONS {
 	. = 0xFFFFFFFF80000000;
-}
 
-INCLUDE "oro-boot/xfer.x"
-
-SECTIONS {
 	.text : {
 		*(.text .text.*)
 	} :text

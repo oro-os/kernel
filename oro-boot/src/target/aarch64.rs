@@ -1,7 +1,7 @@
 //! Contains the transfer stubs when the kernel is being switched to
 //! from the preboot environment on AArch64.
 
-use core::{arch::asm, ptr::from_ref};
+use core::arch::asm;
 use oro_arch_aarch64::{
 	mair::MairEntry,
 	mem::address_space::{AddressSpaceHandle, AddressSpaceLayout},
@@ -17,16 +17,10 @@ use oro_common::mem::{
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
 	translate::PhysicalAddressTranslator,
 };
+use oro_common_proc::asm_buffer;
 
 pub type AddressSpace = AddressSpaceLayout;
 pub type SupervisorHandle = AddressSpaceHandle;
-
-extern "C" {
-	/// The start of the transfer stubs.
-	static _ORO_STUBS_START: u64;
-	/// The end of the transfer stubs.
-	static _ORO_STUBS_LEN: u64;
-}
 
 /// The transfer token for the Aarch64 architecture.
 pub struct TransferToken {
@@ -53,6 +47,39 @@ pub struct TransferData {
 	stubs_addr: u64,
 }
 
+/// The stub machine code to be executed in order to
+/// jump to the kernel.
+const STUBS: &[u8] = &asm_buffer! {
+	// Disable MMU
+	"mrs x9, sctlr_el1",
+	"bic x9, x9, #1",
+	"msr sctlr_el1, x9",
+	// Set up the MAIR register
+	"msr mair_el1, x3",
+	// Set the TCR_EL1 register to the configuration expected by the kernel
+	"msr tcr_el1, x5",
+	// Set up the kernel page table address in TTBR1_EL1
+	"msr ttbr1_el1, x0",
+	// Re-enable MMU
+	"mrs x9, sctlr_el1",
+	"orr x9, x9, #1",
+	"msr sctlr_el1, x9",
+	// Invalidate TLBs
+	"tlbi vmalle1is",
+	// Invalidate instruction cache
+	"ic iallu",
+	// Invalidate data cache
+	"dc isw, xzr",
+	// Ensure all cache, TLB, and branch predictor maintenance operations have completed
+	"dsb nsh",
+	// Ensure the instruction stream is consistent
+	"isb",
+	// Set up the stack pointer
+	"mov sp, x1",
+	// Jump to the kernel entry point
+	"br x2",
+};
+
 /// Prepares the system for a transfer. Called before the memory map
 /// is written, after which `transfer` is called.
 pub unsafe fn prepare_transfer<
@@ -64,8 +91,14 @@ pub unsafe fn prepare_transfer<
 	pat: &P,
 ) -> crate::Result<TransferData> {
 	debug_assert!(
-		(from_ref(&_ORO_STUBS_LEN) as usize) <= 4096,
+		STUBS.len() <= 4096,
 		"transfer stubs are larger than a 4KiB page"
+	);
+
+	debug_assert_ne!(
+		STUBS.len(),
+		0,
+		"transfer stubs must have a length greater than 0"
 	);
 
 	AddressSpaceLayout::map_recursive_entry(mapper, pat);
@@ -73,14 +106,12 @@ pub unsafe fn prepare_transfer<
 	let stubs_phys = alloc
 		.allocate()
 		.ok_or(crate::Error::MapError(MapError::OutOfMemory))?;
+
 	let stubs_virt = pat.to_virtual_addr(stubs_phys);
 
 	// Copy the stubs into the new page
 	let stubs_dest = &mut *(stubs_virt as *mut [u8; 4096]);
-	// SAFETY: We will not reference any of the data outside of the valid memory.
-	#[allow(invalid_reference_casting)]
-	let stubs_src = &*(from_ref(&_ORO_STUBS_START).cast::<[u8; 4096]>());
-	stubs_dest.copy_from_slice(stubs_src[..(from_ref(&_ORO_STUBS_LEN) as usize)].as_ref());
+	(&mut stubs_dest[..STUBS.len()]).copy_from_slice(STUBS.as_ref());
 
 	// Map the stubs into the new page table using an identity mapping.
 	// SAFETY(qix-): We specify that TTBR0 must be 4KiB upon transferring to the kernel,
@@ -183,50 +214,5 @@ pub unsafe fn transfer(
 		in("x5") tcr_el1_raw,
 		// SAFETY(qix-): Do not use `x8` or `x9` for transferring values.
 		options(noreturn)
-	);
-}
-
-/// Transfer stubs for the AArch64 architecture.
-///
-/// This function performs the actual register modifications and jumps to the kernel entry point.
-///
-/// # Safety
-/// This function is meant to be called by the [`transfer()`] function
-/// and nowhere else.
-#[naked]
-#[no_mangle]
-#[link_section = ".oro_xfer_stubs.entry"]
-unsafe extern "C" fn transfer_stubs() -> ! {
-	// SAFETY(qix-): `x9` is the only temporary register usable by the stubs.
-	asm!(
-		// Disable MMU
-		"mrs x9, sctlr_el1",
-		"bic x9, x9, #1",
-		"msr sctlr_el1, x9",
-		// Set up the MAIR register
-		"msr mair_el1, x3",
-		// Set the TCR_EL1 register to the configuration expected by the kernel
-		"msr tcr_el1, x5",
-		// Set up the kernel page table address in TTBR1_EL1
-		"msr ttbr1_el1, x0",
-		// Re-enable MMU
-		"mrs x9, sctlr_el1",
-		"orr x9, x9, #1",
-		"msr sctlr_el1, x9",
-		// Invalidate TLBs
-		"tlbi vmalle1is",
-		// Invalidate instruction cache
-		"ic iallu",
-		// Invalidate data cache
-		"dc isw, xzr",
-		// Ensure all cache, TLB, and branch predictor maintenance operations have completed
-		"dsb nsh",
-		// Ensure the instruction stream is consistent
-		"isb",
-		// Set up the stack pointer
-		"mov sp, x1",
-		// Jump to the kernel entry point
-		"br x2",
-		options(noreturn),
 	);
 }
