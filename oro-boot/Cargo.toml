@@ -18,6 +18,7 @@ doctest = false
 oro-common.workspace = true
 oro-common-assertions.workspace = true
 oro-common-elf.workspace = true
+oro-common-proc.workspace = true
 oro-boot-protocol = { workspace = true, features = ["utils"] }
 oro-debug.workspace = true
 
