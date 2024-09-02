@@ -332,8 +332,7 @@ const SECONDARY_BOOT_LONG_MODE_STUB: &[u8] = &asm_buffer! {
 	"mov rax, [0x8FC8]",
 	"mov cr0, rax",
 
-	// Install the real CR4 value,
-	// after the real GDT has been loaded.
+	// Install the real CR4 value.
 	"mov rax, [0x8FD0]",
 	"mov cr4, rax",
 
