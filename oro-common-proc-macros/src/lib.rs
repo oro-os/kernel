@@ -156,6 +156,10 @@ pub fn gdb_autoload_inline(input: proc_macro::TokenStream) -> proc_macro::TokenS
 /// This macro only works with instructions that would otherwise work in a `#[naked]`
 /// function. This means that the instructions must not reference any local variables
 /// or function arguments.
+///
+/// The use of the bytes `0xDE`, `0xAD`, `0xBE`, and `0xEF` are allowed (in that order,
+/// regardless of endianness) but the sequence cannot be repeated three times in a row,
+/// else the macro will produce a short count.
 #[proc_macro]
 pub fn asm_buffer(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	self::asm_buffer::asm_buffer(input)

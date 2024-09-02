@@ -19,6 +19,17 @@ use oro_debug::{dbg, dbg_warn};
 /// of the official [`crate::mem::address_space::AddressSpaceLayout`] indices).
 const OTF_IDX: usize = 254;
 
+/// Result from the [`prepare_memory`] function.
+pub struct PreparedMemory {
+	/// The page frame allocator.
+	pub pfa:      FiloPageFrameAllocator<OffsetPhysicalAddressTranslator>,
+	/// The physical address translator.
+	pub pat:      OffsetPhysicalAddressTranslator,
+	/// Whether or not physical pages 0x8000 and 0x9000 are available,
+	/// which are required to boot secondary cores.
+	pub has_cs89: bool,
+}
+
 /// Prepares the system's memory. Namely, it performs the following:
 ///
 /// - Validates that the bootloader set us up a recursive mapping
@@ -35,10 +46,7 @@ const OTF_IDX: usize = 254;
 /// - Uninstalls the recursive mapping.
 /// - Hands back a physical address translator and page frame allocator
 ///   for the system to use.
-pub unsafe fn prepare_memory() -> (
-	FiloPageFrameAllocator<OffsetPhysicalAddressTranslator>,
-	OffsetPhysicalAddressTranslator,
-) {
+pub unsafe fn prepare_memory() -> PreparedMemory {
 	// First, let's make sure the recursive entry is mapped.
 	const RIDX: usize = crate::mem::address_space::AddressSpaceLayout::RECURSIVE_IDX;
 	let cr3 = crate::asm::cr3();
@@ -69,8 +77,13 @@ pub unsafe fn prepare_memory() -> (
 	//   should be the length of the region.
 	// - For any region that overlaps the first 1MiB, the `used` field
 	//   should be at minimum the number of bytes below the 1MiB boundary.
+	//
+	// Further, we keep track of the minimum physical address that is usable
+	// below 1MiB.
 	let otf_mapper = OnTheFlyMapper::new();
 	let mmap_iterator = MemoryMapIterator::new(&otf_mapper);
+	let mut has_cs8 = false;
+	let mut has_cs9 = false;
 
 	for region in mmap_iterator.clone() {
 		if region.base < 0x100000 {
@@ -87,6 +100,13 @@ pub unsafe fn prepare_memory() -> (
 					min_used,
 					min_used - region.used
 				);
+			}
+
+			if region.base <= 0x8000 && end >= 0x9000 {
+				has_cs8 = true;
+			}
+			if region.base <= 0x9000 && end >= 0xA000 {
+				has_cs9 = true;
 			}
 		}
 	}
@@ -155,7 +175,11 @@ pub unsafe fn prepare_memory() -> (
 	// Flush the TLB
 	crate::asm::flush_tlb();
 
-	(pfa, pat)
+	PreparedMemory {
+		pfa,
+		pat,
+		has_cs89: has_cs8 && has_cs9,
+	}
 }
 
 /// Maps all regions to a linear map in the current virtual address space.

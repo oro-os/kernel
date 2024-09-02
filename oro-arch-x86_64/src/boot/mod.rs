@@ -1,14 +1,20 @@
 //! Boot routines for the x86_64 architecture.
 mod memory;
 pub(crate) mod protocol;
+mod secondary;
 
+use crate::mem::address_space::AddressSpaceLayout;
 use oro_acpi::{
 	madt::{LocalApicEx as _, MadtEntry},
 	sys as acpi_sys, AcpiTable,
 };
 use oro_boot_protocol::acpi::AcpiKind;
-use oro_common::mem::translate::PhysicalAddressTranslator as _;
-use oro_debug::dbg;
+use oro_common::mem::{mapper::AddressSpace, translate::PhysicalAddressTranslator as _};
+use oro_debug::{dbg, dbg_warn};
+
+/// Temporary value for the number of stack pages to allocate for secondary cores.
+// TODO(qix-): Discover the stack size of the primary core and use that instead.
+const SECONDARY_STACK_PAGES: usize = 16;
 
 /// Boots the primary core (boostrap processor) of the system.
 ///
@@ -26,7 +32,11 @@ pub unsafe fn boot_primary() -> ! {
 	#[cfg(debug_assertions)]
 	oro_debug::init();
 
-	let (_pfa, pat) = memory::prepare_memory();
+	let memory::PreparedMemory {
+		pat,
+		has_cs89,
+		mut pfa,
+	} = memory::prepare_memory();
 
 	crate::reg::Cr0::new()
 		.with_monitor_coprocessor()
@@ -100,21 +110,50 @@ pub unsafe fn boot_primary() -> ! {
 	dbg!("local APIC version: {:08X}", lapic.version());
 	dbg!("local APIC ID: {}", lapic.id());
 
-	for entry in madt.entries() {
-		dbg!("MADT entry: {:?}", entry);
-		if let Ok(MadtEntry::LocalApic(apic)) = entry {
-			if apic.can_init() {
-				if apic.id() == lapic.id() {
-					dbg!("cpu {}: not booting (primary core)", apic.id());
+	let num_cores = if has_cs89 {
+		dbg!("physical pages 0x8000/0x9000 are valid; attempting to boot secondary cores");
+
+		// Get the current supervisor address space.
+		let mapper = AddressSpaceLayout::current_supervisor_space(&pat);
+
+		// Boot the secondary cores.
+		let mut num_cores = 1; // start at one for the bsp
+		for entry in madt.entries() {
+			if let Ok(MadtEntry::LocalApic(apic)) = entry {
+				if apic.can_init() {
+					if apic.id() == lapic.id() {
+						dbg!("cpu {}: not booting (primary core)", apic.id());
+					} else {
+						dbg!("cpu {}: booting...", apic.id());
+						match secondary::boot_secondary(
+							&mapper,
+							&mut pfa,
+							&pat,
+							&lapic,
+							apic.id(),
+							SECONDARY_STACK_PAGES,
+						) {
+							Ok(()) => {
+								num_cores += 1;
+							}
+							Err(err) => {
+								dbg_warn!("cpu {} failed to boot: {err:?}", apic.id());
+							}
+						}
+					}
 				} else {
-					dbg!("cpu {}: booting...", apic.id());
-					lapic.boot_core(apic.id());
+					dbg!("cpu {}: not booting (disabled)", apic.id());
 				}
-			} else {
-				dbg!("cpu {}: not booting (disabled)", apic.id());
 			}
 		}
-	}
+
+		num_cores
+	} else {
+		dbg_warn!("physical pages 0x8000/0x9000 are not available; cannot boot secondary cores");
+		1
+	};
+
+	dbg!("proceeding with {} core(s)", num_cores);
 
 	<crate::X86_64 as oro_common::arch::Arch>::halt();
 }

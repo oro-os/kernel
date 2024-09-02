@@ -124,17 +124,27 @@ enum Dpl {
 	Ring3 = 3,
 }
 
+/// The GDT.
+static GDT: [GdtEntry; 5] = [
+	GdtEntry::null_descriptor(),
+	GdtEntry::kernel_code_segment(), // kernel code MUST be index 1
+	GdtEntry::kernel_data_segment(),
+	GdtEntry::user_code_segment(),
+	GdtEntry::user_data_segment(),
+];
+
+/// Returns a byte slice of the GDT.
+///
+/// This is mostly used by the secondary core initialization
+/// code to write the GDT to a 32-bit page, as is required
+/// when running in a 16/32-bit mode.
+pub fn gdt_bytes() -> &'static [u8] {
+	// SAFETY(qix-): The GDT is a static array, so it's always valid.
+	unsafe { core::slice::from_raw_parts(GDT.as_ptr() as *const u8, core::mem::size_of_val(&GDT)) }
+}
+
 /// Installs the GDT.
 pub fn install_gdt() {
-	/// The GDT.
-	static GDT: [GdtEntry; 5] = [
-		GdtEntry::null_descriptor(),
-		GdtEntry::kernel_code_segment(), // kernel code MUST be index 1
-		GdtEntry::kernel_data_segment(),
-		GdtEntry::user_code_segment(),
-		GdtEntry::user_data_segment(),
-	];
-
 	/// A GDT descriptor. Used exclusively by the `lgdt` instruction.
 	///
 	/// Must be packed, order matters.

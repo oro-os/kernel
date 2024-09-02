@@ -43,6 +43,10 @@ pub struct AddressSpaceLayout;
 // NOTE(qix-): Please keep this sorted.
 #[rustfmt::skip]
 impl AddressSpaceLayout {
+	/// The index for the secondary core boot stubs.
+	/// Only used during boot; do not change. Can overlap
+	/// if the segment is used for userspace.
+	pub const KERNEL_SECONDARY_BOOT_IDX: usize = 0;
 	/// The recursive index for the page table.
 	pub const RECURSIVE_IDX: usize = 256;
 	/// The stack space range
@@ -92,6 +96,53 @@ impl AddressSpaceLayout {
 				.with_present()
 				.with_no_exec()
 				.with_writable(),
+		};
+
+		&DESCRIPTOR
+	}
+
+	/// Shallow-duplicates the current address space into a new one
+	/// at the given physical address.
+	pub fn copy_shallow_into<P: PhysicalAddressTranslator>(
+		handle: &AddressSpaceHandle,
+		into_phys: u64,
+		pat: &P,
+	) {
+		unsafe {
+			(&mut *(pat.to_virtual_addr(into_phys) as *mut PageTable))
+				.shallow_copy_from(&*(pat.to_virtual_addr(handle.base_phys) as *const PageTable));
+		}
+	}
+
+	/// Returns a segment for the secondary core boot stub.
+	pub fn secondary_boot_stub_code() -> &'static AddressSegment {
+		#[allow(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range: (
+				AddressSpaceLayout::KERNEL_SECONDARY_BOOT_IDX,
+				AddressSpaceLayout::KERNEL_SECONDARY_BOOT_IDX,
+			),
+			entry_template: PageTableEntry::new().with_present(),
+			intermediate_entry_template: PageTableEntry::new().with_present().with_writable(),
+		};
+
+		&DESCRIPTOR
+	}
+
+	/// Returns a segment for the secondary core boot stub's stack
+	/// mapping.
+	pub fn secondary_boot_stub_stack() -> &'static AddressSegment {
+		#[allow(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range: (
+				AddressSpaceLayout::KERNEL_SECONDARY_BOOT_IDX,
+				AddressSpaceLayout::KERNEL_SECONDARY_BOOT_IDX,
+			),
+			entry_template: PageTableEntry::new()
+				.with_present()
+				.with_writable()
+				.with_no_exec(),
+			intermediate_entry_template: PageTableEntry::new().with_present().with_writable(),
 		};
 
 		&DESCRIPTOR
