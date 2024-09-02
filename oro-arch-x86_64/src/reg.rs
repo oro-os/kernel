@@ -124,6 +124,16 @@ impl Cr0 {
 			asm!("mov cr0, {}", in(reg) self.0);
 		}
 	}
+
+	/// Gets the current CR0 register.
+	pub fn read() -> Self {
+		// SAFETY(qix-): This is always safe.
+		let cr0: u64;
+		unsafe {
+			asm!("mov {}, cr0", out(reg) cr0);
+		}
+		Self(cr0)
+	}
 }
 
 impl From<Cr0> for u64 {

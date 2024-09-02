@@ -115,6 +115,7 @@ pub fn outb(port: u16, value: u8) {
 
 /// Reads a word from the specified I/O port.
 #[inline(always)]
+#[must_use]
 pub fn inw(port: u16) -> u16 {
 	let value: u16;
 	unsafe {
@@ -126,4 +127,15 @@ pub fn inw(port: u16) -> u16 {
 		);
 	}
 	value
+}
+
+/// Reads the current CR4 register value.
+#[inline(always)]
+#[must_use]
+pub fn cr4() -> u64 {
+	let cr4: u64;
+	unsafe {
+		asm!("mov {}, cr4", out(reg) cr4, options(nostack, nomem, preserves_flags));
+	}
+	cr4
 }

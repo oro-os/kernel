@@ -65,8 +65,9 @@ impl Lapic {
 	pub fn send_init_ipi(&self) {
 		// SAFETY(qix-): The LAPIC base address is guaranteed to be valid.
 		unsafe {
-			let v = self.base.add(0x300).cast::<u32>().read_volatile();
-			let v = (v & 0xFFF00000) | 0x00C500;
+			// let v = self.base.add(0x300).cast::<u32>().read_volatile();
+			// let v = (v & 0xFFF00000) | 0x00C500;
+			let v = 0x00004500;
 			self.base.add(0x300).cast::<u32>().write_volatile(v);
 		}
 	}
@@ -85,19 +86,20 @@ impl Lapic {
 	pub fn deassert_init_ipi(&self) {
 		// SAFETY(qix-): The LAPIC base address is guaranteed to be valid.
 		unsafe {
-			let v = self.base.add(0x300).cast::<u32>().read_volatile();
-			let v = (v & 0xFFF00000) | 0x008500;
-			self.base.add(0x300).cast::<u32>().write_volatile(v);
+			// let v = self.base.add(0x300).cast::<u32>().read_volatile();
+			// let v = (v & 0xFFF00000) | 0x008500;
+			// self.base.add(0x300).cast::<u32>().write_volatile(v);
 		}
 	}
 
 	/// Sends a startup IPI to the currently selected target secondary processor
 	/// (selected via [`set_target_apic`]).
-	pub fn send_startup_ipi(&self) {
+	pub fn send_startup_ipi(&self, cs_page: u8) {
 		// SAFETY(qix-): The LAPIC base address is guaranteed to be valid.
 		unsafe {
-			let v = self.base.add(0x300).cast::<u32>().read_volatile();
-			let v = (v & 0xFFF0F800) | 0x000608;
+			// let v = self.base.add(0x300).cast::<u32>().read_volatile();
+			// let v = (v & 0xFFF0F800) | 0x000600 | u32::from(cs_page);
+			let v = 0x00004600 | cs_page as u32;
 			self.base.add(0x300).cast::<u32>().write_volatile(v);
 		}
 	}
@@ -107,7 +109,7 @@ impl Lapic {
 	/// # Panics
 	/// Panics in debug mode if the LAPIC ID is
 	/// the current core's.
-	pub fn boot_core(&self, apic_id: u8) {
+	pub fn boot_core(&self, apic_id: u8, cs_page: u8) {
 		debug_assert_ne!(self.id(), apic_id, "boot_core() called for current core");
 
 		self.clear_errors();
@@ -119,23 +121,19 @@ impl Lapic {
 		self.wait_for_ipi_ack();
 
 		// TODO(qix-): Wait 10ms.
-		oro_debug::dbg!("waiting a bit...");
-		for _ in 0..10000000 {
+		for _ in 0..1000000 {
 			core::hint::spin_loop();
 		}
-		oro_debug::dbg!("waited!");
 
 		for _ in 0..2 {
 			self.clear_errors();
 			self.set_target_apic(apic_id);
-			self.send_startup_ipi();
+			self.send_startup_ipi(cs_page);
 
 			// TODO(qix-): Wait 200us.
-			oro_debug::dbg!("waiting a bit...");
 			for _ in 0..10000 {
 				core::hint::spin_loop();
 			}
-			oro_debug::dbg!("waited!");
 
 			self.wait_for_ipi_ack()
 		}
