@@ -5,7 +5,7 @@ from ..service.autosym import SYM_AARCH64_ATS1E1R
 from ..log import error, log, warn
 from ..arch import get_arch
 
-_FAULT_STATUSES = {
+_AARCH64_AT_FAULT_STATUSES = {
     "0b000000": "address size fault, level 0 of translation or translation table base register",
     "0b000001": "address size fault, level 1",
     "0b000010": "address size fault, level 2",
@@ -40,7 +40,7 @@ _FAULT_STATUSES = {
     "0b111110": "page Domain fault, from an AArch32 stage 1 EL1&0 translation regime using Short-descriptor translation table format",
 }
 
-_SHAREABILITY = [
+_AARCH64_SHAREABILITY = [
     "non-shareable",
     "reserved (invalid shareability)",
     "outer shareable / device",
@@ -388,7 +388,7 @@ class TtCmdVirt(gdb.Command):
                         "tt: access flag is not set; CPU will most likely fault unless hardware A/D flags are enabled"
                     )
                 log(
-                    f"tt: {prefix}.SH\t= 0b{shareability:02b}\t\t\t({_SHAREABILITY[shareability]})"
+                    f"tt: {prefix}.SH\t= 0b{shareability:02b}\t\t\t({_AARCH64_SHAREABILITY[shareability]})"
                 )
                 log(
                     f"tt: {prefix}.AP\t= 0b{ap:02b}\t\t\t(only when indirect permissions are disabled)"
@@ -408,6 +408,181 @@ class TtCmdVirt(gdb.Command):
                     log(f"tt: CPU translation matches manual walk - OK!")
                 else:
                     warn(f"tt: CPU translation does not match manual walk")
+        elif arch == "i386:x86-64":
+            cr0 = int(gdb.parse_and_eval("$cr0"))
+            cr4 = int(gdb.parse_and_eval("$cr4"))
+            la57 = (cr4 & (1 << 12)) != 0
+            pge = (cr4 & (1 << 7)) != 0
+            pae = (cr4 & (1 << 5)) != 0
+            pe = (cr0 & 1) != 0
+            pg = (cr0 & (1 << 31)) != 0
+
+            warn("tt: cannot check CPUID; PSE and 1G page support cannot be verified")
+            warn("tt: cannot check EFER.LME; assuming long mode is enabled")
+
+            if not pae:
+                log("tt: CR4.PAE=0; translation in this mode is not supported")
+                return
+            if not pe:
+                log("tt: CR0.PE=0; real mode is not supported")
+                return
+            if not pg:
+                warn("tt: CR0.PG=0; paging is not enabled!")
+
+            current_pte_phys = int(gdb.parse_and_eval("$cr3"))
+
+            log(f"tt: CR3=0x{current_pte_phys:016x}")
+            log(
+                f"tt: CR4.LA57={la57} (5-level paging is {'enabled' if la57 else 'disabled'})"
+            )
+
+            def print_pte(pte, level):
+                log(f"tt: L{level}                = 0x{pte:016x}")
+                p = pte & 1
+                log(
+                    f"tt:   .P              = {p} ({'present' if p else 'not present'})"
+                )
+                if not p:
+                    error("tt: entry not present")
+                    return None, False, False
+                rw = (pte >> 1) & 1
+                us = (pte >> 2) & 1
+                pwt = (pte >> 3) & 1
+                pcd = (pte >> 4) & 1
+                a = (pte >> 5) & 1
+                d_or_avl6 = (pte >> 6) & 1
+                ps = (pte >> 7) & 1
+
+                log(
+                    f"tt:   .RW             = {rw} ({'read/write' if rw else 'read-only'})"
+                )
+                log(f"tt:   .US             = {us} ({'user' if us else 'supervisor'})")
+                log(
+                    f"tt:   .PWT            = {pwt} ({'write-through' if pwt else 'write-back'})"
+                )
+                log(
+                    f"tt:   .PCD            = {pcd} ({'cacheable' if pcd else 'uncacheable'})"
+                )
+                log(
+                    f"tt:   .A              = {a} ({'accessed' if a else 'not accessed'})"
+                )
+                if level == 1 or ps:
+                    log(
+                        f"tt:   .D              = {d_or_avl6} ({'dirty' if d_or_avl6 else 'not dirty'})"
+                    )
+                    if level > 3:
+                        error(
+                            f"tt:   .PS             = invalid (got 1; reserved, must be 0)"
+                        )
+                        return None, False, False
+                    if level > 1:
+                        log(
+                            f"tt:   .PS             = 1 ({'page' if level == 1 else 'huge page'})"
+                        )
+                        warn("tt: continuing assuming huge pages are supported by CPU")
+                    else:
+                        log(f"tt:   .PAT            = {1 if ps else 0}")
+
+                    g = (pte >> 8) & 1
+                    avl9 = (pte >> 9) & 0b111
+                    if level == 1:
+                        pat = None
+                        phys = pte & 0x000F_FFFF_FFFF_F000
+                        reserved = None
+                        mask = (1 << 12) - 1
+                    elif level == 2:
+                        pat = (pte >> 12) & 1
+                        phys = pte & 0x000F_FFFF_FFF0_0000
+                        reserved = (20, 13, pte & 0x1F_E000)
+                        mask = (1 << 21) - 1
+                    elif level == 3:
+                        pat = (pte >> 12) & 1
+                        phys = pte & 0x000F_FFFF_C000_0000
+                        reserved = (29, 13, pte & 0x3FFF_E000)
+                        mask = (1 << 30) - 1
+
+                    avl52 = (pte >> 52) & 0x7F
+                    pk = (pte >> 59) & 0xF
+                    xd = (pte >> 63) & 1
+
+                    log(
+                        f"tt:   .G              = {g} ({'global' if g else 'not global'})"
+                    )
+                    if not pge:
+                        warn(
+                            f"tt: PTE.G=1 but CR4.PGE=0; global pages are not supported"
+                        )
+                        warn(
+                            f"tt: (this may cause a #GP fault upon next page table walk)"
+                        )
+
+                    log(f"tt:   .AVL[11:9]      = 0b{avl9:03b} ({avl9})")
+
+                    if pat is not None:
+                        log(f"tt:   .PAT            = {1 if pat else 0}")
+                    if reserved is not None:
+                        (hi, lo, bits) = reserved
+                        if bits != 0:
+                            error(
+                                f"tt:   .RSV[{hi}:{lo}]     = 0b{bin(bits)} (reserved, should be 0)"
+                            )
+
+                    log(f"tt:   .PHYS           = 0x{phys:016X}")
+                    log(f"tt:   .AVL[58:52]     = 0b{avl52:07b} ({avl52})")
+                    log(f"tt:   .PK             = 0x{pk:01X} ({pk})")
+                    log(
+                        f"tt:   .XD             = {xd} ({'execute disable' if xd else 'executable'})"
+                    )
+
+                    return phys, False, True, mask
+                else:
+                    log(f"tt:   .AVL[6]         = 0b{d_or_avl6:01b}")
+                    log(f"tt:   .PS             = 0 (table entry)")
+
+                    avl8 = (pte >> 8) & 0xF
+                    phys = pte & 0x000F_FFFF_FFFF_F000
+                    avl52 = (pte >> 52) & 0x7FF
+                    xd = (pte >> 63) & 1
+
+                    log(f"tt:   .AVL[11:8]      = 0b{avl8:04b} ({avl8})")
+                    log(f"tt:   .PHYS           = 0x{phys:016x}")
+                    log(f"tt:   .AVL[62:52]     = 0b{avl52:011b} ({avl52})")
+                    log(
+                        f"tt:   .XD             = {xd} ({'execute disable' if xd else 'executable'})"
+                    )
+
+                    return phys, True, True, None
+
+            ok = False
+            level = 5 if la57 else 4
+            for level in range(level, 0, -1):
+                idx = (virt >> (12 + 9 * (level - 1))) & 0x1FF
+                log(f"tt: L{level} index: {idx}")
+                pte = qemu.read_physical(current_pte_phys + idx * 8, 8)
+                pte = struct.unpack("<Q", pte)[0]
+                current_pte_phys, cont, ok, mask = print_pte(pte, level)
+                if not cont:
+                    break
+
+            if ok:
+                current_pte_phys |= virt & mask
+                log(f"tt: physical address: 0x{current_pte_phys:016x}")
+
+                log("tt: verifying manual walk with QEMU translation...")
+                qemu_translated = qemu.gva2gpa(virt)
+                if qemu_translated is not None:
+                    log(f"tt: QEMU translation: 0x{qemu_translated:016x}")
+                    if qemu_translated == current_pte_phys:
+                        log("tt: QEMU translation matches manual walk - OK!")
+                    else:
+                        warn("tt: QEMU translation does not match manual walk")
+                else:
+                    error("tt: translation failed")
+
+                if not from_tty:
+                    return current_pte_phys
+            else:
+                error("tt: translation failed")
         else:
             error("tt: unsupported architecture")
 
@@ -496,7 +671,7 @@ class TtCmdAt(gdb.Command):
 
                 fst = f"0b{fst:06b}"
 
-                fst_reason = _FAULT_STATUSES.get(fst, "Unknown")
+                fst_reason = _AARCH64_AT_FAULT_STATUSES.get(fst, "Unknown")
                 ptw_reason = (
                     ""
                     if ptw == 0
@@ -514,7 +689,7 @@ class TtCmdAt(gdb.Command):
                 pa = translated & 0xF_FFFF_FFFF_F000
                 mair_attr = (translated >> 56) & 0xFF
 
-                sh_reason = _SHAREABILITY[sh]
+                sh_reason = _AARCH64_SHAREABILITY[sh]
 
                 log(f"tt: PAR_EL1.F\t= 0\t\t\t(translation OK)")
                 log(f"tt: PAR_EL1.PA\t= 0x{pa:016x}")
@@ -529,8 +704,12 @@ class TtCmdAt(gdb.Command):
             qemu = QEMU.session
             translated = qemu.gva2gpa(virt)
             if translated is None:
-                error("tt: note: page tables may be valid, but gva2gpa will not succeed")
-                error("tt: note: if the translated physical address isn't a real address")
+                error(
+                    "tt: note: page tables may be valid, but gva2gpa will not succeed"
+                )
+                error(
+                    "tt: note: if the translated physical address isn't a real address"
+                )
                 error("tt: translation failed")
                 return
             log(f"tt: translation OK: 0x{translated:016x}")
