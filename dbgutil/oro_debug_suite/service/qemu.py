@@ -10,6 +10,21 @@ class QemuService(object):
 
     def __init__(self):
         self._child = None
+        self.__on_started = set()
+
+    def on_started(self, callback):
+        """
+        Registers a callback to be called when QEMU is started.
+        """
+
+        self.__on_started.add(callback)
+
+    def off_started(self, callback):
+        """
+        Unregisters a callback that was to be called when QEMU is started.
+        """
+
+        self.__on_started.remove(callback)
 
     @property
     def session(self):
@@ -48,6 +63,10 @@ class QemuService(object):
         log("connecting to QEMU gdbserver...")
         self._child.connect_gdb()
         log("QEMU started")
+
+        for callback in self.__on_started:
+            callback()
+
         return self._child
 
     def check_child(self):

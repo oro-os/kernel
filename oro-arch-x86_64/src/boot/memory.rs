@@ -153,9 +153,18 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 		debug_assert_eq!(aligned_base % 4096, 0);
 		debug_assert_eq!(length % 4096, 0);
 
+		#[cfg(debug_assertions)]
+		{
+			oro_debug::__oro_dbgutil_pfa_will_mass_free(1);
+			oro_debug::__oro_dbgutil_pfa_mass_free(aligned_base, aligned_base + length);
+		}
+
 		for page in (aligned_base..(aligned_base + length)).step_by(4096) {
 			pfa.free(page);
 		}
+
+		#[cfg(debug_assertions)]
+		oro_debug::__oro_dbgutil_pfa_finished_mass_free();
 	}
 
 	// Uninstall the recursive mapping.
@@ -413,6 +422,9 @@ impl<'a> Iterator for MemoryMapPfa<'a> {
 		let result = self.current_entry.base;
 		self.current_entry.base += 4096;
 		self.current_entry.length -= 4096;
+
+		#[cfg(debug_assertions)]
+		oro_debug::__oro_dbgutil_pfa_alloc(result);
 
 		Some(result)
 	}
