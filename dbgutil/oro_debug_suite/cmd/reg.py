@@ -16,29 +16,31 @@ class RegCmd(gdb.Command):
     def invoke(self, arg, from_tty):
         args = gdb.string_to_argv(arg)
 
-        if len(args) != 1:
+        if len(args) < 1 or len(args) > 2:
             gdb.execute("help oro reg")
             return
 
         reg = args[0].lower()
         arch = get_arch()
+        value = int(args[1], 0) if len(args) == 2 else None
 
         if arch == "aarch64":
             if reg == "tcr_el1":
-                return self._decode_tcr_el1()
+                return self._decode_tcr_el1(value)
         elif arch == "i386:x86-64":
             if reg == "cr0":
-                return self._decode_cr0()
+                return self._decode_cr0(value)
 
         error(f"reg: register '{reg}' not supported for architecture '{arch}'")
 
-    def _decode_tcr_el1(self):
-        value = gdb.parse_and_eval("$TCR_EL1")
-        if value.type.code == gdb.TYPE_CODE_VOID:
-            error("reg: TCR_EL1 register not available (is the kernel running?)")
-            return
+    def _decode_tcr_el1(self, value=None):
+        if value is None:
+            value = gdb.parse_and_eval("$TCR_EL1")
+            if value.type.code == gdb.TYPE_CODE_VOID:
+                error("reg: TCR_EL1 register not available (is the kernel running?)")
+                return
 
-        value = int(value)
+            value = int(value)
 
         log(f"reg: TCR_EL1\t= 0x{value:016X}")
 
@@ -299,13 +301,14 @@ class RegCmd(gdb.Command):
         tt0_end = pow(2, 64 - t0sz) - 1
         log(f"reg:             \t  0x0000000000000000 - 0x{tt0_end:016X}")
 
-    def _decode_cr0(self):
-        value = gdb.parse_and_eval("$cr0")
-        if value.type.code == gdb.TYPE_CODE_VOID:
-            error("reg: CR0 register not available (is the kernel running?)")
-            return
+    def _decode_cr0(self, value=None):
+        if value is None:
+            value = gdb.parse_and_eval("$cr0")
+            if value.type.code == gdb.TYPE_CODE_VOID:
+                error("reg: CR0 register not available (is the kernel running?)")
+                return
 
-        value = int(value)
+            value = int(value)
 
         log(f"reg: CR0\t= 0x{value:016X}")
         log(f"reg:    \t= 0b{(value & 0xFFFF_FFFF):032b}")
