@@ -43,6 +43,7 @@ pub unsafe fn boot_primary() -> ! {
 		.with_emulation()
 		.with_alignment_mask()
 		.with_paging_enable()
+		.with_protected_mode_enable()
 		.inherit()
 		.load();
 
