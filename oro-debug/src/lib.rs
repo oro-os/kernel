@@ -73,7 +73,6 @@ macro_rules! dbg_warn {
 /// to the kernel image at an opportune time.
 #[no_mangle]
 #[link_section = ".text.force_keep"]
-#[cfg(feature = "dbgutil")]
 pub extern "C" fn __oro_dbgutil_kernel_will_transfer() {
 	// SAFETY(qix-): This is a marker function for GDB to switch to the kernel image.
 	unsafe {
@@ -100,7 +99,6 @@ pub extern "C" fn __oro_dbgutil_ATS1E1R() -> ! {
 /// has been allocated. Assumes a 4KiB page size.
 #[no_mangle]
 #[link_section = ".text.force_keep"]
-#[cfg(feature = "dbgutil")]
 pub extern "C" fn __oro_dbgutil_pfa_alloc(address_do_not_change_this_parameter_name: u64) {
 	unsafe {
 		asm!(
@@ -116,7 +114,6 @@ pub extern "C" fn __oro_dbgutil_pfa_alloc(address_do_not_change_this_parameter_n
 /// has been freed. Assumes a 4KiB page size.
 #[no_mangle]
 #[link_section = ".text.force_keep"]
-#[cfg(feature = "dbgutil")]
 pub extern "C" fn __oro_dbgutil_pfa_free(address_do_not_change_this_parameter_name: u64) {
 	unsafe {
 		asm!(
@@ -144,7 +141,6 @@ pub extern "C" fn __oro_dbgutil_pfa_free(address_do_not_change_this_parameter_na
 /// occur when no other threads are running.
 #[no_mangle]
 #[link_section = ".text.force_keep"]
-#[cfg(feature = "dbgutil")]
 pub unsafe extern "C" fn __oro_dbgutil_pfa_will_mass_free(
 	is_pfa_populating_do_not_change_this_parameter: u64,
 ) {
@@ -170,7 +166,6 @@ pub unsafe extern "C" fn __oro_dbgutil_pfa_will_mass_free(
 /// occur when no other threads are running.
 #[no_mangle]
 #[link_section = ".text.force_keep"]
-#[cfg(feature = "dbgutil")]
 pub unsafe extern "C" fn __oro_dbgutil_pfa_finished_mass_free() {
 	unsafe {
 		asm!("nop", options(nostack, nomem, preserves_flags));
@@ -189,7 +184,6 @@ pub unsafe extern "C" fn __oro_dbgutil_pfa_finished_mass_free() {
 /// will cause the PFA tracker to warn on a double-free.
 #[no_mangle]
 #[link_section = ".text.force_keep"]
-#[cfg(feature = "dbgutil")]
 pub extern "C" fn __oro_dbgutil_pfa_mass_free(
 	start_do_not_change_this_parameter: u64,
 	end_exclusive_do_not_change_this_parameter: u64,
