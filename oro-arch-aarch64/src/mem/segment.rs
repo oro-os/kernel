@@ -8,7 +8,7 @@
 //! It also assumes a 48-bit virtual address space (where `T0SZ`/`T1SZ` of `TCR_EL1`
 //! is set to 16).
 
-use super::paging::PageTableEntryType;
+use super::paging::{PageTableEntryType, PageTableEntryTypeMut};
 use crate::mem::{
 	address_space::AddressSpaceHandle,
 	paging::{
@@ -227,36 +227,36 @@ impl Segment {
 		let l0 = &mut *(l0_virt as *mut PageTable);
 		let l0_entry = &mut l0[l0_index];
 
-		Ok(match l0_entry.entry_type(0) {
-			PageTableEntryType::Invalid(_) => return Ok(None),
-			PageTableEntryType::L0Descriptor(l0_entry) => {
+		Ok(match l0_entry.entry_type_mut(0) {
+			PageTableEntryTypeMut::Invalid(_) => return Ok(None),
+			PageTableEntryTypeMut::L0Descriptor(l0_entry) => {
 				let l1_phys = l0_entry.address();
 				let l1_virt = translator.to_virtual_addr(l1_phys);
 				let l1 = &mut *(l1_virt as *mut PageTable);
 				let l1_index = (virt >> 30) & 0x1FF;
 				let l1_entry = &mut l1[l1_index];
 
-				let r = match l1_entry.entry_type(1) {
-					PageTableEntryType::Invalid(_) => None,
-					PageTableEntryType::L1Descriptor(l1_entry) => {
+				let r = match l1_entry.entry_type_mut(1) {
+					PageTableEntryTypeMut::Invalid(_) => None,
+					PageTableEntryTypeMut::L1Descriptor(l1_entry) => {
 						let l2_phys = l1_entry.address();
 						let l2_virt = translator.to_virtual_addr(l2_phys);
 						let l2 = &mut *(l2_virt as *mut PageTable);
 						let l2_index = (virt >> 21) & 0x1FF;
 						let l2_entry = &mut l2[l2_index];
 
-						let r = match l2_entry.entry_type(2) {
-							PageTableEntryType::Invalid(_) => None,
-							PageTableEntryType::L2Descriptor(l2_entry) => {
+						let r = match l2_entry.entry_type_mut(2) {
+							PageTableEntryTypeMut::Invalid(_) => None,
+							PageTableEntryTypeMut::L2Descriptor(l2_entry) => {
 								let l3_phys = l2_entry.address();
 								let l3_virt = translator.to_virtual_addr(l3_phys);
 								let l3 = &mut *(l3_virt as *mut PageTable);
 								let l3_index = (virt >> 12) & 0x1FF;
 								let l3_entry = &mut l3[l3_index];
 
-								let r = match l3_entry.entry_type(3) {
-									PageTableEntryType::Invalid(_) => None,
-									PageTableEntryType::L3Block(l3_entry) => {
+								let r = match l3_entry.entry_type_mut(3) {
+									PageTableEntryTypeMut::Invalid(_) => None,
+									PageTableEntryTypeMut::L3Block(l3_entry) => {
 										let phys = l3_entry.address();
 										l3_entry.clear_valid();
 										Some(phys)

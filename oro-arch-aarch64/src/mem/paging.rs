@@ -125,6 +125,41 @@ pub enum PageTableEntryType<'a> {
 	/// is malformed; it simply means that it is not "valid"
 	/// as per the ARMv8 specification, meaning that the translation
 	/// table walk will stop at this entry, failing the translation.
+	Invalid(&'a PageTableEntry),
+	/// A malformed page table entry. Returned
+	/// when a level of 0 or 3 is given to [`PageTableEntry::entry_type`]
+	/// but bit 1 is not set.
+	///
+	/// This is a special, erroneous case, that should
+	/// be handled as an error if a well-formed page table entry
+	/// was otherwise expected (i.e. not reading from uninitialized memory).
+	///
+	/// Functionally, the translation table walk will behave as though
+	/// it were an [`PageTableEntryType::Invalid`] entry.
+	Malformed(&'a PageTableEntry),
+	/// An L0 page table descriptor entry.
+	L0Descriptor(&'a L0PageTableDescriptor),
+	/// An L1 page table descriptor entry.
+	L1Descriptor(&'a L1PageTableDescriptor),
+	/// An L2 page table descriptor entry.
+	L2Descriptor(&'a L2PageTableDescriptor),
+	/// An L1 page table block entry.
+	L1Block(&'a L1PageTableBlockDescriptor),
+	/// An L2 page table block entry.
+	L2Block(&'a L2PageTableBlockDescriptor),
+	/// An L3 page table block entry.
+	L3Block(&'a L3PageTableBlockDescriptor),
+}
+
+/// Describes the type of a page table entry, based on its level.
+/// Holds a mutable reference to the entry.
+#[derive(Debug)]
+pub enum PageTableEntryTypeMut<'a> {
+	/// An invalid page table entry (bit 0 is not set).
+	/// Note that this does _not_ mean the page table entry
+	/// is malformed; it simply means that it is not "valid"
+	/// as per the ARMv8 specification, meaning that the translation
+	/// table walk will stop at this entry, failing the translation.
 	Invalid(&'a mut PageTableEntry),
 	/// A malformed page table entry. Returned
 	/// when a level of 0 or 3 is given to [`PageTableEntry::entry_type`]
@@ -158,6 +193,79 @@ pub struct PageTableEntry(u64);
 
 #[allow(clippy::missing_docs_in_private_items)]
 const _: () = assert::size_of::<PageTableEntry, 8>();
+
+macro_rules! impl_page_table_entry_type {
+	($level:expr, $self:expr, $from:ident, $to:ident, $EntryType:ty) => {{
+		unsafe_precondition!(crate::Aarch64, $level <= 3, "level must be 0..=3");
+
+		if !$self.valid() {
+			return <$EntryType>::Invalid($self);
+		}
+
+		match $level {
+			0 => {
+				if $self.table() {
+					<$EntryType>::L0Descriptor(
+						core::ptr::$from($self)
+							.cast::<L0PageTableDescriptor>()
+							.$to(),
+					)
+				} else {
+					<$EntryType>::Malformed($self)
+				}
+			}
+			1 => {
+				if $self.table() {
+					<$EntryType>::L1Descriptor(
+						core::ptr::$from($self)
+							.cast::<L1PageTableDescriptor>()
+							.$to(),
+					)
+				} else {
+					<$EntryType>::L1Block(
+						core::ptr::$from($self)
+							.cast::<L1PageTableBlockDescriptor>()
+							.$to(),
+					)
+				}
+			}
+			2 => {
+				if $self.table() {
+					<$EntryType>::L2Descriptor(
+						core::ptr::$from($self)
+							.cast::<L2PageTableDescriptor>()
+							.$to(),
+					)
+				} else {
+					<$EntryType>::L2Block(
+						core::ptr::$from($self)
+							.cast::<L2PageTableBlockDescriptor>()
+							.$to(),
+					)
+				}
+			}
+			3 => {
+				// NOTE(qix-): This might look incorrect, but it's not.
+				// NOTE(qix-): The "table" bit is set for L3 block entries.
+				// NOTE(qix-): Bits [1:0] == 0b01 for L3 block entries is considered
+				// NOTE(qix-): a "malformed" (reserved) bit representation and is treated
+				// NOTE(qix-): as an invalid entry by the translation table walk.
+				// NOTE(qix-):
+				// NOTE(qix-): Check D5.4.2 of the ARMv8-A Architecture Reference Manual.
+				if $self.table() {
+					<$EntryType>::L3Block(
+						core::ptr::$from($self)
+							.cast::<L3PageTableBlockDescriptor>()
+							.$to(),
+					)
+				} else {
+					<$EntryType>::Malformed($self)
+				}
+			}
+			_ => unreachable!(),
+		}
+	}};
+}
 
 impl PageTableEntry {
 	/// Creates a new page table entry.
@@ -222,7 +330,7 @@ impl PageTableEntry {
 	/// Caller must ensure that `level` is `0..=3` and that it
 	/// is correctly specified. **Do not assume this value.**
 	#[must_use]
-	pub unsafe fn address(&mut self, level: u8) -> Option<u64> {
+	pub unsafe fn address(&self, level: u8) -> Option<u64> {
 		unsafe_precondition!(crate::Aarch64, level <= 3, "level must be 0..=3");
 
 		match self.entry_type(level) {
@@ -244,63 +352,27 @@ impl PageTableEntry {
 	/// is correctly specified. **Do not assume this value.**
 	#[inline]
 	#[must_use]
-	pub unsafe fn entry_type(&mut self, level: u8) -> PageTableEntryType {
-		unsafe_precondition!(crate::Aarch64, level <= 3, "level must be 0..=3");
+	pub unsafe fn entry_type(&self, level: u8) -> PageTableEntryType {
+		impl_page_table_entry_type!(level, self, from_ref, as_ref_unchecked, PageTableEntryType)
+	}
 
-		if !self.valid() {
-			return PageTableEntryType::Invalid(self);
-		}
-
-		match level {
-			0 => {
-				if self.table() {
-					PageTableEntryType::L0Descriptor(
-						&mut *core::ptr::from_mut(self).cast::<L0PageTableDescriptor>(),
-					)
-				} else {
-					PageTableEntryType::Malformed(self)
-				}
-			}
-			1 => {
-				if self.table() {
-					PageTableEntryType::L1Descriptor(
-						&mut *core::ptr::from_mut(self).cast::<L1PageTableDescriptor>(),
-					)
-				} else {
-					PageTableEntryType::L1Block(
-						&mut *core::ptr::from_mut(self).cast::<L1PageTableBlockDescriptor>(),
-					)
-				}
-			}
-			2 => {
-				if self.table() {
-					PageTableEntryType::L2Descriptor(
-						&mut *core::ptr::from_mut(self).cast::<L2PageTableDescriptor>(),
-					)
-				} else {
-					PageTableEntryType::L2Block(
-						&mut *core::ptr::from_mut(self).cast::<L2PageTableBlockDescriptor>(),
-					)
-				}
-			}
-			3 => {
-				// NOTE(qix-): This might look incorrect, but it's not.
-				// NOTE(qix-): The "table" bit is set for L3 block entries.
-				// NOTE(qix-): Bits [1:0] == 0b01 for L3 block entries is considered
-				// NOTE(qix-): a "malformed" (reserved) bit representation and is treated
-				// NOTE(qix-): as an invalid entry by the translation table walk.
-				// NOTE(qix-):
-				// NOTE(qix-): Check D5.4.2 of the ARMv8-A Architecture Reference Manual.
-				if self.table() {
-					PageTableEntryType::L3Block(
-						&mut *core::ptr::from_mut(self).cast::<L3PageTableBlockDescriptor>(),
-					)
-				} else {
-					PageTableEntryType::Malformed(self)
-				}
-			}
-			_ => unreachable!(),
-		}
+	/// Returns the type of the page table entry based
+	/// on the level of the page table. Returns a mutable
+	/// reference to the entry.
+	///
+	/// # Safety
+	/// Caller must ensure that `level` is `0..=3` and that it
+	/// is correctly specified. **Do not assume this value.**
+	#[inline]
+	#[must_use]
+	pub unsafe fn entry_type_mut(&mut self, level: u8) -> PageTableEntryTypeMut {
+		impl_page_table_entry_type!(
+			level,
+			self,
+			from_mut,
+			as_mut_unchecked,
+			PageTableEntryTypeMut
+		)
 	}
 }
 
@@ -435,6 +507,8 @@ macro_rules! define_descriptor {
 			const ADDR_MASK_LOW_BIT: u64 = $addr_mask_low;
 		}
 
+		// TODO(qix-) Add docs. Silencing for now as it's inflating compile times.
+		#[allow(missing_docs)]
 		impl $name {
 			#[allow(clippy::new_without_default)]
 			#[doc = descriptor_doc!($doc)]
