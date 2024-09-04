@@ -36,6 +36,12 @@ impl OffsetPhysicalAddressTranslator {
 	pub fn new(offset: usize) -> Self {
 		Self { offset }
 	}
+
+	/// Returns the offset applied to physical addresses.
+	#[must_use]
+	pub const fn offset(&self) -> usize {
+		self.offset
+	}
 }
 
 unsafe impl PhysicalAddressTranslator for OffsetPhysicalAddressTranslator {

@@ -372,32 +372,23 @@ impl AddressSegment {
 		Ok(())
 	}
 
-	/// For a duplicated address space, this method will clear this segment's
-	/// memory mappings, reclaiming the top level but 'forgetting' (without reclaiming)
-	/// any of the lower level pages.
-	// TODO(qix-): I really dislike that this method exists. I want to try to find a way
-	// TODO(qix-): to generalize some of these sorts of operations.
-	pub fn forget_duplicated<A, P, Handle: MapperHandle>(
+	/// Unmaps the entire range's top level page tables without
+	/// reclaiming any of the physical memory.
+	///
+	/// # Safety
+	/// Caller must ensure that pages not being claimed _won't_
+	/// lead to memory leaks.
+	pub unsafe fn unmap_without_reclaim<P: PhysicalAddressTranslator, Handle: MapperHandle>(
 		&self,
 		space: &Handle,
-		alloc: &mut A,
-		translator: &P,
-	) where
-		A: PageFrameFree,
-		P: PhysicalAddressTranslator,
-	{
-		// SAFETY(qix-): We can assume that `space` is a valid handle.
-		unsafe {
-			let top_level = &mut *(translator.to_virtual_addr(space.base_phys()) as *mut PageTable);
+		pat: &P,
+	) {
+		let top_level = &mut *(pat.to_virtual_addr(space.base_phys()) as *mut PageTable);
 
-			for idx in self.valid_range.0..=self.valid_range.1 {
-				let entry = &mut top_level[idx];
-
-				if entry.present() {
-					let frame_phys_addr = entry.address();
-					alloc.free(frame_phys_addr);
-					entry.reset();
-				}
+		for idx in self.valid_range.0..=self.valid_range.1 {
+			let entry = &mut top_level[idx];
+			if entry.present() {
+				entry.reset();
 			}
 		}
 	}

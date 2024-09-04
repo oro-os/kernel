@@ -105,11 +105,10 @@ pub unsafe fn boot_primary() -> ! {
 		crate::asm::disable_8259();
 	}
 
-	// Get our local LAPIC ID.
 	let lapic = crate::lapic::Lapic::new(pat.to_virtual_addr(madt.lapic_phys()) as *mut u8);
-
-	dbg!("local APIC version: {:08X}", lapic.version());
-	dbg!("local APIC ID: {}", lapic.id());
+	dbg!("local APIC version: {:?}", lapic.version());
+	let lapic_id = lapic.id();
+	dbg!("local APIC ID: {lapic_id}",);
 
 	let num_cores = if has_cs89 {
 		dbg!("physical pages 0x8000/0x9000 are valid; attempting to boot secondary cores");
@@ -122,7 +121,7 @@ pub unsafe fn boot_primary() -> ! {
 		for entry in madt.entries() {
 			if let Ok(MadtEntry::LocalApic(apic)) = entry {
 				if apic.can_init() {
-					if apic.id() == lapic.id() {
+					if apic.id() == lapic_id {
 						dbg!("cpu {}: not booting (primary core)", apic.id());
 					} else {
 						dbg!("cpu {}: booting...", apic.id());

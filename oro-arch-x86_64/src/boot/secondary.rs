@@ -7,12 +7,17 @@ use crate::{
 		segment::MapperHandle,
 	},
 };
+use core::{mem::MaybeUninit, sync::atomic::AtomicU64};
+use oro_acpi::{Madt, Rsdp};
+use oro_boot_protocol::acpi::AcpiKind;
 use oro_common::mem::{
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
-	translate::PhysicalAddressTranslator,
+	translate::{OffsetPhysicalAddressTranslator, PhysicalAddressTranslator},
 };
+use oro_common_assertions as assert;
 use oro_common_proc::asm_buffer;
+use oro_debug::{dbg, dbg_err};
 
 /// The LA57 bit in the CR4 register.
 // TODO(qix-): Pull this out into a register abstraction.
@@ -28,6 +33,10 @@ pub enum BootError {
 	MapError(MapError),
 	/// An error occurred while unmapping memory (probably the stack guard pages)
 	UnmapError(UnmapError),
+	/// The secondary errored out with the given value.
+	SecondaryError(u64),
+	/// Timed out waiting for the secondary to boot.
+	SecondaryTimeout,
 }
 
 /// Boots a secondary core with the given local APIC and LAPIC ID.
@@ -38,15 +47,19 @@ pub enum BootError {
 ///
 /// Caller must ensure these pages are mapped (via the PAT) and accessible.
 #[allow(clippy::missing_docs_in_private_items)]
-pub unsafe fn boot_secondary<P: PhysicalAddressTranslator, A: PageFrameAllocate + PageFrameFree>(
+pub unsafe fn boot_secondary<A: PageFrameAllocate + PageFrameFree>(
 	primary_handle: &AddressSpaceHandle,
 	pfa: &mut A,
-	pat: &P,
+	pat: &OffsetPhysicalAddressTranslator,
 	lapic: &Lapic,
 	secondary_lapic_id: u8,
 	stack_pages: usize,
 ) -> Result<(), BootError> {
 	// Some of these values aren't exact, but we want to align things nicely.
+	const LAPIC_ID_SIZE: usize = 8; // Really 1
+	const PRIMARY_FLAG_SIZE: usize = 8;
+	const SECONDARY_FLAG_SIZE: usize = 8;
+	const LINEAR_OFFSET_SIZE: usize = 8;
 	const ACTUAL_STACK_PTR_SIZE: usize = 8;
 	const ACTUAL_CR3_PTR_SIZE: usize = 8;
 	const ACTUAL_CR4_VALUE_SIZE: usize = 8;
@@ -55,7 +68,11 @@ pub unsafe fn boot_secondary<P: PhysicalAddressTranslator, A: PageFrameAllocate 
 	const NULLIDT_SIZE: usize = 8; // Really 6
 	const CR4BITS_SIZE: usize = 8; // Really 4
 	const GDTR_SIZE: usize = 8; // Really 6
-	const TOP_RESERVE: usize = ACTUAL_STACK_PTR_SIZE
+	const TOP_RESERVE: usize = LAPIC_ID_SIZE
+		+ SECONDARY_FLAG_SIZE
+		+ PRIMARY_FLAG_SIZE
+		+ LINEAR_OFFSET_SIZE
+		+ ACTUAL_STACK_PTR_SIZE
 		+ ACTUAL_CR3_PTR_SIZE
 		+ ACTUAL_CR4_VALUE_SIZE
 		+ ACTUAL_CR0_VALUE_SIZE
@@ -88,9 +105,12 @@ pub unsafe fn boot_secondary<P: PhysicalAddressTranslator, A: PageFrameAllocate 
 	let last_stack_page_virt = kernel_stack_segment.range().1 & !0xFFF;
 
 	// "Forget" the entire segment (meaning simply to unmap but not
-	// reclaim any mappings). It still reclaims the top level pages
-	// but leaves the lower level pages alone.
-	kernel_stack_segment.forget_duplicated(&mapper, pfa, pat);
+	// reclaim any mappings). We don't reclaim anything since the only
+	// allocation that `duplicate_supervisor_space_shallow` makes
+	// is for the very, very top level page table. All of the L4/5 entries
+	// still point to the primary core's page tables, so resetting them
+	// before we remap them is sufficient enough.
+	kernel_stack_segment.unmap_without_reclaim(&mapper, pat);
 
 	// make sure top guard page is unmapped
 	match kernel_stack_segment.unmap(&mapper, pfa, pat, last_stack_page_virt) {
@@ -167,6 +187,38 @@ pub unsafe fn boot_secondary<P: PhysicalAddressTranslator, A: PageFrameAllocate 
 
 	let mut meta_ptr = 0x9000 - TOP_RESERVE;
 
+	// Write the LAPIC ID.
+	debug_assert_eq!(meta_ptr, 0x8FA0);
+	let lapic_id_ptr = pat.to_virtual_addr(meta_ptr as u64);
+	(lapic_id_ptr as *mut u8).write(secondary_lapic_id);
+	meta_ptr += LAPIC_ID_SIZE;
+
+	// Write the linear offset.
+	debug_assert_eq!(meta_ptr, 0x8FA8);
+	let linear_offset_ptr = pat.to_virtual_addr(meta_ptr as u64);
+	(linear_offset_ptr as *mut u64).write(u64::try_from(pat.offset()).unwrap());
+	meta_ptr += LINEAR_OFFSET_SIZE;
+
+	// Zero the primary flag.
+	debug_assert_eq!(meta_ptr, 0x8FB0);
+	let flag_ptr = pat.to_virtual_addr(meta_ptr as u64);
+	let primary_flag = {
+		assert::size_of::<AtomicU64, 8>();
+		(*(flag_ptr as *mut MaybeUninit<AtomicU64>)).write(AtomicU64::new(0));
+		&*(flag_ptr as *const AtomicU64)
+	};
+	meta_ptr += PRIMARY_FLAG_SIZE;
+
+	// Zero the secondary flag.
+	debug_assert_eq!(meta_ptr, 0x8FB8);
+	let flag_ptr = pat.to_virtual_addr(meta_ptr as u64);
+	let secondary_flag = {
+		assert::size_of::<AtomicU64, 8>();
+		(*(flag_ptr as *mut MaybeUninit<AtomicU64>)).write(AtomicU64::new(0));
+		&*(flag_ptr as *const AtomicU64)
+	};
+	meta_ptr += SECONDARY_FLAG_SIZE;
+
 	// Write the absolute entry point address of the Rust stub.
 	debug_assert_eq!(meta_ptr, 0x8FC0);
 	let entry_point_ptr = oro_kernel_x86_64_rust_secondary_core_entry as *const u8 as u64;
@@ -238,6 +290,33 @@ pub unsafe fn boot_secondary<P: PhysicalAddressTranslator, A: PageFrameAllocate 
 	// NOTE(qix-): hard-coded and instead allowing us to take any page < 256),
 	// NOTE(qix-): I'd love to hear all about it.
 	lapic.boot_core(secondary_lapic_id, 8);
+
+	// Tell the secondary core we're ready to go.
+	primary_flag.store(1, core::sync::atomic::Ordering::Release);
+
+	// Wait for the secondary core to signal it's ready.
+	let mut ok = false;
+	for _ in 0..100000 {
+		match secondary_flag.load(core::sync::atomic::Ordering::Acquire) {
+			1 => {
+				ok = true;
+				break;
+			}
+			0 => ::core::hint::spin_loop(),
+			err => {
+				// Tell the secondary we no longer want it to boot.
+				// Just as a precaution since it's already in an error state.
+				primary_flag.store(0xFFFF_FFFF_FFFF_FFFE, core::sync::atomic::Ordering::Release);
+				return Err(BootError::SecondaryError(err));
+			}
+		}
+	}
+
+	if !ok {
+		// Tell the secondary we no longer want it to boot.
+		primary_flag.store(0xFFFF_FFFF_FFFF_FFFE, core::sync::atomic::Ordering::Release);
+		return Err(BootError::SecondaryTimeout);
+	}
 
 	Ok(())
 }
@@ -346,7 +425,97 @@ const SECONDARY_BOOT_LONG_MODE_STUB: &[u8] = &asm_buffer! {
 unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	crate::gdt::install_gdt();
 
-	oro_debug::dbg!("welcome to the party :D");
+	// Get references to the secondary boot flags.
+	let primary_flag = &*(0x8FB0 as *const AtomicU64);
+	let secondary_flag = &*(0x8FB8 as *const AtomicU64);
+
+	// Get the linear offset
+	let linear_offset = *(0x8FA8 as *const u64);
+	let pat = OffsetPhysicalAddressTranslator::new(linear_offset as usize);
+
+	// Pull the RSDP from the boot protocol
+	// SAFETY(qix-): We can just unwrap these values as they're guaranteed to be OK
+	// SAFETY(qix-): since the primary core has already validated them to even boot
+	// SAFETY(qix-): the secondaries.
+	let AcpiKind::V0(acpi) = super::protocol::ACPI_REQUEST.response().unwrap() else {
+		unreachable!();
+	};
+	let Some(sdt) = Rsdp::get(acpi.assume_init_ref().rsdp, pat.clone())
+		.as_ref()
+		.and_then(Rsdp::sdt)
+	else {
+		// Tell the primary we failed.
+		dbg_err!("failed to get RSDT from ACPI tables");
+		secondary_flag.store(0xFFFF_FFFF_FFFF_FFFE, core::sync::atomic::Ordering::Release);
+		<crate::X86_64 as oro_common::arch::Arch>::halt();
+	};
+
+	let Some(lapic) = sdt
+		.find::<Madt<_>>()
+		.as_ref()
+		.map(Madt::lapic_phys)
+		.map(|phys| pat.to_virtual_addr(phys))
+		.map(|lapic_virt| Lapic::new(lapic_virt as *mut u8))
+	else {
+		// Tell the primary we failed.
+		dbg_err!("failed to get LAPIC from ACPI tables");
+		secondary_flag.store(0xFFFF_FFFF_FFFF_FFFE, core::sync::atomic::Ordering::Release);
+		<crate::X86_64 as oro_common::arch::Arch>::halt();
+	};
+
+	dbg!("local APIC version: {:?}", lapic.version());
+
+	// Set the LAPIC ID to the one we were given.
+	// We do this since after an INIT IPI / SIPI, the LAPIC ID
+	// *can* be reset to something else.
+	let given_lapic_id = *(0x8FA0 as *const u8);
+	lapic.set_id(given_lapic_id);
+
+	let lapic_id = lapic.id();
+
+	if lapic_id != given_lapic_id {
+		// Tell the primary we failed.
+		dbg_err!("LAPIC ID mismatch: expected {given_lapic_id}, got {lapic_id}");
+		secondary_flag.store(0xFFFF_FFFF_FFFF_FFFE, core::sync::atomic::Ordering::Release);
+		<crate::X86_64 as oro_common::arch::Arch>::halt();
+	}
+
+	dbg!("secondary core booted with LAPIC ID {}", lapic_id);
+
+	// Wait for the primary to tell us to continue.
+	let mut ok = false;
+	for _ in 0..100000 {
+		match primary_flag.load(core::sync::atomic::Ordering::Acquire) {
+			1 => {
+				// Tell the primary we're ready to go.
+				// SAFETY(qix-): Once we've written this value, the boot stub pages are no longer
+				// SAFETY(qix-): safe to write to.
+				(*secondary_flag).store(1, core::sync::atomic::Ordering::Release);
+				ok = true;
+				break;
+			}
+			0 => ::core::hint::spin_loop(),
+			_ => {
+				break;
+			}
+		}
+	}
+
+	if !ok {
+		<crate::X86_64 as oro_common::arch::Arch>::halt();
+	}
+
+	// We've been given the green light.
+	// Unmap the secondary boot stub code and stack.
+	// We don't reclaim the pages since they're "static" and will
+	// be shared again for any other secondary cores. We simply 'forget'
+	// them.
+	let mapper = AddressSpaceLayout::current_supervisor_space(&pat);
+	// SAFETY(qix-): We're sure that unmapping without reclaiming won't lead to a memory leak.
+	unsafe {
+		AddressSpaceLayout::secondary_boot_stub_code().unmap_without_reclaim(&mapper, &pat);
+		AddressSpaceLayout::secondary_boot_stub_stack().unmap_without_reclaim(&mapper, &pat);
+	}
 
 	// XXX TODO
 	<crate::X86_64 as oro_common::arch::Arch>::halt();
