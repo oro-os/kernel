@@ -63,7 +63,7 @@ class PfaTracker(object):
                     "function": frame.function(),
                     "pc": sal.pc,
                     "line": sal.line,
-                    "filename": sal.symtab.filename,
+                    "filename": sal.symtab.filename if sal.symtab else None,
                 }
             )
             frame = frame.older()
@@ -78,7 +78,9 @@ class PfaTracker(object):
         )
         if len(bt["frames"]) > 0:
             for frame in bt["frames"]:
-                warn(f"pfa_tracker:         at {frame['filename']}:{frame['line']}")
+                warn(
+                    f"pfa_tracker:         at {frame.get('filename', '<unknown filename>')}:{frame['line']}"
+                )
                 warn(
                     f"pfa_tracker:            \x1b[2m{frame.get('function', '<unknown fn>')} (0x{frame.get('pc', 0):016X})\x1b[22m"
                 )
