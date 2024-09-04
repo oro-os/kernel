@@ -10,6 +10,85 @@ from .autosym import (
     SYM_PFA_MASS_FREE,
 )
 
+_THREAD_COLORS = [
+    171,
+    80,
+    221,
+    27,
+    163,
+    178,
+    99,
+    204,
+    167,
+    149,
+    207,
+    32,
+    215,
+    185,
+    74,
+    173,
+    148,
+    201,
+    198,
+    63,
+    164,
+    68,
+    112,
+    41,
+    206,
+    62,
+    203,
+    172,
+    98,
+    169,
+    78,
+    81,
+    69,
+    160,
+    165,
+    134,
+    135,
+    197,
+    128,
+    75,
+    170,
+    21,
+    205,
+    214,
+    79,
+    92,
+    199,
+    196,
+    76,
+    184,
+    77,
+    20,
+    33,
+    44,
+    26,
+    162,
+    161,
+    202,
+    56,
+    166,
+    40,
+    45,
+    42,
+    200,
+    129,
+    168,
+    209,
+    220,
+    113,
+    57,
+    39,
+    93,
+    38,
+    43,
+    179,
+    208,
+]
+
 
 class PfaTracker(object):
     def __init__(self):
@@ -58,14 +137,14 @@ class PfaTracker(object):
 
     def _warn_backtrace(bt):
         warn(
-            f"pfa_tracker:         on GDB thread {bt['thread']} (QEMU CPU {bt['thread'] - 1})"
+            f"pfa_tracker:         on GDB thread \x1b[38;5;{_THREAD_COLORS[bt['thread']-1]}m{bt['thread']}"
         )
         if len(bt["frames"]) > 0:
             for frame in bt["frames"]:
+                warn(f"pfa_tracker:         at {frame['filename']}:{frame['line']}")
                 warn(
-                    f"pfa_tracker:         at {frame.get('function', '<unknown fn>')} (0x{frame.get('pc', 0):016X})"
+                    f"pfa_tracker:            \x1b[2m{frame.get('function', '<unknown fn>')} (0x{frame.get('pc', 0):016X})\x1b[22m"
                 )
-                warn(f"pfa_tracker:            {frame['filename']}:{frame['line']}")
 
     def track_alloc_4kib(self, addr):
         bt = PfaTracker._get_backtrace()
