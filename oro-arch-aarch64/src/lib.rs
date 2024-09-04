@@ -25,6 +25,11 @@
 #![cfg(not(all(doc, not(target_arch = "aarch64"))))]
 #![allow(internal_features)]
 #![feature(core_intrinsics)]
+// SAFETY(qix-): It's probably accepted, and I want to refactor the
+// SAFETY(qix-): page table implementaiton anyway at some point so
+// SAFETY(qix-): this is probably fine for now.
+// SAFETY(qix-): https://github.com/rust-lang/rust/issues/122034
+#![feature(ptr_as_ref_unchecked)]
 
 pub mod arch;
 pub mod asm;

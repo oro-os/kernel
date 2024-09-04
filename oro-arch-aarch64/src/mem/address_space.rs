@@ -78,18 +78,21 @@ impl AddressSpaceLayout {
 				.into();
 			pt[Self::RECURSIVE_ENTRY_IDX.0 + 1] = L1PageTableDescriptor::new()
 				.with_valid()
+				.with_address(mapper.base_phys as u64)
 				.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
 				.with_user_no_exec()
 				.with_kernel_no_exec()
 				.into();
 			pt[Self::RECURSIVE_ENTRY_IDX.0 + 2] = L2PageTableDescriptor::new()
 				.with_valid()
+				.with_address(mapper.base_phys as u64)
 				.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
 				.with_user_no_exec()
 				.with_kernel_no_exec()
 				.into();
 			pt[Self::RECURSIVE_ENTRY_IDX.0 + 3] = L3PageTableBlockDescriptor::new()
 				.with_valid()
+				.with_address(mapper.base_phys as u64)
 				.with_block_access_permissions(PageTableEntryBlockAccessPerm::KernelRWUserNoAccess)
 				.with_user_no_exec()
 				.with_kernel_no_exec()

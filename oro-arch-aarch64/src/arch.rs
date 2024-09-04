@@ -2,19 +2,12 @@
 
 #![allow(clippy::inline_always, clippy::verbose_bit_mask)]
 
-use crate::mem::{address_space::AddressSpaceLayout, paging::PageTable};
+use crate::mem::address_space::AddressSpaceLayout;
 use core::arch::asm;
-use oro_common::{
-	arch::Arch,
-	mem::{
-		mapper::{AddressSegment, AddressSpace, UnmapError},
-		pfa::alloc::{PageFrameAllocate, PageFrameFree},
-		translate::PhysicalAddressTranslator,
-	},
-};
+use oro_common::arch::Arch;
 use oro_common_elf::{ElfClass, ElfEndianness, ElfMachine};
 
-/// aarch64 architecture support implementation for the Oro kernel.
+/// AArch64 architecture support implementation for the Oro kernel.
 pub struct Aarch64;
 
 unsafe impl Arch for Aarch64 {
