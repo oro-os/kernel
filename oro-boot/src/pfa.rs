@@ -112,6 +112,16 @@ impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> PrebootPfa<M, I> 
 			let next_base = (self.current_base + align - 1) & !(align - 1);
 			let align_offset = next_base - self.current_base;
 
+			#[cfg(debug_assertions)]
+			{
+				let current_page = self.current_base >> 12;
+				let next_page_end = (next_base + size) >> 12;
+				if current_page != next_page_end {
+					// Mark the new page as allocated
+					oro_debug::__oro_dbgutil_pfa_alloc(next_page_end << 12);
+				}
+			}
+
 			if self.remaining_size < (align_offset + size) {
 				// "Use up" the rest of the region
 				self.used += self.remaining_size;
