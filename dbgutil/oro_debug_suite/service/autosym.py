@@ -2,7 +2,7 @@ import gdb  # type: ignore
 from ..log import debug
 
 ## AArch64: AT S1E1R instruction stub
-SYM_AARCH64_ATS1E1R = "oro_arch_aarch64::dbgutil::__oro_dbgutil_ATS1E1R"
+SYM_AARCH64_ATS1E1R = "oro_debug::__oro_dbgutil_ATS1E1R"
 ## All: Transfer to kernel function hook
 SYM_KERNEL_TRANSFER = "oro_debug::__oro_dbgutil_kernel_will_transfer"
 ## All: Page frame allocation hook (4KiB page)
