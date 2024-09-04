@@ -339,6 +339,7 @@ class RegCmd(gdb.Command):
             warn("reg: Reminder that CR0.AM has no effect in rings 0, 1 or 2.")
         log(f"reg:    .NW\t= {nw} ({'write-through' if nw == 1 else 'write-back'})")
         log(f"reg:    .CD\t= {cd} ({'cache disable' if cd == 1 else 'cache enable'})")
+        warn(f"reg: Reminder that CR0.CD is updated for all logical core CR0 registers within the same physical core.")
         log(f"reg:    .PG\t= {pg} ({'paging enabled' if pg == 1 else 'paging disabled'})")
         log(f"reg:    .reserved[16:6]\t= 0b{res6:010b}")
         log(f"reg:    .reserved[17]\t= 0b{res17:01b}")
