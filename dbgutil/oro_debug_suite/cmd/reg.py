@@ -26,6 +26,9 @@ class RegCmd(gdb.Command):
         if arch == "aarch64":
             if reg == "tcr_el1":
                 return self._decode_tcr_el1()
+        elif arch == "i386:x86-64":
+            if reg == "cr0":
+                return self._decode_cr0()
 
         error(f"reg: register '{reg}' not supported for architecture '{arch}'")
 
@@ -295,6 +298,53 @@ class RegCmd(gdb.Command):
         log(f"reg: TCR_EL1.T0SZ\t= {t0sz}\t\t\t(TT0 region size is {64 - t0sz} bits)")
         tt0_end = pow(2, 64 - t0sz) - 1
         log(f"reg:             \t  0x0000000000000000 - 0x{tt0_end:016X}")
+
+    def _decode_cr0(self):
+        value = gdb.parse_and_eval("$cr0")
+        if value.type.code == gdb.TYPE_CODE_VOID:
+            error("reg: CR0 register not available (is the kernel running?)")
+            return
+
+        value = int(value)
+
+        log(f"reg: CR0\t= 0x{value:016X}")
+        log(f"reg:    \t= 0b{(value & 0xFFFF_FFFF):032b}")
+
+        # fmt: off
+        pe = (value >> 0) & 1
+        mp = (value >> 1) & 1
+        em = (value >> 2) & 1
+        ts = (value >> 3) & 1
+        et = (value >> 4) & 1
+        ne = (value >> 5) & 1
+        res6 = (value >> 6) & 0x3FF
+        wp = (value >> 16) & 1
+        res17 = (value >> 17) & 1
+        am = (value >> 18) & 1
+        res19 = (value >> 19) & 0x3FF
+        nw = (value >> 29) & 1
+        cd = (value >> 30) & 1
+        pg = (value >> 31) & 1
+        res32 = (value >> 32) & 0xFFFF_FFFF
+
+        log(f"reg:    .PE\t= {pe} ({'protected mode' if pe == 1 else 'real mode'})")
+        log(f"reg:    .MP\t= {mp} ({'monitor coprocessor' if mp == 1 else 'no monitor coprocessor'})")
+        log(f"reg:    .EM\t= {em} ({'emulation' if em == 1 else 'no emulation'})")
+        log(f"reg:    .TS\t= {ts} ({'task switched' if ts == 1 else 'task not switched'})")
+        log(f"reg:    .ET\t= {et} ({'external math processor is 80387' if et == 1 else 'external math processor is 80287'})")
+        log(f"reg:    .NE\t= {ne} ({'numeric error' if ne == 1 else 'no numeric error'})")
+        log(f"reg:    .WP\t= {wp} ({'supervisor write protect on RO user pages' if wp == 1 else 'supervisor can write to RO user pages'})")
+        log(f"reg:    .AM\t= {am} ({'alignment mask' if am == 1 else 'no alignment mask'})")
+        if am:
+            warn("reg: Reminder that CR0.AM has no effect in rings 0, 1 or 2.")
+        log(f"reg:    .NW\t= {nw} ({'write-through' if nw == 1 else 'write-back'})")
+        log(f"reg:    .CD\t= {cd} ({'cache disable' if cd == 1 else 'cache enable'})")
+        log(f"reg:    .PG\t= {pg} ({'paging enabled' if pg == 1 else 'paging disabled'})")
+        log(f"reg:    .reserved[16:6]\t= 0b{res6:010b}")
+        log(f"reg:    .reserved[17]\t= 0b{res17:01b}")
+        log(f"reg:    .reserved[28:19]\t= 0b{res19:010b}")
+        log(f"reg:    .reserved[63:32]\t= 0x{res32:08X}")
+        # fmt: on
 
 
 RegCmd()
