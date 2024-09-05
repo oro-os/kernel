@@ -1,4 +1,6 @@
 //! One-off assembly instructions or operations for AArch64.
+#![allow(clippy::inline_always)]
+
 use core::arch::asm;
 
 /// Invalidates the TLB entry for the given virtual address.
@@ -93,5 +95,27 @@ pub unsafe fn store_ttbr0(phys: u64) {
 pub fn disable_interrupts() {
 	unsafe {
 		asm!("msr daifset, 0xf", options(nostack, nomem, preserves_flags));
+	}
+}
+
+/// Halts the processor forever.
+pub fn halt() -> ! {
+	loop {
+		halt_once_and_wait();
+	}
+}
+
+/// Halts the processor once, waiting for an interrupt.
+pub fn halt_once_and_wait() {
+	unsafe {
+		asm!("wfi");
+	}
+}
+
+/// Performs a data synchronization barrier.
+#[inline(always)]
+pub fn strong_memory_barrier() {
+	unsafe {
+		asm!("dsb sy", options(nostack, preserves_flags),);
 	}
 }

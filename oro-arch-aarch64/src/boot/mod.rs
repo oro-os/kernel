@@ -21,5 +21,5 @@ pub unsafe fn boot_primary() -> ! {
 		pat: _pat,
 	} = memory::prepare_memory();
 
-	crate::Aarch64::halt();
+	crate::asm::halt();
 }
