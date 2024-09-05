@@ -2,8 +2,8 @@
 //! into a supervisor address space.
 
 use crate::target::{AddressSpace as TargetAddressSpace, ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
-use oro_common::mem::mapper::{AddressSegment, AddressSpace, MapError, UnmapError};
 use oro_common_elf::{Elf, ElfSegment, ElfSegmentType};
+use oro_common_mem::mapper::{AddressSegment, AddressSpace, MapError, UnmapError};
 use oro_debug::dbg;
 
 /// Maps in the kernel module and returns the entry point
@@ -11,7 +11,7 @@ use oro_debug::dbg;
 pub fn map_kernel_to_supervisor_space<
 	M: Into<oro_boot_protocol::MemoryMapEntry> + Clone,
 	I: Iterator<Item = M> + Clone,
-	Pat: oro_common::mem::translate::PhysicalAddressTranslator,
+	Pat: oro_common_mem::translate::PhysicalAddressTranslator,
 >(
 	pfa: &mut crate::pfa::PrebootPfa<M, I>,
 	pat: &Pat,
@@ -136,7 +136,7 @@ pub fn map_kernel_to_supervisor_space<
 pub fn map_kernel_stack<
 	M: Into<oro_boot_protocol::MemoryMapEntry> + Clone,
 	I: Iterator<Item = M> + Clone,
-	Pat: oro_common::mem::translate::PhysicalAddressTranslator,
+	Pat: oro_common_mem::translate::PhysicalAddressTranslator,
 >(
 	pfa: &mut crate::pfa::PrebootPfa<M, I>,
 	pat: &Pat,

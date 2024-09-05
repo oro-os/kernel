@@ -12,7 +12,7 @@ use crate::{
 	},
 	reg::tcr_el1::TcrEl1,
 };
-use oro_common::mem::{
+use oro_common_mem::{
 	mapper::AddressSpace, pfa::alloc::PageFrameAllocate, translate::PhysicalAddressTranslator,
 };
 

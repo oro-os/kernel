@@ -25,7 +25,7 @@ doc = false
 [dependencies]
 oro-kernel.workspace = true
 oro-boot-protocol.workspace = true
-oro-common.workspace = true
+oro-common-mem.workspace = true
 oro-common-macro.workspace = true
 oro-common-elf.workspace = true
 oro-common-sync.workspace = true

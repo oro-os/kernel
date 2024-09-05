@@ -3,7 +3,7 @@ use crate::mem::{
 	paging::{PageTableEntry, PageTableEntryType},
 };
 use core::arch::asm;
-use oro_common::mem::{
+use oro_common_mem::{
 	pfa::filo::FiloPageFrameAllocator, translate::OffsetPhysicalAddressTranslator,
 };
 

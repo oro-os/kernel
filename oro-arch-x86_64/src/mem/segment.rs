@@ -4,12 +4,12 @@
 
 use super::{address_space::AddressSpaceHandle, paging::PageTable};
 use crate::mem::{paging::PageTableEntry, paging_level::PagingLevel};
-use oro_common::mem::{
+use oro_common_macro::unlikely;
+use oro_common_mem::{
 	mapper::{AddressSegment as Segment, MapError, UnmapError},
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
 	translate::PhysicalAddressTranslator,
 };
-use oro_common_macro::unlikely;
 
 /// Sign-extends a value to the appropriate size for the current paging level.
 macro_rules! sign_extend {

@@ -35,8 +35,8 @@ use oro_boot_protocol::{
 	util::{RequestData, RequestScanner, TrySendError},
 	DataRevision, RequestTag,
 };
-pub use oro_common::mem::mapper::MapError;
-use oro_common::mem::{mapper::AddressSpace, translate::OffsetPhysicalAddressTranslator};
+pub use oro_common_mem::mapper::MapError;
+use oro_common_mem::{mapper::AddressSpace, translate::OffsetPhysicalAddressTranslator};
 use oro_debug::{dbg, dbg_warn};
 
 /// The bootstrapper error type.

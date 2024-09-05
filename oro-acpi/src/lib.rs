@@ -8,8 +8,8 @@
 
 pub use ::oro_acpica_sys as sys;
 use core::{alloc::Layout, ptr::from_ref};
-use oro_common::mem::translate::PhysicalAddressTranslator as Pat;
 use oro_common_macro::assert;
+use oro_common_mem::translate::PhysicalAddressTranslator as Pat;
 
 pub mod madt;
 

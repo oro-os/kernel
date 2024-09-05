@@ -9,7 +9,7 @@ use oro_acpi::{
 	sys as acpi_sys, AcpiTable,
 };
 use oro_boot_protocol::acpi::AcpiKind;
-use oro_common::mem::{mapper::AddressSpace, translate::PhysicalAddressTranslator as _};
+use oro_common_mem::{mapper::AddressSpace, translate::PhysicalAddressTranslator as _};
 use oro_debug::{dbg, dbg_warn};
 
 /// Temporary value for the number of stack pages to allocate for secondary cores.

@@ -4,12 +4,12 @@ use crate::mem::{
 	paging_level::PagingLevel,
 };
 use oro_boot_protocol::{memory_map::MemoryMapKind, MemoryMapEntry, MemoryMapEntryType};
-use oro_common::mem::{
+use oro_common_macro::assert;
+use oro_common_mem::{
 	mapper::AddressSegment as _,
 	pfa::{alloc::PageFrameFree, filo::FiloPageFrameAllocator},
 	translate::{OffsetPhysicalAddressTranslator, PhysicalAddressTranslator},
 };
-use oro_common_macro::assert;
 use oro_debug::{dbg, dbg_warn};
 
 /// The index of the page table entry at the highest (4/5) level
