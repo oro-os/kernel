@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/rust
       - name: Lint (clippy) [common]
-        run: cargo oro-clippy-common -- -D warnings
+        run: cargo oro-clippy -- -D warnings
       - name: Lint (clippy) [x86_64]
         run: cargo oro-clippy-x86_64 -- -D warnings
       - name: Lint (clippy) [aarch64]
@@ -33,9 +33,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/rust
       - name: Lint (rustdoc - x86_64)
-        run: env RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D rustdoc::all" cargo doc --all-features --lib --target=oro-arch-x86_64/x86_64-unknown-oro.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem
+        run: env RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D rustdoc::all" cargo oro-doc-x86_64
       - name: Lint (rustdoc - aarch64)
-        run: env RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D rustdoc::all" cargo doc --all-features --lib --target=oro-arch-aarch64/aarch64-unknown-oro.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem
+        run: env RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D rustdoc::all" cargo oro-doc-aarch64
   lint-python:
     runs-on: ubuntu-latest
     steps:
