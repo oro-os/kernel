@@ -4,7 +4,7 @@
 //! See the crate documentation for information on how to populate
 //! the kernel requests without using this module.
 use crate::{Request, RequestHeader, RequestTag, Tag};
-use oro_common_assertions as assert;
+use oro_common_macro::assert;
 
 /// A scanner for scanning for the kernel's requests.
 ///

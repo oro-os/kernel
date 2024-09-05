@@ -17,14 +17,12 @@ use crate::mem::{
 	},
 };
 use core::panic;
-use oro_common::{
-	mem::{
-		mapper::{AddressSegment, MapError, UnmapError},
-		pfa::alloc::{PageFrameAllocate, PageFrameFree},
-		translate::PhysicalAddressTranslator,
-	},
-	unlikely,
+use oro_common::mem::{
+	mapper::{AddressSegment, MapError, UnmapError},
+	pfa::alloc::{PageFrameAllocate, PageFrameFree},
+	translate::PhysicalAddressTranslator,
 };
+use oro_common_macro::unlikely;
 
 /// Sign-extends a 48-bit virtual address.
 macro_rules! sign_extend {

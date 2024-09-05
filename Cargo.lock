@@ -163,8 +163,7 @@ version = "0.0.0"
 dependencies = [
  "oro-acpica-sys",
  "oro-common",
- "oro-common-assertions",
- "oro-common-proc",
+ "oro-common-macro",
 ]
 
 [[package]]
@@ -184,9 +183,8 @@ version = "0.0.0"
 dependencies = [
  "oro-boot-protocol",
  "oro-common",
- "oro-common-assertions",
  "oro-common-elf",
- "oro-common-proc",
+ "oro-common-macro",
  "oro-common-sync",
  "oro-debug",
  "oro-kernel",
@@ -199,9 +197,8 @@ dependencies = [
  "oro-acpi",
  "oro-boot-protocol",
  "oro-common",
- "oro-common-assertions",
  "oro-common-elf",
- "oro-common-proc",
+ "oro-common-macro",
  "oro-common-sync",
  "oro-debug",
  "oro-kernel",
@@ -215,9 +212,8 @@ dependencies = [
  "oro-arch-x86_64",
  "oro-boot-protocol",
  "oro-common",
- "oro-common-assertions",
  "oro-common-elf",
- "oro-common-proc",
+ "oro-common-macro",
  "oro-debug",
 ]
 
@@ -226,8 +222,7 @@ name = "oro-boot-protocol"
 version = "0.0.0"
 dependencies = [
  "convert_case",
- "oro-common-assertions",
- "oro-common-proc",
+ "oro-common-macro",
  "syn",
 ]
 
@@ -245,33 +240,28 @@ dependencies = [
 name = "oro-common"
 version = "0.0.0"
 dependencies = [
- "oro-common-assertions",
  "oro-common-elf",
- "oro-common-proc",
+ "oro-common-macro",
  "oro-common-sync",
  "oro-debug",
 ]
 
 [[package]]
-name = "oro-common-assertions"
-version = "0.0.0"
-
-[[package]]
 name = "oro-common-elf"
 version = "0.0.0"
 dependencies = [
- "oro-common-assertions",
+ "oro-common-macro",
 ]
 
 [[package]]
-name = "oro-common-proc"
+name = "oro-common-macro"
 version = "0.0.0"
 dependencies = [
- "oro-common-proc-macros",
+ "oro-common-macro-proc",
 ]
 
 [[package]]
-name = "oro-common-proc-macros"
+name = "oro-common-macro-proc"
 version = "0.0.0"
 dependencies = [
  "convert_case",
@@ -288,7 +278,7 @@ version = "0.0.0"
 name = "oro-debug"
 version = "0.0.0"
 dependencies = [
- "oro-common-proc",
+ "oro-common-macro",
  "oro-debug-pl011",
  "oro-debug-uart16550",
 ]
@@ -314,7 +304,7 @@ name = "oro-kernel"
 version = "0.0.0"
 dependencies = [
  "oro-common",
- "oro-common-assertions",
+ "oro-common-macro",
 ]
 
 [[package]]

@@ -17,7 +17,7 @@ use oro_common::mem::{
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
 	translate::PhysicalAddressTranslator,
 };
-use oro_common_proc::asm_buffer;
+use oro_common_macro::asm_buffer;
 
 pub type AddressSpace = AddressSpaceLayout;
 pub type SupervisorHandle = AddressSpaceHandle;

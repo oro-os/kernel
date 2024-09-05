@@ -1,13 +1,5 @@
 //! Provides a number of compile-time assertion traits that can be used
 //! to ensure that certain properties hold for types.
-//!
-//! Typical usage is to parameterize the traits and bound them to generics,
-//! then whenever the assertion should be checked.
-//!
-//! This will cause a compile-time error if the assertion does not hold.
-//!
-//! Must not depend on any other crate.
-#![cfg_attr(not(test), no_std)]
 
 /// Asserts that a type is *within* a number of bytes (i.e. `size_of::<T>() <= SIZE`).
 ///
@@ -228,10 +220,13 @@ unsafe impl<const LHS: usize, const RHS: usize> AssertOffsetEq<LHS, RHS> for () 
 ///
 /// Can be used exactly like the [`core::mem::offset_of!`] macro, but with
 /// only a single field.
+// TODO(qix-): When Rust gets its shit together and starts scoping macros
+// TODO(qix-): in a sane and rational way, re-cope this to the `assert` module.
+// TODO(qix-): Time wasted trying to make this very simple thing happen: 1 hour.
 #[macro_export]
-macro_rules! offset_of {
+macro_rules! assert_offset_of {
 	($T:ty, $field_name:ident, $offset:expr) => {{
-		const _: () = <() as $crate::AssertOffsetEq<
+		const _: () = <() as $crate::assert::AssertOffsetEq<
 			$offset,
 			{ ::core::mem::offset_of!($T, $field_name) },
 		>>::ASSERT;

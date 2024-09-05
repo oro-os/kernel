@@ -9,7 +9,7 @@ use oro_common::mem::{
 	pfa::{alloc::PageFrameFree, filo::FiloPageFrameAllocator},
 	translate::{OffsetPhysicalAddressTranslator, PhysicalAddressTranslator},
 };
-use oro_common_assertions as assert;
+use oro_common_macro::assert;
 use oro_debug::{dbg, dbg_warn};
 
 /// The index of the page table entry at the highest (4/5) level

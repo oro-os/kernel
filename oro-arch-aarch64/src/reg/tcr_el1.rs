@@ -2,7 +2,7 @@
 
 use crate::reg::field::field;
 use core::arch::asm;
-use oro_common_proc::AsU64;
+use oro_common_macro::AsU64;
 
 /// The `TCR_EL1` register.
 #[derive(Clone, Copy)]

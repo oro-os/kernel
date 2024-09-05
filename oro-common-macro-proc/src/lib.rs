@@ -1,6 +1,6 @@
 //! Common proc macros used by the Oro kernel.
 //!
-//! > **NOTE:** Don't use this crate directly; instead, use the `oro-common-proc` crate.
+//! > **NOTE:** Don't use this crate directly; instead, use the `oro-common-macro` crate.
 #![deny(missing_docs, clippy::missing_docs_in_private_items)]
 #![allow(clippy::module_name_repetitions, clippy::missing_errors_doc)]
 // TODO(qix-): Remove this when <https://github.com/rust-lang/rust-clippy/issues/12425> is fixed

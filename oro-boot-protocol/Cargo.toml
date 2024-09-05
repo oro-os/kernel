@@ -21,8 +21,7 @@ default = []
 utils = []
 
 [dependencies]
-oro-common-assertions.workspace = true
-oro-common-proc.workspace = true
+oro-common-macro.workspace = true
 
 [build-dependencies]
 syn.workspace = true

@@ -15,8 +15,7 @@ use oro_common::mem::{
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
 	translate::{OffsetPhysicalAddressTranslator, PhysicalAddressTranslator},
 };
-use oro_common_assertions as assert;
-use oro_common_proc::asm_buffer;
+use oro_common_macro::{asm_buffer, assert};
 use oro_debug::{dbg, dbg_err};
 
 /// The LA57 bit in the CR4 register.
