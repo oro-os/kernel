@@ -67,6 +67,8 @@ verbose_bit_mask = "allow"
 too_many_lines = "allow"
 missing_errors_doc = "allow"
 struct_field_names = "allow"
+items_after_statements = "allow"
+cast_possible_truncation = "allow" # TODO(qix-): Temporary until the virt/phys types land.
 
 [profile.dev]
 panic = "abort"            # Use "abort" panic strategy

@@ -28,12 +28,6 @@ pub struct AddressSpaceHandle {
 	pub virt_start: usize,
 }
 
-impl AddressSpaceHandle {
-	pub fn base_phys(&self) -> u64 {
-		self.base_phys
-	}
-}
-
 /// The Oro-specific address space layout implementation for the Aarch64 architecture.
 pub struct AddressSpaceLayout;
 
@@ -71,33 +65,33 @@ impl AddressSpaceLayout {
 
 			pt[Self::RECURSIVE_ENTRY_IDX.0] = L0PageTableDescriptor::new()
 				.with_valid()
-				.with_address(mapper.base_phys as u64)
+				.with_address(mapper.base_phys)
 				.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
 				.with_user_no_exec()
 				.with_kernel_no_exec()
 				.into();
 			pt[Self::RECURSIVE_ENTRY_IDX.0 + 1] = L1PageTableDescriptor::new()
 				.with_valid()
-				.with_address(mapper.base_phys as u64)
+				.with_address(mapper.base_phys)
 				.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
 				.with_user_no_exec()
 				.with_kernel_no_exec()
 				.into();
 			pt[Self::RECURSIVE_ENTRY_IDX.0 + 2] = L2PageTableDescriptor::new()
 				.with_valid()
-				.with_address(mapper.base_phys as u64)
+				.with_address(mapper.base_phys)
 				.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
 				.with_user_no_exec()
 				.with_kernel_no_exec()
 				.into();
 			pt[Self::RECURSIVE_ENTRY_IDX.0 + 3] = L3PageTableBlockDescriptor::new()
 				.with_valid()
-				.with_address(mapper.base_phys as u64)
+				.with_address(mapper.base_phys)
 				.with_block_access_permissions(PageTableEntryBlockAccessPerm::KernelRWUserNoAccess)
 				.with_user_no_exec()
 				.with_kernel_no_exec()
 				.with_not_secure()
-				.with_mair_index(MairEntry::DirectMap.index() as u64)
+				.with_mair_index(u64::from(MairEntry::DirectMap.index()))
 				.into();
 
 			debug_assert_eq!(
@@ -108,6 +102,7 @@ impl AddressSpaceLayout {
 	}
 
 	/// Returns the segment descriptor for the kernel transfer stubs.
+	#[must_use]
 	pub fn stubs() -> <Self as AddressSpace>::SupervisorSegment {
 		#[allow(clippy::missing_docs_in_private_items)]
 		static DESCRIPTOR: Segment = unsafe {
@@ -134,6 +129,7 @@ impl AddressSpaceLayout {
 	}
 
 	/// Returns the segment descriptor for the kernel stack.
+	#[must_use]
 	pub fn kernel_stack() -> <Self as AddressSpace>::SupervisorSegment {
 		#[allow(clippy::missing_docs_in_private_items)]
 		static DESCRIPTOR: Segment = unsafe {
@@ -215,6 +211,8 @@ impl AddressSpaceLayout {
 		unsafe { Self::new_supervisor_space_with_start(alloc, translator, 0) }
 	}
 
+	/// Returns the segment descriptor for the linear map.
+	#[must_use]
 	pub fn linear_map() -> <Self as AddressSpace>::SupervisorSegment {
 		#[allow(clippy::missing_docs_in_private_items)]
 		static DESCRIPTOR: Segment = unsafe {

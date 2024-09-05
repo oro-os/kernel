@@ -8,18 +8,24 @@ use core::arch::asm;
 pub struct X86_64;
 
 impl X86_64 {
+	/// Halts, indefinitely, the CPU (disabling interrupts).
 	pub fn halt() -> ! {
+		unsafe {
+			asm!("cli");
+		}
 		loop {
 			Self::halt_once_and_wait();
 		}
 	}
 
+	/// Halts the CPU once and waits for an interrupt.
 	pub fn halt_once_and_wait() {
 		unsafe {
-			asm!("cli", "hlt");
+			asm!("hlt");
 		}
 	}
 
+	/// Performs a strong memory serialization barrier.
 	#[inline(always)]
 	pub fn strong_memory_barrier() {
 		unsafe {

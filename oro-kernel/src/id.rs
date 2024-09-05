@@ -103,6 +103,7 @@ pub enum IdType {
 macro_rules! try_from_impl {
 	($docs:literal, $ty:ty, $name:ident, $src:ident) => {
 		#[doc = $docs]
+		#[must_use]
 		pub const fn $name(v: $ty) -> Option<Self> {
 			const MODULE_ID: $ty = IdType::Module.$src();
 			const PORT_TYPE_ID: $ty = IdType::PortType.$src();
@@ -140,11 +141,13 @@ impl IdType {
 	);
 
 	/// Returns the type identifier as a u8.
+	#[must_use]
 	pub const fn id_u8(self) -> u8 {
 		self as u8
 	}
 
 	/// Returns the type identifier as a char.
+	#[must_use]
 	pub const fn id_char(self) -> char {
 		match self {
 			Self::Module => 'M',
@@ -159,6 +162,7 @@ impl IdType {
 	/// **NOTE:** This is _not_ the same thing as
 	/// [`IdType::id_u8()`], which returns the raw value,
 	/// despite returning the same type.
+	#[must_use]
 	pub const fn id_bchar(self) -> u8 {
 		self.id_char() as u8
 	}
@@ -174,6 +178,7 @@ impl<const TY: IdType> Id<TY> {
 	///
 	/// Not doing so will result in undefined behavior in
 	/// the kernel.
+	#[must_use]
 	pub unsafe fn new_unchecked(data: [u8; 16]) -> Self {
 		debug_assert!((data[0] >> 5) == TY.id_u8(), "ID type mismatch");
 		Self(data)
@@ -183,6 +188,7 @@ impl<const TY: IdType> Id<TY> {
 	///
 	/// The type identifier is overwritten with the
 	/// provided type `T`.
+	#[must_use]
 	pub fn new(data: [u8; 16]) -> Self {
 		let mut id = Self(data);
 		id.0[0] &= 0b0001_1111;
@@ -193,6 +199,7 @@ impl<const TY: IdType> Id<TY> {
 	/// Tries to create a new ID from a 16-byte array.
 	///
 	/// If the type does not match `Ty`, returns `None`.
+	#[must_use]
 	pub fn try_new(data: [u8; 16]) -> Option<Self> {
 		if (data[0] >> 5) == (TY as u8) {
 			Some(Self(data))
@@ -210,11 +217,13 @@ impl<const TY: IdType> Id<TY> {
 	}
 
 	/// Returns a reference to the raw byte array.
+	#[must_use]
 	pub fn as_bytes(&self) -> &[u8; 16] {
 		&self.0
 	}
 
 	/// Whether or not the ID is the null ID.
+	#[must_use]
 	pub fn is_null(&self) -> bool {
 		AnyId::is_buf_null(&self.0)
 	}
@@ -227,6 +236,7 @@ impl AnyId {
 	/// though this is still marked as safe. Conversion
 	/// to a usable `Id` must be performed via the `try_into`
 	/// method.
+	#[must_use]
 	pub fn new(data: [u8; 16]) -> Self {
 		Self(data)
 	}
@@ -235,6 +245,7 @@ impl AnyId {
 	///
 	/// If the ID contains an invalid type,
 	/// returns `None`.
+	#[must_use]
 	pub fn ty(&self) -> Option<IdType> {
 		IdType::try_from_u8(self.0[0] >> 5)
 	}
@@ -313,17 +324,20 @@ impl AnyId {
 	/// # Safety
 	/// The caller must ensure that the type identifier
 	/// is valid before using this method.
+	#[must_use]
 	pub unsafe fn as_bytes(&self) -> &[u8; 16] {
 		&self.0
 	}
 
 	/// Whether or not the ID is the null ID.
+	#[must_use]
 	pub fn is_null(&self) -> bool {
 		Self::is_buf_null(&self.0)
 	}
 
 	/// Returns whether or not a raw id byte array
 	/// is the null ID.
+	#[must_use]
 	pub fn is_buf_null(data: &[u8; 16]) -> bool {
 		if data[0] & 0b0001_1111 != 0 {
 			return false;

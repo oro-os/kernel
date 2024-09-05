@@ -1,3 +1,9 @@
+//! Memory initialization routines for the x86_64 architecture.
+//!
+//! Sets up the system's memory for the kernel to use and returns
+//! several memory facilities usable by the kernel (e.g. a page frame
+//! allocator, linear map translator, etc.).
+
 use crate::mem::{
 	address_space::AddressSpaceLayout,
 	paging::{PageTable, PageTableEntry},
@@ -18,6 +24,9 @@ use oro_mem::{
 /// half of the address space (and doesn't conflict with any
 /// of the official [`crate::mem::address_space::AddressSpaceLayout`] indices).
 const OTF_IDX: usize = 254;
+
+/// 1MiB of memory.
+const MIB_1: u64 = 1024 * 1024;
 
 /// Result from the [`prepare_memory`] function.
 pub struct PreparedMemory {
@@ -48,27 +57,33 @@ pub struct PreparedMemory {
 ///   for the system to use.
 pub unsafe fn prepare_memory() -> PreparedMemory {
 	// First, let's make sure the recursive entry is mapped.
+	#[allow(clippy::missing_docs_in_private_items)]
 	const RIDX: usize = crate::mem::address_space::AddressSpaceLayout::RECURSIVE_IDX;
 	let cr3 = crate::asm::cr3();
 	let paging_level = PagingLevel::current_from_cpu();
 
 	let mut current_level = paging_level as usize;
 	let mut current_addr = 0;
+
 	while current_level > 0 {
 		current_level -= 1;
 		current_addr |= RIDX << (current_level * 9 + 12);
 	}
+
 	let recursive_virt = match paging_level {
 		PagingLevel::Level4 => crate::mem::segment::sign_extend!(L4, current_addr),
 		PagingLevel::Level5 => crate::mem::segment::sign_extend!(L5, current_addr),
 	};
+
 	let pt = &*(recursive_virt as *const crate::mem::paging::PageTable);
-	if !pt[RIDX].present() || pt[RIDX].address() != cr3 {
-		// Realistically speaking, this panic probably won't even
-		// be reached if it's not mapped, as we'd be incurring a page fault
-		// anyway (and interrupts haven't been installed yet).
-		panic!("recursive entry not mapped");
-	}
+
+	// Realistically speaking, this panic probably won't even
+	// be reached if it's not mapped, as we'd be incurring a page fault
+	// anyway (and interrupts haven't been installed yet).
+	assert!(
+		pt[RIDX].present() && pt[RIDX].address() == cr3,
+		"recursive entry not mapped"
+	);
 
 	// Next, we validate that, at least at a basic level, some invariants
 	// about the 1MiB reserved region are true.
@@ -86,21 +101,20 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	let mut has_cs9 = false;
 
 	for region in mmap_iterator.clone() {
-		if region.base < 0x100000 {
+		if region.base < MIB_1 {
 			let end = region.base + region.length;
-			let end_1mib = end.min(0x100000);
+			let end_1mib = end.min(MIB_1);
 			let min_used = end_1mib - region.base;
-			if region.used < min_used {
-				panic!(
-					"region {:016X}:{} overlaps the first 1MiB (reserved), but has less used \
-					 bytes than are within the first 1MiB: {} used bytes (min {}, {} short)",
-					region.base,
-					region.length,
-					region.used,
-					min_used,
-					min_used - region.used
-				);
-			}
+			assert!(
+				region.used >= min_used,
+				"region {:016X}:{} overlaps the first 1MiB (reserved), but has less used bytes \
+				 than are within the first 1MiB: {} used bytes (min {}, {} short)",
+				region.base,
+				region.length,
+				region.used,
+				min_used,
+				min_used - region.used
+			);
 
 			if region.base <= 0x8000 && end >= 0x9000 {
 				has_cs8 = true;
@@ -204,6 +218,7 @@ unsafe fn linear_map_regions<'a>(
 ) -> Option<u64> {
 	let paging_level = PagingLevel::current_from_cpu();
 
+	#[allow(clippy::missing_docs_in_private_items)]
 	macro_rules! extend {
 		($virt:expr) => {
 			match paging_level {
@@ -292,6 +307,7 @@ unsafe fn linear_map_regions<'a>(
 			continue;
 		}
 
+		#[allow(clippy::missing_docs_in_private_items)]
 		const RIDX: usize = crate::mem::address_space::AddressSpaceLayout::RECURSIVE_IDX;
 
 		let start_of_region = base_virt;
@@ -328,20 +344,18 @@ unsafe fn linear_map_regions<'a>(
 							.with_address(base_phys);
 						total_mappings += 1;
 					}
-				} else {
-					if !entry.present() {
-						let pt_phys = mmap_pfa.next()?;
-						// Do this _before_ putting it into the PTE to prevent
-						// TLB thrashing in some cases.
-						otf.zero_page(pt_phys);
-						*entry = PageTableEntry::new()
-							.with_writable()
-							.with_present()
-							.with_global()
-							.with_no_exec()
-							.with_address(pt_phys);
-						total_mappings += 1;
-					}
+				} else if !entry.present() {
+					let pt_phys = mmap_pfa.next()?;
+					// Do this _before_ putting it into the PTE to prevent
+					// TLB thrashing in some cases.
+					otf.zero_page(pt_phys);
+					*entry = PageTableEntry::new()
+						.with_writable()
+						.with_present()
+						.with_global()
+						.with_no_exec()
+						.with_address(pt_phys);
+					total_mappings += 1;
 				}
 			}
 
@@ -367,7 +381,9 @@ unsafe fn linear_map_regions<'a>(
 /// A rudimentary page frame allocator over a [`MemoryMapIterator`]
 /// respecting the `used` field of the memory map entries.
 struct MemoryMapPfa<'a> {
+	/// The iterator over all memory map items.
 	iterator:      MemoryMapIterator<'a>,
+	/// The current entry from which we're allocating.
 	current_entry: MemoryMapEntry,
 }
 
@@ -440,15 +456,17 @@ impl<'a> Iterator for MemoryMapPfa<'a> {
 /// `used` fields, etc.
 #[derive(Clone)]
 struct MemoryMapIterator<'a> {
-	current: u64,
-	otf:     &'a OnTheFlyMapper,
+	/// The next physical address of the memory map entry.
+	next: u64,
+	/// The on-the-fly mapper that will service reading the entries.
+	otf:  &'a OnTheFlyMapper,
 }
 
 impl<'a> MemoryMapIterator<'a> {
 	/// Creates a new memory map iterator.
 	fn new(otf: &'a OnTheFlyMapper) -> Self {
 		Self {
-			current: {
+			next: {
 				let MemoryMapKind::V0(res) = super::protocol::MMAP_REQUEST
 					.response()
 					.expect("bootloader didn't provide a memory map response")
@@ -475,7 +493,7 @@ impl<'a> Iterator for MemoryMapIterator<'a> {
 	type Item = MemoryMapEntry;
 
 	fn next(&mut self) -> Option<Self::Item> {
-		if self.current == 0 {
+		if self.next == 0 {
 			return None;
 		}
 
@@ -485,8 +503,8 @@ impl<'a> Iterator for MemoryMapIterator<'a> {
 		// SAFETY(qix-): so to the best of our ability to determine the memory map is valid (though
 		// SAFETY(qix-): it's really up to the bootloader to make sure it is).
 		unsafe {
-			let entry = self.otf.read_phys::<MemoryMapEntry>(self.current);
-			self.current = entry.next;
+			let entry = self.otf.read_phys::<MemoryMapEntry>(self.next);
+			self.next = entry.next;
 			Some(entry)
 		}
 	}
@@ -515,7 +533,9 @@ impl<'a> Iterator for MemoryMapIterator<'a> {
 /// mapping requirements of the bootloaders and grants complete
 /// control over the process by the kernel.
 struct OnTheFlyMapper {
+	/// The base address where pages will be mapped.
 	base_virt:           *mut u8,
+	/// The L1 (leaf) page table entry for the page.
 	l1_page_table_entry: *mut PageTableEntry,
 }
 
@@ -525,6 +545,7 @@ impl OnTheFlyMapper {
 		// Assuming the recursive map exists (it does if we're here),
 		// we can calculate the virtual address of the L1 page table
 		// for the OTF region.
+		#[allow(clippy::missing_docs_in_private_items)]
 		const RIDX: usize = crate::mem::address_space::AddressSpaceLayout::RECURSIVE_IDX;
 		let paging_level = PagingLevel::current_from_cpu();
 		let levels = paging_level as usize;
@@ -563,6 +584,7 @@ impl OnTheFlyMapper {
 		}
 	}
 
+	/// Maps in the given physical page to the OTF region slot.
 	unsafe fn map_phys(&self, phys: u64) {
 		debug_assert!(phys % 4096 == 0, "physical address is not page-aligned");
 		*self.l1_page_table_entry = PageTableEntry::new()

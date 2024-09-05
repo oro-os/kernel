@@ -55,8 +55,15 @@
 //! once it has booted.
 #![no_std]
 #![allow(internal_features)]
-#![feature(naked_functions, core_intrinsics)]
 #![cfg(not(all(doc, not(target_arch = "x86_64"))))]
+#![feature(naked_functions, core_intrinsics)]
+// SAFETY(qix-): This is accepted, but moving slowly (in fact, probably the slowest
+// SAFETY(qix-): I've seen - predates Rust 1.0). It simplifies the amount of `#[allow]`
+// SAFETY(qix-): markers that have to be used when sign-extending addresses. The current
+// SAFETY(qix-): plan to make it work on unambiguous (e.g. braced) statements looks like
+// SAFETY(qix-): where it'll end up so I'm not too worried about using this feature flag.
+// SAFETY(qix-): https://github.com/rust-lang/rust/issues/15701
+#![feature(stmt_expr_attributes)]
 
 pub mod arch;
 pub mod asm;
@@ -69,6 +76,9 @@ pub mod reg;
 pub use self::arch::X86_64;
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 
+/// The ELF class of the x86_64 architecture.
 pub const ELF_CLASS: ElfClass = ElfClass::Class64;
+/// The ELF endianness of the x86_64 architecture.
 pub const ELF_ENDIANNESS: ElfEndianness = ElfEndianness::Little;
+/// The ELF machine of the x86_64 architecture.
 pub const ELF_MACHINE: ElfMachine = ElfMachine::X86_64;

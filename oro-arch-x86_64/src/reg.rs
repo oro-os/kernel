@@ -10,6 +10,7 @@ pub struct Cr0(u64);
 macro_rules! field {
 	($name:ident, $shift:expr, $doc:literal) => {
 		#[doc = $doc]
+		#[must_use]
 		pub const fn $name(self) -> Self {
 			Self(self.0 | (1 << $shift))
 		}
@@ -70,6 +71,7 @@ impl Cr0 {
 
 	/// Creates a new CR0 register with all bits cleared.
 	#[allow(clippy::new_without_default)]
+	#[must_use]
 	pub const fn new() -> Self {
 		Self(0)
 	}
@@ -78,6 +80,7 @@ impl Cr0 {
 	/// ANDing this with an existing CR0 value will retain
 	/// all unsupported bits and zero the supported bits
 	/// such that the value can be OR'd with new bits.
+	#[must_use]
 	pub const fn mask() -> u64 {
 		!Self::new()
 			.with_protected_mode_enable()
@@ -94,6 +97,7 @@ impl Cr0 {
 	/// Returns the raw bits of the CR0 register.
 	// TODO(qix-): When const traits are stabilized, remove this
 	// TODO(qix-): in lieu of a const `From` trait impl.
+	#[must_use]
 	pub const fn bits(self) -> u64 {
 		self.0
 	}
@@ -106,6 +110,7 @@ impl Cr0 {
 	/// Interrupts should be disabled before calling this
 	/// function if the value is to be immediately loaded,
 	/// in order to make sure no race conditions occur.
+	#[must_use]
 	pub unsafe fn inherit(mut self) -> Self {
 		let mut current = 0;
 		asm!("mov {}, cr0", inout(reg) current);
@@ -126,6 +131,7 @@ impl Cr0 {
 	}
 
 	/// Gets the current CR0 register.
+	#[must_use]
 	pub fn read() -> Self {
 		// SAFETY(qix-): This is always safe.
 		let cr0: u64;

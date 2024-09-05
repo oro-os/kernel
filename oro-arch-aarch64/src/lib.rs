@@ -41,6 +41,11 @@ pub mod reg;
 pub use self::arch::Aarch64;
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 
+/// The ELF class for the AArch64 architecture.
 pub const ELF_CLASS: ElfClass = ElfClass::Class64;
+/// The ELF endianness for the AArch64 architecture.
+///
+/// Currently only little-endian is supported.
 pub const ELF_ENDIANNESS: ElfEndianness = ElfEndianness::Little;
+/// The ELF machine type for the AArch64 architecture.
 pub const ELF_MACHINE: ElfMachine = ElfMachine::Aarch64;

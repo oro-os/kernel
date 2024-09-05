@@ -34,6 +34,7 @@ pub unsafe fn invalidate_tlb_el1(virt: usize) {
 /// all cores in all execution contexts. Be VERY CAREFUL
 /// that you control the value in the `TTBR0_EL1` register
 /// prior to calling this again.
+#[must_use]
 pub unsafe fn load_ttbr0() -> u64 {
 	let ttbr0_el1: u64;
 	unsafe {
@@ -61,6 +62,7 @@ pub unsafe fn load_ttbr0() -> u64 {
 /// all cores in all execution contexts. Be VERY CAREFUL
 /// that you control the value in the `TTBR1_EL1` register
 /// prior to calling this again.
+#[must_use]
 pub unsafe fn load_ttbr1() -> u64 {
 	let ttbr1_el1: u64;
 	unsafe {
@@ -90,8 +92,6 @@ pub unsafe fn store_ttbr0(phys: u64) {
 /// Disables interrupts on the current core.
 pub fn disable_interrupts() {
 	unsafe {
-		unsafe {
-			asm!("msr daifset, 0xf", options(nostack, nomem, preserves_flags));
-		}
+		asm!("msr daifset, 0xf", options(nostack, nomem, preserves_flags));
 	}
 }

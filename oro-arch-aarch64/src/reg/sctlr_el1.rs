@@ -143,6 +143,7 @@ impl SctlrEl1 {
 	);
 
 	/// Loads the current `SCTLR_EL1` register value and returns a new instance.
+	#[must_use]
 	pub fn load() -> Self {
 		unsafe {
 			let mut sctlr_el1: u64;
@@ -168,6 +169,7 @@ impl SctlrEl1 {
 
 	/// Creates a new `SCTLR_EL1` register with all fields set to `0`.
 	#[allow(clippy::new_without_default)]
+	#[must_use]
 	pub const fn new() -> Self {
 		Self(0)
 	}

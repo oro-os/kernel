@@ -1,6 +1,5 @@
 //! Provides a macro for producing a buffer of assembly instructions
 //! using the `asm!` macro.
-#![allow(clippy::items_after_statements)]
 
 use quote::quote;
 use std::io::Read;

@@ -128,7 +128,6 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 	/// # Panics
 	/// Panics if the linear offset is not representable as a `usize`, or if
 	/// `stack_pages` is zero.
-	#[must_use]
 	pub fn bootstrap(
 		linear_offset: u64,
 		stack_pages: usize,
@@ -183,6 +182,7 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 	///
 	/// - [`oro_boot_protocol::RootRequest`]
 	/// - [`oro_boot_protocol::MemoryMapRequest`]
+	#[must_use]
 	pub fn send<R: DataRevision>(mut self, response: R) -> Self
 	where
 		R::Request: RequestData,
@@ -205,7 +205,8 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 	pub fn boot_to_kernel(mut self) -> Result<!> {
 		// SAFETY(qix-): There's nothing we can really do to make this 'safe' by marking it as such;
 		// SAFETY(qix-): the bootstrap class removes most of the danger associated with this method.
-		let prepare_data = unsafe {
+		#[allow(clippy::let_unit_value, clippy::semicolon_if_nothing_returned)]
+		let transfer_data = unsafe {
 			self::target::prepare_transfer(&mut self.supervisor_space, &mut self.pfa, &self.pat)?
 		};
 
@@ -229,13 +230,14 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 				&mut self.supervisor_space,
 				self.kernel_entry,
 				self.stack_addr,
-				prepare_data,
+				transfer_data,
 			)
 			.map_err(Error::MapError)?
 		}
 	}
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
 fn try_send<R: DataRevision>(scanner: &mut RequestScanner, response: R)
 where
 	R::Request: RequestData,

@@ -7,6 +7,7 @@ macro_rules! field {
 		::oro_macro::paste! {
 			#[doc = concat!("Gets the `", stringify!($name), "` field.\n\n", $doc)]
 			#[allow(dead_code, clippy::identity_op)]
+			#[must_use]
 			pub fn $name(self) -> $T {
 				<$T>::from((self.0 >> $start_bit) & ((1 << ($end_bit - $start_bit + 1)) - 1))
 			}
@@ -26,6 +27,7 @@ macro_rules! field {
 		::oro_macro::paste! {
 			#[doc = concat!("Gets the `", stringify!($name), "` field.\n\n", $doc)]
 			#[allow(dead_code, clippy::identity_op)]
+			#[must_use]
 			pub fn $name(self) -> $T {
 				<$T>::from(((self.0 >> $bit) & 1) == 1)
 			}

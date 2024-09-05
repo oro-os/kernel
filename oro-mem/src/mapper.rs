@@ -143,7 +143,9 @@ pub unsafe trait AddressSpace {
 	fn kernel_module_instance_registry() -> Self::SupervisorSegment;
 }
 
-/// An address space segment descriptor. Segments are architecture specified
+/// An address space segment descriptor.
+///
+/// Segments are architecture specified
 /// ranges of memory whereby physical addresses may be mapped in. Each descriptor
 /// has a specific set of flags that are architecture specific for the range.
 ///

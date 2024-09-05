@@ -295,7 +295,7 @@ pub unsafe fn boot_secondary<A: PageFrameAllocate + PageFrameFree>(
 
 	// Wait for the secondary core to signal it's ready.
 	let mut ok = false;
-	for _ in 0..100000 {
+	for _ in 0..100_000 {
 		match secondary_flag.load(core::sync::atomic::Ordering::Acquire) {
 			1 => {
 				ok = true;
@@ -323,7 +323,7 @@ pub unsafe fn boot_secondary<A: PageFrameAllocate + PageFrameFree>(
 /// The secondary boot stub machine code.
 ///
 /// This is more or less adapted from the direct-to-long-mode boot stub
-/// provided by Brendan from the OSDev Wiki. It's not supposed to work
+/// provided by Brendan from the `OSDev` Wiki. It's not supposed to work
 /// as per the AMD documentation, but it does.
 const SECONDARY_BOOT_STUB: &[u8] = &asm_buffer! {
 	// 16-bit code starts here
@@ -394,6 +394,11 @@ const SECONDARY_BOOT_STUB: &[u8] = &asm_buffer! {
 	"ljmp 0x0008, 0x8400",
 };
 
+/// The secondary boot stub machine code for long mode.
+///
+/// This is jumped to by the 16-bit stub after setting up the
+/// interim long mode environment, necessary to switch the
+/// code segment selector via an `ljmp` instruction.
 const SECONDARY_BOOT_LONG_MODE_STUB: &[u8] = &asm_buffer! {
 	// 64-bit code starts here
 	".code64",
@@ -420,6 +425,9 @@ const SECONDARY_BOOT_LONG_MODE_STUB: &[u8] = &asm_buffer! {
 	"jmp rax",
 };
 
+/// The Rust entry point for secondary cores. This is jumped to
+/// by the long mode stub after setting up most of the rest of
+/// the *actual* long mode environment.
 #[no_mangle]
 unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	crate::gdt::install_gdt();
@@ -483,7 +491,7 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 
 	// Wait for the primary to tell us to continue.
 	let mut ok = false;
-	for _ in 0..100000 {
+	for _ in 0..100_000 {
 		match primary_flag.load(core::sync::atomic::Ordering::Acquire) {
 			1 => {
 				// Tell the primary we're ready to go.
