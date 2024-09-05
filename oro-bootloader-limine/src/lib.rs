@@ -18,6 +18,9 @@ use limine::{
 };
 use oro_debug::{dbg, dbg_err};
 
+/// 1MiB of memory.
+const MIB1: u64 = 1024 * 1024;
+
 /// The number of 4KiB stack pages to allocate for the kernel.
 const KERNEL_STACK_PAGES: usize = 16;
 
@@ -140,9 +143,9 @@ pub unsafe fn init() -> ! {
 							// On x86/x86_64, the first 1MiB of memory is reserved and must not be used.
 							// We have to set this to at least however many bytes are in the first MiB.
 							#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-							let used = if region.base < 0x100000 {
+							let used = if region.base < MIB1 {
 								let end = region.base + region.length;
-								let end_mib = end.min(0x100000);
+								let end_mib = end.min(MIB1);
 								used.max(end_mib - region.base)
 							} else {
 								used

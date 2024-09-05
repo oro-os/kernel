@@ -143,6 +143,7 @@ impl TcrEl1 {
 	);
 
 	/// Loads the current `TCR_EL1` register value and returns a new instance.
+	#[must_use]
 	pub fn load() -> Self {
 		unsafe {
 			let mut tcr_el1: u64;
@@ -166,6 +167,7 @@ impl TcrEl1 {
 
 	/// Creates a new `TCR_EL1` register with all fields set to `0`.
 	#[allow(clippy::new_without_default)]
+	#[must_use]
 	pub const fn new() -> Self {
 		Self(0)
 	}
@@ -173,6 +175,7 @@ impl TcrEl1 {
 	/// Returns the range of the TT0 address range based on `T0SZ`.
 	///
 	/// The upper bound is inclusive.
+	#[must_use]
 	pub fn tt0_range(self) -> (usize, usize) {
 		(0, (1 << (64 - self.t0sz())) - 1)
 	}
@@ -180,6 +183,7 @@ impl TcrEl1 {
 	/// Returns the range of the TT1 address range based on `T1SZ`.
 	///
 	/// The upper bound is inclusive.
+	#[must_use]
 	pub fn tt1_range(self) -> (usize, usize) {
 		(
 			0xFFFF_FFFF_FFFF_FFFF - (1 << (64 - self.t1sz())) + 1,

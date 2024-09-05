@@ -5,7 +5,9 @@
 use core::sync::atomic::{AtomicU64, Ordering};
 
 /// An atomic, spin-based barrier used to synchronize multiprocessor
-/// operations. This barrier is a bit different than other barriers
+/// operations.
+///
+/// This barrier is a bit different than other barriers
 /// because it has two phases; the first is to wait for a total number
 /// (that should come from exactly one core), and the second is to
 /// wait for all cores to reach the barrier.

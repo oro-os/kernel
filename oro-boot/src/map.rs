@@ -104,7 +104,7 @@ pub fn map_kernel_to_supervisor_space<
 			}
 
 			if let Err(err) =
-				mapper_segment.map_nofree(&supervisor_space, pfa, pat, target_virt, phys_addr)
+				mapper_segment.map_nofree(supervisor_space, pfa, pat, target_virt, phys_addr)
 			{
 				panic!(
 					"failed to map kernel segment: {err:?}: ls={load_size} p={page} po={page:X?} \

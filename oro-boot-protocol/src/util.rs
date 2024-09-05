@@ -100,7 +100,6 @@ impl RequestScanner {
 	/// Returns an error if either the request is not found (i.e.
 	/// not requested by the kernel) or if the revision of the
 	/// request does not match the revision of the response.
-	#[must_use]
 	pub fn try_send<R: crate::DataRevision>(&self, data: R) -> Result<(), TrySendError>
 	where
 		R::Request: RequestData,

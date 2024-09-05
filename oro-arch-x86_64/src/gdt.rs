@@ -138,9 +138,10 @@ static GDT: [GdtEntry; 5] = [
 /// This is mostly used by the secondary core initialization
 /// code to write the GDT to a 32-bit page, as is required
 /// when running in a 16/32-bit mode.
+#[must_use]
 pub fn gdt_bytes() -> &'static [u8] {
 	// SAFETY(qix-): The GDT is a static array, so it's always valid.
-	unsafe { core::slice::from_raw_parts(GDT.as_ptr() as *const u8, core::mem::size_of_val(&GDT)) }
+	unsafe { core::slice::from_raw_parts(GDT.as_ptr().cast::<u8>(), core::mem::size_of_val(&GDT)) }
 }
 
 /// Installs the GDT.

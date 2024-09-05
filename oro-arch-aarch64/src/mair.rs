@@ -30,6 +30,7 @@ pub enum MairEntry {
 impl MairEntry {
 	/// Returns the MAIR index for this Oro-specific entry type.
 	#[inline(always)]
+	#[must_use]
 	pub const fn index(self) -> u8 {
 		unsafe { core::mem::transmute::<Self, u8>(self) }
 	}
@@ -37,6 +38,7 @@ impl MairEntry {
 	/// Builds all of the Oro-specific MAIR entries into a single
 	/// [`MairRegister`] value to be loaded into the `MAIR_EL1` register.
 	#[inline(always)]
+	#[must_use]
 	pub fn build_mair() -> MairRegister {
 		let mut mair = MairRegister::new();
 

@@ -48,11 +48,14 @@
 // NOTE(qix-): In the event const traits ever get fixed and stabilized, feel free to submit a PR
 // NOTE(qix-): to refactor this to use const traits instead. Check the commit log for around
 // NOTE(qix-): 18-20 June 2024 to see what this looked like before, for inspiration.
+#![allow(
+	clippy::inline_always,
+	private_bounds,
+	clippy::missing_docs_in_private_items
+)]
 
 // TODO(qix-): Very much not happy with how this is structured. It's way too rigid and will be
 // TODO(qix-): nearly impossible to maintain or extend in the future. It needs a full rewrite.
-
-#![allow(clippy::inline_always, private_bounds)]
 
 use core::{
 	fmt,
@@ -111,6 +114,7 @@ impl PageTable {
 	}
 
 	/// Returns whether or not the page table is empty (all entries are invalid).
+	#[must_use]
 	pub fn empty(&self) -> bool {
 		self.entries.iter().all(|entry| !entry.valid())
 	}
@@ -524,7 +528,7 @@ macro_rules! define_descriptor {
 			}
 
 			#[inline(always)]
-			pub fn raw(&self) -> u64 {
+			#[must_use] pub fn raw(&self) -> u64 {
 				self.0
 			}
 
@@ -539,17 +543,17 @@ macro_rules! define_descriptor {
 			}
 
 			#[inline(always)]
-			pub const fn with(value: u64) -> Self {
+			#[must_use] pub const fn with(value: u64) -> Self {
 				Self(value)
 			}
 
 			#[inline(always)]
-			pub const fn to_raw(self) -> u64 {
+			#[must_use] pub const fn to_raw(self) -> u64 {
 				self.0
 			}
 
 			#[inline(always)]
-			pub const fn to_entry(self) -> PageTableEntry {
+			#[must_use] pub const fn to_entry(self) -> PageTableEntry {
 				PageTableEntry(self.to_raw())
 			}
 		}
@@ -577,6 +581,7 @@ define_descriptor!(l3 block L3PageTableBlockDescriptor, 47, 12, "L3 page table b
 impl PageTableEntry {
 	/// Returns the raw value of the page table entry.
 	#[inline(always)]
+	#[must_use]
 	pub fn raw(self) -> u64 {
 		self.0
 	}
@@ -597,6 +602,7 @@ impl PageTableEntry {
 	/// # Safety
 	/// The value must be a well-formed page table entry.
 	#[inline(always)]
+	#[must_use]
 	pub const unsafe fn with(value: u64) -> Self {
 		Self(value)
 	}
@@ -604,6 +610,7 @@ impl PageTableEntry {
 	/// Returns the raw value of the page table entry
 	/// as a constant value.
 	#[inline(always)]
+	#[must_use]
 	pub const fn to_raw(self) -> u64 {
 		self.0
 	}
@@ -624,7 +631,7 @@ macro_rules! impl_page_table_entry_valid_attr {
 		$(impl $name {
 			/// Checks if the page table entry is valid.
 			#[inline(always)]
-			pub fn valid(&self) -> bool {
+			#[must_use] pub fn valid(&self) -> bool {
 				self.raw() & 0b1 != 0
 			}
 
@@ -676,7 +683,7 @@ macro_rules! impl_page_table_entry_table_descriptor_attr {
 		$(impl $name {
 			/// Returns the [`PageTableEntryTableAccessPerm`] of the page table entry.
 			#[inline(always)]
-			pub fn table_access_permissions(&self) -> PageTableEntryTableAccessPerm {
+			#[must_use] pub fn table_access_permissions(&self) -> PageTableEntryTableAccessPerm {
 				unsafe { core::mem::transmute(self.raw() & (0b11 << 61)) }
 			}
 
@@ -865,7 +872,7 @@ macro_rules! impl_page_table_entry_block_descriptor_attr {
 
 			/// Gets the MAIR index of the block entry.
 			#[inline(always)]
-			pub fn mair_index(&self) -> u64 {
+			#[must_use] pub fn mair_index(&self) -> u64 {
 				(self.raw() & (0b111 << 2)) >> 2
 			}
 
@@ -967,7 +974,7 @@ macro_rules! impl_page_table_entry_address {
 		$(impl $name {
 			/// Returns the address of the page table entry.
 			#[inline(always)]
-			pub fn address(&self) -> u64 {
+			#[must_use] pub fn address(&self) -> u64 {
 				self.raw() & Self::ADDR_MASK
 			}
 

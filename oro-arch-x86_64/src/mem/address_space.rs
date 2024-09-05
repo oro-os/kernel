@@ -82,6 +82,7 @@ impl AddressSpaceLayout {
 	}
 
 	/// Returns the linear map segment for the supervisor space.
+	#[must_use]
 	pub fn linear_map() -> &'static AddressSegment {
 		#[allow(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
@@ -109,12 +110,13 @@ impl AddressSpaceLayout {
 		pat: &P,
 	) {
 		unsafe {
-			(&mut *(pat.to_virtual_addr(into_phys) as *mut PageTable))
+			(*(pat.to_virtual_addr(into_phys) as *mut PageTable))
 				.shallow_copy_from(&*(pat.to_virtual_addr(handle.base_phys) as *const PageTable));
 		}
 	}
 
 	/// Returns a segment for the secondary core boot stub.
+	#[must_use]
 	pub fn secondary_boot_stub_code() -> &'static AddressSegment {
 		#[allow(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
@@ -131,6 +133,7 @@ impl AddressSpaceLayout {
 
 	/// Returns a segment for the secondary core boot stub's stack
 	/// mapping.
+	#[must_use]
 	pub fn secondary_boot_stub_stack() -> &'static AddressSegment {
 		#[allow(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {

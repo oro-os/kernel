@@ -140,7 +140,7 @@ impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> PrebootPfa<M, I> 
 			// SAFETY(qix-): as far as we're concerned here, this is the only place
 			// SAFETY(qix-): a mutable reference will be created pointing to this
 			// SAFETY(qix-): memory.
-			let uninit = unsafe { &mut *(ptr as *mut MaybeUninit<T>) };
+			let uninit = unsafe { &mut *ptr.cast::<MaybeUninit<T>>() };
 			return Some((next_base, uninit));
 		}
 	}

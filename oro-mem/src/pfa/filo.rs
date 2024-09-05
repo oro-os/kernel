@@ -7,6 +7,8 @@ use crate::{
 	translate::PhysicalAddressTranslator,
 };
 
+/// First in, last out (FILO) page frame allocator.
+///
 /// The _first in, last out_ (FILO) page frame allocator is the
 /// default page frame allocator used by the kernel and most
 /// bootloaders. Through the use of a [`FiloPageFrameManager`],
@@ -104,6 +106,8 @@ where
 	}
 }
 
+/// First in, last out (FILO) page frame read/write manager.
+///
 /// A page frame manager is responsible for managing the virtual
 /// memory mapping of physical pages as needed by the
 /// [`FiloPageFrameAllocator`]. It is responsible for bringing

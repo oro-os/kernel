@@ -10,7 +10,7 @@
 #![allow(incomplete_features)]
 #![feature(adt_const_params)]
 
-mod id;
-mod module;
-mod port;
-mod ring;
+pub mod id;
+pub mod module;
+pub mod port;
+pub mod ring;

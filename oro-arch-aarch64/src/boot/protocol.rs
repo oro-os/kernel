@@ -1,3 +1,5 @@
+//! Kernel boot protocol requests for the AArch64 architecture.
+
 use oro_boot_protocol::MemoryMapRequest;
 
 /// The memory map request.

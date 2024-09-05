@@ -14,10 +14,18 @@ use oro_mem::{
 /// Sign-extends a value to the appropriate size for the current paging level.
 macro_rules! sign_extend {
 	(L4, $value:expr) => {
-		((($value << 16) as isize) >> 16) as usize
+		// SAFETY(qix-): We expect and want the sign loss here.
+		#[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
+		{
+			((($value << 16) as isize) >> 16) as usize
+		}
 	};
 	(L5, $value:expr) => {
-		((($value << 7) as isize) >> 7) as usize
+		// SAFETY(qix-): We expect and want the sign loss here.
+		#[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
+		{
+			((($value << 7) as isize) >> 7) as usize
+		}
 	};
 }
 

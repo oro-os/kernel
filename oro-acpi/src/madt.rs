@@ -1,4 +1,5 @@
 //! Extension methods for the MADT table.
+#![allow(clippy::inline_always)]
 
 use crate::sys;
 use core::mem::ManuallyDrop;
@@ -52,6 +53,7 @@ pub struct MadtIterator<'a> {
 
 impl<'a> MadtIterator<'a> {
 	/// Creates a new iterator over the MADT entries.
+	#[must_use]
 	pub fn new(slice: &'a [u8]) -> Self {
 		Self { pos: 44, slice }
 	}

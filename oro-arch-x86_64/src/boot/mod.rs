@@ -118,8 +118,8 @@ pub unsafe fn boot_primary() -> ! {
 
 		// Boot the secondary cores.
 		let mut num_cores = 1; // start at one for the bsp
-		for entry in madt.entries() {
-			if let Ok(MadtEntry::LocalApic(apic)) = entry {
+		for entry in madt.entries().flatten() {
+			if let MadtEntry::LocalApic(apic) = entry {
 				if apic.can_init() {
 					if apic.id() == lapic_id {
 						dbg!("cpu {}: not booting (primary core)", apic.id());

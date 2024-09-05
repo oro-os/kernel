@@ -2,26 +2,27 @@
 
 #![allow(clippy::inline_always, clippy::verbose_bit_mask)]
 
-use crate::mem::address_space::AddressSpaceLayout;
 use core::arch::asm;
-use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 
 /// AArch64 architecture support implementation for the Oro kernel.
 pub struct Aarch64;
 
 impl Aarch64 {
+	/// Halts the processor forever.
 	pub fn halt() -> ! {
 		loop {
 			Self::halt_once_and_wait();
 		}
 	}
 
+	/// Halts the processor once, waiting for an interrupt.
 	pub fn halt_once_and_wait() {
 		unsafe {
 			asm!("wfi");
 		}
 	}
 
+	/// Performs a data synchronization barrier.
 	#[inline(always)]
 	pub fn strong_memory_barrier() {
 		unsafe {
