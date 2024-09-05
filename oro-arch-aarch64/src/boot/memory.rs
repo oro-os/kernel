@@ -2,16 +2,16 @@
 
 use crate::mem::address_space::AddressSpaceLayout;
 use core::arch::asm;
-use oro_mem::{pfa::filo::FiloPageFrameAllocator, translate::OffsetPhysicalAddressTranslator};
+use oro_mem::{pfa::filo::FiloPageFrameAllocator, translate::OffsetTranslator};
 
 /// Prepared memory items configured after preparing the memory
 /// space for the kernel at boot time.
 pub struct PreparedMemory {
 	/// A physical address translator usable with the
 	/// prepared memory.
-	pub pat: OffsetPhysicalAddressTranslator,
+	pub pat: OffsetTranslator,
 	/// A page frame allocator usable with the prepared memory.
-	pub pfa: FiloPageFrameAllocator<OffsetPhysicalAddressTranslator>,
+	pub pfa: FiloPageFrameAllocator<OffsetTranslator>,
 }
 
 /// Prepares the kernel memory after transfer from the boot stage

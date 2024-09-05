@@ -10,7 +10,7 @@
 
 use crate::{
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
-	translate::PhysicalAddressTranslator,
+	translate::Translator,
 };
 
 /// A const trait that provides descriptors for the layout of an address space
@@ -48,7 +48,7 @@ pub unsafe trait AddressSpace {
 	/// when absolutely necessary.
 	unsafe fn current_supervisor_space<P>(translator: &P) -> Self::SupervisorHandle
 	where
-		P: PhysicalAddressTranslator;
+		P: Translator;
 
 	/// Creates a new, empty supervisor address space handle.
 	///
@@ -56,7 +56,7 @@ pub unsafe trait AddressSpace {
 	fn new_supervisor_space<A, P>(alloc: &mut A, translator: &P) -> Option<Self::SupervisorHandle>
 	where
 		A: PageFrameAllocate,
-		P: PhysicalAddressTranslator;
+		P: Translator;
 
 	/// Duplicates the given supervisor address space handle.
 	/// The duplication is performed shallowly, meaning that the new handle
@@ -71,7 +71,7 @@ pub unsafe trait AddressSpace {
 	) -> Option<Self::SupervisorHandle>
 	where
 		A: PageFrameAllocate,
-		P: PhysicalAddressTranslator;
+		P: Translator;
 
 	/// Returns the layout descriptor for the kernel code segment.
 	///
@@ -186,7 +186,7 @@ pub unsafe trait AddressSegment<Handle: Sized> {
 	) -> Result<(), MapError>
 	where
 		A: PageFrameAllocate + PageFrameFree,
-		P: PhysicalAddressTranslator;
+		P: Translator;
 
 	/// Maps a physical address into the segment at the given virtual address,
 	/// without performing any frees (even if it means a slightly less
@@ -211,7 +211,7 @@ pub unsafe trait AddressSegment<Handle: Sized> {
 	) -> Result<(), MapError>
 	where
 		A: PageFrameAllocate,
-		P: PhysicalAddressTranslator;
+		P: Translator;
 
 	/// Unmaps a physical address from the segment at the given virtual address.
 	/// Fails if the virtual address is not mapped. Returns the physical address
@@ -225,7 +225,7 @@ pub unsafe trait AddressSegment<Handle: Sized> {
 	) -> Result<u64, UnmapError>
 	where
 		A: PageFrameAllocate + PageFrameFree,
-		P: PhysicalAddressTranslator;
+		P: Translator;
 
 	/// Maps the given physical address into the segment at the given virtual address.
 	/// If the virtual address is already mapped, the physical address is remapped and the
@@ -240,7 +240,7 @@ pub unsafe trait AddressSegment<Handle: Sized> {
 	) -> Result<Option<u64>, MapError>
 	where
 		A: PageFrameAllocate + PageFrameFree,
-		P: PhysicalAddressTranslator;
+		P: Translator;
 }
 
 /// Errors returned by mapping functions

@@ -11,7 +11,7 @@ use oro_mem::mapper::{AddressSegment, AddressSpace, MapError, UnmapError};
 pub fn map_kernel_to_supervisor_space<
 	M: Into<oro_boot_protocol::MemoryMapEntry> + Clone,
 	I: Iterator<Item = M> + Clone,
-	Pat: oro_mem::translate::PhysicalAddressTranslator,
+	Pat: oro_mem::translate::Translator,
 >(
 	pfa: &mut crate::pfa::PrebootPfa<M, I>,
 	pat: &Pat,
@@ -136,7 +136,7 @@ pub fn map_kernel_to_supervisor_space<
 pub fn map_kernel_stack<
 	M: Into<oro_boot_protocol::MemoryMapEntry> + Clone,
 	I: Iterator<Item = M> + Clone,
-	Pat: oro_mem::translate::PhysicalAddressTranslator,
+	Pat: oro_mem::translate::Translator,
 >(
 	pfa: &mut crate::pfa::PrebootPfa<M, I>,
 	pat: &Pat,

@@ -15,7 +15,7 @@ use oro_macro::assert;
 use oro_mem::{
 	mapper::AddressSegment as _,
 	pfa::{alloc::PageFrameFree, filo::FiloPageFrameAllocator},
-	translate::{OffsetPhysicalAddressTranslator, PhysicalAddressTranslator},
+	translate::{OffsetTranslator, Translator},
 };
 
 /// The index of the page table entry at the highest (4/5) level
@@ -31,9 +31,9 @@ const MIB_1: u64 = 1024 * 1024;
 /// Result from the [`prepare_memory`] function.
 pub struct PreparedMemory {
 	/// The page frame allocator.
-	pub pfa:      FiloPageFrameAllocator<OffsetPhysicalAddressTranslator>,
+	pub pfa:      FiloPageFrameAllocator<OffsetTranslator>,
 	/// The physical address translator.
-	pub pat:      OffsetPhysicalAddressTranslator,
+	pub pat:      OffsetTranslator,
 	/// Whether or not physical pages 0x8000 and 0x9000 are available,
 	/// which are required to boot secondary cores.
 	pub has_cs89: bool,
@@ -144,7 +144,7 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 		.expect("system ran out of memory during linear map");
 
 	// Now make a new PFA with the linear map offset.
-	let pat = OffsetPhysicalAddressTranslator::new(
+	let pat = OffsetTranslator::new(
 		usize::try_from(linear_offset).expect("linear offset doesn't fit into a usize"),
 	);
 	let mut pfa = FiloPageFrameAllocator::new(pat.clone());
@@ -208,7 +208,7 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 /// Maps all regions to a linear map in the current virtual address space.
 ///
 /// Returns the computed base offset of the page frame allocator, usable
-/// with an [`OffsetPhysicalAddressTranslator`].
+/// with an [`OffsetTranslator`].
 ///
 /// Returns None if the system ran out of memory while mapping the regions.
 unsafe fn linear_map_regions<'a>(

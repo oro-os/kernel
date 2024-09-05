@@ -7,9 +7,7 @@ use crate::{
 	asm::cr3,
 	mem::{paging::PageTableEntry, segment::AddressSegment},
 };
-use oro_mem::{
-	mapper::AddressSpace, pfa::alloc::PageFrameAllocate, translate::PhysicalAddressTranslator,
-};
+use oro_mem::{mapper::AddressSpace, pfa::alloc::PageFrameAllocate, translate::Translator};
 
 /// A handle to an address space for the x86_64 architecture.
 ///
@@ -67,7 +65,7 @@ impl AddressSpaceLayout {
 
 impl AddressSpaceLayout {
 	/// Adds the recursive mapping to the provided page table.
-	pub fn map_recursive_entry<P: PhysicalAddressTranslator>(handle: &AddressSpaceHandle, pat: &P) {
+	pub fn map_recursive_entry<P: Translator>(handle: &AddressSpaceHandle, pat: &P) {
 		// SAFETY(qix-): We can reasonably assuming that the `AddressSpaceHandle`
 		// SAFETY(qix-): is valid if it's been constructed by us.
 		unsafe {
@@ -104,11 +102,7 @@ impl AddressSpaceLayout {
 
 	/// Shallow-duplicates the current address space into a new one
 	/// at the given physical address.
-	pub fn copy_shallow_into<P: PhysicalAddressTranslator>(
-		handle: &AddressSpaceHandle,
-		into_phys: u64,
-		pat: &P,
-	) {
+	pub fn copy_shallow_into<P: Translator>(handle: &AddressSpaceHandle, into_phys: u64, pat: &P) {
 		unsafe {
 			(*(pat.to_virtual_addr(into_phys) as *mut PageTable))
 				.shallow_copy_from(&*(pat.to_virtual_addr(handle.base_phys) as *const PageTable));
@@ -170,7 +164,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 
 	unsafe fn current_supervisor_space<P>(_translator: &P) -> Self::SupervisorHandle
 	where
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		Self::SupervisorHandle {
 			base_phys:    cr3(),
@@ -181,7 +175,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	fn new_supervisor_space<A, P>(alloc: &mut A, translator: &P) -> Option<Self::SupervisorHandle>
 	where
 		A: PageFrameAllocate,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		let base_phys = alloc.allocate()?;
 
@@ -202,7 +196,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	) -> Option<Self::SupervisorHandle>
 	where
 		A: PageFrameAllocate,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		let base_phys = alloc.allocate()?;
 

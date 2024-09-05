@@ -8,17 +8,17 @@
 /// # Safety
 /// Implementors must be aware that physical addresses
 /// **may not** be page aligned.
-pub unsafe trait PhysicalAddressTranslator: Clone + Sized + 'static {
+pub unsafe trait Translator: Clone + Sized + 'static {
 	/// Translates a physical frame address to a virtual address.
 	#[must_use]
 	fn to_virtual_addr(&self, physical_addr: u64) -> usize;
 }
 
-/// An offset-based [`PhysicalAddressTranslator`] that applies an offset
+/// An offset-based [`Translator`] that applies an offset
 /// to physical frames resulting in a valid virtual address. Used in cases
 /// where all memory regions have been direct-mapped.
 #[derive(Clone)]
-pub struct OffsetPhysicalAddressTranslator {
+pub struct OffsetTranslator {
 	/// The offset to apply to physical addresses
 	/// in order to get a valid virtual address.
 	///
@@ -30,7 +30,7 @@ pub struct OffsetPhysicalAddressTranslator {
 	offset: usize,
 }
 
-impl OffsetPhysicalAddressTranslator {
+impl OffsetTranslator {
 	/// Creates a new offset physical frame translator.
 	#[must_use]
 	pub fn new(offset: usize) -> Self {
@@ -44,7 +44,7 @@ impl OffsetPhysicalAddressTranslator {
 	}
 }
 
-unsafe impl PhysicalAddressTranslator for OffsetPhysicalAddressTranslator {
+unsafe impl Translator for OffsetTranslator {
 	#[allow(clippy::cast_possible_truncation)]
 	#[inline(always)]
 	fn to_virtual_addr(&self, physical_addr: u64) -> usize {

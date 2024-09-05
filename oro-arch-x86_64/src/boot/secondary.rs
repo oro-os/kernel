@@ -15,7 +15,7 @@ use oro_macro::{asm_buffer, assert};
 use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
-	translate::{OffsetPhysicalAddressTranslator, PhysicalAddressTranslator},
+	translate::{OffsetTranslator, Translator},
 };
 
 /// The LA57 bit in the CR4 register.
@@ -49,7 +49,7 @@ pub enum BootError {
 pub unsafe fn boot_secondary<A: PageFrameAllocate + PageFrameFree>(
 	primary_handle: &AddressSpaceHandle,
 	pfa: &mut A,
-	pat: &OffsetPhysicalAddressTranslator,
+	pat: &OffsetTranslator,
 	lapic: &Lapic,
 	secondary_lapic_id: u8,
 	stack_pages: usize,
@@ -438,7 +438,7 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 
 	// Get the linear offset
 	let linear_offset = *(0x8FA8 as *const u64);
-	let pat = OffsetPhysicalAddressTranslator::new(linear_offset as usize);
+	let pat = OffsetTranslator::new(linear_offset as usize);
 
 	// Pull the RSDP from the boot protocol
 	// SAFETY(qix-): We can just unwrap these values as they're guaranteed to be OK
