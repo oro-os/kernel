@@ -9,12 +9,12 @@
 pub use ::oro_acpica_sys as sys;
 use core::{alloc::Layout, ptr::from_ref};
 use oro_macro::assert;
-use oro_mem::translate::PhysicalAddressTranslator as Pat;
+use oro_mem::translate::PhysicalAddressTranslator;
 
 pub mod madt;
 
 /// RSDP structure.
-pub struct Rsdp<P: Pat> {
+pub struct Rsdp<P: PhysicalAddressTranslator> {
 	/// The pointer to the RSDP structure.
 	/// SAFETY(qix-): Revision must be checked before accessing bytes beyond the first 20.
 	ptr: &'static sys::acpi_table_rsdp,
@@ -23,10 +23,10 @@ pub struct Rsdp<P: Pat> {
 	pat: P,
 }
 
-impl<P: Pat> Rsdp<P> {
+impl<P: PhysicalAddressTranslator> Rsdp<P> {
 	/// Gets and validates the RSDP structure from
 	/// the given physical address and
-	/// [`oro_common::mem::translate::PhysicalAddressTranslator`].
+	/// [`PhysicalAddressTranslator`].
 	///
 	/// Returns `None` if the RSDP structure is invalid / not-aligned.
 	///
@@ -101,7 +101,7 @@ impl<P: Pat> Rsdp<P> {
 
 // SAFETY(qix-): Uses unstable feature `trivial_bounds`.
 #[allow(trivial_bounds)]
-impl<P: Pat> core::fmt::Debug for Rsdp<P>
+impl<P: PhysicalAddressTranslator> core::fmt::Debug for Rsdp<P>
 where
 	sys::acpi_table_rsdp: core::fmt::Debug,
 {
@@ -111,7 +111,7 @@ where
 }
 
 /// Either the revision 0 SDT or the the eXtended SDT.
-pub enum RootSdt<P: Pat> {
+pub enum RootSdt<P: PhysicalAddressTranslator> {
 	/// The revision 0 SDT.
 	Rsdt(Rsdt<P>),
 	/// The eXtended SDT.
@@ -119,7 +119,7 @@ pub enum RootSdt<P: Pat> {
 }
 
 /// X/RSDT table search trait, allowing for searching for a table by signature.
-pub trait RootSdtSearch<P: Pat, const PTR_SIZE: usize>: AcpiTable<P>
+pub trait RootSdtSearch<P: PhysicalAddressTranslator, const PTR_SIZE: usize>: AcpiTable<P>
 where
 	[u8; PTR_SIZE]: FromLe64<PTR_SIZE>,
 {
@@ -147,10 +147,10 @@ where
 	}
 }
 
-impl<P: Pat> RootSdtSearch<P, 4> for Rsdt<P> {}
-impl<P: Pat> RootSdtSearch<P, 8> for Xsdt<P> {}
+impl<P: PhysicalAddressTranslator> RootSdtSearch<P, 4> for Rsdt<P> {}
+impl<P: PhysicalAddressTranslator> RootSdtSearch<P, 8> for Xsdt<P> {}
 
-impl<P: Pat> RootSdt<P> {
+impl<P: PhysicalAddressTranslator> RootSdt<P> {
 	/// Searches for a table by signature. Automatically
 	/// selects the correct table to search based on the
 	/// revision of the RSDP.
@@ -164,7 +164,7 @@ impl<P: Pat> RootSdt<P> {
 
 /// Base ACPI table trait. All ACPI tables (except for the `RSDP`)
 /// implement this trait.
-pub trait AcpiTable<P: Pat>: Sized {
+pub trait AcpiTable<P: PhysicalAddressTranslator>: Sized {
 	/// The signature of the ACPI table.
 	const SIGNATURE: &'static [i8; 4];
 
@@ -173,7 +173,7 @@ pub trait AcpiTable<P: Pat>: Sized {
 
 	/// Creates a new instance of the ACPI table
 	/// from the given physical address and
-	/// [`oro_common::mem::translate::PhysicalAddressTranslator`].
+	/// [`PhysicalAddressTranslator`].
 	///
 	/// Returns `None` if the ACPI table is invalid.
 	///
@@ -209,7 +209,7 @@ pub trait AcpiTable<P: Pat>: Sized {
 
 	/// Creates a new instance of the ACPI table
 	/// from the given physical address and
-	/// [`oro_common::mem::translate::PhysicalAddressTranslator`].
+	/// [`PhysicalAddressTranslator`].
 	///
 	/// Does NOT perform any validation. **Do not use this method.
 	/// Use [`Self::new`] instead.**
@@ -263,7 +263,7 @@ pub trait AcpiTable<P: Pat>: Sized {
 		unsafe { &*::core::ptr::from_ref(self.header()).cast::<Self::SysTable>() }
 	}
 
-	/// Gets the [`oro_common::mem::translate::PhysicalAddressTranslator`]
+	/// Gets the [`PhysicalAddressTranslator`]
 	/// used to translate physical addresses to virtual addresses as a reference.
 	fn pat(&self) -> &P;
 }
@@ -287,12 +287,12 @@ macro_rules! impl_tables {
 	(@inner $ident:ident => ($systbl_ident:ty, $sig_ident:path, ( & [ u8; 5 ] ), $(#[doc = $doc:literal]),*)) => {
 		#[allow(missing_docs, rustdoc::bare_urls)]
 		$(#[doc = $doc])*
-		pub struct $ident<P: Pat> {
+		pub struct $ident<P: PhysicalAddressTranslator> {
 			ptr: &'static $systbl_ident,
 			pat: P,
 		}
 
-		impl<P: Pat> AcpiTable<P> for $ident<P> {
+		impl<P: PhysicalAddressTranslator> AcpiTable<P> for $ident<P> {
 			// SAFETY(qix-): We can guarantee that the signature is the right size.
 			const SIGNATURE: &'static [i8; 4] = unsafe {
 				&*from_ref($sig_ident).cast::<[i8; 4]>()
@@ -319,7 +319,7 @@ macro_rules! impl_tables {
 
 		// SAFETY(qix-): Uses unstable feature `trivial_bounds`.
 		#[allow(trivial_bounds)]
-		impl<P: Pat> core::fmt::Debug for $ident<P> where $systbl_ident: core::fmt::Debug {
+		impl<P: PhysicalAddressTranslator> core::fmt::Debug for $ident<P> where $systbl_ident: core::fmt::Debug {
 			fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 				self.ptr.fmt(f)
 			}

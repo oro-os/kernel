@@ -12,14 +12,11 @@
 #![feature(naked_functions)]
 #![cfg_attr(not(test), no_std)]
 
-#[cfg(not(debug_assertions))]
-compile_error!("The `oro-debug` crate should only be used in debug builds.");
-
 use core::arch::asm;
-#[cfg(feature = "dbgutil")]
+#[cfg(all(debug_assertions, feature = "dbgutil"))]
 use oro_macro::gdb_autoload_inline;
 
-#[cfg(feature = "dbgutil")]
+#[cfg(all(debug_assertions, feature = "dbgutil"))]
 gdb_autoload_inline!("dbgutil.py");
 
 /// Initializes the debug logger, if one is enabled.
@@ -44,7 +41,7 @@ pub fn log(message: core::fmt::Arguments) {
 
 /// Sends a general debug message to the archiecture-specific debug endpoint.
 #[macro_export]
-//#[collapse_debuginfo(yes)]
+#[collapse_debuginfo(yes)]
 macro_rules! dbg {
 	($($arg:tt)*) => {{
 		$crate::log(format_args!("{}:{}:I:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
@@ -53,7 +50,7 @@ macro_rules! dbg {
 
 /// Sends an error debug message to the archiecture-specific debug endpoint.
 #[macro_export]
-//#[collapse_debuginfo(yes)]
+#[collapse_debuginfo(yes)]
 macro_rules! dbg_err {
 	($($arg:tt)*) => {{
 		$crate::log(format_args!("{}:{}:E:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
@@ -62,7 +59,7 @@ macro_rules! dbg_err {
 
 /// Sends an error debug message to the archiecture-specific debug endpoint.
 #[macro_export]
-//#[collapse_debuginfo(yes)]
+#[collapse_debuginfo(yes)]
 macro_rules! dbg_warn {
 	($($arg:tt)*) => {{
 		$crate::log(format_args!("{}:{}:W:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));

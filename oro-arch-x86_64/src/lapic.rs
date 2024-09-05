@@ -66,7 +66,7 @@ impl Lapic {
 		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
 		#[allow(clippy::cast_ptr_alignment)]
 		unsafe {
-			self.base.add(0x280).cast::<u32>().write_volatile(0)
+			self.base.add(0x280).cast::<u32>().write_volatile(0);
 		}
 	}
 
@@ -82,7 +82,7 @@ impl Lapic {
 	}
 
 	/// Triggers an INIT IPI to the currently selected target secondary processor
-	/// (selected via [`set_target_apic`]).
+	/// (selected via [`Self::set_target_apic()`]).
 	pub fn send_init_ipi(&self) {
 		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
 		#[allow(clippy::cast_ptr_alignment)]
@@ -117,7 +117,7 @@ impl Lapic {
 	}
 
 	/// Sends a startup IPI to the currently selected target secondary processor
-	/// (selected via [`set_target_apic`]).
+	/// (selected via [`Self::set_target_apic()`]).
 	pub fn send_startup_ipi(&self, cs_page: u8) {
 		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
 		#[allow(clippy::cast_ptr_alignment)]

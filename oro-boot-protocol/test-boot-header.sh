@@ -26,8 +26,8 @@ $CXX --version
 $CC -Wall -Wextra -Werror -std=c99 -pedantic -o /dev/null -x c - <<EOF
 #include "$PTH"
 int main(void) {
-	oro_kernel_settings_data_v0_t data;
-	data.linear_map_offset = 1234;
+	oro_memory_map_data_v0_t data;
+	data.next = 1234;
 	(void)data;
 	oro_memory_map_entry_t entry;
 	entry.base = 1234;
@@ -41,8 +41,8 @@ EOF
 $CXX -Wall -Wextra -Werror -std=c++11 -pedantic -o /dev/null -x c++ - <<EOF
 #include "$PTH"
 int main() {
-	oro_boot::oro_kernel_settings_data_v0_t data;
-	data.linear_map_offset = 1234;
+	oro_boot::oro_memory_map_data_v0_t data;
+	data.next = 1234;
 	(void)data;
 	oro_boot::oro_memory_map_entry_t entry;
 	entry.base = 1234;

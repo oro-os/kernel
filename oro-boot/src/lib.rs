@@ -180,7 +180,6 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 	/// Panics if the request is one of the following, which are
 	/// automatically handled by this bootstrapper when calling `boot_to_kernel`:
 	///
-	/// - [`oro_boot_protocol::RootRequest`]
 	/// - [`oro_boot_protocol::MemoryMapRequest`]
 	#[must_use]
 	pub fn send<R: DataRevision>(mut self, response: R) -> Self
