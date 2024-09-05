@@ -18,5 +18,4 @@
 #![feature(core_intrinsics, never_type)]
 #![cfg_attr(debug_assertions, feature(naked_functions))]
 
-pub mod arch;
 pub mod mem;

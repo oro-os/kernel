@@ -67,3 +67,8 @@ pub mod mem;
 pub mod reg;
 
 pub use self::arch::X86_64;
+use oro_common_elf::{ElfClass, ElfEndianness, ElfMachine};
+
+pub const ELF_CLASS: ElfClass = ElfClass::Class64;
+pub const ELF_ENDIANNESS: ElfEndianness = ElfEndianness::Little;
+pub const ELF_MACHINE: ElfMachine = ElfMachine::X86_64;
