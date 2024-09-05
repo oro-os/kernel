@@ -45,7 +45,7 @@ impl<P: Translator> Rsdp<P> {
 			return None;
 		}
 
-		let ptr = pat.to_virtual_addr(physical_address);
+		let ptr = pat.translate(physical_address);
 		let ptr = &*(ptr as *const sys::acpi_table_rsdp);
 
 		if ptr.Signature != *core::ptr::from_ref(sys::ACPI_SIG_RSDP).cast::<[i8; 8]>() {
@@ -134,7 +134,7 @@ where
 				.iter()
 				.find_map(|&chunk| {
 					let phys = chunk.from_le_64();
-					let virt = self.pat().to_virtual_addr(phys);
+					let virt = self.pat().translate(phys);
 					let sig = &*(virt as *const [i8; 4]);
 					if sig == T::SIGNATURE {
 						// SAFETY(qix-): We've ensured that we're really iterating over physical addresses.
@@ -180,7 +180,7 @@ pub trait AcpiTable<P: Translator>: Sized {
 	/// # Safety
 	/// Caller must ensure the physical address is readable.
 	unsafe fn new(physical_address: u64, pat: P) -> Option<Self> {
-		let ptr = pat.to_virtual_addr(physical_address);
+		let ptr = pat.translate(physical_address);
 
 		if (ptr as *const u8).align_offset(core::mem::align_of::<Self::SysTable>()) != 0 {
 			return None;

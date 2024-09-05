@@ -88,20 +88,20 @@ impl AddressSegment {
 			}
 		}
 
-		let mut current_page_table = translator.to_virtual_addr(space.base_phys());
+		let mut current_page_table = translator.translate(space.base_phys());
 
 		for level in (1..space.paging_level().as_usize()).rev() {
 			let index = (virt >> (12 + level * 9)) & 0x1FF;
 			let entry = &mut (&mut *(current_page_table as *mut PageTable))[index];
 
 			current_page_table = if entry.present() {
-				translator.to_virtual_addr(entry.address())
+				translator.translate(entry.address())
 			} else {
 				let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
 
 				// We zero it before placing it into the page table
 				// so as to not thrash the TLB.
-				let frame_virt_addr = translator.to_virtual_addr(frame_phys_addr);
+				let frame_virt_addr = translator.translate(frame_phys_addr);
 				core::slice::from_raw_parts_mut(frame_virt_addr as *mut u8, 4096).fill(0);
 
 				// SAFETY(qix-): For all intermediates, we use a common-denominator
@@ -156,27 +156,27 @@ impl AddressSegment {
 		}
 
 		let l4_phys = space.base_phys();
-		let l4_virt = translator.to_virtual_addr(l4_phys);
+		let l4_virt = translator.translate(l4_phys);
 		let l4 = &mut *(l4_virt as *mut PageTable);
 		let l4_entry = &mut l4[l4_index];
 
 		Ok(if l4_entry.present() {
 			let l3_phys = l4_entry.address();
-			let l3_virt = translator.to_virtual_addr(l3_phys);
+			let l3_virt = translator.translate(l3_phys);
 			let l3 = &mut *(l3_virt as *mut PageTable);
 			let l3_index = (virt >> 30) & 0x1FF;
 			let l3_entry = &mut l3[l3_index];
 
 			let r = if l3_entry.present() {
 				let l2_phys = l3_entry.address();
-				let l2_virt = translator.to_virtual_addr(l2_phys);
+				let l2_virt = translator.translate(l2_phys);
 				let l2 = &mut *(l2_virt as *mut PageTable);
 				let l2_index = (virt >> 21) & 0x1FF;
 				let l2_entry = &mut l2[l2_index];
 
 				let r = if l2_entry.present() {
 					let l1_phys = l2_entry.address();
-					let l1_virt = translator.to_virtual_addr(l1_phys);
+					let l1_virt = translator.translate(l1_phys);
 					let l1 = &mut *(l1_virt as *mut PageTable);
 					let l1_index = (virt >> 12) & 0x1FF;
 					let l1_entry = &mut l1[l1_index];
@@ -254,34 +254,34 @@ impl AddressSegment {
 		}
 
 		let l5_phys = space.base_phys();
-		let l5_virt = translator.to_virtual_addr(l5_phys);
+		let l5_virt = translator.translate(l5_phys);
 		let l5 = &mut *(l5_virt as *mut PageTable);
 		let l5_entry = &mut l5[l5_index];
 
 		Ok(if l5_entry.present() {
 			let l4_phys = l5_entry.address();
-			let l4_virt = translator.to_virtual_addr(l4_phys);
+			let l4_virt = translator.translate(l4_phys);
 			let l4 = &mut *(l4_virt as *mut PageTable);
 			let l4_index = (virt >> 39) & 0x1FF;
 			let l4_entry = &mut l4[l4_index];
 
 			let r = if l4_entry.present() {
 				let l3_phys = l4_entry.address();
-				let l3_virt = translator.to_virtual_addr(l3_phys);
+				let l3_virt = translator.translate(l3_phys);
 				let l3 = &mut *(l3_virt as *mut PageTable);
 				let l3_index = (virt >> 30) & 0x1FF;
 				let l3_entry = &mut l3[l3_index];
 
 				let r = if l3_entry.present() {
 					let l2_phys = l3_entry.address();
-					let l2_virt = translator.to_virtual_addr(l2_phys);
+					let l2_virt = translator.translate(l2_phys);
 					let l2 = &mut *(l2_virt as *mut PageTable);
 					let l2_index = (virt >> 21) & 0x1FF;
 					let l2_entry = &mut l2[l2_index];
 
 					let r = if l2_entry.present() {
 						let l1_phys = l2_entry.address();
-						let l1_virt = translator.to_virtual_addr(l1_phys);
+						let l1_virt = translator.translate(l1_phys);
 						let l1 = &mut *(l1_virt as *mut PageTable);
 						let l1_index = (virt >> 12) & 0x1FF;
 						let l1_entry = &mut l1[l1_index];
@@ -359,7 +359,7 @@ impl AddressSegment {
 		A: PageFrameAllocate,
 		P: Translator,
 	{
-		let top_level = &mut *(translator.to_virtual_addr(space.base_phys()) as *mut PageTable);
+		let top_level = &mut *(translator.translate(space.base_phys()) as *mut PageTable);
 
 		for idx in self.valid_range.0..=self.valid_range.1 {
 			let entry = &mut top_level[idx];
@@ -370,7 +370,7 @@ impl AddressSegment {
 
 			let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
 			*entry = self.entry_template.with_address(frame_phys_addr);
-			let frame_virt_addr = translator.to_virtual_addr(frame_phys_addr);
+			let frame_virt_addr = translator.translate(frame_phys_addr);
 
 			(*(frame_virt_addr as *mut PageTable)).reset();
 		}
@@ -389,7 +389,7 @@ impl AddressSegment {
 		space: &Handle,
 		pat: &P,
 	) {
-		let top_level = &mut *(pat.to_virtual_addr(space.base_phys()) as *mut PageTable);
+		let top_level = &mut *(pat.translate(space.base_phys()) as *mut PageTable);
 
 		for idx in self.valid_range.0..=self.valid_range.1 {
 			let entry = &mut top_level[idx];

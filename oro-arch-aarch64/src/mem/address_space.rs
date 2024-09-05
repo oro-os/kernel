@@ -56,7 +56,7 @@ impl AddressSpaceLayout {
 	/// Installs the recursive page table entry.
 	pub fn map_recursive_entry(mapper: &mut AddressSpaceHandle, pat: &impl Translator) {
 		unsafe {
-			let pt = &mut *(pat.to_virtual_addr(mapper.base_phys) as *mut PageTable);
+			let pt = &mut *(pat.translate(mapper.base_phys) as *mut PageTable);
 
 			pt[Self::RECURSIVE_ENTRY_IDX.0] = L0PageTableDescriptor::new()
 				.with_valid()
@@ -181,7 +181,7 @@ impl AddressSpaceLayout {
 		let base_phys = alloc.allocate()?;
 
 		unsafe {
-			(*(translator.to_virtual_addr(base_phys) as *mut PageTable)).reset();
+			(*(translator.translate(base_phys) as *mut PageTable)).reset();
 		}
 
 		Some(AddressSpaceHandle {
@@ -320,11 +320,9 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		let base_phys = alloc.allocate()?;
 
 		unsafe {
-			let pt = &mut *(translator.to_virtual_addr(base_phys) as *mut PageTable);
+			let pt = &mut *(translator.translate(base_phys) as *mut PageTable);
 			pt.reset();
-			pt.shallow_copy_from(
-				&*(translator.to_virtual_addr(space.base_phys) as *const PageTable),
-			);
+			pt.shallow_copy_from(&*(translator.translate(space.base_phys) as *const PageTable));
 		}
 
 		Some(Self::SupervisorHandle {

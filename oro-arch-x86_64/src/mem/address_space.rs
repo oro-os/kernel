@@ -69,13 +69,13 @@ impl AddressSpaceLayout {
 		// SAFETY(qix-): We can reasonably assuming that the `AddressSpaceHandle`
 		// SAFETY(qix-): is valid if it's been constructed by us.
 		unsafe {
-			(&mut *(pat.to_virtual_addr(handle.base_phys) as *mut PageTable))
-				[Self::RECURSIVE_IDX] = PageTableEntry::new()
-				.with_present()
-				.with_writable()
-				.with_no_exec()
-				.with_global()
-				.with_address(handle.base_phys);
+			(&mut *(pat.translate(handle.base_phys) as *mut PageTable))[Self::RECURSIVE_IDX] =
+				PageTableEntry::new()
+					.with_present()
+					.with_writable()
+					.with_no_exec()
+					.with_global()
+					.with_address(handle.base_phys);
 		}
 	}
 
@@ -104,8 +104,8 @@ impl AddressSpaceLayout {
 	/// at the given physical address.
 	pub fn copy_shallow_into<P: Translator>(handle: &AddressSpaceHandle, into_phys: u64, pat: &P) {
 		unsafe {
-			(*(pat.to_virtual_addr(into_phys) as *mut PageTable))
-				.shallow_copy_from(&*(pat.to_virtual_addr(handle.base_phys) as *const PageTable));
+			(*(pat.translate(into_phys) as *mut PageTable))
+				.shallow_copy_from(&*(pat.translate(handle.base_phys) as *const PageTable));
 		}
 	}
 
@@ -180,7 +180,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		let base_phys = alloc.allocate()?;
 
 		unsafe {
-			(*(translator.to_virtual_addr(base_phys) as *mut PageTable)).reset();
+			(*(translator.translate(base_phys) as *mut PageTable)).reset();
 		}
 
 		Some(Self::SupervisorHandle {
@@ -201,9 +201,8 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		let base_phys = alloc.allocate()?;
 
 		unsafe {
-			(*(translator.to_virtual_addr(base_phys) as *mut PageTable)).shallow_copy_from(
-				&*(translator.to_virtual_addr(space.base_phys) as *const PageTable),
-			);
+			(*(translator.translate(base_phys) as *mut PageTable))
+				.shallow_copy_from(&*(translator.translate(space.base_phys) as *const PageTable));
 		}
 
 		Some(Self::SupervisorHandle {
