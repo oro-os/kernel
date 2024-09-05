@@ -88,102 +88,90 @@ impl Segment {
 		let l2_idx = (virt >> 21) & 0x1FF;
 		let l3_idx = (virt >> 12) & 0x1FF;
 
-		let l0_virt = translator.translate(space.base_phys);
 		// SAFETY(qix-): We have reasonable guarantees that AddressSpaceHandle's are valid.
-		let l0 = unsafe { &mut *(l0_virt as *mut PageTable) };
+		let l0 = unsafe { &mut *translator.translate_mut::<PageTable>(space.base_phys) };
 		let l0_entry = &mut l0[l0_idx];
 
-		let l1_virt = if l0_entry.valid() {
+		let l1: &mut PageTable = if l0_entry.valid() {
 			// SAFETY(qix-): We know for a fact this is the level 0; entry_type's safety concerns have been met.
 			let PageTableEntryType::L0Descriptor(l0_entry) = (unsafe { l0_entry.entry_type(0) })
 			else {
 				panic!("L0 entry is not a descriptor");
 			};
 
-			translator.translate(l0_entry.address())
+			// SAFETY(qix-): We can guarantee this is a valid page table entry.
+			unsafe { &mut *translator.translate_mut(l0_entry.address()) }
 		} else {
 			let l1_phys = alloc.allocate().ok_or(MapError::OutOfMemory)?;
+			let l1_virt = translator.translate_mut::<PageTable>(l1_phys);
 
-			let l1_virt = translator.translate(l1_phys);
-
-			// SAFETY(qix-): We can guarantee this is a valid page table address.
 			unsafe {
-				(*(l1_virt as *mut PageTable)).reset();
-			}
-
-			// SAFETY(qix-): If `l0_template` is malformed, we have a bug in the address layout configuration.
-			// SAFETY(qix-): This is not coming from user input.
-			unsafe {
+				// SAFETY(qix-): We can guarantee this is a valid page table address.
+				(*l1_virt).reset();
+				// SAFETY(qix-): If `l0_template` is malformed, we have a bug in the address layout configuration.
+				// SAFETY(qix-): This is not coming from user input.
 				l0_entry.set_raw(self.l0_template.with_address(l1_phys).raw());
+				// SAFETY(qix-): We can guarantee this is a valid page table entry.
+				&mut *l1_virt
 			}
-
-			l1_virt
 		};
 
-		// SAFETY(qix-): We can guarantee this is a valid page table entry.
-		let l1 = unsafe { &mut *(l1_virt as *mut PageTable) };
 		let l1_entry = &mut l1[l1_idx];
 
-		let l2_virt = if l1_entry.valid() {
+		let l2: &mut PageTable = if l1_entry.valid() {
 			// SAFETY(qix-): We known for a fact this is the level 1; entry_type's safety concerns have been met.
 			let PageTableEntryType::L1Descriptor(l1_entry) = (unsafe { l1_entry.entry_type(1) })
 			else {
 				panic!("L1 entry is not a descriptor");
 			};
 
-			translator.translate(l1_entry.address())
+			// SAFETY(qix-): We can guarantee this is a valid page table entry.
+			unsafe { &mut *translator.translate_mut(l1_entry.address()) }
 		} else {
 			let l2_phys = alloc.allocate().ok_or(MapError::OutOfMemory)?;
+			let l2_virt = translator.translate_mut::<PageTable>(l2_phys);
 
-			let l2_virt = translator.translate(l2_phys);
-
-			// SAFETY(qix-): We can guarantee this is a valid page table address.
 			unsafe {
-				(*(l2_virt as *mut PageTable)).reset();
-			}
-
-			// SAFETY(qix-): If `l1_table_template` is malformed, we have a bug in the address layout configuration.
-			// SAFETY(qix-): This is not coming from user input.
-			unsafe {
+				// SAFETY(qix-): We can guarantee this is a valid page table address.
+				(*l2_virt).reset();
+				// SAFETY(qix-): If `l1_table_template` is malformed, we have a bug in the address layout configuration.
+				// SAFETY(qix-): This is not coming from user input.
 				l1_entry.set_raw(self.l1_table_template.with_address(l2_phys).raw());
+				// SAFETY(qix-): We can guarantee this is a valid page table entry.
+				&mut *l2_virt
 			}
-
-			l2_virt
 		};
 
 		// SAFETY(qix-): We can guarantee this is a valid page table entry.
-		let l2 = unsafe { &mut *(l2_virt as *mut PageTable) };
 		let l2_entry = &mut l2[l2_idx];
 
-		let l3_virt = if l2_entry.valid() {
+		let l3: &mut PageTable = if l2_entry.valid() {
 			// SAFETY(qix-): We know for a fact this is the level 2; entry_type's safety concerns have been met.
 			let PageTableEntryType::L2Descriptor(l2_entry) = (unsafe { l2_entry.entry_type(2) })
 			else {
 				panic!("L2 entry is not a descriptor");
 			};
 
-			translator.translate(l2_entry.address())
+			// SAFETY(qix-): We can guarantee this is a valid page table entry.
+			unsafe { &mut *translator.translate_mut(l2_entry.address()) }
 		} else {
 			let l3_phys = alloc.allocate().ok_or(MapError::OutOfMemory)?;
 
-			let l3_virt = translator.translate(l3_phys);
+			let l3_virt = translator.translate_mut::<PageTable>(l3_phys);
 
-			// SAFETY(qix-): We can guarantee this is a valid page table address.
 			unsafe {
-				(*(l3_virt as *mut PageTable)).reset();
-			}
-
-			// SAFETY(qix-): If `l2_table_template` is malformed, we have a bug in the address layout configuration.
-			// SAFETY(qix-): This is not coming from user input.
-			unsafe {
+				// SAFETY(qix-): We can guarantee this is a valid page table address.
+				(*l3_virt).reset();
+				// SAFETY(qix-): If `l2_table_template` is malformed, we have a bug in the address layout configuration.
+				// SAFETY(qix-): This is not coming from user input.
 				l2_entry.set_raw(self.l2_table_template.with_address(l3_phys).raw());
-			}
 
-			l3_virt
+				// SAFETY(qix-): We can guarantee this is a valid page table entry.
+				&mut *l3_virt
+			}
 		};
 
 		// SAFETY(qix-): We can guarantee this is a valid page table entry.
-		let l3 = unsafe { &mut *(l3_virt as *mut PageTable) };
 		let l3_entry = &mut l3[l3_idx];
 
 		Ok(l3_entry)
@@ -221,16 +209,14 @@ impl Segment {
 		}
 
 		let l0_phys = space.base_phys;
-		let l0_virt = translator.translate(l0_phys);
-		let l0 = &mut *(l0_virt as *mut PageTable);
+		let l0 = &mut *translator.translate_mut::<PageTable>(l0_phys);
 		let l0_entry = &mut l0[l0_index];
 
 		Ok(match l0_entry.entry_type_mut(0) {
 			PageTableEntryTypeMut::Invalid(_) => return Ok(None),
 			PageTableEntryTypeMut::L0Descriptor(l0_entry) => {
 				let l1_phys = l0_entry.address();
-				let l1_virt = translator.translate(l1_phys);
-				let l1 = &mut *(l1_virt as *mut PageTable);
+				let l1 = &mut *translator.translate_mut::<PageTable>(l1_phys);
 				let l1_index = (virt >> 30) & 0x1FF;
 				let l1_entry = &mut l1[l1_index];
 
@@ -238,8 +224,7 @@ impl Segment {
 					PageTableEntryTypeMut::Invalid(_) => None,
 					PageTableEntryTypeMut::L1Descriptor(l1_entry) => {
 						let l2_phys = l1_entry.address();
-						let l2_virt = translator.translate(l2_phys);
-						let l2 = &mut *(l2_virt as *mut PageTable);
+						let l2 = &mut *translator.translate_mut::<PageTable>(l2_phys);
 						let l2_index = (virt >> 21) & 0x1FF;
 						let l2_entry = &mut l2[l2_index];
 
@@ -247,8 +232,7 @@ impl Segment {
 							PageTableEntryTypeMut::Invalid(_) => None,
 							PageTableEntryTypeMut::L2Descriptor(l2_entry) => {
 								let l3_phys = l2_entry.address();
-								let l3_virt = translator.translate(l3_phys);
-								let l3 = &mut *(l3_virt as *mut PageTable);
+								let l3 = &mut *translator.translate_mut::<PageTable>(l3_phys);
 								let l3_index = (virt >> 12) & 0x1FF;
 								let l3_entry = &mut l3[l3_index];
 
@@ -313,7 +297,7 @@ impl Segment {
 		A: PageFrameAllocate,
 		P: Translator,
 	{
-		let top_level = &mut *(translator.translate(space.base_phys) as *mut PageTable);
+		let top_level = &mut *translator.translate_mut::<PageTable>(space.base_phys);
 
 		for idx in self.valid_range.0..=self.valid_range.1 {
 			let entry = &mut top_level[idx];
@@ -324,9 +308,7 @@ impl Segment {
 
 			let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
 			entry.set_raw(self.l0_template.with_address(frame_phys_addr).to_raw());
-			let frame_virt_addr = translator.translate(frame_phys_addr);
-
-			(*(frame_virt_addr as *mut PageTable)).reset();
+			(*translator.translate_mut::<PageTable>(frame_phys_addr)).reset();
 		}
 
 		Ok(())

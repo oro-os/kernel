@@ -8,6 +8,9 @@ use oro_mem::mapper::{AddressSegment, AddressSpace, MapError, UnmapError};
 
 /// Maps in the kernel module and returns the entry point
 /// and a request scanner for populating the kernel's requests.
+///
+/// # Panics
+/// Panics if the kernel module's `length` field does not fit into a `usize`.
 pub fn map_kernel_to_supervisor_space<
 	M: Into<oro_boot_protocol::MemoryMapEntry> + Clone,
 	I: Iterator<Item = M> + Clone,
@@ -24,7 +27,7 @@ pub fn map_kernel_to_supervisor_space<
 	let kernel_elf = unsafe {
 		Elf::parse(
 			pat.translate(kernel_module.base),
-			kernel_module.length,
+			usize::try_from(kernel_module.length).unwrap(),
 			ELF_ENDIANNESS,
 			ELF_CLASS,
 			ELF_MACHINE,
@@ -70,7 +73,7 @@ pub fn map_kernel_to_supervisor_space<
 				// SAFETY(qix-): been loaded by the bootloader.
 				kernel_request_scanner = Some(unsafe {
 					oro_boot_protocol::util::RequestScanner::new(
-						pat.translate(phys_addr) as *mut u8,
+						pat.translate_mut::<u8>(phys_addr),
 						segment.target_size(),
 					)
 				});
@@ -83,14 +86,14 @@ pub fn map_kernel_to_supervisor_space<
 			let load_virt = segment.load_address() + byte_offset;
 			let target_virt = segment.target_address() + byte_offset;
 
-			let local_page_virt = pat.translate(phys_addr);
+			let local_page_virt = pat.translate_mut::<u8>(phys_addr);
 
 			// SAFETY(qix-): We can assume the kernel module is valid given that it's
 			// SAFETY(qix-): been loaded by the bootloader.
 			let (src, dest) = unsafe {
 				(
 					core::slice::from_raw_parts(load_virt as *const u8, load_size),
-					core::slice::from_raw_parts_mut(local_page_virt as *mut u8, 4096),
+					core::slice::from_raw_parts_mut(local_page_virt, 4096),
 				)
 			};
 

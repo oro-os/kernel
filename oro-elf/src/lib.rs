@@ -67,19 +67,21 @@ impl Elf {
 	/// the length, but does not enforce that the ELF is
 	/// _exactly_ `length` bytes long.
 	pub unsafe fn parse(
-		base_addr: usize,
-		length: u64,
+		base_addr: *const u8,
+		length: usize,
 		endianness: ElfEndianness,
 		class: ElfClass,
 		machine: ElfMachine,
 	) -> Result<&'static Self, ElfError> {
-		if base_addr & 3 != 0 {
+		#[allow(clippy::cast_ptr_alignment)]
+		if !base_addr.cast::<Self>().is_aligned() {
 			return Err(ElfError::UnalignedBaseAddr);
 		}
 
-		let end_excl: u64 = base_addr as u64 + length;
+		let end_excl = base_addr.add(length) as u64;
 
-		let elf = &*(base_addr as *const Self);
+		#[allow(clippy::cast_ptr_alignment)]
+		let elf = &*base_addr.cast::<Self>();
 
 		if elf.ident.magic != [0x7F, b'E', b'L', b'F'] {
 			return Err(ElfError::InvalidMagic);

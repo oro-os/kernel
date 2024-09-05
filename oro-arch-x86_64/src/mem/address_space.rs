@@ -69,7 +69,7 @@ impl AddressSpaceLayout {
 		// SAFETY(qix-): We can reasonably assuming that the `AddressSpaceHandle`
 		// SAFETY(qix-): is valid if it's been constructed by us.
 		unsafe {
-			(&mut *(pat.translate(handle.base_phys) as *mut PageTable))[Self::RECURSIVE_IDX] =
+			(&mut *pat.translate_mut::<PageTable>(handle.base_phys))[Self::RECURSIVE_IDX] =
 				PageTableEntry::new()
 					.with_present()
 					.with_writable()
@@ -104,8 +104,8 @@ impl AddressSpaceLayout {
 	/// at the given physical address.
 	pub fn copy_shallow_into<P: Translator>(handle: &AddressSpaceHandle, into_phys: u64, pat: &P) {
 		unsafe {
-			(*(pat.translate(into_phys) as *mut PageTable))
-				.shallow_copy_from(&*(pat.translate(handle.base_phys) as *const PageTable));
+			(*pat.translate_mut::<PageTable>(into_phys))
+				.shallow_copy_from(&*pat.translate::<PageTable>(handle.base_phys));
 		}
 	}
 
@@ -180,7 +180,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		let base_phys = alloc.allocate()?;
 
 		unsafe {
-			(*(translator.translate(base_phys) as *mut PageTable)).reset();
+			(*translator.translate_mut::<PageTable>(base_phys)).reset();
 		}
 
 		Some(Self::SupervisorHandle {
@@ -201,8 +201,8 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		let base_phys = alloc.allocate()?;
 
 		unsafe {
-			(*(translator.translate(base_phys) as *mut PageTable))
-				.shallow_copy_from(&*(translator.translate(space.base_phys) as *const PageTable));
+			(*translator.translate_mut::<PageTable>(base_phys))
+				.shallow_copy_from(&*translator.translate::<PageTable>(space.base_phys));
 		}
 
 		Some(Self::SupervisorHandle {
