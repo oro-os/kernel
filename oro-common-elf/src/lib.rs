@@ -13,6 +13,7 @@ use core::{
 	mem::{transmute, ManuallyDrop},
 	ptr::from_ref,
 };
+use oro_common_macro::assert;
 
 /// Marks a segment header as a kernel code segment.
 const ORO_ELF_FLAGTYPE_KERNEL_CODE: u32 = 1 << 20;
@@ -231,7 +232,7 @@ struct ElfIdent {
 }
 
 // `EI_NIDENT` is 16.
-const _: () = oro_common_assertions::size_of::<ElfIdent, 16>();
+const _: () = assert::size_of::<ElfIdent, 16>();
 
 /// An architecture-dependent ELF header (either [`Elf32`] or [`Elf64`]).
 #[repr(C, align(4))]

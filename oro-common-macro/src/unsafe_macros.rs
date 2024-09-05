@@ -12,34 +12,6 @@ macro_rules! assert_unsafe {
 	}};
 }
 
-/// A non-I/O macro that will halt the CPU in the event
-/// a precondition is not met. Only enabled in debug mode.
-#[macro_export]
-macro_rules! unsafe_precondition {
-	($Target:ty, $cond:expr, $_note:literal) => {
-		$crate::assert_unsafe!();
-
-		#[cfg(debug_assertions)]
-		if $crate::unlikely!(!$cond) {
-			<$Target as $crate::arch::Arch>::halt();
-		}
-
-		#[cfg(not(debug_assertions))]
-		if 1 == 0 {
-			// This is a no-op in release mode.
-			// We do this so that $A is always used and
-			// doesn't get a compiler error when it's coming
-			// from a template parameter.
-			<$Target as $crate::arch::Arch>::halt();
-		}
-	};
-
-	// NOTE: requires oro_arch as a dependency
-	($cond:expr, $_note:literal) => {
-		unsafe_precondition!(::oro_arch::Target, $cond, $_note);
-	};
-}
-
 /// Workaround for a `#[non-exhaustive]` enum with a `#[repr([uN)]`
 /// representation that might have bit representations not explicitly
 /// listed as variants.

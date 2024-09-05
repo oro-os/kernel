@@ -14,7 +14,7 @@ use core::{
 	fmt,
 	ptr::{from_mut, from_ref},
 };
-use oro_common::{match_nonexhaustive, unsafe_precondition};
+use oro_common_macro::match_nonexhaustive;
 
 /// An accessor around a MAIR register value.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
@@ -37,7 +37,7 @@ impl MairRegister {
 	#[must_use]
 	#[inline(always)]
 	pub unsafe fn get(self, index: usize) -> MairAttributes {
-		unsafe_precondition!(crate::Aarch64, index < 8, "index must be 0..=7");
+		debug_assert!(index < 8, "index must be 0..=7");
 		let shift = index * 8;
 		#[allow(clippy::cast_possible_truncation)]
 		MairAttributes((self.0 >> shift) as u8)
@@ -50,7 +50,7 @@ impl MairRegister {
 	/// The `index` must be in the range `0..=7`.
 	#[inline(always)]
 	pub unsafe fn set(&mut self, index: usize, attrs: MairAttributes) {
-		unsafe_precondition!(crate::Aarch64, index < 8, "index must be 0..=7");
+		debug_assert!(index < 8, "index must be 0..=7");
 		let shift = index * 8;
 		let mask = 0xFF << shift;
 		self.0 = (self.0 & !mask) | ((u64::from(attrs.0)) << shift);
@@ -78,7 +78,7 @@ impl MairRegister {
 	#[must_use]
 	#[inline(always)]
 	pub unsafe fn get_ref(&self, index: usize) -> &MairAttributes {
-		unsafe_precondition!(crate::Aarch64, index < 8, "index must be 0..=7");
+		debug_assert!(index < 8, "index must be 0..=7");
 		&*from_ref(&((&*from_ref::<u64>(&self.0).cast::<[u8; 8]>())[7 - index]))
 			.cast::<MairAttributes>()
 	}
@@ -91,7 +91,7 @@ impl MairRegister {
 	#[must_use]
 	#[inline(always)]
 	pub unsafe fn get_mut(&mut self, index: usize) -> &mut MairAttributes {
-		unsafe_precondition!(crate::Aarch64, index < 8, "index must be 0..=7");
+		debug_assert!(index < 8, "index must be 0..=7");
 		&mut *from_mut(&mut ((&mut *from_mut::<u64>(&mut self.0).cast::<[u8; 8]>())[7 - index]))
 			.cast::<MairAttributes>()
 	}

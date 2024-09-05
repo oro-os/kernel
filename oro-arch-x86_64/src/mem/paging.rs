@@ -7,7 +7,7 @@ use core::{
 	fmt,
 	ops::{Index, IndexMut},
 };
-use oro_common_assertions as assert;
+use oro_common_macro::assert;
 
 /// A page table for the x86_64 architecture.
 #[derive(Debug, Clone)]

@@ -26,10 +26,9 @@ doc = false
 oro-kernel.workspace = true
 oro-boot-protocol.workspace = true
 oro-common.workspace = true
-oro-common-assertions.workspace = true
+oro-common-macro.workspace = true
 oro-common-elf.workspace = true
 oro-common-sync.workspace = true
-oro-common-proc.workspace = true
 oro-debug.workspace = true
 
 [lints]

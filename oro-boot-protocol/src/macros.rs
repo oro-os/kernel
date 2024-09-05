@@ -25,7 +25,7 @@ macro_rules! oro_boot_protocol {
 			}
 		)*
 	) => {
-		::oro_common_proc::paste! {
+		::oro_common_macro::paste! {
 			/// A request header. All requests start with this
 			/// structure, guaranteed.
 			///
@@ -43,10 +43,10 @@ macro_rules! oro_boot_protocol {
 			}
 
 			const _: () = {
-				::oro_common_assertions::size_of::<RequestHeader, 32>();
-				::oro_common_assertions::align_of::<RequestHeader, 16>();
-				::oro_common_assertions::offset_of!(RequestHeader, magic, 0);
-				::oro_common_assertions::offset_of!(RequestHeader, revision, 8);
+				::oro_common_macro::assert::size_of::<RequestHeader, 32>();
+				::oro_common_macro::assert::align_of::<RequestHeader, 16>();
+				::oro_common_macro::assert_offset_of!(RequestHeader, magic, 0);
+				::oro_common_macro::assert_offset_of!(RequestHeader, revision, 8);
 			};
 
 			/// Holds the `TAG` constant for each request type.
@@ -169,8 +169,8 @@ macro_rules! oro_boot_protocol {
 				}
 
 				const _: () = {
-					::oro_common_assertions::offset_of!($ReqName %% Request, header, 0);
-					::oro_common_assertions::align_of::<$ReqName %% Request, 16>();
+					::oro_common_macro::assert_offset_of!($ReqName %% Request, header, 0);
+					::oro_common_macro::assert::align_of::<$ReqName %% Request, 16>();
 				};
 
 				impl crate::macros::Sealed for $ReqName %% Request {}
@@ -179,7 +179,7 @@ macro_rules! oro_boot_protocol {
 					#[cfg(not(oro_build_protocol_header))]
 					#[doc = concat!("The tag for the [`", stringify!($ReqName), "Request`]: equivalent to `", stringify!($TAG), "`")]
 					const TAG: crate::Tag = {
-						::oro_common_assertions::size_of1::<_, 8>($TAG);
+						::oro_common_macro::assert::size_of1::<_, 8>($TAG);
 						unsafe { ::core::mem::transmute_copy($TAG) }
 					};
 					#[cfg(oro_build_protocol_header)]

@@ -20,4 +20,3 @@
 
 pub mod arch;
 pub mod mem;
-pub mod util;

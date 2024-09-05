@@ -58,8 +58,7 @@ use core::{
 	fmt,
 	ops::{Index, IndexMut},
 };
-use oro_common::unsafe_precondition;
-use oro_common_assertions as assert;
+use oro_common_macro::assert;
 
 /// A single page table entry.
 #[derive(Debug, Clone)]
@@ -196,7 +195,7 @@ const _: () = assert::size_of::<PageTableEntry, 8>();
 
 macro_rules! impl_page_table_entry_type {
 	($level:expr, $self:expr, $from:ident, $to:ident, $EntryType:ty) => {{
-		unsafe_precondition!(crate::Aarch64, $level <= 3, "level must be 0..=3");
+		debug_assert!($level <= 3, "level must be 0..=3");
 
 		if !$self.valid() {
 			return <$EntryType>::Invalid($self);
@@ -331,7 +330,7 @@ impl PageTableEntry {
 	/// is correctly specified. **Do not assume this value.**
 	#[must_use]
 	pub unsafe fn address(&self, level: u8) -> Option<u64> {
-		unsafe_precondition!(crate::Aarch64, level <= 3, "level must be 0..=3");
+		debug_assert!(level <= 3, "level must be 0..=3");
 
 		match self.entry_type(level) {
 			PageTableEntryType::Invalid(_) | PageTableEntryType::Malformed(_) => None,
@@ -884,7 +883,7 @@ macro_rules! impl_page_table_entry_block_descriptor_attr {
 			/// Further, caller must NOT pass a value above 7.
 			#[inline(always)]
 			pub unsafe fn set_mair_index_unchecked(&mut self, index: u64) {
-				unsafe_precondition!(crate::Aarch64, index <= 7, "index must be 0..=7");
+				debug_assert!(index <= 7, "index must be 0..=7");
 				*self.raw_mut() = (self.raw() & !(0b111 << 2)) | (index << 2);
 			}
 
@@ -984,9 +983,8 @@ macro_rules! impl_page_table_entry_address {
 			/// _absolutely sure_ that the address is properly aligned.
 			#[inline(always)]
 			pub unsafe fn set_address_unchecked(&mut self, address: u64) {
-				unsafe_precondition!(
-					crate::Aarch64,
-					address & !Self::ADDR_MASK == 0,
+				debug_assert_eq!(
+					address & !Self::ADDR_MASK, 0,
 					"address must be properly aligned"
 				);
 

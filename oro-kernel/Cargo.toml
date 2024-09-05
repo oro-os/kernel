@@ -13,7 +13,7 @@ license = "MPL-2.0"
 
 [dependencies]
 oro-common.workspace = true
-oro-common-assertions.workspace = true
+oro-common-macro.workspace = true
 
 [lints]
 workspace = true

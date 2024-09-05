@@ -16,11 +16,10 @@ doctest = false
 
 [dependencies]
 oro-common.workspace = true
-oro-common-assertions.workspace = true
+oro-common-macro.workspace = true
 oro-common-elf.workspace = true
-oro-common-proc.workspace = true
-oro-boot-protocol = { workspace = true, features = ["utils"] }
 oro-debug.workspace = true
+oro-boot-protocol = { workspace = true, features = ["utils"] }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 oro-arch-x86_64.workspace = true
