@@ -155,5 +155,5 @@ pub unsafe fn boot_primary() -> ! {
 
 	dbg!("proceeding with {} core(s)", num_cores);
 
-	crate::X86_64::halt();
+	crate::asm::halt();
 }
