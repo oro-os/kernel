@@ -7,7 +7,7 @@ use core::arch::asm;
 ///
 /// # Safety
 /// Caller must ensure that the virtual address is valid and aligned.
-pub unsafe fn invalidate_tlb_el1(virt: usize) {
+pub unsafe fn invalidate_tlb_el1<T>(virt: *const T) {
 	asm!(
 		"dsb ish",                // Ensure the update is visible
 		"dc ivac, {0:x}",         // Invalidate the data cache by virtual address
@@ -15,9 +15,21 @@ pub unsafe fn invalidate_tlb_el1(virt: usize) {
 		"tlbi vaae1, {0}",        // Invalidate the TLB entry by virtual address for EL1
 		"dsb ish",                // Ensure completion of the invalidation
 		"isb",                    // Synchronize the instruction stream
-		in(reg) virt,
+		in(reg) virt as u64,
 		options(nostack, preserves_flags),
 	);
+}
+
+/// Invalidates the entire TLB.
+pub fn invalid_tlb_el1_all() {
+	unsafe {
+		asm!(
+			"tlbi vmalle1",
+			"dsb ish",
+			"isb",
+			options(nostack, preserves_flags),
+		);
+	}
 }
 
 /// Loads the current `TTBR0_EL1` register value.

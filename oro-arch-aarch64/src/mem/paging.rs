@@ -324,10 +324,8 @@ impl PageTableEntry {
 	}
 
 	/// Gets the address of the page table entry.
-	/// If the page table is invalid or malformed, returns `None`.
 	///
-	/// **This is mostly for debugging purposes and should not be used
-	/// in production code.**
+	/// If the page table is invalid or malformed, returns `None`.
 	///
 	/// # Safety
 	/// Caller must ensure that `level` is `0..=3` and that it
