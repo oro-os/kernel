@@ -13,8 +13,8 @@ use oro_arch_aarch64::{
 	},
 };
 pub use oro_arch_aarch64::{ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
-use oro_common_macro::asm_buffer;
-use oro_common_mem::{
+use oro_macro::asm_buffer;
+use oro_mem::{
 	mapper::{AddressSegment, MapError},
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
 	translate::PhysicalAddressTranslator,

@@ -35,9 +35,9 @@ use oro_boot_protocol::{
 	util::{RequestData, RequestScanner, TrySendError},
 	DataRevision, RequestTag,
 };
-pub use oro_common_mem::mapper::MapError;
-use oro_common_mem::{mapper::AddressSpace, translate::OffsetPhysicalAddressTranslator};
 use oro_debug::{dbg, dbg_warn};
+pub use oro_mem::mapper::MapError;
+use oro_mem::{mapper::AddressSpace, translate::OffsetPhysicalAddressTranslator};
 
 /// The bootstrapper error type.
 #[derive(Debug, Clone, Copy)]
@@ -46,7 +46,7 @@ pub enum Error {
 	/// the new supervisor space.
 	MapError(MapError),
 	/// An error occurred when parsing the kernel ELF file.
-	ElfError(oro_common_elf::ElfError),
+	ElfError(oro_elf::ElfError),
 	/// The provided kernel ELF file has no kernel segments.
 	NoKernelSegments,
 	/// The provided kernel ELF file has an invalid segment.

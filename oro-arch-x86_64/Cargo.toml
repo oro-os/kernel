@@ -25,10 +25,10 @@ doc = false
 [dependencies]
 oro-kernel.workspace = true
 oro-boot-protocol.workspace = true
-oro-common-mem.workspace = true
-oro-common-macro.workspace = true
-oro-common-elf.workspace = true
-oro-common-sync.workspace = true
+oro-mem.workspace = true
+oro-macro.workspace = true
+oro-elf.workspace = true
+oro-sync.workspace = true
 oro-debug.workspace = true
 oro-acpi.workspace = true
 

@@ -13,7 +13,7 @@ use core::{
 	mem::{transmute, ManuallyDrop},
 	ptr::from_ref,
 };
-use oro_common_macro::assert;
+use oro_macro::assert;
 
 /// Marks a segment header as a kernel code segment.
 const ORO_ELF_FLAGTYPE_KERNEL_CODE: u32 = 1 << 20;

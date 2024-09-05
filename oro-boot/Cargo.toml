@@ -15,9 +15,9 @@ license = "MPL-2.0"
 doctest = false
 
 [dependencies]
-oro-common-mem.workspace = true
-oro-common-macro.workspace = true
-oro-common-elf.workspace = true
+oro-mem.workspace = true
+oro-macro.workspace = true
+oro-elf.workspace = true
 oro-debug.workspace = true
 oro-boot-protocol = { workspace = true, features = ["utils"] }
 

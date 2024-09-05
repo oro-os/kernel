@@ -1,4 +1,4 @@
-//! Unit tests for the [`oro-common-proc`] crate.
+//! Unit tests for the [`oro-proc`] crate.
 #![cfg_attr(not(test), no_std)]
 #![cfg(test)]
 

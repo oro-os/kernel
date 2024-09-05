@@ -4,7 +4,7 @@
 
 use crate::mem::address_space::AddressSpaceLayout;
 use core::arch::asm;
-use oro_common_elf::{ElfClass, ElfEndianness, ElfMachine};
+use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 
 /// AArch64 architecture support implementation for the Oro kernel.
 pub struct Aarch64;
@@ -30,7 +30,7 @@ impl Aarch64 {
 	}
 }
 
-impl oro_common_sync::spinlock::unfair_critical::InterruptController for Aarch64 {
+impl oro_sync::spinlock::unfair_critical::InterruptController for Aarch64 {
 	type InterruptState = usize;
 
 	fn disable_interrupts() {

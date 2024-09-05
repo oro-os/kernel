@@ -1,5 +1,5 @@
 [package]
-name = "oro-common-macro-proc"
+name = "oro-macro-proc"
 version.workspace = true
 description = "Proc macros for the Oro OS commons library (proc-macro portion)"
 publish = false

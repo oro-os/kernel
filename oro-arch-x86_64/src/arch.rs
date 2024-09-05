@@ -28,7 +28,7 @@ impl X86_64 {
 	}
 }
 
-impl oro_common_sync::spinlock::unfair_critical::InterruptController for X86_64 {
+impl oro_sync::spinlock::unfair_critical::InterruptController for X86_64 {
 	type InterruptState = usize;
 
 	fn disable_interrupts() {

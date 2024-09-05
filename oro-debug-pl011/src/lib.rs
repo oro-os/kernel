@@ -9,7 +9,7 @@
 mod driver;
 
 use core::fmt::{self, Write};
-use oro_common_sync::spinlock::unfair::UnfairSpinlock;
+use oro_sync::spinlock::unfair::UnfairSpinlock;
 
 /// The shared serial port for the system.
 // NOTE(qix-): This is a temporary solution until pre-boot module loading

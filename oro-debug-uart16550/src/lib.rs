@@ -3,7 +3,7 @@
 #![cfg(target_arch = "x86_64")]
 
 use core::fmt::{self, Write};
-use oro_common_sync::spinlock::unfair::UnfairSpinlock;
+use oro_sync::spinlock::unfair::UnfairSpinlock;
 use uart_16550::SerialPort;
 
 /// The shared serial port for the system.

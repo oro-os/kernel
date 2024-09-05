@@ -17,8 +17,8 @@ use crate::mem::{
 	},
 };
 use core::panic;
-use oro_common_macro::unlikely;
-use oro_common_mem::{
+use oro_macro::unlikely;
+use oro_mem::{
 	mapper::{AddressSegment, MapError, UnmapError},
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
 	translate::PhysicalAddressTranslator,

@@ -2,7 +2,7 @@
 #![allow(clippy::inline_always)]
 
 use crate::reg::mair::{MairCacheability, MairDeviceAttribute, MairRegister};
-use oro_common_macro::EnumIterator;
+use oro_macro::EnumIterator;
 
 /// The Oro-specific MAIR entries for the Aarch64 architecture.
 ///

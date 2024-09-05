@@ -1,7 +1,7 @@
 [package]
-name = "oro-common-macro"
+name = "oro-elf"
 version.workspace = true
-description = "Macros used throughout the Oro kernel project."
+description = "Common ELF parser for the Oro kernel and bootloader development"
 publish = false
 edition = "2021"
 authors = [
@@ -15,7 +15,7 @@ license = "MPL-2.0"
 doctest = false
 
 [dependencies]
-oro-common-macro-proc.workspace = true
+oro-macro.workspace = true
 
 [lints]
 workspace = true

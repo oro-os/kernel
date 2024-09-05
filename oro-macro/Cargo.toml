@@ -1,7 +1,7 @@
 [package]
-name = "oro-common-mem"
+name = "oro-macro"
 version.workspace = true
-description = "Common memory management utilities for the Oro operating system."
+description = "Macros used throughout the Oro kernel project."
 publish = false
 edition = "2021"
 authors = [
@@ -15,10 +15,7 @@ license = "MPL-2.0"
 doctest = false
 
 [dependencies]
-oro-common-macro.workspace = true
-oro-common-elf.workspace = true
-oro-common-sync.workspace = true
-oro-debug.workspace = true
+oro-macro-proc.workspace = true
 
 [lints]
 workspace = true

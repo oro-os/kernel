@@ -14,7 +14,7 @@ use core::{
 	fmt,
 	ptr::{from_mut, from_ref},
 };
-use oro_common_macro::match_nonexhaustive;
+use oro_macro::match_nonexhaustive;
 
 /// An accessor around a MAIR register value.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
