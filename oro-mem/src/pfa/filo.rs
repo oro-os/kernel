@@ -161,13 +161,13 @@ where
 {
 	#[inline]
 	unsafe fn read_u64(&mut self, page_frame: u64) -> u64 {
-		let page_frame = self.to_virtual_addr(page_frame) as *mut u64;
+		let page_frame = self.translate(page_frame) as *mut u64;
 		*page_frame
 	}
 
 	#[inline]
 	unsafe fn write_u64(&mut self, page_frame: u64, value: u64) {
-		let page_frame = self.to_virtual_addr(page_frame) as *mut u64;
+		let page_frame = self.translate(page_frame) as *mut u64;
 		*page_frame = value;
 	}
 }

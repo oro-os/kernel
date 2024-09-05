@@ -11,7 +11,7 @@
 pub unsafe trait Translator: Clone + Sized + 'static {
 	/// Translates a physical frame address to a virtual address.
 	#[must_use]
-	fn to_virtual_addr(&self, physical_addr: u64) -> usize;
+	fn translate(&self, physical_addr: u64) -> usize;
 }
 
 /// An offset-based [`Translator`] that applies an offset
@@ -47,7 +47,7 @@ impl OffsetTranslator {
 unsafe impl Translator for OffsetTranslator {
 	#[allow(clippy::cast_possible_truncation)]
 	#[inline(always)]
-	fn to_virtual_addr(&self, physical_addr: u64) -> usize {
+	fn translate(&self, physical_addr: u64) -> usize {
 		physical_addr as usize + self.offset
 	}
 }

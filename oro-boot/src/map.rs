@@ -23,7 +23,7 @@ pub fn map_kernel_to_supervisor_space<
 	// SAFETY(qix-): been loaded by the bootloader.
 	let kernel_elf = unsafe {
 		Elf::parse(
-			pat.to_virtual_addr(kernel_module.base),
+			pat.translate(kernel_module.base),
 			kernel_module.length,
 			ELF_ENDIANNESS,
 			ELF_CLASS,
@@ -70,7 +70,7 @@ pub fn map_kernel_to_supervisor_space<
 				// SAFETY(qix-): been loaded by the bootloader.
 				kernel_request_scanner = Some(unsafe {
 					oro_boot_protocol::util::RequestScanner::new(
-						pat.to_virtual_addr(phys_addr) as *mut u8,
+						pat.translate(phys_addr) as *mut u8,
 						segment.target_size(),
 					)
 				});
@@ -83,7 +83,7 @@ pub fn map_kernel_to_supervisor_space<
 			let load_virt = segment.load_address() + byte_offset;
 			let target_virt = segment.target_address() + byte_offset;
 
-			let local_page_virt = pat.to_virtual_addr(phys_addr);
+			let local_page_virt = pat.translate(phys_addr);
 
 			// SAFETY(qix-): We can assume the kernel module is valid given that it's
 			// SAFETY(qix-): been loaded by the bootloader.

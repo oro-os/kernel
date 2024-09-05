@@ -93,7 +93,7 @@ pub unsafe fn prepare_transfer<P: Translator, A: PageFrameAllocate + PageFrameFr
 		.allocate()
 		.ok_or(crate::Error::MapError(MapError::OutOfMemory))?;
 
-	let stubs_virt = pat.to_virtual_addr(stubs_phys);
+	let stubs_virt = pat.translate(stubs_phys);
 
 	// Copy the stubs into the new page
 	let stubs_dest = &mut *(stubs_virt as *mut [u8; 4096]);

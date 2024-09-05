@@ -88,7 +88,7 @@ impl Segment {
 		let l2_idx = (virt >> 21) & 0x1FF;
 		let l3_idx = (virt >> 12) & 0x1FF;
 
-		let l0_virt = translator.to_virtual_addr(space.base_phys);
+		let l0_virt = translator.translate(space.base_phys);
 		// SAFETY(qix-): We have reasonable guarantees that AddressSpaceHandle's are valid.
 		let l0 = unsafe { &mut *(l0_virt as *mut PageTable) };
 		let l0_entry = &mut l0[l0_idx];
@@ -100,11 +100,11 @@ impl Segment {
 				panic!("L0 entry is not a descriptor");
 			};
 
-			translator.to_virtual_addr(l0_entry.address())
+			translator.translate(l0_entry.address())
 		} else {
 			let l1_phys = alloc.allocate().ok_or(MapError::OutOfMemory)?;
 
-			let l1_virt = translator.to_virtual_addr(l1_phys);
+			let l1_virt = translator.translate(l1_phys);
 
 			// SAFETY(qix-): We can guarantee this is a valid page table address.
 			unsafe {
@@ -131,11 +131,11 @@ impl Segment {
 				panic!("L1 entry is not a descriptor");
 			};
 
-			translator.to_virtual_addr(l1_entry.address())
+			translator.translate(l1_entry.address())
 		} else {
 			let l2_phys = alloc.allocate().ok_or(MapError::OutOfMemory)?;
 
-			let l2_virt = translator.to_virtual_addr(l2_phys);
+			let l2_virt = translator.translate(l2_phys);
 
 			// SAFETY(qix-): We can guarantee this is a valid page table address.
 			unsafe {
@@ -162,11 +162,11 @@ impl Segment {
 				panic!("L2 entry is not a descriptor");
 			};
 
-			translator.to_virtual_addr(l2_entry.address())
+			translator.translate(l2_entry.address())
 		} else {
 			let l3_phys = alloc.allocate().ok_or(MapError::OutOfMemory)?;
 
-			let l3_virt = translator.to_virtual_addr(l3_phys);
+			let l3_virt = translator.translate(l3_phys);
 
 			// SAFETY(qix-): We can guarantee this is a valid page table address.
 			unsafe {
@@ -221,7 +221,7 @@ impl Segment {
 		}
 
 		let l0_phys = space.base_phys;
-		let l0_virt = translator.to_virtual_addr(l0_phys);
+		let l0_virt = translator.translate(l0_phys);
 		let l0 = &mut *(l0_virt as *mut PageTable);
 		let l0_entry = &mut l0[l0_index];
 
@@ -229,7 +229,7 @@ impl Segment {
 			PageTableEntryTypeMut::Invalid(_) => return Ok(None),
 			PageTableEntryTypeMut::L0Descriptor(l0_entry) => {
 				let l1_phys = l0_entry.address();
-				let l1_virt = translator.to_virtual_addr(l1_phys);
+				let l1_virt = translator.translate(l1_phys);
 				let l1 = &mut *(l1_virt as *mut PageTable);
 				let l1_index = (virt >> 30) & 0x1FF;
 				let l1_entry = &mut l1[l1_index];
@@ -238,7 +238,7 @@ impl Segment {
 					PageTableEntryTypeMut::Invalid(_) => None,
 					PageTableEntryTypeMut::L1Descriptor(l1_entry) => {
 						let l2_phys = l1_entry.address();
-						let l2_virt = translator.to_virtual_addr(l2_phys);
+						let l2_virt = translator.translate(l2_phys);
 						let l2 = &mut *(l2_virt as *mut PageTable);
 						let l2_index = (virt >> 21) & 0x1FF;
 						let l2_entry = &mut l2[l2_index];
@@ -247,7 +247,7 @@ impl Segment {
 							PageTableEntryTypeMut::Invalid(_) => None,
 							PageTableEntryTypeMut::L2Descriptor(l2_entry) => {
 								let l3_phys = l2_entry.address();
-								let l3_virt = translator.to_virtual_addr(l3_phys);
+								let l3_virt = translator.translate(l3_phys);
 								let l3 = &mut *(l3_virt as *mut PageTable);
 								let l3_index = (virt >> 12) & 0x1FF;
 								let l3_entry = &mut l3[l3_index];
@@ -313,7 +313,7 @@ impl Segment {
 		A: PageFrameAllocate,
 		P: Translator,
 	{
-		let top_level = &mut *(translator.to_virtual_addr(space.base_phys) as *mut PageTable);
+		let top_level = &mut *(translator.translate(space.base_phys) as *mut PageTable);
 
 		for idx in self.valid_range.0..=self.valid_range.1 {
 			let entry = &mut top_level[idx];
@@ -324,7 +324,7 @@ impl Segment {
 
 			let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
 			entry.set_raw(self.l0_template.with_address(frame_phys_addr).to_raw());
-			let frame_virt_addr = translator.to_virtual_addr(frame_phys_addr);
+			let frame_virt_addr = translator.translate(frame_phys_addr);
 
 			(*(frame_virt_addr as *mut PageTable)).reset();
 		}

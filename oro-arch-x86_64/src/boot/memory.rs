@@ -182,7 +182,7 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	}
 
 	// Uninstall the recursive mapping.
-	let l4 = &mut *(pat.to_virtual_addr(crate::asm::cr3()) as *mut crate::mem::paging::PageTable);
+	let l4 = &mut *(pat.translate(crate::asm::cr3()) as *mut crate::mem::paging::PageTable);
 	l4[RIDX].reset();
 
 	// Unmap anything in the lower half.
