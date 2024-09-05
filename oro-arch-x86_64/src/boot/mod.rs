@@ -105,7 +105,7 @@ pub unsafe fn boot_primary() -> ! {
 		crate::asm::disable_8259();
 	}
 
-	let lapic = crate::lapic::Lapic::new(pat.translate(madt.lapic_phys()) as *mut u8);
+	let lapic = crate::lapic::Lapic::new(pat.translate_mut::<u8>(madt.lapic_phys()));
 	dbg!("local APIC version: {:?}", lapic.version());
 	let lapic_id = lapic.id();
 	dbg!("local APIC ID: {lapic_id}",);

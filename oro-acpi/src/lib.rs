@@ -45,8 +45,7 @@ impl<P: Translator> Rsdp<P> {
 			return None;
 		}
 
-		let ptr = pat.translate(physical_address);
-		let ptr = &*(ptr as *const sys::acpi_table_rsdp);
+		let ptr = &*pat.translate::<sys::acpi_table_rsdp>(physical_address);
 
 		if ptr.Signature != *core::ptr::from_ref(sys::ACPI_SIG_RSDP).cast::<[i8; 8]>() {
 			return None;
@@ -134,8 +133,7 @@ where
 				.iter()
 				.find_map(|&chunk| {
 					let phys = chunk.from_le_64();
-					let virt = self.pat().translate(phys);
-					let sig = &*(virt as *const [i8; 4]);
+					let sig = &*self.pat().translate::<[i8; 4]>(phys);
 					if sig == T::SIGNATURE {
 						// SAFETY(qix-): We've ensured that we're really iterating over physical addresses.
 						Some(T::new(phys, self.pat().clone()))
@@ -180,13 +178,12 @@ pub trait AcpiTable<P: Translator>: Sized {
 	/// # Safety
 	/// Caller must ensure the physical address is readable.
 	unsafe fn new(physical_address: u64, pat: P) -> Option<Self> {
-		let ptr = pat.translate(physical_address);
-
-		if (ptr as *const u8).align_offset(core::mem::align_of::<Self::SysTable>()) != 0 {
+		let ptr = pat.translate::<Self::SysTable>(physical_address);
+		if !ptr.is_aligned() {
 			return None;
 		}
 
-		let ptr = &*(ptr as *const Self::SysTable);
+		let ptr = &*ptr;
 
 		let header = Self::header_ref(ptr);
 

@@ -93,10 +93,8 @@ pub unsafe fn prepare_transfer<P: Translator, A: PageFrameAllocate + PageFrameFr
 		.allocate()
 		.ok_or(crate::Error::MapError(MapError::OutOfMemory))?;
 
-	let stubs_virt = pat.translate(stubs_phys);
-
 	// Copy the stubs into the new page
-	let stubs_dest = &mut *(stubs_virt as *mut [u8; 4096]);
+	let stubs_dest = &mut *pat.translate_mut::<[u8; 4096]>(stubs_phys);
 	stubs_dest[..STUBS.len()].copy_from_slice(STUBS.as_ref());
 
 	// Map the stubs into the new page table using an identity mapping.

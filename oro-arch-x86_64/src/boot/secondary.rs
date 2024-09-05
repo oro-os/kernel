@@ -166,117 +166,105 @@ pub unsafe fn boot_secondary<A: PageFrameAllocate + PageFrameFree>(
 	// They live at 0x8000 (CS:IP = 0x0800:0x0000) and
 	// 0x8000 + 0x400 (CS:IP = 0x0800:0x0400) for the
 	// 16-bit and 64-bit stubs, respectively.
-	let stub_virt = pat.translate(0x8000);
 	let stub_slice =
-		core::slice::from_raw_parts_mut(stub_virt as *mut u8, SECONDARY_BOOT_STUB.len());
+		core::slice::from_raw_parts_mut(pat.translate_mut::<u8>(0x8000), SECONDARY_BOOT_STUB.len());
 	stub_slice.copy_from_slice(SECONDARY_BOOT_STUB);
 
-	let long_mode_stub_virt = pat.translate(0x8000 + 0x400);
 	let long_mode_stub_slice = core::slice::from_raw_parts_mut(
-		long_mode_stub_virt as *mut u8,
+		pat.translate_mut::<u8>(0x8000 + 0x400),
 		SECONDARY_BOOT_LONG_MODE_STUB.len(),
 	);
 	long_mode_stub_slice.copy_from_slice(SECONDARY_BOOT_LONG_MODE_STUB);
 
 	// Write the GDT to the second half of the page.
 	// It lives at 0x8000 + 0x800 (CS:IP = 0x0800:0x0800).
-	let gdt_virt = pat.translate(0x8000 + 0x800);
-	let secondary_gdt = core::slice::from_raw_parts_mut(gdt_virt as *mut u8, gdt_slice.len());
+	let secondary_gdt =
+		core::slice::from_raw_parts_mut(pat.translate_mut::<u8>(0x8000 + 0x800), gdt_slice.len());
 	secondary_gdt.copy_from_slice(gdt_slice);
 
 	let mut meta_ptr = 0x9000 - TOP_RESERVE;
 
 	// Write the LAPIC ID.
 	debug_assert_eq!(meta_ptr, 0x8FA0);
-	let lapic_id_ptr = pat.translate(meta_ptr as u64);
-	(lapic_id_ptr as *mut u8).write(secondary_lapic_id);
+	pat.translate_mut::<u8>(meta_ptr).write(secondary_lapic_id);
 	meta_ptr += LAPIC_ID_SIZE;
 
 	// Write the linear offset.
 	debug_assert_eq!(meta_ptr, 0x8FA8);
-	let linear_offset_ptr = pat.translate(meta_ptr as u64);
-	(linear_offset_ptr as *mut u64).write(u64::try_from(pat.offset()).unwrap());
+	pat.translate_mut::<u64>(meta_ptr)
+		.write(u64::try_from(pat.offset()).unwrap());
 	meta_ptr += LINEAR_OFFSET_SIZE;
 
 	// Zero the primary flag.
 	debug_assert_eq!(meta_ptr, 0x8FB0);
-	let flag_ptr = pat.translate(meta_ptr as u64);
 	let primary_flag = {
 		assert::size_of::<AtomicU64, 8>();
-		(*(flag_ptr as *mut MaybeUninit<AtomicU64>)).write(AtomicU64::new(0));
-		&*(flag_ptr as *const AtomicU64)
+		let flag_ptr = pat.translate_mut::<MaybeUninit<AtomicU64>>(meta_ptr);
+		(*flag_ptr).write(AtomicU64::new(0));
+		&*flag_ptr.cast::<AtomicU64>().cast_const()
 	};
 	meta_ptr += PRIMARY_FLAG_SIZE;
 
 	// Zero the secondary flag.
 	debug_assert_eq!(meta_ptr, 0x8FB8);
-	let flag_ptr = pat.translate(meta_ptr as u64);
 	let secondary_flag = {
 		assert::size_of::<AtomicU64, 8>();
-		(*(flag_ptr as *mut MaybeUninit<AtomicU64>)).write(AtomicU64::new(0));
-		&*(flag_ptr as *const AtomicU64)
+		let flag_ptr = pat.translate_mut::<MaybeUninit<AtomicU64>>(meta_ptr);
+		(*flag_ptr).write(AtomicU64::new(0));
+		&*flag_ptr.cast::<AtomicU64>().cast_const()
 	};
 	meta_ptr += SECONDARY_FLAG_SIZE;
 
 	// Write the absolute entry point address of the Rust stub.
 	debug_assert_eq!(meta_ptr, 0x8FC0);
 	let entry_point_ptr = oro_kernel_x86_64_rust_secondary_core_entry as *const u8 as u64;
-	let entry_point_virt = pat.translate(meta_ptr as u64);
-	(entry_point_virt as *mut u64).write(entry_point_ptr);
+	pat.translate_mut::<u64>(meta_ptr).write(entry_point_ptr);
 	meta_ptr += ENTRY_POINT_SIZE;
 
 	// Write the actual CR0 value so that the long mode stub can install it.
 	debug_assert_eq!(meta_ptr, 0x8FC8);
-	let cr0_ptr_virt = pat.translate(meta_ptr as u64);
 	let cr0_value: u64 = crate::reg::Cr0::read().into();
-	(cr0_ptr_virt as *mut u64).write(cr0_value);
+	pat.translate_mut::<u64>(meta_ptr).write(cr0_value);
 	meta_ptr += ACTUAL_CR0_VALUE_SIZE;
 
 	// Write the actual CR4 value so that the long mode stub can install it.
 	debug_assert_eq!(meta_ptr, 0x8FD0);
-	let cr4_ptr_virt = pat.translate(meta_ptr as u64);
 	let cr4_value = crate::asm::cr4();
-	(cr4_ptr_virt as *mut u64).write(cr4_value);
+	pat.translate_mut::<u64>(meta_ptr).write(cr4_value);
 	meta_ptr += ACTUAL_CR4_VALUE_SIZE;
 
 	// Write the actual CR3 value so that the long mode stub can switch to it.
 	debug_assert_eq!(meta_ptr, 0x8FD8);
-	let cr3_ptr_virt = pat.translate(meta_ptr as u64);
 	let cr3_phys = mapper.base_phys();
-	(cr3_ptr_virt as *mut u64).write(cr3_phys);
+	pat.translate_mut::<u64>(meta_ptr).write(cr3_phys);
 	meta_ptr += ACTUAL_CR3_PTR_SIZE;
 
 	// Write the real stack pointer so that the long mode stub can switch to it.
 	debug_assert_eq!(meta_ptr, 0x8FE0);
-	let stack_ptr_virt = pat.translate(meta_ptr as u64);
-	(stack_ptr_virt as *mut u64).write(stack_ptr as u64);
+	pat.translate_mut::<u64>(meta_ptr).write(stack_ptr as u64);
 	meta_ptr += ACTUAL_STACK_PTR_SIZE;
 
 	// Zero the last 8 bytes of the page for the null IDT.
 	debug_assert_eq!(meta_ptr, 0x8FE8);
-	let idt_virt = pat.translate(meta_ptr as u64);
-	core::ptr::write_bytes(idt_virt as *mut u8, 0, NULLIDT_SIZE);
+	pat.translate_mut::<u8>(meta_ptr)
+		.write_bytes(0, NULLIDT_SIZE);
 	meta_ptr += NULLIDT_SIZE;
 
 	// Extract out the interesting bits of CR4 for the secondary core.
 	// We only support extracting the LA57 bit for now.
 	debug_assert_eq!(meta_ptr, 0x8FF0);
-	let cr4_bits_virt = pat.translate(meta_ptr as u64);
 	let cr4_bits = (crate::asm::cr4() as u32) & CR4_LA57;
-	(cr4_bits_virt as *mut u32).write(cr4_bits);
+	pat.translate_mut::<u32>(meta_ptr).write(cr4_bits);
 	meta_ptr += CR4BITS_SIZE;
 
 	// Write the GDT pointer into the last 6 bytes of the page.
 	debug_assert_eq!(meta_ptr, 0x8FF8);
-	let gdt_ptr_virt = pat.translate(meta_ptr as u64);
-	let gdt_ptr: u32 = 0x8000 + 0x800;
-	(gdt_ptr_virt as *mut u16).write(
+	let gdt_base: u32 = 0x8000 + 0x800;
+	let gdt_ptr = pat.translate_mut::<u16>(meta_ptr);
+	gdt_ptr.write(
 		u16::try_from(gdt_slice.len() - 1).expect("GDT is too large for the GDTR limit value"),
 	);
-	(gdt_ptr_virt as *mut u16)
-		.add(1)
-		.cast::<u32>()
-		.write_unaligned(gdt_ptr);
+	gdt_ptr.add(1).cast::<u32>().write_unaligned(gdt_base);
 	meta_ptr += GDTR_SIZE;
 
 	debug_assert_eq!(meta_ptr, 0x9000);
@@ -461,8 +449,8 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 		.find::<Madt<_>>()
 		.as_ref()
 		.map(Madt::lapic_phys)
-		.map(|phys| pat.translate(phys))
-		.map(|lapic_virt| Lapic::new(lapic_virt as *mut u8))
+		.map(|phys| pat.translate_mut::<u8>(phys))
+		.map(|lapic_virt| Lapic::new(lapic_virt))
 	else {
 		// Tell the primary we failed.
 		dbg_err!("failed to get LAPIC from ACPI tables");
@@ -475,7 +463,7 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	// Set the LAPIC ID to the one we were given.
 	// We do this since after an INIT IPI / SIPI, the LAPIC ID
 	// *can* be reset to something else.
-	let given_lapic_id = *(0x8FA0 as *const u8);
+	let given_lapic_id = (0x8FA0 as *const u8).read_volatile();
 	lapic.set_id(given_lapic_id);
 
 	let lapic_id = lapic.id();

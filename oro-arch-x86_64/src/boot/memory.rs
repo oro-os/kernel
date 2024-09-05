@@ -182,7 +182,7 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	}
 
 	// Uninstall the recursive mapping.
-	let l4 = &mut *(pat.translate(crate::asm::cr3()) as *mut crate::mem::paging::PageTable);
+	let l4 = &mut *pat.translate_mut::<PageTable>(crate::asm::cr3());
 	l4[RIDX].reset();
 
 	// Unmap anything in the lower half.
@@ -593,7 +593,7 @@ impl OnTheFlyMapper {
 			.with_write_through()
 			.with_no_exec()
 			.with_address(phys);
-		crate::asm::invlpg(self.base_virt as usize);
+		crate::asm::invlpg(self.base_virt);
 	}
 
 	/// Reads a value from somewhere in physical memory.

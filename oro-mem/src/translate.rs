@@ -9,9 +9,23 @@
 /// Implementors must be aware that physical addresses
 /// **may not** be page aligned.
 pub unsafe trait Translator: Clone + Sized + 'static {
-	/// Translates a physical frame address to a virtual address.
+	/// Translates a physical frame address to a virtual address
+	/// returning an immutable pointer to the data.
+	///
+	/// # Panics
+	/// Panics if the given physical address cannot fit into the
+	/// target pointer type.
 	#[must_use]
-	fn translate(&self, physical_addr: u64) -> usize;
+	fn translate<T>(&self, physical_addr: impl TryInto<usize>) -> *const T;
+
+	/// Translates a physical frame address to a virtual address
+	/// returning a mutable pointer to the data.
+	///
+	/// # Panics
+	/// Panics if the given physical address cannot fit into the
+	/// target pointer type.
+	#[must_use]
+	fn translate_mut<T>(&self, physical_addr: impl TryInto<usize>) -> *mut T;
 }
 
 /// An offset-based [`Translator`] that applies an offset
@@ -45,9 +59,23 @@ impl OffsetTranslator {
 }
 
 unsafe impl Translator for OffsetTranslator {
-	#[allow(clippy::cast_possible_truncation)]
 	#[inline(always)]
-	fn translate(&self, physical_addr: u64) -> usize {
-		physical_addr as usize + self.offset
+	fn translate<T>(&self, physical_addr: impl TryInto<usize>) -> *const T {
+		unsafe {
+			let Ok(paddr) = physical_addr.try_into() else {
+				panic!("physical address is too large to fit into a pointer")
+			};
+			(self.offset as *const u8).add(paddr).cast()
+		}
+	}
+
+	#[inline(always)]
+	fn translate_mut<T>(&self, physical_addr: impl TryInto<usize>) -> *mut T {
+		unsafe {
+			let Ok(paddr) = physical_addr.try_into() else {
+				panic!("physical address is too large to fit into a pointer")
+			};
+			(self.offset as *mut u8).add(paddr).cast()
+		}
 	}
 }
