@@ -1,4 +1,4 @@
-//! Implements the [`Arch`] architecture trait for the x86_64 architecture.
+//! TODO(qix-): To be removed.
 
 #![allow(clippy::inline_always)]
 

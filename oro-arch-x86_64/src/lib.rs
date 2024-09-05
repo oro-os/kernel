@@ -14,12 +14,12 @@
 //! ### Direct Maps
 //! The Oro x86_64 architecture assumes a direct map of all physical memory
 //! is direct mapped into the the address space. The implementation of a
-//! [`oro_common::mem::translate::PhysicalAddressTranslator`] is required
+//! [`oro_mem::translate::PhysicalAddressTranslator`] is required
 //! to map physical addresses to virtual addresses in a deterministic fashion.
 //!
 //! While the memory regions do not technically need to be offset-based, it's
 //! highly recommended to do so for ease of implementation. The common library
-//! provides an [`oro_common::mem::translate::OffsetPhysicalAddressTranslator`]
+//! provides an [`oro_mem::translate::OffsetPhysicalAddressTranslator`]
 //! that can be used if a simple offset needs to be applied to the physical
 //! address to form a virtual address.
 //!

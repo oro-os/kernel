@@ -1,4 +1,4 @@
-//! Main [`Arch`] implementation for the Aarch64 architecture.
+//! TODO(qix-): To be removed.
 
 #![allow(clippy::inline_always, clippy::verbose_bit_mask)]
 

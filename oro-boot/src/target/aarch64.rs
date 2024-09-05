@@ -20,31 +20,19 @@ use oro_mem::{
 	translate::PhysicalAddressTranslator,
 };
 
+#[allow(clippy::missing_docs_in_private_items)]
 pub type AddressSpace = AddressSpaceLayout;
+#[allow(clippy::missing_docs_in_private_items)]
 pub type SupervisorHandle = AddressSpaceHandle;
 
-/// The transfer token for the Aarch64 architecture.
-pub struct TransferToken {
-	/// The stack address for the kernel. Core-local.
-	pub stack_ptr: usize,
-	/// The physical address of the root page table entry for the kernel (TTBR1).
-	pub ttbr1_page_table_phys: u64,
-	/// The physical address of the root page table for the stubs (TTBR0)
-	pub ttbr0_page_table_phys: u64,
-	/// The address of the core-local stubs (identity mapped)
-	pub stubs_addr: usize,
-}
-
-/// The result of mapping in the stubs
-pub struct MappedStubs {
-	/// The virtual address of the stubs
-	pub stubs_addr: usize,
-	/// The base physical address of the page table for TTBR0
-	pub ttbr0_addr: u64,
-}
-
+/// Passed from the [`prepare_transfer`] function to the [`transfer`] function,
+/// allowing the common (arch-agnostic) boot routine to perform some finalization operations
+/// between the two.
 pub struct TransferData {
+	/// The phyiscal address of the TTRBR0 page table
 	tt0_phys:   u64,
+	/// The direct-mapped physical address of the stubs
+	/// to which we'll jump.
 	stubs_addr: u64,
 }
 
@@ -112,7 +100,7 @@ pub unsafe fn prepare_transfer<
 
 	// Copy the stubs into the new page
 	let stubs_dest = &mut *(stubs_virt as *mut [u8; 4096]);
-	(&mut stubs_dest[..STUBS.len()]).copy_from_slice(STUBS.as_ref());
+	stubs_dest[..STUBS.len()].copy_from_slice(STUBS.as_ref());
 
 	// Map the stubs into the new page table using an identity mapping.
 	// SAFETY(qix-): We specify that TTBR0 must be 4KiB upon transferring to the kernel,
@@ -128,18 +116,19 @@ pub unsafe fn prepare_transfer<
 
 	Ok(TransferData {
 		stubs_addr: stubs_phys,
-		tt0_phys:   page_table.base_phys(),
+		tt0_phys:   page_table.base_phys,
 	})
 }
 
 /// Performs the transfer from pre-boot to the kernel.
+#[allow(clippy::needless_pass_by_value)]
 pub unsafe fn transfer(
 	mapper: &mut AddressSpaceHandle,
 	kernel_entry: usize,
 	stack_addr: usize,
 	prepare_data: TransferData,
 ) -> Result<!, MapError> {
-	let page_table_phys: u64 = mapper.base_phys();
+	let page_table_phys: u64 = mapper.base_phys;
 	let mair_value: u64 = MairEntry::build_mair().into();
 	let stubs_addr: u64 = prepare_data.stubs_addr;
 	let stubs_page_table_phys: u64 = prepare_data.tt0_phys;

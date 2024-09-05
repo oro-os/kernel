@@ -48,7 +48,7 @@
 //!
 //! Once the segment is located, the bootloader is expected to
 //! scan, on 16-byte boundaries, for tags (see the individual
-//! requests' `TAG` constant, e.g. [`KernelSettingsRequest::TAG`]).
+//! requests' `TAG` constant, e.g. [`MemoryMapRequest::TAG`]).
 //!
 //! The base address of the found tag is in turn the base address
 //! of the [`RequestHeader`] structure, which is guaranteed to be

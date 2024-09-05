@@ -42,6 +42,7 @@ oro-debug-pl011 = { path = "oro-debug-pl011" }
 oro-debug-uart16550 = { path = "oro-debug-uart16550" }
 
 oro-acpica-sys = { git = "https://github.com/oro-os/oro-acpica-sys.git", tag = "20240322" }
+
 limine = "0.2.0"
 uart_16550 = "0.3.0"
 volatile-register = "0.2.2"
