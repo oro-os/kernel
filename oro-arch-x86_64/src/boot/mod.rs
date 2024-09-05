@@ -38,6 +38,11 @@ pub unsafe fn boot_primary() -> ! {
 		mut pfa,
 	} = memory::prepare_memory();
 
+	// We now have a valid physical map; let's re-init
+	// any MMIO loggers with that offset.
+	#[cfg(debug_assertions)]
+	oro_debug::init_with_offset(pat.offset());
+
 	crate::reg::Cr0::new()
 		.with_monitor_coprocessor()
 		.with_emulation()

@@ -17,7 +17,7 @@ use oro_sync::spinlock::unfair::UnfairSpinlock;
 static SERIAL: UnfairSpinlock<Option<driver::PL011>> = UnfairSpinlock::new(None);
 
 /// Initializes the PL011.
-pub fn init() {
+pub fn init(offset: usize) {
 	// SAFETY(qix-): This is more or less safe, even if called multiple times.
 	unsafe {
 		// NOTE(qix-): This is set up specifically for QEMU.
@@ -25,7 +25,7 @@ pub fn init() {
 		// NOTE(qix-): debugging and will eventually be replaced with a
 		// NOTE(qix-): proper preboot module loader.
 		*(SERIAL.lock()) = Some(driver::PL011::new(
-			0x900_0000,
+			0x900_0000 + offset,
 			24_000_000,
 			115_200,
 			driver::DataBits::Eight,
