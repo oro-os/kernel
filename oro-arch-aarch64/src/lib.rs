@@ -31,14 +31,13 @@
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/122034
 #![feature(ptr_as_ref_unchecked)]
 
-pub mod arch;
 pub mod asm;
 pub mod boot;
 pub mod mair;
 pub mod mem;
 pub mod reg;
+pub mod sync;
 
-pub use self::arch::Aarch64;
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 
 /// The ELF class for the AArch64 architecture.
