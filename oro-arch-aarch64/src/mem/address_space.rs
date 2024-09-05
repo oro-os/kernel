@@ -12,9 +12,7 @@ use crate::{
 	},
 	reg::tcr_el1::TcrEl1,
 };
-use oro_mem::{
-	mapper::AddressSpace, pfa::alloc::PageFrameAllocate, translate::PhysicalAddressTranslator,
-};
+use oro_mem::{mapper::AddressSpace, pfa::alloc::PageFrameAllocate, translate::Translator};
 
 /// A lightweight handle to an address space.
 pub struct AddressSpaceHandle {
@@ -56,10 +54,7 @@ impl AddressSpaceLayout {
 
 impl AddressSpaceLayout {
 	/// Installs the recursive page table entry.
-	pub fn map_recursive_entry(
-		mapper: &mut AddressSpaceHandle,
-		pat: &impl PhysicalAddressTranslator,
-	) {
+	pub fn map_recursive_entry(mapper: &mut AddressSpaceHandle, pat: &impl Translator) {
 		unsafe {
 			let pt = &mut *(pat.to_virtual_addr(mapper.base_phys) as *mut PageTable);
 
@@ -181,7 +176,7 @@ impl AddressSpaceLayout {
 	) -> Option<AddressSpaceHandle>
 	where
 		A: PageFrameAllocate,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		let base_phys = alloc.allocate()?;
 
@@ -206,7 +201,7 @@ impl AddressSpaceLayout {
 	) -> Option<<Self as AddressSpace>::SupervisorHandle>
 	where
 		A: PageFrameAllocate,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		unsafe { Self::new_supervisor_space_with_start(alloc, translator, 0) }
 	}
@@ -286,7 +281,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 
 	unsafe fn current_supervisor_space<P>(_translator: &P) -> Self::SupervisorHandle
 	where
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		// NOTE(qix-): Technically this isn't required since the kernel currently
 		// NOTE(qix-): requires `TCR_EL1.TnSZ=16`, but it's cheap and not often
@@ -304,7 +299,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	fn new_supervisor_space<A, P>(alloc: &mut A, translator: &P) -> Option<Self::SupervisorHandle>
 	where
 		A: PageFrameAllocate,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		// NOTE(qix-): We currently specify that the kernel uses `TCR_EL1.TnSZ=16`,
 		// NOTE(qix-): so we hard-code this value here (as opposed to `current_supervisor_space`).
@@ -320,7 +315,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	) -> Option<Self::SupervisorHandle>
 	where
 		A: PageFrameAllocate,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		let base_phys = alloc.allocate()?;
 

@@ -17,7 +17,7 @@ use oro_macro::asm_buffer;
 use oro_mem::{
 	mapper::{AddressSegment, MapError},
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
-	translate::PhysicalAddressTranslator,
+	translate::Translator,
 };
 
 #[allow(clippy::missing_docs_in_private_items)]
@@ -71,10 +71,7 @@ const STUBS: &[u8] = &asm_buffer! {
 
 /// Prepares the system for a transfer. Called before the memory map
 /// is written, after which `transfer` is called.
-pub unsafe fn prepare_transfer<
-	P: PhysicalAddressTranslator,
-	A: PageFrameAllocate + PageFrameFree,
->(
+pub unsafe fn prepare_transfer<P: Translator, A: PageFrameAllocate + PageFrameFree>(
 	mapper: &mut AddressSpaceHandle,
 	alloc: &mut A,
 	pat: &P,

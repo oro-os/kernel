@@ -10,7 +10,7 @@ use oro_acpi::{
 };
 use oro_boot_protocol::acpi::AcpiKind;
 use oro_debug::{dbg, dbg_warn};
-use oro_mem::{mapper::AddressSpace, translate::PhysicalAddressTranslator as _};
+use oro_mem::{mapper::AddressSpace, translate::Translator as _};
 
 /// Temporary value for the number of stack pages to allocate for secondary cores.
 // TODO(qix-): Discover the stack size of the primary core and use that instead.

@@ -8,7 +8,7 @@ use oro_macro::unlikely;
 use oro_mem::{
 	mapper::{AddressSegment as Segment, MapError, UnmapError},
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
-	translate::PhysicalAddressTranslator,
+	translate::Translator,
 };
 
 /// Sign-extends a value to the appropriate size for the current paging level.
@@ -72,7 +72,7 @@ impl AddressSegment {
 	) -> Result<&'a mut PageTableEntry, MapError>
 	where
 		A: PageFrameAllocate,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		if unlikely!(virt & 0xFFF != 0) {
 			return Err(MapError::VirtNotAligned);
@@ -141,7 +141,7 @@ impl AddressSegment {
 	) -> Result<Option<u64>, UnmapError>
 	where
 		A: PageFrameAllocate + PageFrameFree,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		if unlikely!(virt & 0xFFF != 0) {
 			return Err(UnmapError::VirtNotAligned);
@@ -239,7 +239,7 @@ impl AddressSegment {
 	) -> Result<Option<u64>, UnmapError>
 	where
 		A: PageFrameAllocate + PageFrameFree,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		if unlikely!(virt & 0xFFF != 0) {
 			return Err(UnmapError::VirtNotAligned);
@@ -357,7 +357,7 @@ impl AddressSegment {
 	) -> Result<(), MapError>
 	where
 		A: PageFrameAllocate,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		let top_level = &mut *(translator.to_virtual_addr(space.base_phys()) as *mut PageTable);
 
@@ -384,7 +384,7 @@ impl AddressSegment {
 	/// # Safety
 	/// Caller must ensure that pages not being claimed _won't_
 	/// lead to memory leaks.
-	pub unsafe fn unmap_without_reclaim<P: PhysicalAddressTranslator, Handle: MapperHandle>(
+	pub unsafe fn unmap_without_reclaim<P: Translator, Handle: MapperHandle>(
 		&self,
 		space: &Handle,
 		pat: &P,
@@ -434,7 +434,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 	) -> Result<(), MapError>
 	where
 		A: PageFrameAllocate + PageFrameFree,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		// NOTE(qix-): The current implementation of `entry()` doesn't
 		// NOTE(qix-): actually free anyway, so we just proxy to that method.
@@ -451,7 +451,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 	) -> Result<(), MapError>
 	where
 		A: PageFrameAllocate,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		let entry = unsafe { self.entry(space, alloc, translator, virt)? };
 		if entry.present() {
@@ -473,7 +473,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 	) -> Result<u64, UnmapError>
 	where
 		A: PageFrameAllocate + PageFrameFree,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		let phys = unsafe {
 			match space.paging_level() {
@@ -494,7 +494,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 	) -> Result<Option<u64>, MapError>
 	where
 		A: PageFrameAllocate + PageFrameFree,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		let entry = unsafe { self.entry(space, alloc, translator, virt)? };
 		let old_phys = if entry.present() {

@@ -37,7 +37,7 @@ use oro_boot_protocol::{
 };
 use oro_debug::{dbg, dbg_warn};
 pub use oro_mem::mapper::MapError;
-use oro_mem::{mapper::AddressSpace, translate::OffsetPhysicalAddressTranslator};
+use oro_mem::{mapper::AddressSpace, translate::OffsetTranslator};
 
 /// The bootstrapper error type.
 #[derive(Debug, Clone, Copy)]
@@ -75,7 +75,7 @@ pub struct OroBootstrapper<
 	I: Iterator<Item = M> + Clone,
 > {
 	/// The physical address translator that is used by this bootstrapper.
-	pat: OffsetPhysicalAddressTranslator,
+	pat: OffsetTranslator,
 	/// The PFA used to write variable length bootloader protocol structures to memory.
 	pfa: pfa::PrebootPfa<M, I>,
 	/// The supervisor space
@@ -134,9 +134,8 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 		iter: I,
 		kernel_module: oro_boot_protocol::Module,
 	) -> Result<Self> {
-		let pat = OffsetPhysicalAddressTranslator::new(
-			usize::try_from(linear_offset).expect("linear offset too large"),
-		);
+		let pat =
+			OffsetTranslator::new(usize::try_from(linear_offset).expect("linear offset too large"));
 		let mut pfa = pfa::PrebootPfa::new(iter, linear_offset);
 		let supervisor_space = target::AddressSpace::new_supervisor_space(&mut pfa, &pat)
 			.ok_or(Error::MapError(MapError::OutOfMemory))?;

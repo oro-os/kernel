@@ -21,7 +21,7 @@ use oro_macro::unlikely;
 use oro_mem::{
 	mapper::{AddressSegment, MapError, UnmapError},
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
-	translate::PhysicalAddressTranslator,
+	translate::Translator,
 };
 
 /// Sign-extends a 48-bit virtual address.
@@ -68,7 +68,7 @@ impl Segment {
 	) -> Result<&'a mut PageTableEntry, MapError>
 	where
 		A: PageFrameAllocate,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		let virt = virt
 			.checked_sub(space.virt_start)
@@ -202,7 +202,7 @@ impl Segment {
 	) -> Result<Option<u64>, UnmapError>
 	where
 		A: PageFrameAllocate + PageFrameFree,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		let virt = virt
 			.checked_sub(space.virt_start)
@@ -311,7 +311,7 @@ impl Segment {
 	) -> Result<(), MapError>
 	where
 		A: PageFrameAllocate,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		let top_level = &mut *(translator.to_virtual_addr(space.base_phys) as *mut PageTable);
 
@@ -356,7 +356,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 	) -> Result<(), MapError>
 	where
 		A: PageFrameAllocate + PageFrameFree,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		// NOTE(qix-): The mapper doesn't actually free anything,
 		// NOTE(qix-): so we can just call the nofree variant.
@@ -373,7 +373,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 	) -> Result<(), MapError>
 	where
 		A: PageFrameAllocate,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		let l3_entry = self.entry(space, alloc, translator, virt)?;
 		if l3_entry.valid() {
@@ -407,7 +407,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 	) -> Result<u64, UnmapError>
 	where
 		A: PageFrameAllocate + PageFrameFree,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		let phys = unsafe { self.try_unmap(space, alloc, translator, virt)? };
 
@@ -424,7 +424,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 	) -> Result<Option<u64>, MapError>
 	where
 		A: PageFrameAllocate + PageFrameFree,
-		P: PhysicalAddressTranslator,
+		P: Translator,
 	{
 		let l3_entry = self.entry(space, alloc, translator, virt)?;
 

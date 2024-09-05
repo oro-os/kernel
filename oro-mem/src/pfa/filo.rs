@@ -4,7 +4,7 @@
 
 use crate::{
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
-	translate::PhysicalAddressTranslator,
+	translate::Translator,
 };
 
 /// First in, last out (FILO) page frame allocator.
@@ -118,7 +118,7 @@ where
 /// indicate the next/previous last-free page frame address as
 /// needed by the allocator.
 ///
-/// By default, all [`PhysicalAddressTranslator`]s implement this
+/// By default, all [`Translator`]s implement this
 /// trait, as they are capable of translating physical addresses
 /// to virtual addresses.
 ///
@@ -157,7 +157,7 @@ pub unsafe trait FiloPageFrameManager {
 
 unsafe impl<T> FiloPageFrameManager for T
 where
-	T: PhysicalAddressTranslator,
+	T: Translator,
 {
 	#[inline]
 	unsafe fn read_u64(&mut self, page_frame: u64) -> u64 {
