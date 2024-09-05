@@ -65,15 +65,14 @@
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/15701
 #![feature(stmt_expr_attributes)]
 
-pub mod arch;
 pub mod asm;
 pub mod boot;
 pub mod gdt;
 pub mod lapic;
 pub mod mem;
 pub mod reg;
+pub mod sync;
 
-pub use self::arch::X86_64;
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 
 /// The ELF class of the x86_64 architecture.

@@ -1,5 +1,4 @@
 //! Assembly instruction stubs for the x86_64 architecture.
-
 #![allow(clippy::inline_always)]
 
 use core::arch::asm;
@@ -138,4 +137,29 @@ pub fn cr4() -> u64 {
 		asm!("mov {}, cr4", out(reg) cr4, options(nostack, nomem, preserves_flags));
 	}
 	cr4
+}
+
+/// Halts, indefinitely, the CPU (disabling interrupts).
+pub fn halt() -> ! {
+	unsafe {
+		asm!("cli");
+	}
+	loop {
+		halt_once_and_wait();
+	}
+}
+
+/// Halts the CPU once and waits for an interrupt.
+pub fn halt_once_and_wait() {
+	unsafe {
+		asm!("hlt");
+	}
+}
+
+/// Performs a strong memory serialization barrier.
+#[inline(always)]
+pub fn strong_memory_barrier() {
+	unsafe {
+		asm!("mfence", options(nostack, preserves_flags),);
+	}
 }

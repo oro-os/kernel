@@ -454,7 +454,7 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 		// Tell the primary we failed.
 		dbg_err!("failed to get RSDT from ACPI tables");
 		secondary_flag.store(0xFFFF_FFFF_FFFF_FFFE, core::sync::atomic::Ordering::Release);
-		crate::X86_64::halt();
+		crate::asm::halt();
 	};
 
 	let Some(lapic) = sdt
@@ -467,7 +467,7 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 		// Tell the primary we failed.
 		dbg_err!("failed to get LAPIC from ACPI tables");
 		secondary_flag.store(0xFFFF_FFFF_FFFF_FFFE, core::sync::atomic::Ordering::Release);
-		crate::X86_64::halt();
+		crate::asm::halt();
 	};
 
 	dbg!("local APIC version: {:?}", lapic.version());
@@ -484,7 +484,7 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 		// Tell the primary we failed.
 		dbg_err!("LAPIC ID mismatch: expected {given_lapic_id}, got {lapic_id}");
 		secondary_flag.store(0xFFFF_FFFF_FFFF_FFFE, core::sync::atomic::Ordering::Release);
-		crate::X86_64::halt();
+		crate::asm::halt();
 	}
 
 	dbg!("secondary core booted with LAPIC ID {}", lapic_id);
@@ -509,7 +509,7 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	}
 
 	if !ok {
-		crate::X86_64::halt();
+		crate::asm::halt();
 	}
 
 	// We've been given the green light.
@@ -525,5 +525,5 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	}
 
 	// XXX TODO
-	crate::X86_64::halt();
+	crate::asm::halt();
 }
