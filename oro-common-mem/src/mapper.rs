@@ -8,7 +8,7 @@
 //! for those regions to behave as the kernel expects.
 #![allow(clippy::inline_always)]
 
-use crate::mem::{
+use crate::{
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
 	translate::PhysicalAddressTranslator,
 };

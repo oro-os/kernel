@@ -16,7 +16,7 @@ doctest = false
 
 [dependencies]
 oro-acpica-sys.workspace = true
-oro-common.workspace = true
+oro-common-mem.workspace = true
 oro-common-macro.workspace = true
 
 [lints]

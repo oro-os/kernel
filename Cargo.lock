@@ -162,8 +162,8 @@ name = "oro-acpi"
 version = "0.0.0"
 dependencies = [
  "oro-acpica-sys",
- "oro-common",
  "oro-common-macro",
+ "oro-common-mem",
 ]
 
 [[package]]
@@ -182,9 +182,9 @@ name = "oro-arch-aarch64"
 version = "0.0.0"
 dependencies = [
  "oro-boot-protocol",
- "oro-common",
  "oro-common-elf",
  "oro-common-macro",
+ "oro-common-mem",
  "oro-common-sync",
  "oro-debug",
  "oro-kernel",
@@ -196,9 +196,9 @@ version = "0.0.0"
 dependencies = [
  "oro-acpi",
  "oro-boot-protocol",
- "oro-common",
  "oro-common-elf",
  "oro-common-macro",
+ "oro-common-mem",
  "oro-common-sync",
  "oro-debug",
  "oro-kernel",
@@ -211,9 +211,9 @@ dependencies = [
  "oro-arch-aarch64",
  "oro-arch-x86_64",
  "oro-boot-protocol",
- "oro-common",
  "oro-common-elf",
  "oro-common-macro",
+ "oro-common-mem",
  "oro-debug",
 ]
 
@@ -233,16 +233,6 @@ dependencies = [
  "limine",
  "oro-boot",
  "oro-boot-protocol",
- "oro-debug",
-]
-
-[[package]]
-name = "oro-common"
-version = "0.0.0"
-dependencies = [
- "oro-common-elf",
- "oro-common-macro",
- "oro-common-sync",
  "oro-debug",
 ]
 
@@ -268,6 +258,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "oro-common-mem"
+version = "0.0.0"
+dependencies = [
+ "oro-common-elf",
+ "oro-common-macro",
+ "oro-common-sync",
+ "oro-debug",
 ]
 
 [[package]]
@@ -303,8 +303,8 @@ dependencies = [
 name = "oro-kernel"
 version = "0.0.0"
 dependencies = [
- "oro-common",
  "oro-common-macro",
+ "oro-common-mem",
 ]
 
 [[package]]

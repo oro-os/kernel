@@ -1,7 +1,7 @@
 [package]
-name = "oro-common"
+name = "oro-common-mem"
 version.workspace = true
-description = "Common functionality for the Oro kernel crates"
+description = "Common memory management utilities for the Oro operating system."
 publish = false
 edition = "2021"
 authors = [

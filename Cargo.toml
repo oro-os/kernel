@@ -14,7 +14,7 @@ members = [
 	"oro-boot",
 	"oro-boot-protocol",
 	"oro-bootloader-limine",
-	"oro-common",
+	"oro-common-mem",
 	"oro-common-elf",
 	"oro-common-sync",
 	"oro-common-macro",
@@ -31,7 +31,7 @@ oro-arch-aarch64 = { path = "oro-arch-aarch64" }
 oro-arch-x86_64 = { path = "oro-arch-x86_64" }
 oro-boot = { path = "oro-boot" }
 oro-boot-protocol = { path = "oro-boot-protocol" }
-oro-common = { path = "oro-common" }
+oro-common-mem = { path = "oro-common-mem" }
 oro-common-macro = { path = "oro-common-macro" }
 oro-common-macro-proc = { path = "oro-common-macro-proc" }
 oro-common-elf = { path = "oro-common-elf" }

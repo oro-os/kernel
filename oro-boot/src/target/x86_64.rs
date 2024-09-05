@@ -9,12 +9,12 @@ use oro_arch_x86_64::mem::{
 	segment::{AddressSegment, MapperHandle},
 };
 pub use oro_arch_x86_64::{ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
-use oro_common::mem::{
+use oro_common_macro::asm_buffer;
+use oro_common_mem::{
 	mapper::{AddressSegment as _, AddressSpace as _, MapError, UnmapError},
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
 	translate::PhysicalAddressTranslator,
 };
-use oro_common_macro::asm_buffer;
 
 pub type SupervisorHandle = AddressSpaceHandle;
 pub type AddressSpace = AddressSpaceLayout;

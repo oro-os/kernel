@@ -2,7 +2,7 @@
 //! whereby page frames form a linked list of free pages. See [`FiloPageFrameAllocator`]
 //! for more information.
 
-use crate::mem::{
+use crate::{
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
 	translate::PhysicalAddressTranslator,
 };
