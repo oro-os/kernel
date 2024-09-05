@@ -7,7 +7,7 @@ use crate::{
 	asm::cr3,
 	mem::{paging::PageTableEntry, segment::AddressSegment},
 };
-use oro_common_mem::{
+use oro_mem::{
 	mapper::AddressSpace, pfa::alloc::PageFrameAllocate, translate::PhysicalAddressTranslator,
 };
 

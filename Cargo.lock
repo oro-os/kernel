@@ -162,8 +162,8 @@ name = "oro-acpi"
 version = "0.0.0"
 dependencies = [
  "oro-acpica-sys",
- "oro-common-macro",
- "oro-common-mem",
+ "oro-macro",
+ "oro-mem",
 ]
 
 [[package]]
@@ -182,12 +182,12 @@ name = "oro-arch-aarch64"
 version = "0.0.0"
 dependencies = [
  "oro-boot-protocol",
- "oro-common-elf",
- "oro-common-macro",
- "oro-common-mem",
- "oro-common-sync",
  "oro-debug",
+ "oro-elf",
  "oro-kernel",
+ "oro-macro",
+ "oro-mem",
+ "oro-sync",
 ]
 
 [[package]]
@@ -196,12 +196,12 @@ version = "0.0.0"
 dependencies = [
  "oro-acpi",
  "oro-boot-protocol",
- "oro-common-elf",
- "oro-common-macro",
- "oro-common-mem",
- "oro-common-sync",
  "oro-debug",
+ "oro-elf",
  "oro-kernel",
+ "oro-macro",
+ "oro-mem",
+ "oro-sync",
 ]
 
 [[package]]
@@ -211,10 +211,10 @@ dependencies = [
  "oro-arch-aarch64",
  "oro-arch-x86_64",
  "oro-boot-protocol",
- "oro-common-elf",
- "oro-common-macro",
- "oro-common-mem",
  "oro-debug",
+ "oro-elf",
+ "oro-macro",
+ "oro-mem",
 ]
 
 [[package]]
@@ -222,7 +222,7 @@ name = "oro-boot-protocol"
 version = "0.0.0"
 dependencies = [
  "convert_case",
- "oro-common-macro",
+ "oro-macro",
  "syn",
 ]
 
@@ -237,21 +237,54 @@ dependencies = [
 ]
 
 [[package]]
-name = "oro-common-elf"
+name = "oro-debug"
 version = "0.0.0"
 dependencies = [
- "oro-common-macro",
+ "oro-debug-pl011",
+ "oro-debug-uart16550",
+ "oro-macro",
 ]
 
 [[package]]
-name = "oro-common-macro"
+name = "oro-debug-pl011"
 version = "0.0.0"
 dependencies = [
- "oro-common-macro-proc",
+ "oro-sync",
+ "volatile-register",
 ]
 
 [[package]]
-name = "oro-common-macro-proc"
+name = "oro-debug-uart16550"
+version = "0.0.0"
+dependencies = [
+ "oro-sync",
+ "uart_16550",
+]
+
+[[package]]
+name = "oro-elf"
+version = "0.0.0"
+dependencies = [
+ "oro-macro",
+]
+
+[[package]]
+name = "oro-kernel"
+version = "0.0.0"
+dependencies = [
+ "oro-macro",
+ "oro-mem",
+]
+
+[[package]]
+name = "oro-macro"
+version = "0.0.0"
+dependencies = [
+ "oro-macro-proc",
+]
+
+[[package]]
+name = "oro-macro-proc"
 version = "0.0.0"
 dependencies = [
  "convert_case",
@@ -261,51 +294,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "oro-common-mem"
+name = "oro-mem"
 version = "0.0.0"
 dependencies = [
- "oro-common-elf",
- "oro-common-macro",
- "oro-common-sync",
  "oro-debug",
+ "oro-elf",
+ "oro-macro",
+ "oro-sync",
 ]
 
 [[package]]
-name = "oro-common-sync"
+name = "oro-sync"
 version = "0.0.0"
-
-[[package]]
-name = "oro-debug"
-version = "0.0.0"
-dependencies = [
- "oro-common-macro",
- "oro-debug-pl011",
- "oro-debug-uart16550",
-]
-
-[[package]]
-name = "oro-debug-pl011"
-version = "0.0.0"
-dependencies = [
- "oro-common-sync",
- "volatile-register",
-]
-
-[[package]]
-name = "oro-debug-uart16550"
-version = "0.0.0"
-dependencies = [
- "oro-common-sync",
- "uart_16550",
-]
-
-[[package]]
-name = "oro-kernel"
-version = "0.0.0"
-dependencies = [
- "oro-common-macro",
- "oro-common-mem",
-]
 
 [[package]]
 name = "prettyplease"

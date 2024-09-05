@@ -1,5 +1,5 @@
 [package]
-name = "oro-common-sync"
+name = "oro-sync"
 version.workspace = true
 description = "Common synchronization primitives used throughout the kernel"
 publish = false

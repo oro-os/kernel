@@ -2,8 +2,8 @@
 
 use crate::sys;
 use core::mem::ManuallyDrop;
-use oro_common_macro::paste;
-use oro_common_mem::translate::PhysicalAddressTranslator;
+use oro_macro::paste;
+use oro_mem::translate::PhysicalAddressTranslator;
 
 /// Indicates that the 8259 PIC is present in the MADT.
 const PCAT_COMPAT: u32 = 1;

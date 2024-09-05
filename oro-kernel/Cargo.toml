@@ -12,8 +12,8 @@ repository = "https://github.com/oro-os/kernel"
 license = "MPL-2.0"
 
 [dependencies]
-oro-common-mem.workspace = true
-oro-common-macro.workspace = true
+oro-mem.workspace = true
+oro-macro.workspace = true
 
 [lints]
 workspace = true

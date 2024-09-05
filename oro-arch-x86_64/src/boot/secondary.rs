@@ -10,13 +10,13 @@ use crate::{
 use core::{mem::MaybeUninit, sync::atomic::AtomicU64};
 use oro_acpi::{Madt, Rsdp};
 use oro_boot_protocol::acpi::AcpiKind;
-use oro_common_macro::{asm_buffer, assert};
-use oro_common_mem::{
+use oro_debug::{dbg, dbg_err};
+use oro_macro::{asm_buffer, assert};
+use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
 	translate::{OffsetPhysicalAddressTranslator, PhysicalAddressTranslator},
 };
-use oro_debug::{dbg, dbg_err};
 
 /// The LA57 bit in the CR4 register.
 // TODO(qix-): Pull this out into a register abstraction.

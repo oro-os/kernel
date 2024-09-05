@@ -4,7 +4,7 @@
 #[macro_export]
 macro_rules! field {
 	($base_ty:ty, $name:ident, $start_bit:literal, $end_bit:literal, $T:ty, $doc:literal) => {
-		::oro_common_macro::paste! {
+		::oro_macro::paste! {
 			#[doc = concat!("Gets the `", stringify!($name), "` field.\n\n", $doc)]
 			#[allow(dead_code, clippy::identity_op)]
 			pub fn $name(self) -> $T {
@@ -23,7 +23,7 @@ macro_rules! field {
 	};
 
 	($base_ty:ty, $name:ident, $bit:literal, $T:ty, $doc:literal) => {
-		::oro_common_macro::paste! {
+		::oro_macro::paste! {
 			#[doc = concat!("Gets the `", stringify!($name), "` field.\n\n", $doc)]
 			#[allow(dead_code, clippy::identity_op)]
 			pub fn $name(self) -> $T {
