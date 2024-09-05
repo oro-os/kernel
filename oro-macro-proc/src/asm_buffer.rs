@@ -10,12 +10,9 @@ pub fn asm_buffer(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 	let target_args = args
 		.as_slice()
-		.chunks(2)
-		.filter(|chunk| {
-			chunk.len() == 2
-				&& chunk.first().map_or(false, |t| {
-					t == "--target" || t == "--extern" || t == "-L" || t == "--check-cfg"
-				})
+		.iter()
+		.filter_pairs(|&[&first, _]| {
+			first == "--target" || first == "--extern" || first == "-L" || first == "--check-cfg"
 		})
 		.flatten()
 		.collect::<Vec<_>>();
@@ -155,4 +152,70 @@ pub fn asm_buffer(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
 		]
 	}
 	.into()
+}
+
+/// Implements the `filter_pairs()` method for an iterator.
+trait IteratorFilterPairs: Sized + Iterator
+where
+	<Self as Iterator>::Item: Clone + Sized,
+{
+	/// Filters the iterator by a sliding window of two elements.
+	fn filter_pairs<F>(self, predicate: F) -> FilterPairs<Self, F>
+	where
+		F: FnMut(&[&<Self as Iterator>::Item; 2]) -> bool;
+}
+
+impl<I> IteratorFilterPairs for I
+where
+	I: Iterator,
+	I::Item: Clone + Sized,
+{
+	fn filter_pairs<F>(mut self, predicate: F) -> FilterPairs<Self, F>
+	where
+		F: FnMut(&[&I::Item; 2]) -> bool,
+	{
+		let next = self.next();
+		FilterPairs {
+			iter: self,
+			predicate,
+			buffer: [None, next],
+		}
+	}
+}
+
+/// An iterator that filters by a sliding window of two elements.
+#[allow(clippy::missing_docs_in_private_items)]
+struct FilterPairs<I, F>
+where
+	I: Iterator,
+	F: FnMut(&[&I::Item; 2]) -> bool,
+{
+	iter:      I,
+	predicate: F,
+	buffer:    [Option<I::Item>; 2],
+}
+
+impl<I, F> Iterator for FilterPairs<I, F>
+where
+	I: Iterator,
+	I::Item: Sized + Clone,
+	F: FnMut(&[&I::Item; 2]) -> bool,
+{
+	type Item = [I::Item; 2];
+
+	fn next(&mut self) -> Option<Self::Item> {
+		self.buffer.swap(0, 1);
+		self.buffer[1] = self.iter.next();
+
+		while let [Some(a), Some(b)] = &self.buffer {
+			if (self.predicate)(&[a, b]) {
+				return Some([a.clone(), b.clone()]);
+			}
+
+			self.buffer.swap(0, 1);
+			self.buffer[1] = self.iter.next();
+		}
+
+		None
+	}
 }
