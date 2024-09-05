@@ -6,7 +6,7 @@ use crate::{
 		address_space::AddressSpaceLayout,
 		paging::{
 			L0PageTableDescriptor, L1PageTableDescriptor, L2PageTableBlockDescriptor,
-			L2PageTableDescriptor, L3PageTableBlockDescriptor, PageTableEntry,
+			L2PageTableDescriptor, L3PageTableBlockDescriptor, PageTable, PageTableEntry,
 			PageTableEntryBlockAccessPerm, PageTableEntryTableAccessPerm,
 		},
 	},
@@ -15,7 +15,10 @@ use core::arch::asm;
 use oro_boot_protocol::{memory_map::MemoryMapKind, MemoryMapEntry, MemoryMapEntryType};
 use oro_debug::{dbg, dbg_warn};
 use oro_macro::assert;
-use oro_mem::{pfa::filo::FiloPageFrameAllocator, translate::OffsetTranslator};
+use oro_mem::{
+	pfa::{alloc::PageFrameFree, filo::FiloPageFrameAllocator},
+	translate::{OffsetTranslator, Translator},
+};
 
 /// Prepared memory items configured after preparing the memory
 /// space for the kernel at boot time.
@@ -74,10 +77,59 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	let linear_offset = linear_map_regions(&otf, &mut pfa_iter, mmap_iter)
 		.expect("ran out of memory while linear mapping regions");
 
-	dbg!("{linear_offset}");
+	// Now make a new PFA with the linear map offset.
+	let pat = OffsetTranslator::new(
+		usize::try_from(linear_offset).expect("linear offset doesn't fit into a usize"),
+	);
+	let mut pfa = FiloPageFrameAllocator::new(pat.clone());
 
-	// TODO
-	core::mem::zeroed()
+	// Consume the MMAP PFA and free all memory that isn't used by the
+	// linear map intermediate page table entries.
+	let (pfa_last_region, pfa_iter) = pfa_iter.into_inner();
+	let pfa_iter = [pfa_last_region].into_iter().chain(pfa_iter);
+
+	for region in pfa_iter {
+		if region.ty != MemoryMapEntryType::Usable {
+			continue;
+		}
+
+		let base = region.base + region.used;
+
+		// NOTE(qix-): Technically the saturating sub isn't necessary here
+		// NOTE(qix-): assuming the bootloader has done its job correctly.
+		// NOTE(qix-): However it's good to keep the spaceship flying.
+		let length = region.length.saturating_sub(region.used);
+		let aligned_base = (base + 4095) & !4095;
+		let length = length.saturating_sub(aligned_base - base);
+
+		debug_assert_eq!(aligned_base % 4096, 0);
+		debug_assert_eq!(length % 4096, 0);
+
+		#[cfg(debug_assertions)]
+		{
+			oro_debug::__oro_dbgutil_pfa_will_mass_free(1);
+			oro_debug::__oro_dbgutil_pfa_mass_free(aligned_base, aligned_base + length);
+		}
+
+		for page in (aligned_base..(aligned_base + length)).step_by(4096) {
+			pfa.free(page);
+		}
+
+		#[cfg(debug_assertions)]
+		oro_debug::__oro_dbgutil_pfa_finished_mass_free();
+	}
+
+	// Now unmap the recursive entry.
+	let page_table = pat.translate_mut::<PageTable>(crate::asm::load_ttbr1());
+	(*page_table)[RIDX].reset();
+	(*page_table)[RIDX + 1].reset();
+	(*page_table)[RIDX + 2].reset();
+	(*page_table)[RIDX + 3].reset();
+
+	// Flush everything and finish.
+	crate::asm::invalid_tlb_el1_all();
+
+	PreparedMemory { pat, pfa }
 }
 
 /// Maps all regions to a linear map in the current virtual address space.
@@ -127,7 +179,7 @@ unsafe fn linear_map_regions<'a>(
 		length += alignment_offset;
 		length = (length + ((1 << 21) - 1)) & !((1 << 21) - 1);
 
-		let base_virt = base_phys + linear_map_base;
+		let base_virt = base_phys + mmap_offset;
 
 		debug_assert_eq!(
 			base_virt % (1 << 21),

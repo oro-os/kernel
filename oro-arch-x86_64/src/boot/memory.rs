@@ -155,6 +155,10 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	let pfa_iter = [pfa_last_region].into_iter().chain(pfa_iter);
 
 	for region in pfa_iter {
+		if region.ty != MemoryMapEntryType::Usable {
+			continue;
+		}
+
 		let base = region.base + region.used;
 
 		// NOTE(qix-): Technically the saturating sub isn't necessary here
@@ -279,7 +283,7 @@ unsafe fn linear_map_regions<'a>(
 		length += alignment_offset;
 		length = (length + ((1 << 21) - 1)) & !((1 << 21) - 1);
 
-		let mut base_virt = base_phys + linear_map_base;
+		let mut base_virt = base_phys + mmap_offset;
 
 		debug_assert_eq!(
 			base_virt % (1 << 21),
