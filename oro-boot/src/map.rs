@@ -1,11 +1,8 @@
 //! Known-good method of mapping the kernel module
 //! into a supervisor address space.
 
-use crate::target::{AddressSpace as TargetAddressSpace, TargetArch as Target};
-use oro_common::{
-	arch::Arch,
-	mem::mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
-};
+use crate::target::{AddressSpace as TargetAddressSpace, ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
+use oro_common::mem::mapper::{AddressSegment, AddressSpace, MapError, UnmapError};
 use oro_common_elf::{Elf, ElfSegment, ElfSegmentType};
 use oro_debug::dbg;
 
@@ -28,9 +25,9 @@ pub fn map_kernel_to_supervisor_space<
 		Elf::parse(
 			pat.to_virtual_addr(kernel_module.base),
 			kernel_module.length,
-			Target::ELF_ENDIANNESS,
-			Target::ELF_CLASS,
-			Target::ELF_MACHINE,
+			ELF_ENDIANNESS,
+			ELF_CLASS,
+			ELF_MACHINE,
 		)
 		.map_err(crate::Error::ElfError)?
 	};

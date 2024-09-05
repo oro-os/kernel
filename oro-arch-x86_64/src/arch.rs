@@ -3,28 +3,25 @@
 #![allow(clippy::inline_always)]
 
 use core::arch::asm;
-use oro_common::arch::Arch;
-use oro_common_elf::{ElfClass, ElfEndianness, ElfMachine};
 
 /// x86_64 architecture support implementation for the Oro kernel.
 pub struct X86_64;
 
-unsafe impl Arch for X86_64 {
-	type AddressSpace = crate::mem::address_space::AddressSpaceLayout;
-	type InterruptState = usize;
+impl X86_64 {
+	pub fn halt() -> ! {
+		loop {
+			Self::halt_once_and_wait();
+		}
+	}
 
-	const ELF_CLASS: ElfClass = ElfClass::Class64;
-	const ELF_ENDIANNESS: ElfEndianness = ElfEndianness::Little;
-	const ELF_MACHINE: ElfMachine = ElfMachine::X86_64;
-
-	fn halt_once_and_wait() {
+	pub fn halt_once_and_wait() {
 		unsafe {
 			asm!("cli", "hlt");
 		}
 	}
 
 	#[inline(always)]
-	fn strong_memory_barrier() {
+	pub fn strong_memory_barrier() {
 		unsafe {
 			core::arch::asm!("mfence", options(nostack, preserves_flags),);
 		}
@@ -32,7 +29,7 @@ unsafe impl Arch for X86_64 {
 }
 
 impl oro_common_sync::spinlock::unfair_critical::InterruptController for X86_64 {
-	type InterruptState = <Self as Arch>::InterruptState;
+	type InterruptState = usize;
 
 	fn disable_interrupts() {
 		crate::asm::disable_interrupts();

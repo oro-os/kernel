@@ -12,6 +12,7 @@ use oro_arch_aarch64::{
 		},
 	},
 };
+pub use oro_arch_aarch64::{ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
 use oro_common::mem::{
 	mapper::{AddressSegment, MapError},
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},

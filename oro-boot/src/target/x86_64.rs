@@ -8,6 +8,7 @@ use oro_arch_x86_64::mem::{
 	paging_level::PagingLevel,
 	segment::{AddressSegment, MapperHandle},
 };
+pub use oro_arch_x86_64::{ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
 use oro_common::mem::{
 	mapper::{AddressSegment as _, AddressSpace as _, MapError, UnmapError},
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},

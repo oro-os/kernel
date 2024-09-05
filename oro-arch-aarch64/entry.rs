@@ -8,7 +8,7 @@
 #[panic_handler]
 unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 	oro_debug::dbg_err!("panic: {info:?}");
-	<oro_arch_aarch64::Aarch64 as oro_common::arch::Arch>::halt();
+	oro_arch_aarch64::Aarch64::halt();
 }
 
 /// Main entry point for the Oro kernel. Bootloaders jump
