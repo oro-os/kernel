@@ -16,10 +16,14 @@ mod protocol;
 pub unsafe fn boot_primary() -> ! {
 	crate::asm::disable_interrupts();
 
-	let memory::PreparedMemory {
-		pfa: _pfa,
-		pat: _pat,
-	} = memory::prepare_memory();
+	let memory::PreparedMemory { pfa: _pfa, pat } = memory::prepare_memory();
+
+	// We now have a valid physical map; let's re-init
+	// any MMIO loggers with that offset.
+	#[cfg(debug_assertions)]
+	oro_debug::init_with_offset(pat.offset());
+
+	oro_debug::dbg!("is this thing on?");
 
 	crate::asm::halt();
 }
