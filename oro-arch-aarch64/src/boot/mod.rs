@@ -7,7 +7,7 @@
 mod memory;
 mod protocol;
 
-use oro_boot_protocol::device_tree::DeviceTreeKind;
+use oro_boot_protocol::device_tree::{DeviceTreeDataV0, DeviceTreeKind};
 use oro_debug::dbg;
 use oro_mem::translate::Translator;
 
@@ -39,13 +39,14 @@ pub unsafe fn boot_primary() -> ! {
 		panic!("DeviceTree blob response was provided but was the wrong revision");
 	};
 
-	dbg!(
-		"got DeviceTree blob of {} bytes",
-		dtb.assume_init_ref().length
-	);
+	let DeviceTreeDataV0 { base, length } = dtb.assume_init_ref();
 
-	let dtb = &*pat.translate::<oro_dtb::FdtHeader>(dtb.assume_init_ref().base);
-	dbg!("DTB header: {dtb:#?}");
+	dbg!("got DeviceTree blob of {} bytes", length);
+
+	let dtb = &*pat.translate::<oro_dtb::FdtHeader>(*base);
+	dtb.validate(Some(*length))
+		.expect("DeviceTree blob is invalid");
+	dbg!("DeviceTree blob is valid");
 
 	crate::asm::halt();
 }
