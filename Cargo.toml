@@ -24,6 +24,7 @@ members = [
 	"oro-debug",
 	"oro-debug-pl011",
 	"oro-debug-uart16550",
+	"oro-type",
 ]
 
 [workspace.dependencies]
@@ -42,6 +43,7 @@ oro-kernel = { path = "oro-kernel" }
 oro-debug = { path = "oro-debug" }
 oro-debug-pl011 = { path = "oro-debug-pl011" }
 oro-debug-uart16550 = { path = "oro-debug-uart16550" }
+oro-type = { path = "oro-type" }
 
 limine = "0.2.0"
 uart_16550 = "0.3.0"
