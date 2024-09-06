@@ -169,7 +169,6 @@ dependencies = [
 [[package]]
 name = "oro-acpica-sys"
 version = "20240322.0.2"
-source = "git+https://github.com/oro-os/oro-acpica-sys.git?tag=20240322#076400b01c3d80fb6a62276a166d021121dd9c3a"
 dependencies = [
  "bindgen",
  "convert_case",

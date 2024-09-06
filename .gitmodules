@@ -1,0 +1,3 @@
+[submodule "oro-acpica-sys/src-acpica"]
+	path = oro-acpica-sys/src-acpica
+	url = https://github.com/oro-os/dep.acpica.git
