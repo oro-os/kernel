@@ -1,0 +1,18 @@
+[package]
+name = "oro-acpica-sys"
+description = "Oro-specific low level Rust bindings for the ACPICA library"
+version = "20240322.0.2"
+edition = "2021"
+license-file = "LICENSE"
+publish = false
+
+build = "build.rs"
+
+[build-dependencies]
+bindgen.workspace = true
+quote.workspace = true
+convert_case.workspace = true
+syn.workspace = true
+
+# NOTE(qix-): This crate is not subject to the typical linting rules
+# NOTE(qix-): of the workspace as there's no feasible way to make it work.

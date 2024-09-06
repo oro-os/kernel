@@ -9,6 +9,7 @@ version = "0.0.0"
 resolver = "2"
 members = [
 	"oro-acpi",
+	"oro-acpica-sys",
 	"oro-arch-aarch64",
 	"oro-arch-x86_64",
 	"oro-boot",
@@ -27,6 +28,7 @@ members = [
 
 [workspace.dependencies]
 oro-acpi = { path = "oro-acpi" }
+oro-acpica-sys = { path = "oro-acpica-sys" }
 oro-arch-aarch64 = { path = "oro-arch-aarch64" }
 oro-arch-x86_64 = { path = "oro-arch-x86_64" }
 oro-boot = { path = "oro-boot" }
@@ -41,13 +43,12 @@ oro-debug = { path = "oro-debug" }
 oro-debug-pl011 = { path = "oro-debug-pl011" }
 oro-debug-uart16550 = { path = "oro-debug-uart16550" }
 
-oro-acpica-sys = { git = "https://github.com/oro-os/oro-acpica-sys.git", tag = "20240322" }
-
 limine = "0.2.0"
 uart_16550 = "0.3.0"
 volatile-register = "0.2.2"
 
-syn = { version = "2.0.60", features = ["full"] }
+bindgen = { git = "https://github.com/oro-os/dep.rust-bindgen.git" }
+syn = { version = "2.0.60", features = ["full", "printing"] }
 quote = "1.0.36"
 proc-macro2 = { version = "1.0.81", features = ["proc-macro"] }
 convert_case = "0.6.0"
