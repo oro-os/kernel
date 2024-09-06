@@ -207,7 +207,8 @@ pub unsafe fn init() -> ! {
 				{
 					bs.send(oro_boot_protocol::device_tree::DeviceTreeDataV0 {
 						base:   u64::try_from(dtb_module.addr() as usize).unwrap() - hhdm_offset,
-						length: dtb_module.size(),
+						length: u32::try_from(dtb_module.size())
+							.expect("DeviceTree blob too large"),
 					})
 				} else {
 					bs

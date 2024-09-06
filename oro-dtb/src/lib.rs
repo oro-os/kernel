@@ -54,3 +54,61 @@ pub struct FdtHeader {
 	/// This field shall contain the length in bytes of the structure block section of the devicetree blob.
 	size_dt_struct: Be<u32>,
 }
+
+impl FdtHeader {
+	/// Validates the header.
+	///
+	/// If `len` is provided, the header is validated against the given length.
+	pub fn validate(&self, len: Option<u32>) -> Result<(), ValidationError> {
+		if self.magic.read() != 0xD00D_FEED {
+			return Err(ValidationError::BadMagic);
+		}
+
+		if let Some(len) = len {
+			if self.totalsize.read() != len {
+				return Err(ValidationError::LengthMismatch {
+					expected: len,
+					reported: self.totalsize.read(),
+				});
+			}
+		}
+
+		if self.version.read() != 17 && self.last_comp_version.read() > 17 {
+			return Err(ValidationError::VersionMismatch {
+				expected:   17,
+				reported:   self.version.read(),
+				compatible: self.last_comp_version.read(),
+			});
+		}
+
+		Ok(())
+	}
+}
+
+/// An error that occurs when validating a DeviceTree structure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValidationError {
+	/// Magic number mismatch (expectes `0xd00dfeed`).
+	BadMagic,
+	/// Length mismatch
+	LengthMismatch {
+		/// Expected length
+		expected: u32,
+		/// Reported length (by the DeviceTree header)
+		reported: u32,
+	},
+	/// Version mismatch
+	///
+	/// **Note:** The least compatible version is checked, not
+	/// just the actual version number. If this implementation
+	/// is _compatible_ with the version of DTB that was provided,
+	/// validation will still pass.
+	VersionMismatch {
+		/// Expected version
+		expected:   u32,
+		/// Reported version
+		reported:   u32,
+		/// Lowest compatible version
+		compatible: u32,
+	},
+}

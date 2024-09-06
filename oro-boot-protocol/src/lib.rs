@@ -158,7 +158,7 @@ macros::oro_boot_protocol! {
 			/// The physical address of the DeviceTree blob.
 			pub base: u64,
 			/// The length of the DeviceTree blob.
-			pub length: u64,
+			pub length: u32,
 		}
 	}
 
