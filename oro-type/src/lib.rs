@@ -25,7 +25,7 @@ where
 	E: Endianness,
 {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		core::fmt::Debug::fmt(&self.clone().read(), f)
+		core::fmt::Debug::fmt(&(*self).read(), f)
 	}
 }
 
@@ -35,7 +35,7 @@ where
 	E: Endianness,
 {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		core::fmt::Display::fmt(&self.clone().read(), f)
+		core::fmt::Display::fmt(&(*self).read(), f)
 	}
 }
 
