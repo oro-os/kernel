@@ -30,6 +30,11 @@ const KERNEL_STACK_PAGES: usize = 16;
 /// as a module (but it can be).
 const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel");
 
+/// The path to where the DeviceTree blob is expected,
+/// if provided. The bootloader does **not** expect it to be
+/// listed as a module (but it can be).
+const DTB_PATH: &CStr = limine::cstr!("/oro-device-tree.dtb");
+
 /// Provides Limine with a base revision of the protocol
 /// that this "kernel" (in Limine terms) expects.
 #[used]
@@ -42,6 +47,7 @@ static REQ_MODULES: ModuleRequest = ModuleRequest::with_revision(1).with_interna
 	&InternalModule::new()
 		.with_path(KERNEL_PATH)
 		.with_flags(ModuleFlags::REQUIRED),
+	&InternalModule::new().with_path(DTB_PATH),
 ]);
 
 /// Requests that Limine performs a Higher Half Direct Map (HHDM)
@@ -116,77 +122,102 @@ pub unsafe fn init() -> ! {
 	let hhdm_offset = hhdm_response.offset();
 
 	(|| {
-		Err(oro_boot::OroBootstrapper::bootstrap(
-			hhdm_offset,
-			KERNEL_STACK_PAGES,
-			{
-				use oro_boot_protocol::{MemoryMapEntry, MemoryMapEntryType};
+		Err({
+			let bs = oro_boot::OroBootstrapper::bootstrap(
+				hhdm_offset,
+				KERNEL_STACK_PAGES,
+				{
+					use oro_boot_protocol::{MemoryMapEntry, MemoryMapEntryType};
 
-				let mmap_response = get_response!(REQ_MMAP, "memory mapping");
+					let mmap_response = get_response!(REQ_MMAP, "memory mapping");
 
-				mmap_response.entries().iter().map(|region| {
-					MemoryMapEntry {
-						next:   0,
-						base:   region.base,
-						length: region.length,
-						ty:     match region.entry_type {
-							EntryType::USABLE | EntryType::BOOTLOADER_RECLAIMABLE => {
-								MemoryMapEntryType::Usable
-							}
-							EntryType::KERNEL_AND_MODULES => MemoryMapEntryType::Modules,
-							EntryType::BAD_MEMORY => MemoryMapEntryType::Bad,
-							_ => MemoryMapEntryType::Unknown,
-						},
-						used:   {
-							let used = if region.entry_type == EntryType::BOOTLOADER_RECLAIMABLE {
-								region.length
-							} else {
-								0
-							};
+					mmap_response.entries().iter().map(|region| {
+						MemoryMapEntry {
+							next:   0,
+							base:   region.base,
+							length: region.length,
+							ty:     match region.entry_type {
+								EntryType::USABLE | EntryType::BOOTLOADER_RECLAIMABLE => {
+									MemoryMapEntryType::Usable
+								}
+								EntryType::KERNEL_AND_MODULES => MemoryMapEntryType::Modules,
+								EntryType::BAD_MEMORY => MemoryMapEntryType::Bad,
+								_ => MemoryMapEntryType::Unknown,
+							},
+							used:   {
+								let used = if region.entry_type == EntryType::BOOTLOADER_RECLAIMABLE
+								{
+									region.length
+								} else {
+									0
+								};
 
-							// On x86/x86_64, the first 1MiB of memory is reserved and must not be used.
-							// We have to set this to at least however many bytes are in the first MiB.
-							#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-							let used = if region.base < MIB1 {
-								let end = region.base + region.length;
-								let end_mib = end.min(MIB1);
-								used.max(end_mib - region.base)
-							} else {
+								// On x86/x86_64, the first 1MiB of memory is reserved and must not be used.
+								// We have to set this to at least however many bytes are in the first MiB.
+								#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+								let used = if region.base < MIB1 {
+									let end = region.base + region.length;
+									let end_mib = end.min(MIB1);
+									used.max(end_mib - region.base)
+								} else {
+									used
+								};
+
 								used
-							};
+							},
+						}
+					})
+				},
+				{
+					use oro_boot_protocol::Module;
 
-							used
-						},
+					let module_response = get_response!(REQ_MODULES, "module listing");
+					let kernel_module = module_response
+						.modules()
+						.iter()
+						.find(|module| module.path() == KERNEL_PATH.to_bytes());
+
+					let Some(kernel_module) = kernel_module else {
+						panic!("failed to find kernel module: {KERNEL_PATH:?}");
+					};
+
+					Module {
+						// Expects a physical address but the Limine system gives us
+						// a virtual address. We have to un-translate it.
+						base:   u64::try_from(kernel_module.addr() as usize).unwrap() - hhdm_offset,
+						length: kernel_module.size(),
+						next:   0,
 					}
-				})
-			},
-			{
-				use oro_boot_protocol::Module;
+				},
+			)?;
 
-				let module_response = get_response!(REQ_MODULES, "module listing");
-				let kernel_module = module_response
+			let bs = if let Some(rsdp) = REQ_RSDP.get_response() {
+				bs.send(oro_boot_protocol::acpi::AcpiDataV0 {
+					rsdp: rsdp.address() as u64 - hhdm_offset,
+				})
+			} else {
+				bs
+			};
+
+			let bs = if let Some(modules) = REQ_MODULES.get_response() {
+				if let Some(dtb_module) = modules
 					.modules()
 					.iter()
-					.find(|module| module.path() == KERNEL_PATH.to_bytes());
-
-				let Some(kernel_module) = kernel_module else {
-					panic!("failed to find kernel module: {KERNEL_PATH:?}");
-				};
-
-				Module {
-					// Expects a physical address but the Limine system gives us
-					// a virtual address. We have to un-translate it.
-					base:   u64::try_from(kernel_module.addr() as usize).unwrap() - hhdm_offset,
-					length: kernel_module.size(),
-					next:   0,
+					.find(|module| module.path() == DTB_PATH.to_bytes())
+				{
+					bs.send(oro_boot_protocol::device_tree::DeviceTreeDataV0 {
+						base:   u64::try_from(dtb_module.addr() as usize).unwrap() - hhdm_offset,
+						length: dtb_module.size(),
+					})
+				} else {
+					bs
 				}
-			},
-		)?
-		.send(oro_boot_protocol::acpi::AcpiDataV0 {
-			rsdp: get_response!(REQ_RSDP, "rsdp pointer").address() as u64 - hhdm_offset,
+			} else {
+				bs
+			};
+
+			bs.boot_to_kernel().unwrap_err()
 		})
-		.boot_to_kernel()
-		.unwrap_err())
 	})()
 	.unwrap()
 }

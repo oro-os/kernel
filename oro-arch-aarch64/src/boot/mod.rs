@@ -7,15 +7,22 @@
 mod memory;
 mod protocol;
 
+use oro_boot_protocol::device_tree::DeviceTreeKind;
+use oro_debug::dbg;
+
 /// Boots the primary core on AArch64.
 ///
 /// # Safety
 /// Meant only to be called by the entry point.
 /// Do not call this directly. It does not reset
 /// the kernel or anything else magic like that.
+///
+/// # Panics
+/// Panics if the DeviceTree blob is not provided.
 pub unsafe fn boot_primary() -> ! {
 	crate::asm::disable_interrupts();
 
+	#[allow(unused_variables)] // XXX(qix-): Temporary for CI
 	let memory::PreparedMemory { pfa: _pfa, pat } = memory::prepare_memory();
 
 	// We now have a valid physical map; let's re-init
@@ -23,7 +30,18 @@ pub unsafe fn boot_primary() -> ! {
 	#[cfg(debug_assertions)]
 	oro_debug::init_with_offset(pat.offset());
 
-	oro_debug::dbg!("is this thing on?");
+	// Get the devicetree blob.
+	let DeviceTreeKind::V0(dtb) = protocol::DTB_REQUEST
+		.response()
+		.expect("no DeviceTree blob response was provided")
+	else {
+		panic!("DeviceTree blob response was provided but was the wrong revision");
+	};
+
+	dbg!(
+		"got DeviceTree blob of {} bytes",
+		dtb.assume_init_ref().length
+	);
 
 	crate::asm::halt();
 }

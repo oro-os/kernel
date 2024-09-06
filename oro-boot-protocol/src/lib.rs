@@ -145,6 +145,23 @@ macros::oro_boot_protocol! {
 		}
 	}
 
+	/// Kernel request for the DeviceTree blob, if available.
+	///
+	/// If no DeviceTree blob is provided on architectures that
+	/// support it, some kernels may opt to use the ACPI configuration
+	/// instead (via the [`AcpiRequest`]).
+	///
+	/// Otherwise, if no DeviceTree blob is provided and no ACPI
+	/// configuration is provided, the kernel may panic.
+	b"ORO_DTRB" => DeviceTree {
+		0 => {
+			/// The physical address of the DeviceTree blob.
+			pub base: u64,
+			/// The length of the DeviceTree blob.
+			pub length: u64,
+		}
+	}
+
 	/// Kernel request for a list of modules to load and
 	/// place onto the root ring.
 	b"ORO_MODS" => Modules {
