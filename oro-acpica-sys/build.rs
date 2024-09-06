@@ -30,6 +30,8 @@ fn main() {
 		.use_core()
 		.disable_nested_struct_naming()
 		.rust_target(::bindgen::RustTarget::Nightly)
+		.size_t_is_usize(true)
+		.translate_enum_integer_types(true)
 		.detect_include_paths(true);
 
 	#[cfg(target_arch = "x86_64")]
@@ -49,28 +51,30 @@ fn main() {
 
 	let bindings = bindings.generate().expect("unable to generate bindings");
 
-	bindings
-		.write_to_file(dest_path)
-		.expect("unable to write bindings");
-
 	let macro_dest_path = std::path::Path::new(&out_dir).join("tablegen_macro.rs");
 
 	let mut buf = Vec::with_capacity(1024 * 1024 * 10);
 	bindings
 		.write(Box::from(&mut buf))
 		.expect("unable to write bindings to string");
+
 	let src = String::from_utf8(buf).expect("bindings are not utf-8");
 
-	let bindings = ::syn::parse_file(&src).expect("unable to parse bindings");
-	let macr = generate_tablegen_macro(bindings).expect("unable to generate tablegen macro");
+	let mut bindings = ::syn::parse_file(&src).expect("unable to parse bindings");
+
+	wrap_table_types(&mut bindings).expect("unable to wrap table types");
+	let macr = generate_tablegen_macro(&bindings).expect("unable to generate tablegen macro");
 	std::fs::write(
 		macro_dest_path,
 		macr.to_token_stream().to_string().as_bytes(),
 	)
 	.expect("unable to write tablegen macro");
+
+	std::fs::write(dest_path, bindings.to_token_stream().to_string().as_bytes())
+		.expect("unable to write wrapped type bindings");
 }
 
-fn generate_tablegen_macro(bindings: ::syn::File) -> ::syn::Result<impl ::quote::ToTokens> {
+fn generate_tablegen_macro(bindings: &::syn::File) -> ::syn::Result<impl ::quote::ToTokens> {
 	let mut strukts = std::collections::HashMap::new();
 
 	for item in &bindings.items {
@@ -170,4 +174,68 @@ fn generate_tablegen_macro(bindings: ::syn::File) -> ::syn::Result<impl ::quote:
 			};
 		}
 	})
+}
+
+fn wrap_table_types(bindings: &mut syn::File) -> syn::Result<()> {
+	for item in &mut bindings.items {
+		if let syn::Item::Struct(strukt) = item {
+			// Skip any structures that aren't ACPI tables / the header.
+			//
+			// NOTE(qix-): I'm tentatively disabling this check because it's
+			// NOTE(qix-): becoming apparent that all structs need to be wrapped.
+			// NOTE(qix-): If this breaks something we'll have to get a bit
+			// NOTE(qix-): more clever about it.
+			//
+			// let struct_ident = strukt.ident.to_string();
+			// if !struct_ident.starts_with("acpi_table_") {
+			// 	continue;
+			// }
+
+			// For every field in the structure, if it's one of the primitive numeric
+			// types (including f32 and f64 but not `bool`) then wrap the `foo: T` (where
+			// `T` is the primitive type) with `Le<T>`.
+			for field in &mut strukt.fields {
+				match field.ty {
+					syn::Type::Path(ref mut path) => {
+						if path.path.segments.len() != 1 {
+							continue;
+						}
+
+						if path.qself.is_some() {
+							continue;
+						}
+
+						let first = path.path.segments.first().unwrap();
+						if !first.arguments.is_empty() {
+							continue;
+						}
+
+						let ident = first.ident.to_string();
+						if !matches!(
+							ident.as_str(),
+							"u8" | "u16"
+								| "u32" | "u64" | "u128" | "usize"
+								| "i8" | "i16" | "i32" | "i64"
+								| "i128" | "isize" | "UINT32"
+								| "UINT64" | "UINT8" | "UINT16"
+								| "UINT128" | "UINTPTR" | "INT32"
+								| "INT64" | "INT8" | "INT16"
+								| "INT128"
+						) {
+							continue;
+						}
+					}
+					_ => {
+						continue;
+					}
+				}
+
+				// It's a numeric primitive; wrap it in `Le<T>`.
+				let ty = &field.ty;
+				field.ty = syn::parse_quote!(::oro_type::Le<#ty>);
+			}
+		}
+	}
+
+	Ok(())
 }

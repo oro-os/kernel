@@ -79,18 +79,20 @@ pub unsafe fn boot_primary() -> ! {
 	let fadt = fadt.inner_ref();
 
 	// Enable ACPI if need be.
-	if (fadt.Flags & acpi_sys::ACPI_FADT_HW_REDUCED) == 0
-		&& !(fadt.SmiCommand == 0 && fadt.AcpiEnable == 0 && (fadt.Pm1aControlBlock & 1) != 0)
+	if (fadt.Flags.read() & acpi_sys::ACPI_FADT_HW_REDUCED) == 0
+		&& !(fadt.SmiCommand.read() == 0
+			&& fadt.AcpiEnable.read() == 0
+			&& (fadt.Pm1aControlBlock.read() & 1) != 0)
 	{
 		dbg!("enabling ACPI");
 		crate::asm::outb(
-			u16::try_from(fadt.SmiCommand)
+			u16::try_from(fadt.SmiCommand.read())
 				.expect("ACPI provided an SMI command port that was too large"),
-			fadt.AcpiEnable,
+			fadt.AcpiEnable.read(),
 		);
 
 		dbg!("enabled ACPI; waiting for it to take effect...");
-		let pma1 = u16::try_from(fadt.Pm1aControlBlock)
+		let pma1 = u16::try_from(fadt.Pm1aControlBlock.read())
 			.expect("ACPI provided a PM1A control block port that was too large");
 		while (crate::asm::inw(pma1) & 1) == 0 {
 			core::hint::spin_loop();

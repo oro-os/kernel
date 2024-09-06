@@ -34,7 +34,6 @@ impl<P: Translator> Rsdp<P> {
 	/// Caller must ensure that the physical address is valid and points
 	/// to a valid RSDP structure. This typically means making the assumption
 	/// the bootloader has done so, but we still must mark this as unsafe.
-	#[allow(clippy::missing_panics_doc)] // TODO(qix-): Remove once numbers commons lib is implemented
 	pub unsafe fn get(physical_address: u64, pat: P) -> Option<Self> {
 		#[doc(hidden)]
 		const LAYOUT: Layout = Layout::new::<sys::acpi_table_rsdp>();
@@ -60,11 +59,11 @@ impl<P: Translator> Rsdp<P> {
 			return None;
 		}
 
-		if ptr.Revision > 0 {
+		if ptr.Revision.read() > 0 {
 			// Perform an extended checksum
 			// SAFETY(qix-): The length field is only valid for revisions > 0.
 			let mut checksum: u8 = 0;
-			for i in 0..u32::from_le(ptr.Length).try_into().unwrap() {
+			for i in 0..(ptr.Length.read() as usize) {
 				checksum = checksum.wrapping_add(from_ref(ptr).cast::<u8>().add(i).read());
 			}
 			if checksum != 0 {
@@ -77,7 +76,7 @@ impl<P: Translator> Rsdp<P> {
 
 	/// Gets the revision.
 	pub fn revision(&self) -> u8 {
-		self.ptr.Revision
+		self.ptr.Revision.read()
 	}
 
 	/// Gets the (X)SDT.
@@ -87,12 +86,15 @@ impl<P: Translator> Rsdp<P> {
 		if self.revision() == 0 {
 			// SAFETY(qix-): We've made sure we're casting to the right type.
 			Some(RootSdt::Rsdt(unsafe {
-				Rsdt::new(u64::from(self.ptr.RsdtPhysicalAddress), self.pat.clone())?
+				Rsdt::new(
+					u64::from(self.ptr.RsdtPhysicalAddress.read()),
+					self.pat.clone(),
+				)?
 			}))
 		} else {
 			// SAFETY(qix-): We've made sure we're casting to the right type.
 			Some(RootSdt::Xsdt(unsafe {
-				Xsdt::new(self.ptr.XsdtPhysicalAddress, self.pat.clone())?
+				Xsdt::new(self.ptr.XsdtPhysicalAddress.read(), self.pat.clone())?
 			}))
 		}
 	}
@@ -192,7 +194,7 @@ pub trait AcpiTable<P: Translator>: Sized {
 		}
 
 		let mut checksum = 0_u8;
-		for i in 0..u32::from_le(header.Length) {
+		for i in 0..header.Length.read() {
 			assert::fits_within::<u32, usize>();
 			checksum = checksum.wrapping_add(from_ref(ptr).cast::<u8>().add(i as usize).read());
 		}
@@ -244,8 +246,8 @@ pub trait AcpiTable<P: Translator>: Sized {
 			// SAFETY(qix-): We perform a static assertion to make sure the convertion
 			// SAFETY(qix-): from u32 to usize won't truncate.
 			assert::fits_within::<u32, usize>();
-			let len = u32::from_le(header.Length) as usize
-				- core::mem::size_of::<sys::acpi_table_header>();
+			let len =
+				header.Length.read() as usize - core::mem::size_of::<sys::acpi_table_header>();
 			let data_base = core::ptr::from_ref(header).add(1).cast::<u8>();
 			return core::slice::from_raw_parts(data_base, len);
 		}
