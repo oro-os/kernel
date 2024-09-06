@@ -183,6 +183,7 @@ version = "0.0.0"
 dependencies = [
  "oro-boot-protocol",
  "oro-debug",
+ "oro-dtb",
  "oro-elf",
  "oro-kernel",
  "oro-macro",
@@ -259,6 +260,13 @@ version = "0.0.0"
 dependencies = [
  "oro-sync",
  "uart_16550",
+]
+
+[[package]]
+name = "oro-dtb"
+version = "0.0.0"
+dependencies = [
+ "oro-type",
 ]
 
 [[package]]

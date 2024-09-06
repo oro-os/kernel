@@ -4,5 +4,5 @@ doc-valid-idents = [
 	"ANDing", "ORing",
 	"snake_case", "TitleCase",
 	"CONST_CASE",
-	"DeviceTree",
+	"DeviceTree", "DTSpec",
 ]
