@@ -307,6 +307,10 @@ name = "oro-sync"
 version = "0.0.0"
 
 [[package]]
+name = "oro-type"
+version = "0.0.0"
+
+[[package]]
 name = "prettyplease"
 version = "0.2.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"

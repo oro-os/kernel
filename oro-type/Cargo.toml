@@ -1,0 +1,18 @@
+[package]
+name = "oro-type"
+version.workspace = true
+description = "Primitive wrapper types used throughout the kernel"
+publish = false
+edition = "2021"
+authors = [
+	"Josh Junon (https//github.com/qix-)"
+]
+homepage = "https://oro.sh"
+repository = "https://github.com/oro-os/kernel"
+license = "MPL-2.0"
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true
