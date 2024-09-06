@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Lint (rustfmt)
         run: cargo fmt --all -- --check
@@ -20,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Lint (clippy) [common]
         run: cargo oro-clippy -- -D warnings
@@ -31,6 +35,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Lint (rustdoc - x86_64)
         run: env RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D rustdoc::all" cargo oro-doc-x86_64
@@ -40,6 +46,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
       - uses: actions/setup-python@v2
         with:
           python-version: '3.x'
@@ -58,6 +66,8 @@ jobs:
         ]
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Build
         run: cargo kernel-x86_64 --profile ${{ matrix.profile }} ${{ matrix.flags }}
@@ -72,6 +82,8 @@ jobs:
         ]
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Build
         run: cargo limine-x86_64 --profile ${{ matrix.profile }} ${{ matrix.flags }}
@@ -86,6 +98,8 @@ jobs:
         ]
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Build
         run: cargo kernel-aarch64 --profile ${{ matrix.profile }} ${{ matrix.flags }}
@@ -100,6 +114,8 @@ jobs:
         ]
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Build
         run: cargo limine-aarch64 --profile ${{ matrix.profile }} ${{ matrix.flags }}
@@ -107,6 +123,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Test
         run: |
@@ -115,6 +133,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
       - uses: ./.github/actions/rust
       - run: rm -f ${CARGO_TARGET_DIR:-target}/oro-boot.h
       - name: Generate Boot Protocol C/C++ Header
