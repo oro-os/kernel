@@ -13,13 +13,13 @@ impl<P: Translator> crate::Madt<P> {
 	/// Returns whether or not the 8259 PIC is present in the MADT.
 	#[must_use]
 	pub fn has_8259(&self) -> bool {
-		self.ptr.Flags & PCAT_COMPAT != 0
+		self.ptr.Flags.read() & PCAT_COMPAT != 0
 	}
 
 	/// Returns the physical address of the local APIC.
 	#[must_use]
 	pub fn lapic_phys(&self) -> u64 {
-		u64::from(u32::from_le(self.ptr.Address))
+		u64::from(self.ptr.Address.read())
 	}
 
 	/// Returns an iterator over all of the MADT entries.
@@ -31,7 +31,7 @@ impl<P: Translator> crate::Madt<P> {
 			unsafe {
 				core::slice::from_raw_parts(
 					core::ptr::from_ref(self.ptr).cast::<u8>(),
-					self.ptr.Header.Length as usize,
+					self.ptr.Header.Length.read() as usize,
 				)
 			},
 		)
@@ -68,10 +68,10 @@ impl<'a> Iterator for MadtIterator<'a> {
 		}
 
 		let un = unsafe { &*(core::ptr::from_ref(&self.slice[self.pos]).cast::<MadtData>()) };
-		assert!(unsafe { un.header.Length as usize } <= self.slice.len() - self.pos);
+		assert!(unsafe { un.header.Length.read() as usize } <= self.slice.len() - self.pos);
 
 		let pos = self.pos;
-		self.pos += unsafe { un.header.Length as usize };
+		self.pos += unsafe { un.header.Length.read() as usize };
 
 		Some(match un.into() {
 			Some(entry) => Ok(entry),
@@ -106,7 +106,7 @@ macro_rules! madt_entries {
 
 			impl<'a> From<&'a MadtData> for Option<MadtEntry<'a>> {
 				fn from(data: &'a MadtData) -> Option<MadtEntry<'a>> {
-					Some(match unsafe { data.header.Type } {
+					Some(match unsafe { data.header.Type.read() } {
 						$(
 							$tyid => MadtEntry::%<title_case:$name>%(unsafe { &data.$name }),
 						)*
@@ -150,14 +150,14 @@ pub trait LocalApicEx {
 
 	/// Returns the local APIC ID.
 	fn id(&self) -> u8 {
-		u8::from_le(self.inner_ref().Id)
+		self.inner_ref().Id.read()
 	}
 
 	/// Returns whether or not this CPU can be initialized.
 	/// If this returns `false`, this entry should be ignored
 	/// and the boot routine should not attempt any initialization.
 	fn can_init(&self) -> bool {
-		self.inner_ref().LapicFlags & 3 != 0
+		self.inner_ref().LapicFlags.read() & 3 != 0
 	}
 }
 

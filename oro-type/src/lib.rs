@@ -30,6 +30,25 @@ impl<T: Numeric, E: Endianness> Endian<T, E> {
 	pub const fn with_unchanged(value: T) -> Self {
 		Self(value, PhantomData)
 	}
+
+	/// Reads the value.
+	///
+	/// The same as calling `.into()` but doesn't
+	/// require type annotations.
+	#[inline(always)]
+	#[must_use]
+	pub fn read(self) -> T {
+		E::from_endian(self.0)
+	}
+
+	/// Writes a new value.
+	///
+	/// The same as calling `.from()` but doesn't
+	/// require type annotations.
+	#[inline(always)]
+	pub fn write(&mut self, value: T) {
+		self.0 = E::to_endian(value);
+	}
 }
 
 /// Specifies the endianness when using [`Endian`].
@@ -42,6 +61,7 @@ pub trait Endianness {
 }
 
 /// Little-endian endianness.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct LittleEndian;
 
 impl Endianness for LittleEndian {
@@ -57,6 +77,7 @@ impl Endianness for LittleEndian {
 }
 
 /// Big-endian endianness.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct BigEndian;
 
 impl Endianness for BigEndian {

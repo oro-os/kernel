@@ -8,6 +8,9 @@ publish = false
 
 build = "build.rs"
 
+[dependencies]
+oro-type.workspace = true
+
 [build-dependencies]
 bindgen.workspace = true
 quote.workspace = true

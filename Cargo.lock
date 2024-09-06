@@ -172,6 +172,7 @@ version = "20240322.0.2"
 dependencies = [
  "bindgen",
  "convert_case",
+ "oro-type",
  "quote",
  "syn",
 ]
