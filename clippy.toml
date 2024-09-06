@@ -1,7 +1,8 @@
 doc-valid-idents = [
-	"..",
+	"..", # Include the built-in valid idents list
 	"x86_64", "AArch64", "ARMv8",
 	"ANDing", "ORing",
 	"snake_case", "TitleCase",
-	"CONST_CASE"
+	"CONST_CASE",
+	"DeviceTree",
 ]
