@@ -15,9 +15,29 @@ use core::marker::PhantomData;
 /// or buffers are casted to the struct type and where reads
 /// of numeric fields are guaranteed to be in a certain endianness
 /// regardless of host byte order.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 #[repr(transparent)]
 pub struct Endian<T: Numeric, E: Endianness>(T, PhantomData<E>);
+
+impl<T, E> core::fmt::Debug for Endian<T, E>
+where
+	T: Numeric + core::fmt::Debug,
+	E: Endianness,
+{
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		core::fmt::Debug::fmt(&self.clone().read(), f)
+	}
+}
+
+impl<T, E> core::fmt::Display for Endian<T, E>
+where
+	T: Numeric + core::fmt::Display,
+	E: Endianness,
+{
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		core::fmt::Display::fmt(&self.clone().read(), f)
+	}
+}
 
 impl<T: Numeric, E: Endianness> Endian<T, E> {
 	/// Creates a new [`Endian`] value with the specified endianness,
@@ -52,7 +72,7 @@ impl<T: Numeric, E: Endianness> Endian<T, E> {
 }
 
 /// Specifies the endianness when using [`Endian`].
-pub trait Endianness {
+pub trait Endianness: Clone + Copy + Default {
 	/// Converts a value from the specified endianness to the host endianness.
 	fn from_endian<T: Numeric>(value: T) -> T;
 
@@ -106,7 +126,7 @@ mod private {
 
 /// Trait for numeric primitive types.
 pub trait Numeric:
-	Copy + PartialEq + PartialOrd + core::fmt::Debug + core::fmt::Display + private::Sealed
+	Clone + Copy + PartialEq + PartialOrd + core::fmt::Debug + core::fmt::Display + private::Sealed
 {
 	/// Converts the value to little-endian.
 	#[must_use]
