@@ -12,7 +12,7 @@ use core::ffi::CStr;
 use limine::request::StackSizeRequest;
 use limine::{
 	memory_map::EntryType,
-	modules::InternalModule,
+	modules::{InternalModule, ModuleFlags},
 	request::{BootTimeRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, RsdpRequest},
 	BaseRevision,
 };
@@ -38,8 +38,11 @@ static BASE_REVISION: BaseRevision = BaseRevision::with_revision(2);
 /// Requests a list of modules provided to the kernel via
 /// Limine configuration.
 #[used]
-static REQ_MODULES: ModuleRequest = ModuleRequest::with_revision(1)
-	.with_internal_modules(&[&InternalModule::new().with_path(KERNEL_PATH)]);
+static REQ_MODULES: ModuleRequest = ModuleRequest::with_revision(1).with_internal_modules(&[
+	&InternalModule::new()
+		.with_path(KERNEL_PATH)
+		.with_flags(ModuleFlags::REQUIRED),
+]);
 
 /// Requests that Limine performs a Higher Half Direct Map (HHDM)
 /// of all physical memory. Provides an offset for the HHDM.
