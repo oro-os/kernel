@@ -1,6 +1,7 @@
 //! DeviceTree blob reader support for the Oro kernel.
 #![cfg_attr(not(test), no_std)]
 
+use core::{ffi::CStr, mem::size_of, ptr::from_ref};
 use oro_type::Be;
 
 /// The flattened DeviceTree blob header.
@@ -56,38 +57,94 @@ pub struct FdtHeader {
 }
 
 impl FdtHeader {
-	/// Validates the header.
+	/// Validates the header and constructs a static reference to the flattened DTB header.
 	///
 	/// If `len` is provided, the header is validated against the given length.
-	pub fn validate(&self, len: Option<u32>) -> Result<(), ValidationError> {
-		if self.magic.read() != 0xD00D_FEED {
+	pub fn from(ptr: *const u8, len: Option<u32>) -> Result<&'static Self, ValidationError> {
+		#[allow(clippy::cast_ptr_alignment)]
+		let ptr = ptr.cast::<Self>();
+
+		if !ptr.is_aligned() {
+			return Err(ValidationError::Unaligned);
+		}
+
+		let magic = unsafe { ptr.cast::<Be<u32>>().read() }.read();
+
+		if magic != 0xD00D_FEED {
 			return Err(ValidationError::BadMagic);
 		}
 
+		let this = unsafe { &*ptr };
+
 		if let Some(len) = len {
-			if self.totalsize.read() != len {
+			if this.totalsize.read() != len {
 				return Err(ValidationError::LengthMismatch {
 					expected: len,
-					reported: self.totalsize.read(),
+					reported: this.totalsize.read(),
 				});
 			}
 		}
 
-		if self.version.read() != 17 && self.last_comp_version.read() > 17 {
+		if this.version.read() != 17 && this.last_comp_version.read() > 17 {
 			return Err(ValidationError::VersionMismatch {
 				expected:   17,
-				reported:   self.version.read(),
-				compatible: self.last_comp_version.read(),
+				reported:   this.version.read(),
+				compatible: this.last_comp_version.read(),
 			});
 		}
 
-		Ok(())
+		if this.off_dt_struct.read() % 8 != 0 {
+			return Err(ValidationError::StructUnaligned);
+		}
+
+		Ok(this)
+	}
+
+	/// Returns the bootstrap (primary) processor's physical ID.
+	#[must_use]
+	pub fn phys_id(&self) -> u32 {
+		self.boot_cpuid_phys.read()
+	}
+
+	/// Returns the byte slice of the structure block.
+	#[allow(clippy::needless_lifetimes)]
+	fn struct_slice<'a>(&'a self) -> &'a [u8] {
+		unsafe {
+			core::slice::from_raw_parts(
+				from_ref(self)
+					.cast::<u8>()
+					.add(self.off_dt_struct.read() as usize),
+				self.size_dt_struct.read() as usize,
+			)
+		}
+	}
+
+	/// Returns the byte slice of the string block.
+	#[allow(clippy::needless_lifetimes)]
+	fn string_slice<'a>(&'a self) -> &'a [u8] {
+		unsafe {
+			core::slice::from_raw_parts(
+				from_ref(self)
+					.cast::<u8>()
+					.add(self.off_dt_strings.read() as usize),
+				self.size_dt_strings.read() as usize,
+			)
+		}
+	}
+
+	/// Returns an iterator over the raw DTB tokens.
+	#[allow(clippy::needless_lifetimes)]
+	pub fn iter<'a>(&'a self) -> impl Iterator<Item = FdtToken<'a>> + 'a {
+		FdtIter::new(self).fuse()
 	}
 }
 
 /// An error that occurs when validating a DeviceTree structure.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValidationError {
+	/// The pointer to the DTB header is unaligned (must be aligned
+	/// to an 8-byte boundary).
+	Unaligned,
 	/// Magic number mismatch (expectes `0xd00dfeed`).
 	BadMagic,
 	/// Length mismatch
@@ -111,4 +168,115 @@ pub enum ValidationError {
 		/// Lowest compatible version
 		compatible: u32,
 	},
+	/// The structure offset is not 8-byte aligned.
+	StructUnaligned,
+}
+
+/// A single token in a DeviceTree blob.
+#[derive(Debug, Clone, Copy)]
+pub enum FdtToken<'a> {
+	/// A property token.
+	Property {
+		/// The property's name.
+		name:  &'a CStr,
+		/// The property's value.
+		value: &'a [u8],
+	},
+	/// A node token.
+	Node {
+		/// The node's name.
+		name: &'a CStr,
+	},
+	/// An end node token.
+	EndNode,
+	/// A NOP token.
+	Nop,
+	/// An end token.
+	End,
+}
+
+/// Iterates a DTB structure and returns tokens.
+///
+/// Returned by [`FdtHeader::iter`].
+pub struct FdtIter<'a> {
+	/// The current offset in the DTB structure
+	/// section.
+	offset:       u32,
+	/// The slice of structure data.
+	struct_slice: &'a [u8],
+	/// The slice of string data.
+	string_slice: &'a [u8],
+}
+
+impl<'a> FdtIter<'a> {
+	/// Creates a new iterator for the given DTB structure.
+	fn new(dtb: &'a FdtHeader) -> Self {
+		Self {
+			offset:       0,
+			struct_slice: dtb.struct_slice(),
+			string_slice: dtb.string_slice(),
+		}
+	}
+}
+
+impl<'a> FdtIter<'a> {
+	/// Yields the next `n` bytes from the structure slice.
+	///
+	/// Returns `None` if the slice is exhausted, or if there
+	/// are fewer than `n` bytes remaining.
+	fn next_bytes(&mut self, n: usize) -> Option<&'a [u8]> {
+		if self.offset as usize + n > self.struct_slice.len() {
+			None
+		} else {
+			let slice = &self.struct_slice[self.offset as usize..self.offset as usize + n];
+			self.offset += n as u32;
+			Some(slice)
+		}
+	}
+
+	/// Yields the next `T` from the structure slice.
+	fn next_item<T: Copy + Sized>(&mut self) -> Option<T> {
+		self.next_bytes(size_of::<T>()).map(|bytes| {
+			let ptr = bytes.as_ptr().cast::<T>();
+			unsafe { ptr.read() }
+		})
+	}
+}
+
+impl<'a> Iterator for FdtIter<'a> {
+	type Item = FdtToken<'a>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		match self.next_item::<Be<u32>>()?.read() {
+			0x0000_0009 => Some(FdtToken::End),
+			0x0000_0004 => Some(FdtToken::Nop),
+			0x0000_0002 => Some(FdtToken::EndNode),
+			0x0000_0003 => {
+				let len = self.next_item::<Be<u32>>()?.read() as usize;
+				let nameoff = self.next_item::<Be<u32>>()?.read() as usize;
+
+				let value = self.next_bytes(len)?;
+				// Pad to the next 32-bit boundary.
+				self.offset = (self.offset + 3) & !3;
+
+				// If this errors, it means there's no nul bytes in the string slice,
+				// indicating a malformed DTB. We just return a None in this case and
+				// let the caller handle it.
+				let name = CStr::from_bytes_until_nul(&self.string_slice[nameoff..]).ok()?;
+
+				Some(FdtToken::Property { name, value })
+			}
+			0x0000_0001 => {
+				let name =
+					CStr::from_bytes_until_nul(&self.struct_slice[self.offset as usize..]).ok()?;
+				self.offset += (
+					name.count_bytes() as u32 + 4
+					// 3 + NUL
+				) & !3;
+
+				Some(FdtToken::Node { name })
+			}
+			_ => None,
+		}
+	}
 }

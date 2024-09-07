@@ -9,6 +9,7 @@ mod protocol;
 
 use oro_boot_protocol::device_tree::{DeviceTreeDataV0, DeviceTreeKind};
 use oro_debug::dbg;
+use oro_dtb::FdtHeader;
 use oro_mem::translate::Translator;
 
 /// Boots the primary core on AArch64.
@@ -43,10 +44,12 @@ pub unsafe fn boot_primary() -> ! {
 
 	dbg!("got DeviceTree blob of {} bytes", length);
 
-	let dtb = &*pat.translate::<oro_dtb::FdtHeader>(*base);
-	dtb.validate(Some(*length))
-		.expect("DeviceTree blob is invalid");
-	dbg!("DeviceTree blob is valid");
+	let dtb = FdtHeader::from(pat.translate::<u8>(*base), Some(*length)).expect("dtb is invalid");
+	dbg!("dtb is valid; primary core id is {}", dtb.phys_id());
+
+	for tkn in dtb.iter() {
+		dbg!("@ {tkn:?}");
+	}
 
 	crate::asm::halt();
 }
