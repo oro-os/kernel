@@ -1,0 +1,396 @@
+//! Secondary core (application processor) boot routine.
+
+use crate::{mem::address_space::AddressSpaceLayout, psci::PsciMethod};
+use core::{arch::asm, ffi::CStr};
+use oro_boot_protocol::device_tree::{DeviceTreeDataV0, DeviceTreeKind};
+use oro_debug::{dbg, dbg_err, dbg_warn};
+use oro_dtb::{FdtHeader, FdtPathFilter, FdtToken};
+use oro_macro::{asm_buffer, assert};
+use oro_mem::{
+	mapper::{AddressSegment, AddressSpace, MapError},
+	pfa::alloc::PageFrameFree,
+	translate::{OffsetTranslator, Translator},
+};
+use oro_type::Be;
+
+/// Brings up all secondary cores.
+///
+/// Returns the total number of cores in the system
+/// (including the primary core).
+///
+/// # Safety
+/// This function is inherently unsafe and must only be called
+/// once at kernel boot by the bootstrap processor (primary core).
+pub unsafe fn boot_secondaries(
+	pfa: &mut impl PageFrameFree,
+	pat: &OffsetTranslator,
+	stack_pages: usize,
+) -> usize {
+	// Get the devicetree blob.
+	let DeviceTreeKind::V0(dtb) = super::protocol::DTB_REQUEST
+		.response()
+		.expect("no DeviceTree blob response was provided")
+	else {
+		panic!("DeviceTree blob response was provided but was the wrong revision");
+	};
+
+	let DeviceTreeDataV0 { base, length } = dtb.assume_init_ref();
+	dbg!("got DeviceTree blob of {} bytes", length);
+
+	let dtb = FdtHeader::from(pat.translate::<u8>(*base), Some(*length)).expect("dtb is invalid");
+	let boot_cpuid = dtb.phys_id();
+	dbg!("dtb is valid; primary core id is {boot_cpuid}");
+
+	// Get the PSCI method.
+	let mut psci_method: Option<PsciMethod> = None;
+	for tkn in dtb.iter().filter_path(&[c"", c"psci"]) {
+		#[allow(clippy::redundant_guards)] // False positive
+		match tkn {
+			FdtToken::Property { name, value } if name == c"method" => {
+				let Ok(value) = CStr::from_bytes_with_nul(value) else {
+					dbg_warn!("invalid /psci/method method string: {value:?}");
+					continue;
+				};
+
+				psci_method = Some(match value {
+					v if v == c"hvc" => PsciMethod::Hvc,
+					v if v == c"smc" => PsciMethod::Smc,
+					unknown => {
+						panic!("DTB declared unknown PSCI invocation method: {unknown:?}");
+					}
+				});
+			}
+			_ => {}
+		}
+	}
+
+	let psci = psci_method.expect("no PSCI method was declared in the DTB");
+
+	let version = psci.psci_version().expect("failed to get PSCI version");
+	dbg!("PSCI version: {version:?}");
+
+	let mut num_booted = 1;
+
+	let mut is_cpu = true; // Assume it is; `device_type` is deprecated.
+	let mut reg_val: u64 = 0;
+	let mut is_psci = false;
+	let mut cpu_id: u64 = 0;
+	let mut valid: bool = false;
+	for tkn in dtb.iter().filter_path(&[c"", c"cpus", c"cpu@"]) {
+		#[allow(clippy::redundant_guards)] // False positive
+		match tkn {
+			FdtToken::Node { name } => {
+				is_cpu = true;
+				reg_val = 0;
+				cpu_id = 0;
+				valid = true;
+				is_psci = false;
+
+				// Extract the text after the last `@` in the `name` string.
+				let name = name.to_bytes();
+				let Some(idx) = name.iter().rposition(|&c| c == b'@') else {
+					dbg_warn!("invalid CPU node name: {:?}", name);
+					valid = false;
+					continue;
+				};
+
+				let Ok(id_str) = core::str::from_utf8(&name[idx + 1..]) else {
+					dbg_warn!(
+						"CPU node ID is not a valid UTF-8 string: {:?}",
+						&name[idx + 1..]
+					);
+					valid = false;
+					continue;
+				};
+
+				let Ok(id) = id_str.parse::<u64>() else {
+					dbg_warn!("CPU node ID is not a valid integer: {:?}", id_str);
+					valid = false;
+					continue;
+				};
+
+				cpu_id = id;
+			}
+			FdtToken::Property { name, value } if name == c"reg" => {
+				reg_val = match value.len() {
+					1 => value[0].into(),
+					2 => {
+						value
+							.as_ptr()
+							.cast::<Be<u16>>()
+							.read_unaligned()
+							.read()
+							.into()
+					}
+					4 => {
+						value
+							.as_ptr()
+							.cast::<Be<u32>>()
+							.read_unaligned()
+							.read()
+							.into()
+					}
+					8 => value.as_ptr().cast::<Be<u64>>().read_unaligned().read(),
+					_ => {
+						dbg_warn!("invalid reg value length: {}", value.len());
+						valid = false;
+						continue;
+					}
+				};
+			}
+			FdtToken::Property { name, value } if name == c"enable-method" => {
+				let Ok(value) = CStr::from_bytes_with_nul(value) else {
+					dbg_warn!("invalid enable-method value: {value:?}");
+					valid = false;
+					continue;
+				};
+				is_psci = value == c"psci";
+			}
+			FdtToken::Property { name, value } if name == c"device_type" => {
+				let Ok(value) = CStr::from_bytes_with_nul(value) else {
+					dbg_warn!("invalid device_type value: {value:?}");
+					valid = false;
+					continue;
+				};
+				is_psci = value == c"cpu";
+			}
+			FdtToken::Property { .. } => {}
+			FdtToken::Nop | FdtToken::End => unreachable!(),
+			FdtToken::EndNode => {
+				if !valid {
+					continue;
+				}
+
+				if !is_psci {
+					dbg_warn!("will not boot cpu {cpu_id}: (not enabled via PSCI)");
+					continue;
+				}
+
+				if !is_cpu {
+					dbg_warn!("will not boot cpu {cpu_id}: (not a CPU)");
+					continue;
+				}
+
+				if reg_val == boot_cpuid.into() {
+					dbg!("will not boot cpu {cpu_id} ({reg_val}): (primary core)");
+					continue;
+				}
+
+				if let Err(err) = boot_secondary(pfa, pat, psci, cpu_id, reg_val, stack_pages) {
+					dbg_err!("failed to boot cpu {cpu_id} ({reg_val}): {err:?}");
+				}
+
+				dbg!("cpu boot {cpu_id} ({reg_val})");
+				num_booted += 1;
+			}
+		}
+	}
+
+	num_booted
+}
+
+/// Error type for secondary core booting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SecondaryBootError {
+	/// The system ran out of memory when allocating space for the secondary core.
+	OutOfMemory,
+	/// A PSCI error was returned
+	PsciError(crate::psci::Error),
+	/// There was a failure when mapping memory into the secondary core.
+	MapError(MapError),
+}
+
+/// The secondary boot core initialization block.
+///
+/// The physical address of this structure is passed
+/// to the secondary core via the `x0` register.
+#[derive(Debug)]
+#[repr(C, align(4096))]
+struct BootInitBlock {
+	/// The core's uniqud ID.
+	///
+	/// This is a logical ID that has no bearing on the
+	/// core's MPIDR value or anything related to PSCI.
+	core_id:       u64,
+	/// The physical address of the `TTBR0_EL1` register for the core.
+	ttbr0_el1:     u64,
+	/// The physical address of the `TTBR1_EL1` register for the core.
+	ttbr1_el1:     u64,
+	/// The `TCR_EL1` register for the core.
+	tcr_el1:       u64,
+	/// The stack pointer for the core.
+	stack_pointer: u64,
+	/// The MAIR register value for the core.
+	mair:          u64,
+	/// Where to jump to after initialization.
+	///
+	/// This is the _virtual_ address after the `TTBR1_EL1`
+	/// register has been set.
+	///
+	/// Core stub must forward the `x0` register
+	/// to this address as-is (thus must not
+	/// clobber x0).
+	entry_point:   u64,
+	/// The linear offset to use for the PAT.
+	linear_offset: u64,
+}
+
+/// The secondary boot core initialization stub.
+///
+/// Upon entry, `x0` is the physical address of the
+/// `BootInitBlock` structure that parameterizes
+/// the core.
+///
+/// This physical address must be forwarded in
+/// `x0` to the `entry_point` field of the `BootInitBlock`
+/// when branching to the kernel.
+///
+/// Expects that the page these are written to is
+/// direct-mapped. The `BootInitBlock` does not
+/// need to be.
+const SECONDARY_BOOT_STUB: &[u8] = &asm_buffer! {
+	// Make sure the MMU is disabled (it should be).
+	"mrs x9, sctlr_el1",
+	"bic x9, x9, #1",
+	"msr sctlr_el1, x9",
+
+	// Set up the MAIR register (0x28)
+	"ldr x9, [x0, #0x28]",
+	"msr mair_el1, x9",
+
+	// Set up the TCR_EL1 registers (0x18)
+	"ldr x9, [x0, #0x18]",
+	"msr tcr_el1, x9",
+
+	// Set up the TTBR0_EL1/TTBR1_EL1 registers (0x8, 0x10)
+	"ldr x9, [x0, #0x8]",
+	"msr ttbr0_el1, x9",
+	"ldr x9, [x0, #0x10]",
+	"msr ttbr1_el1, x9",
+
+	// Load the entry point we'll jump to (0x30)
+	"ldr x10, [x0, #0x30]",
+
+	// Set the stack pointer (0x20)
+	"ldr x9, [x0, #0x20]",
+	"mov sp, x9",
+
+	// Add the linear offset to the init block base address.
+	//
+	// IMPORTANT: BootInitBlock is no longer available
+	// IMPORTANT: after this point.
+	"ldr x9, [x0, #0x38]",
+	"add x0, x0, x9",
+
+	// Invalidate TLBs
+	"tlbi vmalle1is",
+	"ic iallu",
+	"dc isw, xzr",
+	"dsb nsh",
+	"isb",
+
+	// Re-enable the MMU
+	"mrs x9, sctlr_el1",
+	"orr x9, x9, #1",
+	"msr sctlr_el1, x9",
+
+	// Invalidate TLBs
+	"tlbi vmalle1is",
+	"ic iallu",
+	"dc isw, xzr",
+	"dsb nsh",
+	"isb",
+
+	// Jump to the kernel
+	"br x10",
+};
+
+/// Attempts to boot a single secondary core.
+unsafe fn boot_secondary(
+	pfa: &mut impl PageFrameFree,
+	pat: &OffsetTranslator,
+	psci: PsciMethod,
+	cpu_id: u64,
+	reg_val: u64,
+	stack_pages: usize,
+) -> Result<(), SecondaryBootError> {
+	// Get the primary handle.
+	let primary_mapper = AddressSpaceLayout::current_supervisor_space(pat);
+
+	// Create a new supervisor address space based on the current address space.
+	let mapper = AddressSpaceLayout::duplicate_supervisor_space_shallow(&primary_mapper, pfa, pat)
+		.ok_or(SecondaryBootError::OutOfMemory)?;
+
+	// Also create an empty mapper for the TTBR0_EL1 space.
+	let lower_mapper = AddressSpaceLayout::new_supervisor_space_tt0(pfa, pat)
+		.ok_or(SecondaryBootError::OutOfMemory)?;
+
+	// Allocate the boot stubs (maximum 4096 bytes).
+	let boot_phys = pfa.allocate().ok_or(SecondaryBootError::OutOfMemory)?;
+	let boot_virt = pat.translate_mut::<[u8; 4096]>(boot_phys);
+	#[allow(clippy::missing_docs_in_private_items)]
+	(&mut *boot_virt)[..SECONDARY_BOOT_STUB.len()].copy_from_slice(SECONDARY_BOOT_STUB);
+
+	// Direct map the boot stubs into the lower page table.
+	AddressSpaceLayout::stubs()
+		.map(&lower_mapper, pfa, pat, boot_phys as usize, boot_phys)
+		.map_err(SecondaryBootError::MapError)?;
+
+	// Forget the stack in the upper address space.
+	AddressSpaceLayout::kernel_stack().unmap_without_reclaim(&mapper, pat);
+
+	// Allocate a new stack for it...
+	let stack_segment = AddressSpaceLayout::kernel_stack();
+	let stack_end = stack_segment.range().1 & !0xFFF;
+
+	for stack_virt in (stack_end - stack_pages * 4096..stack_end).step_by(4096) {
+		let page = pfa.allocate().ok_or(SecondaryBootError::OutOfMemory)?;
+		stack_segment
+			.map(&mapper, pfa, pat, stack_virt, page)
+			.map_err(SecondaryBootError::MapError)?;
+	}
+
+	// Get a copy of relevant registers from the primary core.
+	let mair_val: u64 = crate::mair::MairEntry::build_mair().into();
+	let tcr: u64 = crate::reg::tcr_el1::TcrEl1::load().into();
+
+	// Write the boot init block.
+	assert::fits::<BootInitBlock, 4096>();
+	let init_block_phys = pfa.allocate().ok_or(SecondaryBootError::OutOfMemory)?;
+	let init_block_ptr = pat.translate_mut::<BootInitBlock>(init_block_phys);
+	debug_assert!(init_block_ptr.is_aligned());
+	init_block_ptr.write(BootInitBlock {
+		core_id:       cpu_id,
+		ttbr0_el1:     lower_mapper.base_phys,
+		ttbr1_el1:     mapper.base_phys,
+		tcr_el1:       tcr,
+		stack_pointer: stack_end as u64,
+		mair:          mair_val,
+		entry_point:   boot_secondary_entry as *const u8 as u64,
+		linear_offset: pat.offset() as u64,
+	});
+
+	psci.cpu_on(reg_val, boot_phys, init_block_phys)
+		.map_err(SecondaryBootError::PsciError)?;
+
+	Ok(())
+}
+
+/// The Rust entry point for the secondary cores after they've been booted
+/// and initialized by the assembly stub.
+#[inline(never)]
+#[no_mangle]
+unsafe extern "C" fn boot_secondary_entry() {
+	let boot_block_virt: u64;
+	asm!("", out("x0") boot_block_virt);
+
+	crate::asm::disable_interrupts();
+
+	let boot_block = &*(boot_block_virt as *const BootInitBlock);
+
+	// The logger should already be initialized
+	// by the primary core.
+	dbg!("secondary core {} booted", boot_block.core_id);
+
+	crate::asm::halt();
+}
