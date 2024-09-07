@@ -51,5 +51,10 @@ pub unsafe fn boot_primary() -> ! {
 		dbg!("@ {tkn:?}");
 	}
 
+	// XXX DEBUG
+	// Get the PSCI version
+	let version = crate::psci::PsciMethod::Hvc.psci_version();
+	dbg!("PSCI version: {version:?}");
+
 	crate::asm::halt();
 }
