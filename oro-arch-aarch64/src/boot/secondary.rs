@@ -1,7 +1,11 @@
 //! Secondary core (application processor) boot routine.
 
 use crate::{mem::address_space::AddressSpaceLayout, psci::PsciMethod};
-use core::{arch::asm, ffi::CStr};
+use core::{
+	arch::asm,
+	ffi::CStr,
+	sync::atomic::{AtomicBool, Ordering},
+};
 use oro_boot_protocol::device_tree::{DeviceTreeDataV0, DeviceTreeKind};
 use oro_debug::{dbg, dbg_err, dbg_warn};
 use oro_dtb::{FdtHeader, FdtPathFilter, FdtToken};
@@ -211,17 +215,17 @@ struct BootInitBlock {
 	///
 	/// This is a logical ID that has no bearing on the
 	/// core's MPIDR value or anything related to PSCI.
-	core_id:       u64,
+	core_id:        u64,
 	/// The physical address of the `TTBR0_EL1` register for the core.
-	ttbr0_el1:     u64,
+	ttbr0_el1:      u64,
 	/// The physical address of the `TTBR1_EL1` register for the core.
-	ttbr1_el1:     u64,
+	ttbr1_el1:      u64,
 	/// The `TCR_EL1` register for the core.
-	tcr_el1:       u64,
+	tcr_el1:        u64,
 	/// The stack pointer for the core.
-	stack_pointer: u64,
+	stack_pointer:  u64,
 	/// The MAIR register value for the core.
-	mair:          u64,
+	mair:           u64,
 	/// Where to jump to after initialization.
 	///
 	/// This is the _virtual_ address after the `TTBR1_EL1`
@@ -230,9 +234,15 @@ struct BootInitBlock {
 	/// Core stub must forward the `x0` register
 	/// to this address as-is (thus must not
 	/// clobber x0).
-	entry_point:   u64,
+	entry_point:    u64,
 	/// The linear offset to use for the PAT.
-	linear_offset: u64,
+	linear_offset:  u64,
+	/// Primary flag. Performs lock-step green-lighting
+	/// of secondary core execution.
+	primary_flag:   AtomicBool,
+	/// Secondary flag. Indicates that the secondary core
+	/// has been booted and is running.
+	secondary_flag: AtomicBool,
 }
 
 /// The secondary boot core initialization stub.
@@ -360,18 +370,31 @@ unsafe fn boot_secondary(
 	let init_block_ptr = pat.translate_mut::<BootInitBlock>(init_block_phys);
 	debug_assert!(init_block_ptr.is_aligned());
 	init_block_ptr.write(BootInitBlock {
-		core_id:       cpu_id,
-		ttbr0_el1:     lower_mapper.base_phys,
-		ttbr1_el1:     mapper.base_phys,
-		tcr_el1:       tcr,
-		stack_pointer: stack_end as u64,
-		mair:          mair_val,
-		entry_point:   boot_secondary_entry as *const u8 as u64,
-		linear_offset: pat.offset() as u64,
+		core_id:        cpu_id,
+		ttbr0_el1:      lower_mapper.base_phys,
+		ttbr1_el1:      mapper.base_phys,
+		tcr_el1:        tcr,
+		stack_pointer:  stack_end as u64,
+		mair:           mair_val,
+		entry_point:    boot_secondary_entry as *const u8 as u64,
+		linear_offset:  pat.offset() as u64,
+		primary_flag:   AtomicBool::new(false),
+		secondary_flag: AtomicBool::new(false),
 	});
 
 	psci.cpu_on(reg_val, boot_phys, init_block_phys)
 		.map_err(SecondaryBootError::PsciError)?;
+
+	// Tell the secondary core we're ready.
+	let init_block = &*init_block_ptr;
+	init_block.primary_flag.store(true, Ordering::Release);
+
+	// Wait for the secondary core to boot.
+	while !init_block.secondary_flag.load(Ordering::Acquire) {
+		core::hint::spin_loop();
+	}
+
+	// Unmap the
 
 	Ok(())
 }
@@ -387,6 +410,20 @@ unsafe extern "C" fn boot_secondary_entry() {
 	crate::asm::disable_interrupts();
 
 	let boot_block = &*(boot_block_virt as *const BootInitBlock);
+
+	// Wait for the primary core to give the green light..
+	while !boot_block.primary_flag.load(Ordering::Acquire) {
+		core::hint::spin_loop();
+	}
+
+	// Signal back that we're headed off.
+	//
+	// After this point, our TTBR0_EL1 address
+	// space is gone, including the boot_block_virt.
+	boot_block.secondary_flag.store(true, Ordering::Release);
+	let _ = boot_block;
+	let _ = boot_block_virt;
+	asm!("msr ttbr0_el1, xzr");
 
 	// The logger should already be initialized
 	// by the primary core.
