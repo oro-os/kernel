@@ -207,7 +207,7 @@ enum SecondaryBootError {
 #[derive(Debug)]
 #[repr(C, align(4096))]
 struct BootInitBlock {
-	/// The core's uniqud ID.
+	/// The core's unique ID.
 	///
 	/// This is a logical ID that has no bearing on the
 	/// core's MPIDR value or anything related to PSCI.
