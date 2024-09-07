@@ -280,3 +280,109 @@ impl<'a> Iterator for FdtIter<'a> {
 		}
 	}
 }
+
+/// Filters iterators over [`FdtToken`]s by path.
+pub trait FdtPathFilter<'a>: Iterator<Item = FdtToken<'a>> + Sized {
+	/// Creates a filter iterator that yields only the tokens
+	/// that match the given path.
+	///
+	/// # Important
+	/// Should only be constructed on an iterator that has not
+	/// yet yielded any tokens.
+	fn filter_path(self, path: &'a [&'a CStr]) -> FdtFilterIter<'a, Self> {
+		FdtFilterIter {
+			iter: self,
+			path,
+			depth: 0,
+			last_match_depth: 0,
+		}
+	}
+}
+
+impl<'a, I: Iterator<Item = FdtToken<'a>> + Sized> FdtPathFilter<'a> for I {}
+
+/// A path filter for a DeviceTree iterator.
+pub struct FdtFilterIter<'a, I: Iterator<Item = FdtToken<'a>>> {
+	/// The underlying iterator.
+	iter: I,
+	/// The canonical path to filter by.
+	///
+	/// Elements are leafs in the path, e.g.
+	/// `&["memory", "reg"]` corresponds to
+	/// `/memory/reg`.
+	///
+	/// At each of the leaf segments, the presence
+	/// or absence of an `@id` suffix behaves as follows:
+	///
+	/// - The absence of `@` in the leaf segment
+	///   matches _only_ nodes without an ID.
+	/// - Leafs ending with `@` match any node with
+	///   an ID, regardless of the ID. Nodes that
+	///   do not have an ID are not matched, even if
+	///   the base leaf name matches.
+	/// - Leafs ending with `@id` match only nodes
+	///   with the given ID.
+	path: &'a [&'a CStr],
+	/// The current node depth.
+	depth: usize,
+	/// The depth of the last matched path segment.
+	last_match_depth: usize,
+}
+
+impl<'a, I: Iterator<Item = FdtToken<'a>>> Iterator for FdtFilterIter<'a, I> {
+	type Item = FdtToken<'a>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		loop {
+			match self.iter.next()? {
+				FdtToken::End => return None,
+				FdtToken::Nop => {}
+				prop @ FdtToken::Property { .. } => {
+					if self.last_match_depth == self.path.len() {
+						return Some(prop);
+					}
+				}
+				node @ FdtToken::Node { name } => {
+					let should_check = self.depth == self.last_match_depth
+						&& self.last_match_depth < self.path.len();
+
+					if should_check {
+						let leaf = &self.path[self.depth];
+						let checks_id = leaf.to_bytes().contains(&b'@');
+						let checks_exact =
+							!checks_id || leaf.to_bytes().last().map_or(true, |&c| c != b'@');
+
+						let matches = if checks_exact {
+							leaf == &name
+						} else {
+							name.to_bytes().starts_with(leaf.to_bytes())
+						};
+
+						if matches {
+							self.last_match_depth += 1;
+						}
+					}
+
+					self.depth += 1;
+
+					if self.last_match_depth == self.path.len() {
+						return Some(node);
+					}
+				}
+				end_node @ FdtToken::EndNode => {
+					let should_return = self.last_match_depth == self.path.len();
+
+					if self.depth == self.last_match_depth {
+						self.last_match_depth -= 1;
+					}
+
+					self.depth -= 1;
+
+					if should_return {
+						return Some(end_node);
+					}
+				}
+			}
+		}
+	}
+}
