@@ -189,6 +189,7 @@ dependencies = [
  "oro-macro",
  "oro-mem",
  "oro-sync",
+ "oro-type",
 ]
 
 [[package]]
