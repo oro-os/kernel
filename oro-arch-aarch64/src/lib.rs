@@ -35,6 +35,7 @@ pub mod asm;
 pub mod boot;
 pub mod mair;
 pub mod mem;
+pub mod psci;
 pub mod reg;
 pub mod sync;
 
