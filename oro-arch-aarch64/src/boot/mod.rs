@@ -9,7 +9,7 @@ mod protocol;
 
 use oro_boot_protocol::device_tree::{DeviceTreeDataV0, DeviceTreeKind};
 use oro_debug::dbg;
-use oro_dtb::FdtHeader;
+use oro_dtb::{FdtHeader, FdtPathFilter};
 use oro_mem::translate::Translator;
 
 /// Boots the primary core on AArch64.
@@ -47,7 +47,7 @@ pub unsafe fn boot_primary() -> ! {
 	let dtb = FdtHeader::from(pat.translate::<u8>(*base), Some(*length)).expect("dtb is invalid");
 	dbg!("dtb is valid; primary core id is {}", dtb.phys_id());
 
-	for tkn in dtb.iter() {
+	for tkn in dtb.iter().filter_path(&[c"", c"cpus", c"cpu@"]) {
 		dbg!("@ {tkn:?}");
 	}
 
