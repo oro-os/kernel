@@ -152,7 +152,7 @@ impl SctlrEl1 {
 				out(reg) sctlr_el1
 			);
 			// SAFETY(qix-): SCTLR_EL1 is a 32-bit register. Truncating the bits makes no difference.
-			#[allow(clippy::cast_possible_truncation)]
+			#[expect(clippy::cast_possible_truncation)]
 			Self(sctlr_el1 as u32)
 		}
 	}
@@ -168,7 +168,7 @@ impl SctlrEl1 {
 	}
 
 	/// Creates a new `SCTLR_EL1` register with all fields set to `0`.
-	#[allow(clippy::new_without_default)]
+	#[expect(clippy::new_without_default)]
 	#[must_use]
 	pub const fn new() -> Self {
 		Self(0)

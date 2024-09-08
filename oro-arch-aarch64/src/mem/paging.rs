@@ -194,7 +194,7 @@ pub enum PageTableEntryTypeMut<'a> {
 #[repr(C, align(8))]
 pub struct PageTableEntry(u64);
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 const _: () = assert::size_of::<PageTableEntry, 8>();
 
 macro_rules! impl_page_table_entry_type {
@@ -272,7 +272,7 @@ macro_rules! impl_page_table_entry_type {
 
 impl PageTableEntry {
 	/// Creates a new page table entry.
-	#[allow(clippy::new_without_default)]
+	#[expect(clippy::new_without_default)]
 	#[inline(always)]
 	#[must_use]
 	pub const fn new() -> Self {
@@ -439,7 +439,7 @@ macro_rules! descriptor_init_value {
 // FIXME(qix-): with the #[doc = ...] attribute on the subtype's
 // FIXME(qix-): ::new() function, the doc comment keeps getting
 // FIXME(qix-): indented whenever rustfmt runs.
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 macro_rules! descriptor_doc {
 	($doc:literal) => {
 		concat!(
@@ -509,9 +509,9 @@ macro_rules! define_descriptor {
 		}
 
 		// TODO(qix-) Add docs. Silencing for now as it's inflating compile times.
-		#[allow(missing_docs)]
+		#[expect(missing_docs)]
 		impl $name {
-			#[allow(clippy::new_without_default)]
+			#[expect(clippy::new_without_default)]
 			#[doc = descriptor_doc!($doc)]
 			#[inline(always)]
 			#[must_use]
@@ -623,7 +623,7 @@ impl PageTableEntry {
 	}
 }
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 macro_rules! impl_page_table_entry_valid_attr {
 	($($name:ty),*) => {
 		$(impl $name {
@@ -675,7 +675,7 @@ impl_page_table_entry_valid_attr!(
 	L3PageTableBlockDescriptor
 );
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 macro_rules! impl_page_table_entry_table_descriptor_attr {
 	($($name:ty),*) => {
 		$(impl $name {
@@ -720,7 +720,7 @@ impl_page_table_entry_table_descriptor_attr!(
 	L2PageTableDescriptor
 );
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 macro_rules! impl_page_table_entry_block_descriptor_attr {
 	($($name:ty),*) => {
 		$(impl $name {
@@ -966,7 +966,7 @@ impl_page_table_entry_block_descriptor_attr!(
 	L3PageTableBlockDescriptor
 );
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 macro_rules! impl_page_table_entry_address {
 	($($name:ty),*) => {
 		$(impl $name {
@@ -1021,7 +1021,7 @@ impl_page_table_entry_address!(
 	L3PageTableBlockDescriptor
 );
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 macro_rules! impl_page_table_entry_no_exec_attr {
 	(user_offset = $user_off:literal, kernel_offset = $kernel_off:literal, $($name:ty),*) => {
 		$(impl $name {
@@ -1179,7 +1179,6 @@ impl Default for PageTableEntryTableAccessPerm {
 /// <https://developer.arm.com/documentation/den0024/a/Memory-Ordering/Memory-attributes/Cacheable-and-shareable-memory-attributes>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u64)]
-#[allow(unused)]
 pub enum PageTableEntryShareability {
 	/// Non-shareable
 	None  = 0b00 << 8,

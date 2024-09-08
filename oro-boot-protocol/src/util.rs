@@ -36,7 +36,7 @@ impl RequestScanner {
 		let align_offset = base.align_offset(::core::mem::align_of::<RequestHeader>());
 		let len = len.saturating_sub(align_offset);
 		// SAFETY(qix-): We've already aligned the pointer.
-		#[allow(clippy::cast_ptr_alignment)]
+		#[expect(clippy::cast_ptr_alignment)]
 		let base = base.add(align_offset).cast::<Tag>();
 
 		Self { base, len }
@@ -79,7 +79,7 @@ impl RequestScanner {
 		// SAFETY(qix-): We are guaranteed to have valid alignment
 		// SAFETY(qix-): given that we start aligned, and iterate
 		// SAFETY(qix-): on 16-byte boundaries.
-		#[allow(clippy::cast_ptr_alignment)]
+		#[expect(clippy::cast_ptr_alignment)]
 		while ptr < end {
 			let header = &*(ptr.cast::<RequestHeader>());
 

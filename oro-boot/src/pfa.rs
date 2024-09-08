@@ -206,5 +206,5 @@ unsafe impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone>
 
 #[doc(hidden)]
 #[repr(align(4096))]
-#[allow(dead_code)]
+#[expect(dead_code)]
 struct AlignedPage([u8; 4096]);

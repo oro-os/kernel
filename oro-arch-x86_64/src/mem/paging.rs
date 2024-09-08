@@ -79,7 +79,7 @@ impl PageTable {
 #[repr(C, align(8))]
 pub struct PageTableEntry(u64);
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 const _: () = assert::size_of::<PageTableEntry, 8>();
 
 impl fmt::Debug for PageTableEntry {
@@ -121,7 +121,7 @@ impl PageTableEntry {
 	}
 
 	/// Creates a new `PageTableEntry` with all flags and attributes set to 0.
-	#[allow(clippy::new_without_default)]
+	#[expect(clippy::new_without_default)]
 	#[inline]
 	#[must_use]
 	pub const fn new() -> Self {

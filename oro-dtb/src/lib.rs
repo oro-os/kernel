@@ -61,7 +61,7 @@ impl FdtHeader {
 	///
 	/// If `len` is provided, the header is validated against the given length.
 	pub fn from(ptr: *const u8, len: Option<u32>) -> Result<&'static Self, ValidationError> {
-		#[allow(clippy::cast_ptr_alignment)]
+		#[expect(clippy::cast_ptr_alignment)]
 		let ptr = ptr.cast::<Self>();
 
 		if !ptr.is_aligned() {
@@ -107,7 +107,7 @@ impl FdtHeader {
 	}
 
 	/// Returns the byte slice of the structure block.
-	#[allow(clippy::needless_lifetimes)]
+	#[expect(clippy::needless_lifetimes)]
 	fn struct_slice<'a>(&'a self) -> &'a [u8] {
 		unsafe {
 			core::slice::from_raw_parts(
@@ -120,7 +120,7 @@ impl FdtHeader {
 	}
 
 	/// Returns the byte slice of the string block.
-	#[allow(clippy::needless_lifetimes)]
+	#[expect(clippy::needless_lifetimes)]
 	fn string_slice<'a>(&'a self) -> &'a [u8] {
 		unsafe {
 			core::slice::from_raw_parts(
@@ -133,7 +133,7 @@ impl FdtHeader {
 	}
 
 	/// Returns an iterator over the raw DTB tokens.
-	#[allow(clippy::needless_lifetimes)]
+	#[expect(clippy::needless_lifetimes)]
 	pub fn iter<'a>(&'a self) -> impl Iterator<Item = FdtToken<'a>> + 'a {
 		FdtIter::new(self).fuse()
 	}

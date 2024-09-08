@@ -228,7 +228,6 @@ pub unsafe fn init() -> ! {
 /// # Safety
 /// Do **NOT** call this function directly.
 /// It is only called by the architecture-specific binaries.
-#[allow(unused_variables)]
 pub unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 	use core::arch::asm;
 

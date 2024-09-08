@@ -99,7 +99,6 @@ pub enum IdType {
 	PortType = 2,
 }
 
-#[allow(clippy::missing_docs_in_private_items)]
 macro_rules! try_from_impl {
 	($docs:literal, $ty:ty, $name:ident, $src:ident) => {
 		#[doc = $docs]
@@ -152,7 +151,7 @@ impl IdType {
 		match self {
 			Self::Module => 'M',
 			Self::PortType => 'P',
-			#[allow(unreachable_patterns)]
+			#[expect(unreachable_patterns)]
 			_ => '?',
 		}
 	}
@@ -273,7 +272,7 @@ impl AnyId {
 	/// Calling this method with invalid type bytes may result
 	/// in undefined behavior.
 	pub unsafe fn to_str_unchecked<'a>(src: &[u8; 16], buf: &'a mut [u8; 27]) -> &'a str {
-		#[allow(clippy::missing_docs_in_private_items)]
+		#[expect(clippy::missing_docs_in_private_items)]
 		const BASE32: [u8; 32] = *b"0123456789ACDEFGHJKMNPQRTUVWXYZ-";
 
 		let ty: IdType = core::mem::transmute(src[0] >> 5);

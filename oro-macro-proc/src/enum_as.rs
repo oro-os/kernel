@@ -4,7 +4,7 @@ use proc_macro2::TokenTree;
 use quote::quote;
 use syn::Meta;
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 pub fn enum_as_u64(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let ast = syn::parse_macro_input!(input as syn::DeriveInput);
 
@@ -87,7 +87,7 @@ pub fn enum_as_u64(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	expanded.into()
 }
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 pub fn enum_as_u32(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let ast = syn::parse_macro_input!(input as syn::DeriveInput);
 

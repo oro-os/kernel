@@ -299,7 +299,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 	// SAFETY(qix-): We know that the value is a 48-bit virtual address and we're
 	// SAFETY(qix-): munging the sign on purpose here.
 	// TODO(qix-): Once attributes on expressions is stabilized, move this to the macro instead of here.
-	#[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
+	#[expect(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
 	fn range(&self) -> (usize, usize) {
 		let start = sign_extend!(self.valid_range.0 << 39);
 		// TODO(qix-): Assumes a 48-bit virtual address space for each TT; will need
@@ -350,7 +350,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 
 		// SAFETY(qix-): We can guarantee this is an aligned virtual address
 		// SAFETY(qix-): given that `self.entry()` would have errored with a non-aligned error.
-		#[allow(clippy::verbose_bit_mask)]
+		#[expect(clippy::verbose_bit_mask)]
 		unsafe {
 			// Sanity check the pre-condition that it's aligned.
 			debug_assert!(virt & 0xFFF == 0);

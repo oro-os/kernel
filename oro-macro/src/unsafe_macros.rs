@@ -6,7 +6,7 @@
 #[macro_export]
 macro_rules! assert_unsafe {
 	() => {{
-		#[allow(clippy::zero_ptr)]
+		#[expect(clippy::zero_ptr)]
 		let _ptr = 0 as *const ();
 		let _this_macro_must_be_used_in_an_unsafe_context = *_ptr;
 	}};

@@ -39,7 +39,7 @@ impl MairRegister {
 	pub unsafe fn get(self, index: usize) -> MairAttributes {
 		debug_assert!(index < 8, "index must be 0..=7");
 		let shift = index * 8;
-		#[allow(clippy::cast_possible_truncation)]
+		#[expect(clippy::cast_possible_truncation)]
 		MairAttributes((self.0 >> shift) as u8)
 	}
 
@@ -123,7 +123,7 @@ impl fmt::Debug for MairRegister {
 
 // NOTE(qix-): I don't really want to encourage anyone convert back from a raw u64
 // NOTE(qix-): to a `MairRegister` value as that's probably not very safe.
-#[allow(clippy::from_over_into)]
+#[expect(clippy::from_over_into)]
 impl Into<u64> for MairRegister {
 	#[inline(always)]
 	fn into(self) -> u64 {
@@ -231,7 +231,6 @@ impl fmt::Debug for AttributesType {
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 #[non_exhaustive]
-#[allow(clippy::upper_case_acronyms)]
 pub enum MairDeviceAttribute {
 	/// Device non-Gathering, non-Reordering, No Early write acknowledgement.
 	DnGnRnE = 0b0000,

@@ -15,14 +15,14 @@ use oro_mem::{
 macro_rules! sign_extend {
 	(L4, $value:expr) => {
 		// SAFETY(qix-): We expect and want the sign loss here.
-		#[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
+		#[expect(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
 		{
 			((($value << 16) as isize) >> 16) as usize
 		}
 	};
 	(L5, $value:expr) => {
 		// SAFETY(qix-): We expect and want the sign loss here.
-		#[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
+		#[expect(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
 		{
 			((($value << 7) as isize) >> 7) as usize
 		}
@@ -116,7 +116,7 @@ impl AddressSegment {
 					.with_address(frame_phys_addr);
 
 				crate::asm::invlpg(frame_virt_addr);
-				#[allow(clippy::cast_ptr_alignment)]
+				#[expect(clippy::cast_ptr_alignment)]
 				let pt = frame_virt_addr.cast::<PageTable>();
 				debug_assert!(pt.is_aligned());
 				pt
@@ -392,11 +392,7 @@ impl AddressSegment {
 }
 
 unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
-	// SAFETY(qix-): We know and understand that the sign is being munged here;
-	// SAFETY(qix-): that's expected. We can safely ignore any clippy lints related to that.
 	// TODO(qix-): Once const trait methods are stabilitized, make this const.
-	// TODO(qix-): Once attributes on expressions are stabilized, move this directly into the macro.
-	#[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
 	fn range(&self) -> (usize, usize) {
 		// Get the current paging level.
 		match PagingLevel::current_from_cpu() {

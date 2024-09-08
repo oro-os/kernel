@@ -16,9 +16,9 @@ use oro_mem::{
 	translate::Translator,
 };
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 pub type SupervisorHandle = AddressSpaceHandle;
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 pub type AddressSpace = AddressSpaceLayout;
 
 /// The index at which the stubs are located in the address space.
@@ -56,7 +56,7 @@ pub fn target_address() -> usize {
 
 /// Prepares the system for a transfer. Called before the memory map
 /// is written, after which `transfer` is called.
-#[allow(clippy::unnecessary_wraps)]
+#[expect(clippy::unnecessary_wraps)]
 pub unsafe fn prepare_transfer<P: Translator, A: PageFrameAllocate + PageFrameFree>(
 	mapper: &mut AddressSpaceHandle,
 	alloc: &mut A,

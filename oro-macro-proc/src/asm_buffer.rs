@@ -4,7 +4,7 @@
 use quote::quote;
 use std::io::Read;
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 pub fn asm_buffer(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let args = std::env::args().collect::<Vec<_>>();
 
@@ -39,8 +39,7 @@ pub fn asm_buffer(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
 		#[link_section = ".inline_asm"]
 		#[no_mangle]
 		#[naked]
-		#[allow(non_snake_case)]
-		pub extern "C" fn _INLINE_ASM() {
+		pub extern "C" fn _inline_asm() {
 			unsafe {
 				::core::arch::asm!(
 					".byte 0xDE", ".byte 0xAD", ".byte 0xBE" , ".byte 0xEF",
@@ -184,7 +183,7 @@ where
 }
 
 /// An iterator that filters by a sliding window of two elements.
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 struct FilterPairs<I, F>
 where
 	I: Iterator,

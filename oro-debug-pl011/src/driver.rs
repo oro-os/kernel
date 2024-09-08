@@ -88,7 +88,7 @@ struct RegisterBlock {
 	dmacr: RW<u32>,
 }
 
-#[allow(clippy::inline_always)]
+#[expect(clippy::inline_always)]
 impl PL011 {
 	/// Create a new PL011 UART driver at the given base address.
 	///
@@ -164,12 +164,12 @@ impl PL011 {
 
 	/// Calculate the baud rate divisor pair
 	/// Returns the `(integer, fractional)` parts as a tuple.
-	#[allow(clippy::cast_sign_loss)]
+	#[expect(clippy::cast_sign_loss)]
 	fn calculate_divisors(base_clock: u32, baud_rate: u32) -> (u16, u8) {
 		let baud_div = f64::from(base_clock) / (16.0 * f64::from(baud_rate));
-		#[allow(clippy::cast_possible_truncation)]
+		#[expect(clippy::cast_possible_truncation)]
 		let integer = baud_div as u16;
-		#[allow(clippy::cast_possible_truncation)]
+		#[expect(clippy::cast_possible_truncation)]
 		let fractional = (((baud_div - f64::from(integer)) * 64.0) + 0.5) as u8;
 		(integer, fractional)
 	}

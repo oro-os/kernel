@@ -31,7 +31,7 @@ impl Error {
 	/// Checks the given code and returns an `Err` if it matches
 	/// one of the error codes.
 	fn check32<T: From<u32>>(e: u32) -> Result<T> {
-		#[allow(clippy::cast_possible_wrap)]
+		#[expect(clippy::cast_possible_wrap)]
 		let i = e as i32;
 		if i < 0 && i > -10 {
 			Err(unsafe { core::mem::transmute::<i64, Error>(i.into()) })
@@ -43,7 +43,7 @@ impl Error {
 	/// Checks the given code and returns an `Err` if it matches
 	/// one of the error codes.
 	fn check64<T: From<u64>>(e: u64) -> Result<T> {
-		#[allow(clippy::cast_possible_wrap)]
+		#[expect(clippy::cast_possible_wrap)]
 		let i = e as i64;
 		if i < 0 && i > -10 {
 			Err(unsafe { core::mem::transmute::<i64, Error>(i) })

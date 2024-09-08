@@ -23,7 +23,7 @@ use oro_mem::{
 const CR4_LA57: u32 = 1 << 12;
 
 /// The error type for booting a secondary core.
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[derive(Debug)]
 pub enum BootError {
 	/// The system is out of memory.
@@ -45,7 +45,7 @@ pub enum BootError {
 /// and the page at physical address 0x9000 as the secondary core's L4 page table.
 ///
 /// Caller must ensure these pages are mapped (via the PAT) and accessible.
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 pub unsafe fn boot_secondary<A: PageFrameAllocate + PageFrameFree>(
 	primary_handle: &AddressSpaceHandle,
 	pfa: &mut A,

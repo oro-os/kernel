@@ -18,7 +18,7 @@ pub fn init() {
 }
 
 /// Logs a message to the UART.
-#[allow(clippy::missing_panics_doc)]
+#[expect(clippy::missing_panics_doc)]
 pub fn log(message: fmt::Arguments) {
 	// NOTE(qix-): This unsafe block MUST NOT PANIC.
 	unsafe { writeln!(SERIAL.lock(), "{message}") }.unwrap();

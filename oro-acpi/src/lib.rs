@@ -101,7 +101,7 @@ impl<P: Translator> Rsdp<P> {
 }
 
 // SAFETY(qix-): Uses unstable feature `trivial_bounds`.
-#[allow(trivial_bounds)]
+#[expect(trivial_bounds)]
 impl<P: Translator> core::fmt::Debug for Rsdp<P>
 where
 	sys::acpi_table_rsdp: core::fmt::Debug,
@@ -317,7 +317,7 @@ macro_rules! impl_tables {
 		}
 
 		// SAFETY(qix-): Uses unstable feature `trivial_bounds`.
-		#[allow(trivial_bounds)]
+		#[expect(trivial_bounds)]
 		impl<P: Translator> core::fmt::Debug for $ident<P> where $systbl_ident: core::fmt::Debug {
 			fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 				self.ptr.fmt(f)
@@ -366,7 +366,7 @@ pub trait FromLe64<const ORIG: usize> {
 	// TODO(qix-): the numbers common lib will probably have better names for this.
 	// TODO(qix-): When this is copied over, remove the `#[allow(clippy::wrong_self_convention)]`
 	// TODO(qix-): and let's find a better name.
-	#[allow(clippy::wrong_self_convention)]
+	#[expect(clippy::wrong_self_convention)]
 	fn from_le_64(self) -> u64;
 }
 

@@ -57,7 +57,7 @@ pub struct PreparedMemory {
 ///   for the system to use.
 pub unsafe fn prepare_memory() -> PreparedMemory {
 	// First, let's make sure the recursive entry is mapped.
-	#[allow(clippy::missing_docs_in_private_items)]
+	#[expect(clippy::missing_docs_in_private_items)]
 	const RIDX: usize = crate::mem::address_space::AddressSpaceLayout::RECURSIVE_IDX;
 	let cr3 = crate::asm::cr3();
 	let paging_level = PagingLevel::current_from_cpu();
@@ -222,7 +222,7 @@ unsafe fn linear_map_regions<'a>(
 ) -> Option<u64> {
 	let paging_level = PagingLevel::current_from_cpu();
 
-	#[allow(clippy::missing_docs_in_private_items)]
+	#[expect(clippy::missing_docs_in_private_items)]
 	macro_rules! extend {
 		($virt:expr) => {
 			match paging_level {
@@ -311,7 +311,7 @@ unsafe fn linear_map_regions<'a>(
 			continue;
 		}
 
-		#[allow(clippy::missing_docs_in_private_items)]
+		#[expect(clippy::missing_docs_in_private_items)]
 		const RIDX: usize = crate::mem::address_space::AddressSpaceLayout::RECURSIVE_IDX;
 
 		let start_of_region = base_virt;
@@ -549,7 +549,7 @@ impl OnTheFlyMapper {
 		// Assuming the recursive map exists (it does if we're here),
 		// we can calculate the virtual address of the L1 page table
 		// for the OTF region.
-		#[allow(clippy::missing_docs_in_private_items)]
+		#[expect(clippy::missing_docs_in_private_items)]
 		const RIDX: usize = crate::mem::address_space::AddressSpaceLayout::RECURSIVE_IDX;
 		let paging_level = PagingLevel::current_from_cpu();
 		let levels = paging_level as usize;

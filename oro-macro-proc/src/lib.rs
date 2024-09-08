@@ -115,7 +115,6 @@ pub fn derive_enum_iterator(input: proc_macro::TokenStream) -> proc_macro::Token
 ///    assert_eq!(SOME_VALUE, 42);
 /// }
 /// ```
-#[allow(clippy::missing_panics_doc)]
 #[proc_macro]
 pub fn paste(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	match self::paste::paste(input) {

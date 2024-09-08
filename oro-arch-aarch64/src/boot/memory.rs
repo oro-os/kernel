@@ -38,7 +38,7 @@ pub struct PreparedMemory {
 /// once during boot.
 pub unsafe fn prepare_memory() -> PreparedMemory {
 	// First, let's make sure the recurisive page table is set up correctly.
-	#[allow(clippy::missing_docs_in_private_items)]
+	#[expect(clippy::missing_docs_in_private_items)]
 	const RIDX: usize = AddressSpaceLayout::RECURSIVE_ENTRY_IDX.0;
 	// SAFETY(qix-): We load TTBR1 which is always safe, and then do a
 	// SAFETY(qix-): safe instruction to ask the CPU to resolve the virtual address
@@ -144,7 +144,7 @@ unsafe fn linear_map_regions<'a>(
 	regions: MemoryMapIterator<'a>,
 ) -> Option<u64> {
 	// Get the virtual address of the linear map base.
-	#[allow(clippy::missing_docs_in_private_items)]
+	#[expect(clippy::missing_docs_in_private_items)]
 	const LINEAR_MAP_IDX: (usize, usize) = AddressSpaceLayout::LINEAR_MAP_IDX;
 	let linear_map_base = 0xFFFF_0000_0000_0000 | (LINEAR_MAP_IDX.0 << 39) as u64;
 	let linear_map_last_incl = !(511 << 39) | (LINEAR_MAP_IDX.1 << 39) as u64;
@@ -207,7 +207,7 @@ unsafe fn linear_map_regions<'a>(
 			continue;
 		}
 
-		#[allow(clippy::missing_docs_in_private_items)]
+		#[expect(clippy::missing_docs_in_private_items)]
 		const RIDX: usize = crate::mem::address_space::AddressSpaceLayout::RECURSIVE_ENTRY_IDX.0;
 
 		let mut total_mappings = 0;
@@ -415,7 +415,6 @@ impl<'a> MemoryMapPfa<'a> {
 
 	/// Consumes this iterator and returns the remaining
 	/// entry and usable memory regions iterator.
-	#[allow(dead_code)] // XXX(qix-): temporary
 	#[must_use]
 	fn into_inner(self) -> (MemoryMapEntry, MemoryMapIterator<'a>) {
 		(self.current_entry, self.iterator)
@@ -564,9 +563,9 @@ impl OnTheFlyMapper {
 		// Assuming the recursive map exists (it does if we're here),
 		// we can calculate the virtual address of the L1 page table
 		// for the OTF region.
-		#[allow(clippy::missing_docs_in_private_items)]
+		#[expect(clippy::missing_docs_in_private_items)]
 		const RIDX: usize = crate::mem::address_space::AddressSpaceLayout::RECURSIVE_ENTRY_IDX.0;
-		#[allow(clippy::missing_docs_in_private_items)]
+		#[expect(clippy::missing_docs_in_private_items)]
 		const OTF_IDX: usize = crate::mem::address_space::AddressSpaceLayout::BOOT_RESERVED_IDX;
 
 		debug_assert!(OTF_IDX < 512, "OTF_IDX is out of bounds");

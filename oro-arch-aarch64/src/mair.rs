@@ -43,7 +43,6 @@ impl MairEntry {
 		let mut mair = MairRegister::new();
 
 		for entry in MairEntry::iter_all() {
-			#[allow(clippy::match_same_arms)]
 			match entry {
 				MairEntry::DeviceMMIO => {
 					*mair[usize::from(entry.index())].device_mut() = MairDeviceAttribute::DnGnRnE;

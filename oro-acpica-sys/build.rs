@@ -1,7 +1,6 @@
 use ::convert_case::{Case, Casing};
 use ::quote::ToTokens;
 
-#[allow(clippy::missing_docs_in_private_items)]
 fn main() {
 	let out_dir = std::env::var("OUT_DIR").unwrap();
 	let dest_path = std::path::Path::new(&out_dir).join("bindings.rs");
