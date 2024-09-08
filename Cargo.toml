@@ -29,23 +29,23 @@ members = [
 ]
 
 [workspace.dependencies]
-oro-acpi = { path = "oro-acpi" }
-oro-acpica-sys = { path = "oro-acpica-sys" }
-oro-arch-aarch64 = { path = "oro-arch-aarch64" }
-oro-arch-x86_64 = { path = "oro-arch-x86_64" }
-oro-boot = { path = "oro-boot" }
-oro-boot-protocol = { path = "oro-boot-protocol" }
-oro-mem = { path = "oro-mem" }
-oro-macro = { path = "oro-macro" }
-oro-macro-proc = { path = "oro-macro-proc" }
-oro-elf = { path = "oro-elf" }
-oro-sync = { path = "oro-sync" }
-oro-kernel = { path = "oro-kernel" }
-oro-debug = { path = "oro-debug" }
-oro-debug-pl011 = { path = "oro-debug-pl011" }
-oro-debug-uart16550 = { path = "oro-debug-uart16550" }
-oro-type = { path = "oro-type" }
-oro-dtb = { path = "oro-dtb" }
+oro-acpi.path = "oro-acpi"
+oro-acpica-sys.path = "oro-acpica-sys"
+oro-arch-aarch64.path = "oro-arch-aarch64"
+oro-arch-x86_64.path = "oro-arch-x86_64"
+oro-boot.path = "oro-boot"
+oro-boot-protocol.path = "oro-boot-protocol"
+oro-mem.path = "oro-mem"
+oro-macro.path = "oro-macro"
+oro-macro-proc.path = "oro-macro-proc"
+oro-elf.path = "oro-elf"
+oro-sync.path = "oro-sync"
+oro-kernel.path = "oro-kernel"
+oro-debug.path = "oro-debug"
+oro-debug-pl011.path = "oro-debug-pl011"
+oro-debug-uart16550.path = "oro-debug-uart16550"
+oro-type.path = "oro-type"
+oro-dtb.path = "oro-dtb"
 
 limine = "0.2.0"
 uart_16550 = "0.3.0"
