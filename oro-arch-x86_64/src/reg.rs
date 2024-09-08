@@ -6,7 +6,7 @@ use core::arch::asm;
 #[repr(transparent)]
 pub struct Cr0(u64);
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 macro_rules! field {
 	($name:ident, $shift:expr, $doc:literal) => {
 		#[doc = $doc]
@@ -70,7 +70,7 @@ impl Cr0 {
 	);
 
 	/// Creates a new CR0 register with all bits cleared.
-	#[allow(clippy::new_without_default)]
+	#[expect(clippy::new_without_default)]
 	#[must_use]
 	pub const fn new() -> Self {
 		Self(0)

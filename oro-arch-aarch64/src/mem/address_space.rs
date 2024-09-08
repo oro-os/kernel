@@ -104,7 +104,7 @@ impl AddressSpaceLayout {
 	/// Returns the segment descriptor for the kernel transfer stubs.
 	#[must_use]
 	pub fn stubs() -> <Self as AddressSpace>::SupervisorSegment {
-		#[allow(clippy::missing_docs_in_private_items)]
+		#[expect(clippy::missing_docs_in_private_items)]
 		static DESCRIPTOR: Segment = unsafe {
 			Segment {
 				valid_range:       AddressSpaceLayout::STUBS_IDX,
@@ -131,7 +131,7 @@ impl AddressSpaceLayout {
 	/// Returns the segment descriptor for the kernel stack.
 	#[must_use]
 	pub fn kernel_stack() -> <Self as AddressSpace>::SupervisorSegment {
-		#[allow(clippy::missing_docs_in_private_items)]
+		#[expect(clippy::missing_docs_in_private_items)]
 		static DESCRIPTOR: Segment = unsafe {
 			Segment {
 				valid_range:       (
@@ -254,7 +254,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		// NOTE(qix-): Technically this isn't required since the kernel currently
 		// NOTE(qix-): requires `TCR_EL1.TnSZ=16`, but it's cheap and not often
 		// NOTE(qix-): called, so we'll just do it anyway.
-		#[allow(clippy::cast_possible_truncation)]
 		let (tt1_start, _) = TcrEl1::load().tt1_range();
 
 		let base_phys = crate::asm::load_ttbr1();
@@ -300,7 +299,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn kernel_code() -> Self::SupervisorSegment {
-		#[allow(clippy::missing_docs_in_private_items)]
+		#[expect(clippy::missing_docs_in_private_items)]
 		static DESCRIPTOR: Segment = unsafe {
 			Segment {
 				valid_range:       (
@@ -325,7 +324,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn kernel_data() -> Self::SupervisorSegment {
-		#[allow(clippy::missing_docs_in_private_items)]
+		#[expect(clippy::missing_docs_in_private_items)]
 		static DESCRIPTOR: Segment = unsafe {
 			Segment {
 				valid_range:       (
@@ -351,7 +350,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn kernel_rodata() -> Self::SupervisorSegment {
-		#[allow(clippy::missing_docs_in_private_items)]
+		#[expect(clippy::missing_docs_in_private_items)]
 		static DESCRIPTOR: Segment = unsafe {
 			Segment {
 				valid_range:       (
@@ -377,7 +376,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn kernel_stack() -> Self::SupervisorSegment {
-		#[allow(clippy::missing_docs_in_private_items)]
+		#[expect(clippy::missing_docs_in_private_items)]
 		static DESCRIPTOR: Segment = unsafe {
 			Segment {
 				valid_range:       (
@@ -403,7 +402,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn kernel_ring_registry() -> Self::SupervisorSegment {
-		#[allow(clippy::missing_docs_in_private_items)]
+		#[expect(clippy::missing_docs_in_private_items)]
 		static DESCRIPTOR: Segment = unsafe {
 			Segment {
 				valid_range:       (
@@ -441,7 +440,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn kernel_module_instance_registry() -> Self::SupervisorSegment {
-		#[allow(clippy::missing_docs_in_private_items)]
+		#[expect(clippy::missing_docs_in_private_items)]
 		static DESCRIPTOR: Segment = unsafe {
 			Segment {
 				valid_range:       (
@@ -479,7 +478,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn kernel_port_registry() -> Self::SupervisorSegment {
-		#[allow(clippy::missing_docs_in_private_items)]
+		#[expect(clippy::missing_docs_in_private_items)]
 		static DESCRIPTOR: Segment = unsafe {
 			Segment {
 				valid_range:       (

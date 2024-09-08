@@ -14,7 +14,7 @@ macro_rules! warn {
 	};
 }
 
-#[allow(clippy::too_many_lines)]
+#[expect(clippy::too_many_lines)]
 fn main() {
 	println!("cargo::rustc-check-cfg=cfg(oro_build_protocol_header)");
 	println!("cargo::rerun-if-env-changed=ORO_BUILD_PROTOCOL_HEADER");
@@ -268,7 +268,7 @@ fn process_tags<W: Write>(items: &[syn::Item], w: &mut W) -> Result<()> {
 	Ok(())
 }
 
-#[allow(clippy::too_many_lines)]
+#[expect(clippy::too_many_lines)]
 fn process_mod<W: Write>(items: &[syn::Item], w: &mut W) -> Result<()> {
 	// Collect them so we can sort them
 	let mut items: Vec<_> = items.iter().collect();

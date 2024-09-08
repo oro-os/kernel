@@ -119,7 +119,6 @@ pub type Be<T> = Endian<T, BigEndian>;
 pub type Le<T> = Endian<T, LittleEndian>;
 
 #[doc(hidden)]
-#[allow(clippy::missing_docs_in_private_items)]
 mod private {
 	pub trait Sealed {}
 }

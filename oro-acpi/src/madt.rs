@@ -80,12 +80,12 @@ impl<'a> Iterator for MadtIterator<'a> {
 	}
 }
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 macro_rules! madt_entries {
 	($($(#[$meta:meta])* $name:tt = $tyid:literal),* $(,)?) => {
 		paste! {
 			/// Represents an entry in the MADT table.
-			#[allow(missing_docs)]
+			#[expect(missing_docs)]
 			#[non_exhaustive]
 			pub enum MadtEntry<'a> {
 				$(
@@ -116,7 +116,6 @@ macro_rules! madt_entries {
 			}
 
 			/// A union of all APIC types. Used by the [`MadtIterator`].
-			#[allow(missing_docs)]
 			#[repr(C)]
 			union MadtData {
 				header: ManuallyDrop<sys::ACPI_SUBTABLE_HEADER>,

@@ -235,7 +235,7 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 	}
 }
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 fn try_send<R: DataRevision>(scanner: &mut RequestScanner, response: R)
 where
 	R::Request: RequestData,

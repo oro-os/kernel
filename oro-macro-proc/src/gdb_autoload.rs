@@ -4,7 +4,7 @@ use proc_macro2::Span;
 use quote::quote;
 use syn::{punctuated::Punctuated, Error, Ident, Lit, Token};
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 pub fn gdb_autoload_inline(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let Some(tok) = input.clone().into_iter().next() else {
 		return Error::new(Span::call_site(), "expected a string literal")

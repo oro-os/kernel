@@ -2,7 +2,7 @@
 
 use quote::quote;
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 pub fn derive_enum_iterator(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let ast = syn::parse_macro_input!(input as syn::DeriveInput);
 

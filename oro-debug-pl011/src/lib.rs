@@ -36,7 +36,7 @@ pub fn init(offset: usize) {
 }
 
 /// Logs a message to the PL011.
-#[allow(clippy::missing_panics_doc)]
+#[expect(clippy::missing_panics_doc)]
 pub fn log(message: fmt::Arguments) {
 	// NOTE(qix-): This unsafe block MUST NOT PANIC.
 	unsafe {

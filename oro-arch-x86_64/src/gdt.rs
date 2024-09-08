@@ -108,7 +108,7 @@ impl GdtEntry {
 }
 
 /// A Data Privilege Level (DPL) for a descriptor.
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 enum Dpl {
@@ -157,7 +157,7 @@ pub fn install_gdt() {
 
 	let base = GDT.as_ptr() as u64;
 	let gdt_size = core::mem::size_of_val(&GDT);
-	#[allow(clippy::cast_possible_truncation)]
+	#[expect(clippy::cast_possible_truncation)]
 	let limit = (gdt_size - 1) as u16;
 
 	let gdt_descriptor = GdtDescriptor { limit, base };

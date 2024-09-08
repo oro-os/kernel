@@ -68,7 +68,7 @@ fn paste_snake_case() {
 }
 
 #[test]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn paste_title_case() {
 	paste! {
 		let %<title_case:someTitle_Case>% = 42;
@@ -77,7 +77,7 @@ fn paste_title_case() {
 }
 
 #[test]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn paste_camel_case() {
 	paste! {
 		let %<camel_case:SOME_camel_case>% = 42;
@@ -86,7 +86,7 @@ fn paste_camel_case() {
 }
 
 #[test]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 fn paste_const_case() {
 	paste! {
 		let %<const_case:someConst_Case>% = 42;

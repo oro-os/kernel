@@ -166,7 +166,7 @@ impl TcrEl1 {
 	}
 
 	/// Creates a new `TCR_EL1` register with all fields set to `0`.
-	#[allow(clippy::new_without_default)]
+	#[expect(clippy::new_without_default)]
 	#[must_use]
 	pub const fn new() -> Self {
 		Self(0)
@@ -301,7 +301,6 @@ pub enum Tg0GranuleSize {
 }
 
 /// Shareability attributes for the SH1 and SH0 fields of the `TCR_EL1` register.
-#[allow(clippy::enum_variant_names)]
 #[derive(Debug, Clone, Copy, AsU64, PartialEq, Eq)]
 #[repr(u64)]
 pub enum Shareability {

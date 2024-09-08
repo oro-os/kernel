@@ -73,14 +73,14 @@ impl Elf {
 		class: ElfClass,
 		machine: ElfMachine,
 	) -> Result<&'static Self, ElfError> {
-		#[allow(clippy::cast_ptr_alignment)]
+		#[expect(clippy::cast_ptr_alignment)]
 		if !base_addr.cast::<Self>().is_aligned() {
 			return Err(ElfError::UnalignedBaseAddr);
 		}
 
 		let end_excl = base_addr.add(length) as u64;
 
-		#[allow(clippy::cast_ptr_alignment)]
+		#[expect(clippy::cast_ptr_alignment)]
 		let elf = &*base_addr.cast::<Self>();
 
 		if elf.ident.magic != [0x7F, b'E', b'L', b'F'] {
@@ -203,7 +203,7 @@ impl Elf {
 	/// Returns the entry point of the ELF file.
 	#[inline]
 	#[must_use]
-	#[allow(clippy::cast_possible_truncation)]
+	#[expect(clippy::cast_possible_truncation)]
 	pub fn entry_point(&self) -> usize {
 		match self.ident.class {
 			ElfClass::Class32 => unsafe { self.endian.elf32.entry as usize },
@@ -435,7 +435,7 @@ impl<'a> ElfSegment for ElfSegmentHeader<'a> {
 		}
 	}
 
-	#[allow(clippy::similar_names, clippy::cast_possible_truncation)]
+	#[expect(clippy::cast_possible_truncation)]
 	#[inline]
 	fn load_address(&self) -> usize {
 		match self {
@@ -456,7 +456,7 @@ impl<'a> ElfSegment for ElfSegmentHeader<'a> {
 		}
 	}
 
-	#[allow(clippy::cast_possible_truncation)]
+	#[expect(clippy::cast_possible_truncation)]
 	#[inline]
 	fn target_address(&self) -> usize {
 		match self {
@@ -465,7 +465,7 @@ impl<'a> ElfSegment for ElfSegmentHeader<'a> {
 		}
 	}
 
-	#[allow(clippy::cast_possible_truncation)]
+	#[expect(clippy::cast_possible_truncation)]
 	#[inline]
 	fn load_size(&self) -> usize {
 		match self {
@@ -474,7 +474,7 @@ impl<'a> ElfSegment for ElfSegmentHeader<'a> {
 		}
 	}
 
-	#[allow(clippy::cast_possible_truncation)]
+	#[expect(clippy::cast_possible_truncation)]
 	#[inline]
 	fn target_size(&self) -> usize {
 		match self {

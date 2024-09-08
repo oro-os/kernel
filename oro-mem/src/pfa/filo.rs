@@ -76,7 +76,6 @@ unsafe impl<M> PageFrameAllocate for FiloPageFrameAllocator<M>
 where
 	M: FiloPageFrameManager,
 {
-	#[allow(clippy::cast_possible_truncation)]
 	fn allocate(&mut self) -> Option<u64> {
 		if self.last_free == u64::MAX {
 			// We're out of memory

@@ -10,7 +10,6 @@
 pub(crate) trait Sealed {}
 
 /// Main Oro boot protocol definition macro.
-#[allow(clippy::too_many_lines)]
 macro_rules! oro_boot_protocol {
 	(
 		$(
@@ -38,7 +37,7 @@ macro_rules! oro_boot_protocol {
 				/// The tag revision. Provided by the Kernel.
 				pub revision: u64,
 				/// Reserved for future use. Must be ignored by the bootloader.
-				#[allow(clippy::pub_underscore_fields)]
+				#[expect(clippy::pub_underscore_fields)]
 				pub _reserved: [u8; 16],
 			}
 
@@ -50,7 +49,7 @@ macro_rules! oro_boot_protocol {
 			};
 
 			/// Holds the `TAG` constant for each request type.
-			#[allow(private_bounds)]
+			#[expect(private_bounds)]
 			pub trait RequestTag: crate::macros::Sealed {
 				/// The tag for the request.
 				const TAG: crate::Tag;
@@ -58,7 +57,7 @@ macro_rules! oro_boot_protocol {
 
 			/// Specifies which Request a given data structure
 			/// is for.
-			#[allow(private_bounds)]
+			#[expect(private_bounds)]
 			pub trait Data: crate::macros::Sealed {
 				/// The request this data is for.
 				type Request: RequestTag;
@@ -66,7 +65,7 @@ macro_rules! oro_boot_protocol {
 
 			/// Specifies which revision of a Request the data
 			/// structure is for.
-			#[allow(private_bounds)]
+			#[expect(private_bounds)]
 			pub trait DataRevision: Data+ crate::macros::Sealed {
 				/// The revision of the request.
 				const REVISION: u64;
@@ -75,7 +74,7 @@ macro_rules! oro_boot_protocol {
 			$(
 				#[doc = concat!("The response data structures for the [`", stringify!($ReqName), "Request`], across all revisions.")]
 				pub mod %<snake_case:$ReqName>% {
-					#[allow(unused_imports)]
+					#[expect(unused_imports)]
 					use super::*;
 
 					$(
@@ -159,7 +158,7 @@ macro_rules! oro_boot_protocol {
 					/// by the bootloader.
 					pub populated: u8,
 					/// Reserved for future use. Ignored by the kernel.
-					#[allow(clippy::pub_underscore_fields)]
+					#[expect(clippy::pub_underscore_fields)]
 					pub _reserved:  [u8; 15],
 					/// The response data. Filled in by the bootloader.
 					///
@@ -223,7 +222,7 @@ macro_rules! oro_boot_protocol {
 					/// or if the revision number is not recognized.
 					#[must_use]
 					#[cfg(feature = "utils")]
-					#[allow(clippy::needless_lifetimes)]
+					#[expect(clippy::needless_lifetimes)]
 					pub fn response<'a>(&'a self) -> Option<%<snake_case:$ReqName>%::$ReqName %% Kind<'a>> {
 						if self.populated == 0 {
 							return None;
@@ -254,7 +253,7 @@ macro_rules! oro_boot_protocol {
 					/// is being accessed.
 					#[cfg(feature = "utils")]
 					#[must_use]
-					#[allow(clippy::needless_lifetimes)]
+					#[expect(clippy::needless_lifetimes)]
 					pub unsafe fn response_mut_unchecked<'a>(&'a mut self) -> Option<%<snake_case:$ReqName>%::$ReqName %% KindMut<'a>> {
 						match self.header.revision {
 							$(
@@ -306,7 +305,7 @@ macro_rules! oro_boot_protocol {
 					$(
 						$ReqName %% Request::TAG => {
 							// SAFETY(qix-): We've already checked that it aligns properly.
-							#[allow(clippy::cast_ptr_alignment)]
+							#[expect(clippy::cast_ptr_alignment)]
 							let req = unsafe { &mut *::core::ptr::from_mut(tag).cast::<$ReqName %% Request>() };
 							match req.header.revision {
 								$(

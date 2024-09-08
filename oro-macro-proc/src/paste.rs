@@ -6,11 +6,7 @@ use proc_macro2::{Span, TokenTree};
 use std::collections::VecDeque;
 use syn::{Error, Ident};
 
-#[allow(
-	clippy::missing_panics_doc,
-	clippy::missing_docs_in_private_items,
-	clippy::too_many_lines
-)]
+#[expect(clippy::missing_docs_in_private_items, clippy::too_many_lines)]
 pub fn paste(input: proc_macro::TokenStream) -> syn::Result<proc_macro::TokenStream> {
 	let input = proc_macro2::TokenStream::from(input);
 	let mut iter = CaseTransformationIterator::new(input.into_iter()).peekable();

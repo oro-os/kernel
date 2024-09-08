@@ -32,7 +32,7 @@ impl Lapic {
 	#[must_use]
 	pub fn version(&self) -> LapicVersion {
 		// SAFETY(qix-): The LAPIC base address is trusted to be vali and aligned.
-		#[allow(clippy::cast_ptr_alignment)]
+		#[expect(clippy::cast_ptr_alignment)]
 		let version32 = unsafe { self.base.add(0x30).cast::<u32>().read_volatile() };
 		LapicVersion {
 			supports_eoi_broadcast_suppression: (version32 & (1 << 24)) != 0,
@@ -45,7 +45,7 @@ impl Lapic {
 	#[must_use]
 	pub fn id(&self) -> u8 {
 		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[allow(clippy::cast_ptr_alignment)]
+		#[expect(clippy::cast_ptr_alignment)]
 		let id32 = unsafe { self.base.add(0x20).cast::<u32>().read_volatile() };
 		(id32 >> 24) as u8
 	}
@@ -53,7 +53,7 @@ impl Lapic {
 	/// Sets the local APIC ID.
 	pub fn set_id(&self, id: u8) {
 		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[allow(clippy::cast_ptr_alignment)]
+		#[expect(clippy::cast_ptr_alignment)]
 		unsafe {
 			let v = self.base.add(0x20).cast::<u32>().read_volatile();
 			let v = (v & 0x00FF_FFFF) | (u32::from(id) << 24);
@@ -64,7 +64,7 @@ impl Lapic {
 	/// Clears the errors in the local APIC.
 	pub fn clear_errors(&self) {
 		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[allow(clippy::cast_ptr_alignment)]
+		#[expect(clippy::cast_ptr_alignment)]
 		unsafe {
 			self.base.add(0x280).cast::<u32>().write_volatile(0);
 		}
@@ -73,7 +73,7 @@ impl Lapic {
 	/// Selects the secondary processor we want to interact with.
 	pub fn set_target_apic(&self, apic_id: u8) {
 		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[allow(clippy::cast_ptr_alignment)]
+		#[expect(clippy::cast_ptr_alignment)]
 		unsafe {
 			let v = self.base.add(0x310).cast::<u32>().read_volatile();
 			let v = (v & 0x00FF_FFFF) | (u32::from(apic_id) << 24);
@@ -85,7 +85,7 @@ impl Lapic {
 	/// (selected via [`Self::set_target_apic()`]).
 	pub fn send_init_ipi(&self) {
 		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[allow(clippy::cast_ptr_alignment)]
+		#[expect(clippy::cast_ptr_alignment)]
 		unsafe {
 			let v = self.base.add(0x300).cast::<u32>().read_volatile();
 			let v = (v & 0xFFF0_0000) | 0x00_C500;
@@ -97,7 +97,7 @@ impl Lapic {
 	/// Waits for the IPI to be acknowledged by the target processor.
 	pub fn wait_for_ipi_ack(&self) {
 		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[allow(clippy::cast_ptr_alignment)]
+		#[expect(clippy::cast_ptr_alignment)]
 		unsafe {
 			while self.base.add(0x300).cast::<u32>().read_volatile() & 0x1000 != 0 {
 				core::hint::spin_loop();
@@ -108,7 +108,7 @@ impl Lapic {
 	/// Deasserts the INIT IPI.
 	pub fn deassert_init_ipi(&self) {
 		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[allow(clippy::cast_ptr_alignment)]
+		#[expect(clippy::cast_ptr_alignment)]
 		unsafe {
 			let v = self.base.add(0x300).cast::<u32>().read_volatile();
 			let v = (v & 0xFFF0_0000) | 0x00_8500;
@@ -120,7 +120,7 @@ impl Lapic {
 	/// (selected via [`Self::set_target_apic()`]).
 	pub fn send_startup_ipi(&self, cs_page: u8) {
 		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[allow(clippy::cast_ptr_alignment)]
+		#[expect(clippy::cast_ptr_alignment)]
 		unsafe {
 			let v = self.base.add(0x300).cast::<u32>().read_volatile();
 			let v = (v & 0xFFF0_F800) | 0x00_0600 | u32::from(cs_page);

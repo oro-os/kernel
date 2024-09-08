@@ -48,7 +48,7 @@ pub unsafe fn boot_secondaries(
 	// Get the PSCI method.
 	let mut psci_method: Option<PsciMethod> = None;
 	for tkn in dtb.iter().filter_path(&[c"", c"psci"]) {
-		#[allow(clippy::redundant_guards)] // False positive
+		#[expect(clippy::redundant_guards)] // False positive
 		match tkn {
 			FdtToken::Property { name, value } if name == c"method" => {
 				let Ok(value) = CStr::from_bytes_with_nul(value) else {
@@ -81,7 +81,7 @@ pub unsafe fn boot_secondaries(
 	let mut cpu_id: u64 = 0;
 	let mut valid: bool = false;
 	for tkn in dtb.iter().filter_path(&[c"", c"cpus", c"cpu@"]) {
-		#[allow(clippy::redundant_guards)] // False positive
+		#[expect(clippy::redundant_guards)] // False positive
 		match tkn {
 			FdtToken::Node { name } => {
 				is_cpu = true;
@@ -338,7 +338,6 @@ unsafe fn boot_secondary(
 	// Allocate the boot stubs (maximum 4096 bytes).
 	let boot_phys = pfa.allocate().ok_or(SecondaryBootError::OutOfMemory)?;
 	let boot_virt = pat.translate_mut::<[u8; 4096]>(boot_phys);
-	#[allow(clippy::missing_docs_in_private_items)]
 	(&mut *boot_virt)[..SECONDARY_BOOT_STUB.len()].copy_from_slice(SECONDARY_BOOT_STUB);
 
 	// Direct map the boot stubs into the lower page table.

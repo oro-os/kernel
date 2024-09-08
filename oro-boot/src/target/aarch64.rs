@@ -20,9 +20,9 @@ use oro_mem::{
 	translate::Translator,
 };
 
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 pub type AddressSpace = AddressSpaceLayout;
-#[allow(clippy::missing_docs_in_private_items)]
+#[expect(clippy::missing_docs_in_private_items)]
 pub type SupervisorHandle = AddressSpaceHandle;
 
 /// Passed from the [`prepare_transfer`] function to the [`transfer`] function,
@@ -104,7 +104,7 @@ pub unsafe fn prepare_transfer<P: Translator, A: PageFrameAllocate + PageFrameFr
 		.ok_or(crate::Error::MapError(MapError::OutOfMemory))?;
 
 	// Direct map it.
-	#[allow(clippy::cast_possible_truncation)]
+	#[expect(clippy::cast_possible_truncation)]
 	AddressSpaceLayout::stubs()
 		.map(&page_table, alloc, pat, stubs_phys as usize, stubs_phys)
 		.map_err(crate::Error::MapError)?;
@@ -116,7 +116,7 @@ pub unsafe fn prepare_transfer<P: Translator, A: PageFrameAllocate + PageFrameFr
 }
 
 /// Performs the transfer from pre-boot to the kernel.
-#[allow(clippy::needless_pass_by_value)]
+#[expect(clippy::needless_pass_by_value)]
 pub unsafe fn transfer(
 	mapper: &mut AddressSpaceHandle,
 	kernel_entry: usize,
