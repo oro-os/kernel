@@ -73,6 +73,8 @@ pub mod mem;
 pub mod reg;
 pub mod sync;
 
+pub(crate) mod init;
+
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 
 /// The ELF class of the x86_64 architecture.

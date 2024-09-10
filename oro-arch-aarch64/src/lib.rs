@@ -39,6 +39,8 @@ pub mod psci;
 pub mod reg;
 pub mod sync;
 
+pub(crate) mod init;
+
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 
 /// The ELF class for the AArch64 architecture.
