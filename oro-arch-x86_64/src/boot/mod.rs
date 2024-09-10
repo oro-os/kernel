@@ -32,11 +32,7 @@ pub unsafe fn boot_primary() -> ! {
 	#[cfg(debug_assertions)]
 	oro_debug::init();
 
-	let memory::PreparedMemory {
-		pat,
-		has_cs89,
-		mut pfa,
-	} = memory::prepare_memory();
+	let memory::PreparedMemory { pat, has_cs89, pfa } = memory::prepare_memory();
 
 	// We now have a valid physical map; let's re-init
 	// any MMIO loggers with that offset.
@@ -115,7 +111,13 @@ pub unsafe fn boot_primary() -> ! {
 	let lapic = crate::lapic::Lapic::new(pat.translate_mut::<u8>(madt.lapic_phys()));
 	dbg!("local APIC version: {:?}", lapic.version());
 	let lapic_id = lapic.id();
-	dbg!("local APIC ID: {lapic_id}",);
+	dbg!("local APIC ID: {lapic_id}");
+
+	crate::init::initialize_primary(pfa);
+	let mut pfa = crate::init::KERNEL_STATE
+		.assume_init_ref()
+		.pfa()
+		.lock::<crate::sync::InterruptController>();
 
 	let num_cores = if has_cs89 {
 		dbg!("physical pages 0x8000/0x9000 are valid; attempting to boot secondary cores");
@@ -134,7 +136,7 @@ pub unsafe fn boot_primary() -> ! {
 						dbg!("cpu {}: booting...", apic.id());
 						match secondary::boot_secondary(
 							&mapper,
-							&mut pfa,
+							&mut *pfa,
 							&pat,
 							&lapic,
 							apic.id(),
@@ -162,5 +164,5 @@ pub unsafe fn boot_primary() -> ! {
 
 	dbg!("proceeding with {} core(s)", num_cores);
 
-	crate::asm::halt();
+	crate::init::boot()
 }

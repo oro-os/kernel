@@ -283,6 +283,7 @@ version = "0.0.0"
 dependencies = [
  "oro-macro",
  "oro-mem",
+ "oro-sync",
 ]
 
 [[package]]

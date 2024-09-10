@@ -26,16 +26,23 @@ const SECONDARY_STACK_PAGES: usize = 16;
 pub unsafe fn boot_primary() -> ! {
 	crate::asm::disable_interrupts();
 
-	let memory::PreparedMemory { mut pfa, pat } = memory::prepare_memory();
+	let memory::PreparedMemory { pfa, pat } = memory::prepare_memory();
 
 	// We now have a valid physical map; let's re-init
 	// any MMIO loggers with that offset.
 	#[cfg(debug_assertions)]
 	oro_debug::init_with_offset(pat.offset());
 
+	// Initialize the primary core.
+	crate::init::initialize_primary(pfa);
+	let mut pfa = crate::init::KERNEL_STATE
+		.assume_init_ref()
+		.pfa()
+		.lock::<crate::sync::InterruptController>();
+
 	// Boot secondaries.
-	let num_cores = secondary::boot_secondaries(&mut pfa, &pat, SECONDARY_STACK_PAGES);
+	let num_cores = secondary::boot_secondaries(&mut *pfa, &pat, SECONDARY_STACK_PAGES);
 	dbg!("continuing with {num_cores} cores");
 
-	crate::asm::halt();
+	crate::init::boot();
 }

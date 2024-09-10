@@ -428,5 +428,5 @@ unsafe extern "C" fn boot_secondary_entry() {
 	// by the primary core.
 	dbg!("secondary core {} booted", boot_block.core_id);
 
-	crate::asm::halt();
+	crate::init::boot();
 }
