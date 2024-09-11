@@ -14,7 +14,7 @@ use oro_debug::{dbg, dbg_warn};
 use oro_macro::assert;
 use oro_mem::{
 	mapper::AddressSegment as _,
-	pfa::{alloc::PageFrameFree, filo::FiloPageFrameAllocator},
+	pfa::{alloc::Alloc, filo::FiloPageFrameAllocator},
 	translate::{OffsetTranslator, Translator},
 };
 

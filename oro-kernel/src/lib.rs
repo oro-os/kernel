@@ -11,7 +11,7 @@
 
 use oro_mem::{
 	mapper::{AddressSpace, MapError},
-	pfa::alloc::{PageFrameAllocate, PageFrameFree},
+	pfa::alloc::Alloc,
 	translate::Translator,
 };
 use oro_sync::spinlock::unfair_critical::{InterruptController, UnfairCriticalSpinlock};
@@ -29,7 +29,7 @@ pub mod ring;
 /// and re-created on core powerdown/subsequent bringup).
 pub struct Kernel<Pfa, Pat, AddrSpace, IntCtrl>
 where
-	Pfa: PageFrameAllocate + PageFrameFree + 'static,
+	Pfa: Alloc + 'static,
 	Pat: Translator,
 	AddrSpace: AddressSpace + 'static,
 	IntCtrl: InterruptController + 'static,
@@ -40,7 +40,7 @@ where
 
 impl<Pfa, Pat, AddrSpace, IntCtrl> Kernel<Pfa, Pat, AddrSpace, IntCtrl>
 where
-	Pfa: PageFrameAllocate + PageFrameFree + 'static,
+	Pfa: Alloc + 'static,
 	Pat: Translator,
 	AddrSpace: AddressSpace,
 	IntCtrl: InterruptController,
@@ -71,7 +71,7 @@ where
 /// core boot/powerdown/bringup cycles.
 pub struct KernelState<Pfa, Pat, AddrSpace, IntCtrl>
 where
-	Pfa: PageFrameAllocate + PageFrameFree,
+	Pfa: Alloc,
 	Pat: Translator,
 	AddrSpace: AddressSpace,
 	IntCtrl: InterruptController,
@@ -85,7 +85,7 @@ where
 
 impl<Pfa, Pat, AddrSpace, IntCtrl> KernelState<Pfa, Pat, AddrSpace, IntCtrl>
 where
-	Pfa: PageFrameAllocate + PageFrameFree,
+	Pfa: Alloc,
 	Pat: Translator,
 	AddrSpace: AddressSpace,
 	IntCtrl: InterruptController,

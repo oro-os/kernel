@@ -7,7 +7,7 @@ use crate::{
 	asm::cr3,
 	mem::{paging::PageTableEntry, segment::AddressSegment},
 };
-use oro_mem::{mapper::AddressSpace, pfa::alloc::PageFrameAllocate, translate::Translator};
+use oro_mem::{mapper::AddressSpace, pfa::alloc::Alloc, translate::Translator};
 
 /// A handle to an address space for the x86_64 architecture.
 ///
@@ -174,7 +174,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 
 	fn new_supervisor_space<A, P>(alloc: &mut A, translator: &P) -> Option<Self::SupervisorHandle>
 	where
-		A: PageFrameAllocate,
+		A: Alloc,
 		P: Translator,
 	{
 		let base_phys = alloc.allocate()?;
@@ -189,15 +189,11 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		})
 	}
 
-	fn duplicate_supervisor_space_shallow<A, P>(
+	fn duplicate_supervisor_space_shallow<A: Alloc, P: Translator>(
 		space: &Self::SupervisorHandle,
 		alloc: &mut A,
 		translator: &P,
-	) -> Option<Self::SupervisorHandle>
-	where
-		A: PageFrameAllocate,
-		P: Translator,
-	{
+	) -> Option<Self::SupervisorHandle> {
 		let base_phys = alloc.allocate()?;
 
 		unsafe {

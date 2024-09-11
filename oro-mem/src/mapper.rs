@@ -6,10 +6,7 @@
 //! The kernel will allocate memory into specific regions, leaving the
 //! architecture to properly set up all flags and other necessary controls
 //! for those regions to behave as the kernel expects.
-use crate::{
-	pfa::alloc::{PageFrameAllocate, PageFrameFree},
-	translate::Translator,
-};
+use crate::{pfa::alloc::Alloc, translate::Translator};
 
 /// A const trait that provides descriptors for the layout of an address space
 /// for the underlying architecture.
@@ -53,7 +50,7 @@ pub unsafe trait AddressSpace: 'static {
 	/// Returns `None` if any allocation(s) fail.
 	fn new_supervisor_space<A, P>(alloc: &mut A, translator: &P) -> Option<Self::SupervisorHandle>
 	where
-		A: PageFrameAllocate,
+		A: Alloc,
 		P: Translator;
 
 	/// Duplicates the given supervisor address space handle.
@@ -68,7 +65,7 @@ pub unsafe trait AddressSpace: 'static {
 		translator: &P,
 	) -> Option<Self::SupervisorHandle>
 	where
-		A: PageFrameAllocate,
+		A: Alloc,
 		P: Translator;
 
 	/// Returns the layout descriptor for the kernel code segment.
@@ -178,7 +175,7 @@ pub unsafe trait AddressSegment<Handle: Sized>: 'static {
 		translator: &P,
 	) -> Result<(), MapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: Alloc,
 		P: Translator;
 
 	/// Maps a physical address into the segment at the given virtual address.
@@ -196,7 +193,7 @@ pub unsafe trait AddressSegment<Handle: Sized>: 'static {
 		phys: u64,
 	) -> Result<(), MapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: Alloc,
 		P: Translator;
 
 	/// Maps a physical address into the segment at the given virtual address,
@@ -221,7 +218,7 @@ pub unsafe trait AddressSegment<Handle: Sized>: 'static {
 		phys: u64,
 	) -> Result<(), MapError>
 	where
-		A: PageFrameAllocate,
+		A: Alloc,
 		P: Translator;
 
 	/// Unmaps a physical address from the segment at the given virtual address.
@@ -235,7 +232,7 @@ pub unsafe trait AddressSegment<Handle: Sized>: 'static {
 		virt: usize,
 	) -> Result<u64, UnmapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: Alloc,
 		P: Translator;
 
 	/// Maps the given physical address into the segment at the given virtual address.
@@ -250,7 +247,7 @@ pub unsafe trait AddressSegment<Handle: Sized>: 'static {
 		phys: u64,
 	) -> Result<Option<u64>, MapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: Alloc,
 		P: Translator;
 }
 

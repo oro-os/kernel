@@ -20,7 +20,7 @@ use core::panic;
 use oro_macro::unlikely;
 use oro_mem::{
 	mapper::{AddressSegment, MapError, UnmapError},
-	pfa::alloc::{PageFrameAllocate, PageFrameFree},
+	pfa::alloc::Alloc,
 	translate::Translator,
 };
 
@@ -67,7 +67,7 @@ impl Segment {
 		virt: usize,
 	) -> Result<&'a mut PageTableEntry, MapError>
 	where
-		A: PageFrameAllocate,
+		A: Alloc,
 		P: Translator,
 	{
 		let virt = virt
@@ -189,7 +189,7 @@ impl Segment {
 		virt: usize,
 	) -> Result<Option<u64>, UnmapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: Alloc,
 		P: Translator,
 	{
 		let virt = virt
@@ -315,7 +315,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 		translator: &P,
 	) -> Result<(), MapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: Alloc,
 		P: Translator,
 	{
 		let top_level = unsafe { &mut *translator.translate_mut::<PageTable>(space.base_phys) };
@@ -346,7 +346,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 		phys: u64,
 	) -> Result<(), MapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: Alloc,
 		P: Translator,
 	{
 		// NOTE(qix-): The mapper doesn't actually free anything,
@@ -363,7 +363,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 		phys: u64,
 	) -> Result<(), MapError>
 	where
-		A: PageFrameAllocate,
+		A: Alloc,
 		P: Translator,
 	{
 		let l3_entry = self.entry(space, alloc, translator, virt)?;
@@ -397,7 +397,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 		virt: usize,
 	) -> Result<u64, UnmapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: Alloc,
 		P: Translator,
 	{
 		let phys = unsafe { self.try_unmap(space, alloc, translator, virt)? };
@@ -414,7 +414,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 		phys: u64,
 	) -> Result<Option<u64>, MapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: Alloc,
 		P: Translator,
 	{
 		let l3_entry = self.entry(space, alloc, translator, virt)?;

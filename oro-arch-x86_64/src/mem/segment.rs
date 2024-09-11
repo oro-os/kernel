@@ -7,7 +7,7 @@ use crate::mem::{paging::PageTableEntry, paging_level::PagingLevel};
 use oro_macro::unlikely;
 use oro_mem::{
 	mapper::{AddressSegment as Segment, MapError, UnmapError},
-	pfa::alloc::{PageFrameAllocate, PageFrameFree},
+	pfa::alloc::Alloc,
 	translate::Translator,
 };
 
@@ -71,7 +71,7 @@ impl AddressSegment {
 		virt: usize,
 	) -> Result<&'a mut PageTableEntry, MapError>
 	where
-		A: PageFrameAllocate,
+		A: Alloc,
 		P: Translator,
 	{
 		if unlikely!(virt & 0xFFF != 0) {
@@ -142,7 +142,7 @@ impl AddressSegment {
 		virt: usize,
 	) -> Result<Option<u64>, UnmapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: Alloc,
 		P: Translator,
 	{
 		if unlikely!(virt & 0xFFF != 0) {
@@ -236,7 +236,7 @@ impl AddressSegment {
 		virt: usize,
 	) -> Result<Option<u64>, UnmapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: Alloc,
 		P: Translator,
 	{
 		if unlikely!(virt & 0xFFF != 0) {
@@ -381,7 +381,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		translator: &P,
 	) -> Result<(), MapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: Alloc,
 		P: Translator,
 	{
 		let top_level = unsafe { &mut *translator.translate_mut::<PageTable>(space.base_phys()) };
@@ -412,7 +412,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		phys: u64,
 	) -> Result<(), MapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: Alloc,
 		P: Translator,
 	{
 		// NOTE(qix-): The current implementation of `entry()` doesn't
@@ -429,7 +429,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		phys: u64,
 	) -> Result<(), MapError>
 	where
-		A: PageFrameAllocate,
+		A: Alloc,
 		P: Translator,
 	{
 		let entry = unsafe { self.entry(space, alloc, translator, virt)? };
@@ -451,7 +451,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		virt: usize,
 	) -> Result<u64, UnmapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: Alloc,
 		P: Translator,
 	{
 		let phys = unsafe {
@@ -472,7 +472,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		phys: u64,
 	) -> Result<Option<u64>, MapError>
 	where
-		A: PageFrameAllocate + PageFrameFree,
+		A: Alloc,
 		P: Translator,
 	{
 		let entry = unsafe { self.entry(space, alloc, translator, virt)? };

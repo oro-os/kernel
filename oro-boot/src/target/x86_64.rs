@@ -12,7 +12,7 @@ pub use oro_arch_x86_64::{ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
 use oro_macro::asm_buffer;
 use oro_mem::{
 	mapper::{AddressSegment as _, AddressSpace as _, MapError, UnmapError},
-	pfa::alloc::{PageFrameAllocate, PageFrameFree},
+	pfa::alloc::Alloc,
 	translate::Translator,
 };
 
@@ -57,7 +57,7 @@ pub fn target_address() -> usize {
 /// Prepares the system for a transfer. Called before the memory map
 /// is written, after which `transfer` is called.
 #[expect(clippy::unnecessary_wraps)]
-pub unsafe fn prepare_transfer<P: Translator, A: PageFrameAllocate + PageFrameFree>(
+pub unsafe fn prepare_transfer<P: Translator, A: Alloc>(
 	mapper: &mut AddressSpaceHandle,
 	alloc: &mut A,
 	pat: &P,

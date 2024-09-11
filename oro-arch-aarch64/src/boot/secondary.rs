@@ -12,7 +12,7 @@ use oro_dtb::{FdtHeader, FdtPathFilter, FdtToken};
 use oro_macro::{asm_buffer, assert};
 use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError},
-	pfa::alloc::PageFrameFree,
+	pfa::alloc::Alloc,
 	translate::{OffsetTranslator, Translator},
 };
 use oro_type::Be;
@@ -26,7 +26,7 @@ use oro_type::Be;
 /// This function is inherently unsafe and must only be called
 /// once at kernel boot by the bootstrap processor (primary core).
 pub unsafe fn boot_secondaries(
-	pfa: &mut impl PageFrameFree,
+	pfa: &mut impl Alloc,
 	pat: &OffsetTranslator,
 	stack_pages: usize,
 ) -> usize {
@@ -317,7 +317,7 @@ const SECONDARY_BOOT_STUB: &[u8] = &asm_buffer! {
 
 /// Attempts to boot a single secondary core.
 unsafe fn boot_secondary(
-	pfa: &mut impl PageFrameFree,
+	pfa: &mut impl Alloc,
 	pat: &OffsetTranslator,
 	psci: PsciMethod,
 	cpu_id: u64,
