@@ -8,13 +8,13 @@
 //! It also assumes a 48-bit virtual address space (where `T0SZ`/`T1SZ` of `TCR_EL1`
 //! is set to 16).
 
-use super::paging::{PageTableEntryType, PageTableEntryTypeMut};
-use crate::mem::{
-	address_space::AddressSpaceHandle,
-	paging::{
-		L0PageTableDescriptor, L1PageTableDescriptor, L2PageTableDescriptor,
-		L3PageTableBlockDescriptor, PageTable, PageTableEntry,
-	},
+use super::{
+	address_space::TtbrHandle,
+	paging::{PageTableEntryType, PageTableEntryTypeMut},
+};
+use crate::mem::paging::{
+	L0PageTableDescriptor, L1PageTableDescriptor, L2PageTableDescriptor,
+	L3PageTableBlockDescriptor, PageTable, PageTableEntry,
 };
 use core::panic;
 use oro_macro::unlikely;
@@ -23,13 +23,6 @@ use oro_mem::{
 	pfa::alloc::Alloc,
 	translate::Translator,
 };
-
-/// Sign-extends a 48-bit virtual address.
-macro_rules! sign_extend {
-	($value:expr) => {
-		((($value << 16) as isize) >> 16) as usize
-	};
-}
 
 /// A singular address space segment within which allocations are made.
 ///
@@ -59,9 +52,9 @@ impl Segment {
 	/// Always returns a valid reference to an L3 page table entry (or an error
 	/// if mapping intermediate table entries failed).
 	// XXX DEBUG(qix-): Set this back to private
-	pub(crate) fn entry<'a, A, P>(
+	pub(crate) fn entry<'a, A, P, Handle>(
 		&'a self,
-		space: &'a AddressSpaceHandle,
+		space: &'a Handle,
 		alloc: &'a mut A,
 		translator: &'a P,
 		virt: usize,
@@ -69,10 +62,13 @@ impl Segment {
 	where
 		A: Alloc,
 		P: Translator,
+		Handle: TtbrHandle,
 	{
-		let virt = virt
-			.checked_sub(space.virt_start)
-			.ok_or(MapError::VirtOutOfAddressSpaceRange)?;
+		if unlikely!((virt & Handle::VIRT_START) != Handle::VIRT_START) {
+			return Err(MapError::VirtOutOfAddressSpaceRange);
+		}
+
+		let virt = virt - Handle::VIRT_START;
 
 		let l0_idx = (virt >> 39) & 0x1FF;
 
@@ -89,7 +85,7 @@ impl Segment {
 		let l3_idx = (virt >> 12) & 0x1FF;
 
 		// SAFETY(qix-): We have reasonable guarantees that AddressSpaceHandle's are valid.
-		let l0 = unsafe { &mut *translator.translate_mut::<PageTable>(space.base_phys) };
+		let l0 = unsafe { &mut *translator.translate_mut::<PageTable>(space.base_phys()) };
 		let l0_entry = &mut l0[l0_idx];
 
 		let l1: &mut PageTable = if l0_entry.valid() {
@@ -181,9 +177,9 @@ impl Segment {
 	/// physical address that was previously mapped.
 	///
 	/// If no physical address was previously mapped, returns `None`.
-	unsafe fn try_unmap<A, P>(
+	unsafe fn try_unmap<A, P, Handle>(
 		&self,
-		space: &AddressSpaceHandle,
+		space: &Handle,
 		alloc: &mut A,
 		translator: &P,
 		virt: usize,
@@ -191,10 +187,13 @@ impl Segment {
 	where
 		A: Alloc,
 		P: Translator,
+		Handle: TtbrHandle,
 	{
-		let virt = virt
-			.checked_sub(space.virt_start)
-			.ok_or(UnmapError::VirtOutOfAddressSpaceRange)?;
+		if unlikely!((virt & Handle::VIRT_START) != Handle::VIRT_START) {
+			return Err(UnmapError::VirtOutOfAddressSpaceRange);
+		}
+
+		let virt = virt - Handle::VIRT_START;
 
 		if unlikely!(virt & 0xFFF != 0) {
 			return Err(UnmapError::VirtNotAligned);
@@ -208,7 +207,7 @@ impl Segment {
 			}
 		}
 
-		let l0_phys = space.base_phys;
+		let l0_phys = space.base_phys();
 		let l0 = &mut *translator.translate_mut::<PageTable>(l0_phys);
 		let l0_entry = &mut l0[l0_index];
 
@@ -283,8 +282,12 @@ impl Segment {
 	/// # Safety
 	/// Caller must ensure that pages not being claimed _won't_
 	/// lead to memory leaks.
-	pub unsafe fn unmap_without_reclaim<P: Translator>(&self, space: &AddressSpaceHandle, pat: &P) {
-		let top_level = &mut *pat.translate_mut::<PageTable>(space.base_phys);
+	pub unsafe fn unmap_without_reclaim<P: Translator, Handle: TtbrHandle>(
+		&self,
+		space: &Handle,
+		pat: &P,
+	) {
+		let top_level = &mut *pat.translate_mut::<PageTable>(space.base_phys());
 
 		for idx in self.valid_range.0..=self.valid_range.1 {
 			let entry = &mut top_level[idx];
@@ -295,22 +298,18 @@ impl Segment {
 	}
 }
 
-unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
-	// SAFETY(qix-): We know that the value is a 48-bit virtual address and we're
-	// SAFETY(qix-): munging the sign on purpose here.
-	// TODO(qix-): Once attributes on expressions is stabilized, move this to the macro instead of here.
-	#[expect(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
-	fn range(&self) -> (usize, usize) {
-		let start = sign_extend!(self.valid_range.0 << 39);
+unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
+	fn range(&self, _handle: &Handle) -> (usize, usize) {
+		let start = (self.valid_range.0 << 39) | Handle::VIRT_START;
 		// TODO(qix-): Assumes a 48-bit virtual address space for each TT; will need
 		// TODO(qix-): to adjust this when other addressing modes are supported.
-		let end = sign_extend!(((self.valid_range.1) << 39) | 0x0000_007F_FFFF_FFFF);
+		let end = (self.valid_range.1 << 39) | 0x0000_007F_FFFF_FFFF | Handle::VIRT_START;
 		(start, end)
 	}
 
 	fn provision_as_shared<A, P>(
 		&self,
-		space: &AddressSpaceHandle,
+		space: &Handle,
 		alloc: &mut A,
 		translator: &P,
 	) -> Result<(), MapError>
@@ -318,7 +317,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 		A: Alloc,
 		P: Translator,
 	{
-		let top_level = unsafe { &mut *translator.translate_mut::<PageTable>(space.base_phys) };
+		let top_level = unsafe { &mut *translator.translate_mut::<PageTable>(space.base_phys()) };
 
 		for idx in self.valid_range.0..=self.valid_range.1 {
 			let entry = &mut top_level[idx];
@@ -339,7 +338,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 
 	fn map<A, P>(
 		&self,
-		space: &AddressSpaceHandle,
+		space: &Handle,
 		alloc: &mut A,
 		translator: &P,
 		virt: usize,
@@ -356,7 +355,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 
 	fn map_nofree<A, P>(
 		&self,
-		space: &AddressSpaceHandle,
+		space: &Handle,
 		alloc: &mut A,
 		translator: &P,
 		virt: usize,
@@ -391,7 +390,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 
 	fn unmap<A, P>(
 		&self,
-		space: &AddressSpaceHandle,
+		space: &Handle,
 		alloc: &mut A,
 		translator: &P,
 		virt: usize,
@@ -407,7 +406,7 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 
 	fn remap<A, P>(
 		&self,
-		space: &AddressSpaceHandle,
+		space: &Handle,
 		alloc: &mut A,
 		translator: &P,
 		virt: usize,

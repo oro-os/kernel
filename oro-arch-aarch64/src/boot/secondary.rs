@@ -332,7 +332,7 @@ unsafe fn boot_secondary(
 		.ok_or(SecondaryBootError::OutOfMemory)?;
 
 	// Also create an empty mapper for the TTBR0_EL1 space.
-	let lower_mapper = AddressSpaceLayout::new_supervisor_space_tt0(pfa, pat)
+	let lower_mapper = AddressSpaceLayout::new_supervisor_space_ttbr0(pfa, pat)
 		.ok_or(SecondaryBootError::OutOfMemory)?;
 
 	// Allocate the boot stubs (maximum 4096 bytes).
@@ -350,7 +350,7 @@ unsafe fn boot_secondary(
 
 	// Allocate a new stack for it...
 	let stack_segment = AddressSpaceLayout::kernel_stack();
-	let stack_end = stack_segment.range().1 & !0xFFF;
+	let stack_end = stack_segment.range(&mapper).1 & !0xFFF;
 
 	for stack_virt in (stack_end - stack_pages * 4096..stack_end).step_by(4096) {
 		let page = pfa.allocate().ok_or(SecondaryBootError::OutOfMemory)?;
