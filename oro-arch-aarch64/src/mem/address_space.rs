@@ -14,16 +14,51 @@ use crate::{
 };
 use oro_mem::{mapper::AddressSpace, pfa::alloc::Alloc, translate::Translator};
 
-/// A lightweight handle to an address space.
-pub struct AddressSpaceHandle {
+/// A lightweight handle to a TTBR1 address space.
+pub struct Ttbr1Handle {
 	/// The base physical address of the root of the page tables
 	/// associated with an address space.
-	pub base_phys:  u64,
-	/// Lower bound of the address range covered by this address space.
-	///
+	pub base_phys: u64,
+}
+
+/// A lightweight handle to a TTBR0 address space.
+pub struct Ttbr0Handle {
+	/// The base physical address of the root of the page tables
+	/// associated with an address space.
+	pub base_phys: u64,
+}
+
+/// Defines differentiating information and functions for each of the
+/// address space handles.
+pub trait TtbrHandle {
 	/// All virtual addresses mapped/unmapped have this value subtracted from
 	/// them before being passed to the page table walker.
-	pub virt_start: usize,
+	// NOTE(qix-): We currently specify that the kernel uses `TCR_EL1.TnSZ=16`,
+	// NOTE(qix-): so we hard-code this value here (as opposed to `current_supervisor_space`).
+	// NOTE(qix-): Unlike `current_supervisor_space`, this function will probably have to be
+	// NOTE(qix-): updated in the future if other `TnSZ` values are supported or used.
+	const VIRT_START: usize;
+
+	/// Returns the base physical address of the root of the page tables
+	/// associated with this address space.
+	#[must_use]
+	fn base_phys(&self) -> u64;
+}
+
+impl TtbrHandle for Ttbr1Handle {
+	const VIRT_START: usize = 0xFFFF_0000_0000_0000;
+
+	fn base_phys(&self) -> u64 {
+		self.base_phys
+	}
+}
+
+impl TtbrHandle for Ttbr0Handle {
+	const VIRT_START: usize = 0;
+
+	fn base_phys(&self) -> u64 {
+		self.base_phys
+	}
 }
 
 /// The Oro-specific address space layout implementation for the Aarch64 architecture.
@@ -59,7 +94,7 @@ impl AddressSpaceLayout {
 
 impl AddressSpaceLayout {
 	/// Installs the recursive page table entry.
-	pub fn map_recursive_entry(mapper: &mut AddressSpaceHandle, pat: &impl Translator) {
+	pub fn map_recursive_entry(mapper: &mut Ttbr1Handle, pat: &impl Translator) {
 		unsafe {
 			let pt = &mut *pat.translate_mut::<PageTable>(mapper.base_phys);
 
@@ -168,47 +203,31 @@ impl AddressSpaceLayout {
 		&DESCRIPTOR
 	}
 
-	/// Returns a new supervisor address space handle with the given virtual start address.
+	/// Creates a new supervisor (EL1) address space that addresses
+	/// the TT0 address range (i.e. for use with `TTBR0_EL1`).
 	///
-	/// Returns `None` if any allocation(s) fail.
-	///
-	/// # Safety
-	/// The caller must ensure that the given virtual start address is valid.
-	unsafe fn new_supervisor_space_with_start<A, P>(
-		alloc: &mut A,
-		translator: &P,
-		virt_start: usize,
-	) -> Option<AddressSpaceHandle>
+	/// This probably isn't used by the kernel, but instead by the
+	/// preboot environment to map stubs.
+	pub fn new_supervisor_space_ttbr0<A, P>(alloc: &mut A, translator: &P) -> Option<Ttbr0Handle>
 	where
 		A: Alloc,
 		P: Translator,
 	{
+		// NOTE(qix-): This is just a temporary sanity check to make sure
+		// NOTE(qix-): we aren't going to blow up later on if we change
+		// NOTE(qix-): something about the address space settings.
+		debug_assert_eq!(
+			TcrEl1::load().tt0_range(),
+			(0x0000_0000_0000_0000, 0x0000_FFFF_FFFF_FFFF)
+		);
+
 		let base_phys = alloc.allocate()?;
 
 		unsafe {
 			(*translator.translate_mut::<PageTable>(base_phys)).reset();
 		}
 
-		Some(AddressSpaceHandle {
-			base_phys,
-			virt_start,
-		})
-	}
-
-	/// Creates a new supervisor (EL1) address space that addresses
-	/// the TT0 address range (i.e. for use with `TTBR0_EL1`).
-	///
-	/// This probably isn't used by the kernel, but instead by the
-	/// preboot environment to map stubs.
-	pub fn new_supervisor_space_tt0<A, P>(
-		alloc: &mut A,
-		translator: &P,
-	) -> Option<<Self as AddressSpace>::SupervisorHandle>
-	where
-		A: Alloc,
-		P: Translator,
-	{
-		unsafe { Self::new_supervisor_space_with_start(alloc, translator, 0) }
+		Some(Ttbr0Handle { base_phys })
 	}
 }
 
@@ -244,22 +263,17 @@ const KERNEL_EXE_L2: L2PageTableDescriptor = unsafe {
 };
 
 unsafe impl AddressSpace for AddressSpaceLayout {
-	type SupervisorHandle = AddressSpaceHandle;
+	type SupervisorHandle = Ttbr1Handle;
 	type SupervisorSegment = &'static Segment;
+	type UserHandle = Ttbr0Handle;
+	type UserSegment = &'static Segment;
 
 	unsafe fn current_supervisor_space<P>(_translator: &P) -> Self::SupervisorHandle
 	where
 		P: Translator,
 	{
-		// NOTE(qix-): Technically this isn't required since the kernel currently
-		// NOTE(qix-): requires `TCR_EL1.TnSZ=16`, but it's cheap and not often
-		// NOTE(qix-): called, so we'll just do it anyway.
-		let (tt1_start, _) = TcrEl1::load().tt1_range();
-
-		let base_phys = crate::asm::load_ttbr1();
 		Self::SupervisorHandle {
-			base_phys,
-			virt_start: tt1_start,
+			base_phys: crate::asm::load_ttbr1(),
 		}
 	}
 
@@ -268,11 +282,21 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		A: Alloc,
 		P: Translator,
 	{
-		// NOTE(qix-): We currently specify that the kernel uses `TCR_EL1.TnSZ=16`,
-		// NOTE(qix-): so we hard-code this value here (as opposed to `current_supervisor_space`).
-		// NOTE(qix-): Unlike `current_supervisor_space`, this function will probably have to be
-		// NOTE(qix-): updated in the future if other `TnSZ` values are supported or used.
-		unsafe { Self::new_supervisor_space_with_start(alloc, translator, 0xFFFF_0000_0000_0000) }
+		// NOTE(qix-): This is just a temporary sanity check to make sure
+		// NOTE(qix-): we aren't going to blow up later on if we change
+		// NOTE(qix-): something about the address space settings.
+		debug_assert_eq!(
+			TcrEl1::load().tt1_range(),
+			(0xFFFF_0000_0000_0000, 0xFFFF_FFFF_FFFF_FFFF)
+		);
+
+		let base_phys = alloc.allocate()?;
+
+		unsafe {
+			(*translator.translate_mut::<PageTable>(base_phys)).reset();
+		}
+
+		Some(Ttbr1Handle { base_phys })
 	}
 
 	fn duplicate_supervisor_space_shallow<A, P>(
@@ -292,10 +316,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 			pt.shallow_copy_from(&*translator.translate(space.base_phys));
 		}
 
-		Some(Self::SupervisorHandle {
-			base_phys,
-			virt_start: space.virt_start,
-		})
+		Some(Self::SupervisorHandle { base_phys })
 	}
 
 	fn kernel_code() -> Self::SupervisorSegment {
