@@ -4,7 +4,7 @@ use crate::registry::Handle;
 
 /// A singular ring.
 ///
-/// Rings are collections of [`crate::module::ModuleInstance`]s.
+/// Rings are collections of [`crate::instance::Instance`]s.
 /// They also form the primary security boundary in the Oro ecosystem.
 ///
 /// Module instances are mounted onto rings, allowing the instances to

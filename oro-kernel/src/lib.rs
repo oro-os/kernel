@@ -17,10 +17,12 @@ use oro_mem::{
 use oro_sync::spinlock::unfair_critical::{InterruptController, UnfairCriticalSpinlock};
 
 pub mod id;
+pub mod instance;
 pub mod module;
 pub mod port;
 pub mod registry;
 pub mod ring;
+pub mod thread;
 
 /// Core-local instance of the Oro kernel.
 ///

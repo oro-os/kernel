@@ -5,7 +5,7 @@ use crate::id::{Id, IdType};
 /// A singular port.
 ///
 /// Ports are unidirectional communication channels between
-/// [`crate::module::ModuleInstance`]s. They are implemented
+/// [`crate::instance::Instance`]s. They are implemented
 /// as ring buffers of slotted messages of fixed size, the size
 /// being determined by metadata associated with the port's type.
 ///

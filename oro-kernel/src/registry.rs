@@ -150,7 +150,7 @@ where
 		segment.provision_as_shared(&mapper, pfa, &pat)?;
 
 		Ok(Self {
-			base: segment.range().0 as *mut _,
+			base: segment.range(&mapper).0 as *mut _,
 			bookkeeping: UnfairCriticalSpinlock::new(RegistryBookkeeping::new()),
 			pat,
 			segment,
@@ -185,7 +185,10 @@ where
 			let byte_offset = bk.total_count * size_of::<MaybeUninit<ItemFrame<T>>>();
 			let byte_offset_end = byte_offset + size_of::<MaybeUninit<ItemFrame<T>>>();
 
-			if unlikely!((self.segment.range().0 + byte_offset_end - 1) > self.segment.range().1) {
+			if unlikely!(
+				(self.segment.range(&self.mapper).0 + byte_offset_end - 1)
+					> self.segment.range(&self.mapper).1
+			) {
 				return Err(MapError::VirtOutOfRange);
 			}
 
@@ -201,7 +204,7 @@ where
 					let page = pfa.allocate().ok_or(MapError::OutOfMemory)?;
 
 					// TODO(qix-): If PFAs ever support more than 4K pages, this will need to be updated.
-					let virt = self.segment.range().0 + page_id * 4096;
+					let virt = self.segment.range(&self.mapper).0 + page_id * 4096;
 					if let Err(err) =
 						self.segment
 							.map(&self.mapper, &mut *pfa, &self.pat, virt, page)
