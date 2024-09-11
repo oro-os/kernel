@@ -1,5 +1,7 @@
 //! Implements Oro rings in the kernel.
 
+use crate::registry::Handle;
+
 /// A singular ring.
 ///
 /// Rings are collections of [`crate::module::ModuleInstance`]s.
@@ -25,7 +27,33 @@ pub struct Ring {
 	///
 	/// This is unique for each ring, but can be re-used if rings are destroyed.
 	/// It is the offset of the arena slot into the arena pool.
-	pub id:        usize,
-	/// The parent ring ID.
-	pub parent_id: usize,
+	pub(crate) id:     usize,
+	/// The parent ring [`Handle`].
+	pub(crate) parent: Option<Handle<Ring>>,
+}
+
+impl Ring {
+	/// Returns the ring's ID.
+	///
+	/// # Safety
+	/// **DO NOT USE THIS FUNCTION FOR ANYTHING SECURITY RELATED.**
+	///
+	/// IDs are re-used by registries when items are dropped, so
+	/// multiple calls to an ID lookup function may return handles to
+	/// different ring items as the IDs get recycled.
+	///
+	/// Only use this function for debugging or logging purposes, or
+	/// for handing IDs to the user.
+	#[must_use]
+	pub unsafe fn id(&self) -> usize {
+		self.id
+	}
+
+	/// Returns the ring's parent ring [`Handle`].
+	///
+	/// If the ring is the root ring, this function will return `None`.
+	#[must_use]
+	pub fn parent(&self) -> Option<Handle<Ring>> {
+		self.parent.clone()
+	}
 }

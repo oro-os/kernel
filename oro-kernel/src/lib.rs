@@ -109,8 +109,8 @@ where
 		let root_ring_id = ring_registry.insert_permanent(
 			&pfa,
 			ring::Ring {
-				id:        0,
-				parent_id: 0,
+				id:     0,
+				parent: None,
 			},
 		)?;
 		assert_eq!(root_ring_id, 0, "root ring ID must be 0");
