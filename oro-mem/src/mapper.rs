@@ -169,7 +169,10 @@ pub unsafe trait AddressSegment<Handle: Sized>: 'static {
 	/// Returns the range of virtual addresses that this segment covers.
 	///
 	/// The range is inclusive of the start and end addresses.
-	fn range(&self) -> (usize, usize);
+	///
+	/// The handle is passed as the handle itself may contain information
+	/// that affects the range of the segment.
+	fn range(&self, handle: &Handle) -> (usize, usize);
 
 	/// Makes the segment shared across all address spaces.
 	///
