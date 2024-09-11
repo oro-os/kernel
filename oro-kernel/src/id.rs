@@ -1,5 +1,5 @@
 //! Implements Oro IDs in the kernel.
-#![allow(clippy::module_name_repetitions)]
+#![expect(clippy::module_name_repetitions)]
 
 use core::{marker::ConstParamTy, str::FromStr};
 

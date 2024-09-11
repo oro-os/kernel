@@ -2,7 +2,7 @@
 //! guarantee fairness and may result in starvation, that also disables
 //! interrupts for the lifetime of an acquired lock.
 
-#![allow(clippy::module_name_repetitions)]
+#![expect(clippy::module_name_repetitions)]
 
 use core::{
 	cell::UnsafeCell,

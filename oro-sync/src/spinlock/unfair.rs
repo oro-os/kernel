@@ -1,7 +1,7 @@
 //! Provides the [`UnfairSpinlock`] type, a simple spinlock that does not
 //! guarantee fairness and may result in starvation.
 
-#![allow(clippy::module_name_repetitions)]
+#![expect(clippy::module_name_repetitions)]
 
 use core::{
 	cell::UnsafeCell,

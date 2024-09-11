@@ -1,5 +1,5 @@
 //! One-off assembly instructions or operations for AArch64.
-#![allow(clippy::inline_always)]
+#![expect(clippy::inline_always)]
 
 use core::arch::asm;
 

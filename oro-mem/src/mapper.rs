@@ -6,8 +6,6 @@
 //! The kernel will allocate memory into specific regions, leaving the
 //! architecture to properly set up all flags and other necessary controls
 //! for those regions to behave as the kernel expects.
-#![allow(clippy::inline_always)]
-
 use crate::{
 	pfa::alloc::{PageFrameAllocate, PageFrameFree},
 	translate::Translator,

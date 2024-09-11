@@ -4,7 +4,7 @@
 //! wrappers and associated traits for them (e.g.
 //! forced endianness types).
 #![cfg_attr(not(test), no_std)]
-#![allow(clippy::inline_always, clippy::wrong_self_convention)]
+#![expect(clippy::inline_always, clippy::wrong_self_convention)]
 
 use core::marker::PhantomData;
 

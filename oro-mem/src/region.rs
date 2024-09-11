@@ -13,7 +13,7 @@
 //! memory maps and regions into the "current" execution context, making them
 //! usable by the CPU.
 
-#![allow(clippy::module_name_repetitions, clippy::inline_always)]
+#![expect(clippy::module_name_repetitions)]
 
 /// An extension trait for [`MemoryRegion`] and its proxy.
 pub trait MemoryRegion: Sized {

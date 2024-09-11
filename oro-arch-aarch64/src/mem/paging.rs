@@ -48,11 +48,7 @@
 // NOTE(qix-): In the event const traits ever get fixed and stabilized, feel free to submit a PR
 // NOTE(qix-): to refactor this to use const traits instead. Check the commit log for around
 // NOTE(qix-): 18-20 June 2024 to see what this looked like before, for inspiration.
-#![allow(
-	clippy::inline_always,
-	private_bounds,
-	clippy::missing_docs_in_private_items
-)]
+#![expect(clippy::inline_always, clippy::missing_docs_in_private_items)]
 
 // TODO(qix-): Very much not happy with how this is structured. It's way too rigid and will be
 // TODO(qix-): nearly impossible to maintain or extend in the future. It needs a full rewrite.
