@@ -1,4 +1,4 @@
-#![allow(missing_docs, clippy::missing_docs_in_private_items)]
+#![expect(missing_docs, clippy::missing_docs_in_private_items)]
 
 fn main() {
 	let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();

@@ -1,7 +1,5 @@
 //! Implements Oro ports in the kernel.
 
-#![allow(dead_code)] // TODO(qix-)
-
 use crate::id::{Id, IdType};
 
 /// A singular port.

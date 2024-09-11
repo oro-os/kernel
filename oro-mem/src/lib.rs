@@ -1,6 +1,6 @@
 //! Common memory types and functions for the Oro kernel.
 #![cfg_attr(not(test), no_std)]
-#![allow(internal_features)]
+#![expect(internal_features)]
 #![feature(core_intrinsics, never_type)]
 #![cfg_attr(debug_assertions, feature(naked_functions))]
 

@@ -1,4 +1,4 @@
-#![allow(dead_code, clippy::missing_docs_in_private_items)]
+#![expect(dead_code, clippy::missing_docs_in_private_items)]
 
 use volatile_register::{RO, RW, WO};
 

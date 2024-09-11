@@ -1,5 +1,5 @@
 //! Extension methods for the MADT table.
-#![allow(clippy::inline_always)]
+#![expect(clippy::inline_always)]
 
 use crate::sys;
 use core::mem::ManuallyDrop;

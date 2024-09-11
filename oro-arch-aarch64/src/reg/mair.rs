@@ -8,7 +8,7 @@
 //!   register. Other exception level MAIR registers are not explicitly
 //!   supported.
 
-#![allow(clippy::inline_always, clippy::module_name_repetitions)]
+#![expect(clippy::inline_always, clippy::module_name_repetitions)]
 
 use core::{
 	fmt,

@@ -7,7 +7,6 @@
 // NOTE(qix-): `adt_const_params` isn't strictly necessary but is on track for acceptance,
 // NOTE(qix-): and the open questions (e.g. mangling) are not of concern here.
 // NOTE(qix-): https://github.com/rust-lang/rust/issues/95174
-#![allow(incomplete_features)]
 #![feature(adt_const_params)]
 
 use oro_mem::{

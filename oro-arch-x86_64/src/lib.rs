@@ -54,7 +54,7 @@
 //! environment can be placed there for automatic cleanup by the kernel
 //! once it has booted.
 #![no_std]
-#![allow(internal_features)]
+#![expect(internal_features)]
 #![cfg(not(all(doc, not(target_arch = "x86_64"))))]
 #![feature(naked_functions, core_intrinsics)]
 // SAFETY(qix-): This is accepted, but moving slowly (in fact, probably the slowest

@@ -1,6 +1,5 @@
 //! Implements Oro module instances in the kernel.
-#![allow(clippy::module_name_repetitions)]
-#![allow(dead_code)] // TODO(qix-)
+#![expect(clippy::module_name_repetitions)]
 
 use crate::id::{Id, IdType};
 

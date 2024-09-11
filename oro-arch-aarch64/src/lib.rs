@@ -23,7 +23,7 @@
 //! allocation or mapping.
 #![no_std]
 #![cfg(not(all(doc, not(target_arch = "aarch64"))))]
-#![allow(internal_features)]
+#![expect(internal_features)]
 #![feature(core_intrinsics)]
 // SAFETY(qix-): It's probably accepted, and I want to refactor the
 // SAFETY(qix-): page table implementaiton anyway at some point so

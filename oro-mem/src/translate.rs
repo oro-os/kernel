@@ -1,5 +1,5 @@
 //! Memory address translation utilities for the pre-boot stage.
-#![allow(clippy::inline_always)]
+#![expect(clippy::inline_always)]
 
 /// Translates a page frame to a virtual address, used in the pre-boot stage
 /// to write kernel configuration structures.

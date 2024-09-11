@@ -1,7 +1,7 @@
 //! Memory paging (page tables, etc.) structures and implementations
 //! for the x86_64 architecture.
 
-#![allow(clippy::unusual_byte_groupings)]
+#![expect(clippy::unusual_byte_groupings)]
 
 use core::{
 	fmt,

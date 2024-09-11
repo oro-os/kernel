@@ -1,5 +1,5 @@
 //! Core functionality for the `paste!()` macro.
-#![allow(clippy::missing_docs_in_private_items)]
+#![expect(clippy::missing_docs_in_private_items)]
 
 use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenTree};

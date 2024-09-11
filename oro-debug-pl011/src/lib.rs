@@ -3,7 +3,7 @@
 //! Note that this is a very primitive implementation, suitable for only what
 //! the Oro kernel needs.
 #![no_std]
-#![allow(internal_features)]
+#![expect(internal_features)]
 #![feature(core_intrinsics)]
 
 mod driver;
