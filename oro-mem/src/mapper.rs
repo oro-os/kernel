@@ -24,9 +24,15 @@ use crate::{pfa::alloc::Alloc, translate::Translator};
 pub unsafe trait AddressSpace: 'static {
 	/// The type of supervisor address space handle that this address space works with.
 	type SupervisorHandle: Sized + 'static;
+	/// The type of user address space handle that this address space works with.
+	type UserHandle: Sized + 'static;
 
-	/// The type of [`AddressSegment`] that this address space returns.
+	/// The type of [`AddressSegment`] that this address space
+	/// returns for supervisor handle mappings.
 	type SupervisorSegment: AddressSegment<Self::SupervisorHandle> + Sized;
+	/// The type of [`AddressSegment`] that this address space
+	/// returns for userspace handle mappings.
+	type UserSegment: AddressSegment<Self::UserHandle> + Sized;
 
 	/// Returns the supervisor address space handle for the current CPU.
 	///
