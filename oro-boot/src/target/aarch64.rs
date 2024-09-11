@@ -4,7 +4,7 @@
 use core::arch::asm;
 use oro_arch_aarch64::{
 	mair::MairEntry,
-	mem::address_space::{AddressSpaceHandle, AddressSpaceLayout},
+	mem::address_space::{AddressSpaceLayout, Ttbr1Handle},
 	reg::{
 		self,
 		tcr_el1::{
@@ -23,7 +23,7 @@ use oro_mem::{
 #[expect(clippy::missing_docs_in_private_items)]
 pub type AddressSpace = AddressSpaceLayout;
 #[expect(clippy::missing_docs_in_private_items)]
-pub type SupervisorHandle = AddressSpaceHandle;
+pub type SupervisorHandle = Ttbr1Handle;
 
 /// Passed from the [`prepare_transfer`] function to the [`transfer`] function,
 /// allowing the common (arch-agnostic) boot routine to perform some finalization operations
@@ -72,7 +72,7 @@ const STUBS: &[u8] = &asm_buffer! {
 /// Prepares the system for a transfer. Called before the memory map
 /// is written, after which `transfer` is called.
 pub unsafe fn prepare_transfer<P: Translator, A: Alloc>(
-	mapper: &mut AddressSpaceHandle,
+	mapper: &mut Ttbr1Handle,
 	alloc: &mut A,
 	pat: &P,
 ) -> crate::Result<TransferData> {
@@ -100,7 +100,7 @@ pub unsafe fn prepare_transfer<P: Translator, A: Alloc>(
 	// Map the stubs into the new page table using an identity mapping.
 	// SAFETY(qix-): We specify that TTBR0 must be 4KiB upon transferring to the kernel,
 	// SAFETY(qix-): and that TTBR0_EL1 is left undefined (for our usage).
-	let page_table = AddressSpaceLayout::new_supervisor_space_tt0(alloc, pat)
+	let page_table = AddressSpaceLayout::new_supervisor_space_ttbr0(alloc, pat)
 		.ok_or(crate::Error::MapError(MapError::OutOfMemory))?;
 
 	// Direct map it.
@@ -118,7 +118,7 @@ pub unsafe fn prepare_transfer<P: Translator, A: Alloc>(
 /// Performs the transfer from pre-boot to the kernel.
 #[expect(clippy::needless_pass_by_value)]
 pub unsafe fn transfer(
-	mapper: &mut AddressSpaceHandle,
+	mapper: &mut Ttbr1Handle,
 	kernel_entry: usize,
 	stack_addr: usize,
 	prepare_data: TransferData,

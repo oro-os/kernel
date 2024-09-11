@@ -148,7 +148,12 @@ pub fn map_kernel_stack<
 ) -> crate::Result<usize> {
 	let kernel_stack_segment = <TargetAddressSpace as AddressSpace>::kernel_stack();
 
-	let last_stack_page_virt = kernel_stack_segment.range().1 & !0xFFF;
+	// TODO(qix-): This is nutty. There needs to be a better way to express this.
+	let last_stack_page_virt =
+		<<TargetAddressSpace as AddressSpace>::SupervisorSegment as AddressSegment<
+			<TargetAddressSpace as AddressSpace>::SupervisorHandle,
+		>>::range(&kernel_stack_segment, supervisor_space)
+		.1 & !0xFFF;
 
 	// make sure top guard page is unmapped
 	match kernel_stack_segment.unmap(supervisor_space, pfa, pat, last_stack_page_virt) {
