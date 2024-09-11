@@ -12,7 +12,14 @@ pub type Pfa = FiloPageFrameAllocator<OffsetTranslator>;
 
 /// The global kernel state. Initialized once during boot
 /// and re-used across all cores.
-pub static mut KERNEL_STATE: MaybeUninit<KernelState<Pfa>> = MaybeUninit::uninit();
+pub static mut KERNEL_STATE: MaybeUninit<
+	KernelState<
+		Pfa,
+		OffsetTranslator,
+		crate::mem::address_space::AddressSpaceLayout,
+		crate::sync::InterruptController,
+	>,
+> = MaybeUninit::uninit();
 
 /// Initializes the global state of the architecture.
 ///
@@ -20,7 +27,7 @@ pub static mut KERNEL_STATE: MaybeUninit<KernelState<Pfa>> = MaybeUninit::uninit
 /// Must be called exactly once for the lifetime of the system,
 /// only by the boot processor at boot time (_not_ at any
 /// subsequent bringup).
-pub unsafe fn initialize_primary(pfa: Pfa) {
+pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: Pfa) {
 	#[cfg(debug_assertions)]
 	{
 		use core::sync::atomic::{AtomicBool, Ordering};
@@ -36,7 +43,10 @@ pub unsafe fn initialize_primary(pfa: Pfa) {
 		}
 	}
 
-	KERNEL_STATE.write(KernelState::new(UnfairCriticalSpinlock::new(pfa)));
+	KERNEL_STATE.write(
+		KernelState::new(pat, UnfairCriticalSpinlock::new(pfa))
+			.expect("failed to create global kernel state"),
+	);
 }
 
 /// Main boot sequence for all cores for each bringup

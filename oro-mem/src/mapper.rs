@@ -26,12 +26,12 @@ use crate::{
 /// [`AddressSpace::current_supervisor_space`] method), so as to not incur undefined
 /// behavior under Rust's safety rules regarding multiple mutable references.
 // TODO(qix-): Turn this into a const trait whenever const traits are stabilized.
-pub unsafe trait AddressSpace {
+pub unsafe trait AddressSpace: 'static {
 	/// The type of supervisor address space handle that this address space works with.
 	type SupervisorHandle: Sized + 'static;
 
 	/// The type of [`AddressSegment`] that this address space returns.
-	type SupervisorSegment: AddressSegment<Self::SupervisorHandle> + Sized + 'static;
+	type SupervisorSegment: AddressSegment<Self::SupervisorHandle> + Sized;
 
 	/// Returns the supervisor address space handle for the current CPU.
 	///
@@ -164,11 +164,24 @@ pub unsafe trait AddressSpace {
 /// references.
 ///
 /// Implementations **MUST NOT PANIC** under any circumstance.
-pub unsafe trait AddressSegment<Handle: Sized> {
+pub unsafe trait AddressSegment<Handle: Sized>: 'static {
 	/// Returns the range of virtual addresses that this segment covers.
 	///
 	/// The range is inclusive of the start and end addresses.
 	fn range(&self) -> (usize, usize);
+
+	/// Makes the segment shared across all address spaces.
+	///
+	/// Returns an error if the segment is not empty.
+	fn provision_as_shared<A, P>(
+		&self,
+		space: &Handle,
+		alloc: &mut A,
+		translator: &P,
+	) -> Result<(), MapError>
+	where
+		A: PageFrameAllocate + PageFrameFree,
+		P: Translator;
 
 	/// Maps a physical address into the segment at the given virtual address.
 	/// Fails if the virtual address is already mapped.

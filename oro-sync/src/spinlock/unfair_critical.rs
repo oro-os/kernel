@@ -12,7 +12,7 @@ use core::{
 
 /// Allows for an architecture-specific means of disabling and re-enabling
 /// interrupts.
-pub trait InterruptController {
+pub trait InterruptController: 'static {
 	/// The interrupt state for the architecture.
 	type InterruptState: Copy;
 

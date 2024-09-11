@@ -34,7 +34,7 @@ pub unsafe fn boot_primary() -> ! {
 	oro_debug::init_with_offset(pat.offset());
 
 	// Initialize the primary core.
-	crate::init::initialize_primary(pfa);
+	crate::init::initialize_primary(pat.clone(), pfa);
 	let mut pfa = crate::init::KERNEL_STATE
 		.assume_init_ref()
 		.pfa()
