@@ -308,6 +308,35 @@ unsafe impl AddressSegment<AddressSpaceHandle> for &'static Segment {
 		(start, end)
 	}
 
+	fn provision_as_shared<A, P>(
+		&self,
+		space: &AddressSpaceHandle,
+		alloc: &mut A,
+		translator: &P,
+	) -> Result<(), MapError>
+	where
+		A: PageFrameAllocate + PageFrameFree,
+		P: Translator,
+	{
+		let top_level = unsafe { &mut *translator.translate_mut::<PageTable>(space.base_phys) };
+
+		for idx in self.valid_range.0..=self.valid_range.1 {
+			let entry = &mut top_level[idx];
+
+			if entry.valid() {
+				return Err(MapError::Exists);
+			}
+
+			let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
+			unsafe {
+				(*translator.translate_mut::<PageTable>(frame_phys_addr)).reset();
+			}
+			*entry = self.l0_template.with_address(frame_phys_addr).into();
+		}
+
+		Ok(())
+	}
+
 	fn map<A, P>(
 		&self,
 		space: &AddressSpaceHandle,

@@ -27,5 +27,7 @@ pub struct Ring {
 	///
 	/// This is unique for each ring, but can be re-used if rings are destroyed.
 	/// It is the offset of the arena slot into the arena pool.
-	id: u32,
+	pub id:        u64,
+	/// The parent ring ID.
+	pub parent_id: u64,
 }

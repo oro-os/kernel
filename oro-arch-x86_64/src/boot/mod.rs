@@ -113,7 +113,7 @@ pub unsafe fn boot_primary() -> ! {
 	let lapic_id = lapic.id();
 	dbg!("local APIC ID: {lapic_id}");
 
-	crate::init::initialize_primary(pfa);
+	crate::init::initialize_primary(pat.clone(), pfa);
 	let mut pfa = crate::init::KERNEL_STATE
 		.assume_init_ref()
 		.pfa()

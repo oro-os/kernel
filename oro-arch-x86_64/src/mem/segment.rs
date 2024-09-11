@@ -332,43 +332,6 @@ impl AddressSegment {
 		})
 	}
 
-	/// Maps the L4/L5 entry for the given segment range to
-	/// empty page tables, without mapping any children.
-	///
-	/// Intended to be used to create shared segments that are
-	/// otherwise empty, for later use.
-	///
-	/// # Safety
-	/// Must only be called once per segment range.
-	///
-	/// Does NOT invalidate the TLB.
-	pub unsafe fn make_top_level_present<A, P, Handle: MapperHandle>(
-		&self,
-		space: &Handle,
-		alloc: &mut A,
-		translator: &P,
-	) -> Result<(), MapError>
-	where
-		A: PageFrameAllocate,
-		P: Translator,
-	{
-		let top_level = &mut *translator.translate_mut::<PageTable>(space.base_phys());
-
-		for idx in self.valid_range.0..=self.valid_range.1 {
-			let entry = &mut top_level[idx];
-
-			if entry.present() {
-				return Err(MapError::Exists);
-			}
-
-			let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
-			*entry = self.entry_template.with_address(frame_phys_addr);
-			(*translator.translate_mut::<PageTable>(frame_phys_addr)).reset();
-		}
-
-		Ok(())
-	}
-
 	/// Unmaps the entire range's top level page tables without
 	/// reclaiming any of the physical memory.
 	///
@@ -409,6 +372,35 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 				)
 			}
 		}
+	}
+
+	fn provision_as_shared<A, P>(
+		&self,
+		space: &AddressSpaceHandle,
+		alloc: &mut A,
+		translator: &P,
+	) -> Result<(), MapError>
+	where
+		A: PageFrameAllocate + PageFrameFree,
+		P: Translator,
+	{
+		let top_level = unsafe { &mut *translator.translate_mut::<PageTable>(space.base_phys()) };
+
+		for idx in self.valid_range.0..=self.valid_range.1 {
+			let entry = &mut top_level[idx];
+
+			if entry.present() {
+				return Err(MapError::Exists);
+			}
+
+			let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
+			unsafe {
+				(*translator.translate_mut::<PageTable>(frame_phys_addr)).reset();
+			}
+			*entry = self.entry_template.with_address(frame_phys_addr);
+		}
+
+		Ok(())
 	}
 
 	fn map<A, P>(
