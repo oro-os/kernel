@@ -1,7 +1,5 @@
 //! Implements Oro rings in the kernel.
 
-#![allow(dead_code)] // TODO(qix-)
-
 /// A singular ring.
 ///
 /// Rings are collections of [`crate::module::ModuleInstance`]s.
@@ -27,7 +25,7 @@ pub struct Ring {
 	///
 	/// This is unique for each ring, but can be re-used if rings are destroyed.
 	/// It is the offset of the arena slot into the arena pool.
-	pub id:        u64,
+	pub id:        usize,
 	/// The parent ring ID.
-	pub parent_id: u64,
+	pub parent_id: usize,
 }
