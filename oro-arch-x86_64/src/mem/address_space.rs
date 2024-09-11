@@ -161,6 +161,8 @@ const KERNEL_EXE_INTERMEDIATE_ENTRY: PageTableEntry = PageTableEntry::new()
 unsafe impl AddressSpace for AddressSpaceLayout {
 	type SupervisorHandle = AddressSpaceHandle;
 	type SupervisorSegment = &'static AddressSegment;
+	type UserHandle = AddressSpaceHandle;
+	type UserSegment = &'static AddressSegment;
 
 	unsafe fn current_supervisor_space<P>(_translator: &P) -> Self::SupervisorHandle
 	where

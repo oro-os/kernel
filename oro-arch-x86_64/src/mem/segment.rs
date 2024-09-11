@@ -61,6 +61,33 @@ pub struct AddressSegment {
 }
 
 impl AddressSegment {
+	/// Returns the virtual range of the segment.
+	///
+	/// On x86_64, there's no need for handle information (the segment
+	/// occupies the same range regardless of the type of address space,
+	/// either user/supervisor).
+	///
+	/// This function can return the addresses directly, without a mapper handle,
+	/// and is the function called by the `Segment` trait implementation, too.
+	#[must_use]
+	pub fn range(&self) -> (usize, usize) {
+		// Get the current paging level.
+		match PagingLevel::current_from_cpu() {
+			PagingLevel::Level4 => {
+				(
+					sign_extend!(L4, self.valid_range.0 << 39),
+					sign_extend!(L4, (self.valid_range.1 << 39) | 0x0000_007F_FFFF_FFFF),
+				)
+			}
+			PagingLevel::Level5 => {
+				(
+					sign_extend!(L5, self.valid_range.0 << 48),
+					sign_extend!(L5, (self.valid_range.1 << 48) | 0x0000_FFFF_FFFF_FFFF),
+				)
+			}
+		}
+	}
+
 	/// Returns the page table entry for the given virtual address,
 	/// allocating intermediate page tables as necessary.
 	unsafe fn entry<'a, A, P, Handle: MapperHandle>(
@@ -356,22 +383,8 @@ impl AddressSegment {
 
 unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 	// TODO(qix-): Once const trait methods are stabilitized, make this const.
-	fn range(&self) -> (usize, usize) {
-		// Get the current paging level.
-		match PagingLevel::current_from_cpu() {
-			PagingLevel::Level4 => {
-				(
-					sign_extend!(L4, self.valid_range.0 << 39),
-					sign_extend!(L4, (self.valid_range.1 << 39) | 0x0000_007F_FFFF_FFFF),
-				)
-			}
-			PagingLevel::Level5 => {
-				(
-					sign_extend!(L5, self.valid_range.0 << 48),
-					sign_extend!(L5, (self.valid_range.1 << 48) | 0x0000_FFFF_FFFF_FFFF),
-				)
-			}
-		}
+	fn range(&self, _handle: &AddressSpaceHandle) -> (usize, usize) {
+		AddressSegment::range(self)
 	}
 
 	fn provision_as_shared<A, P>(
