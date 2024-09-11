@@ -16,7 +16,7 @@ pub use oro_arch_aarch64::{ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
 use oro_macro::asm_buffer;
 use oro_mem::{
 	mapper::{AddressSegment, MapError},
-	pfa::alloc::{PageFrameAllocate, PageFrameFree},
+	pfa::alloc::Alloc,
 	translate::Translator,
 };
 
@@ -71,7 +71,7 @@ const STUBS: &[u8] = &asm_buffer! {
 
 /// Prepares the system for a transfer. Called before the memory map
 /// is written, after which `transfer` is called.
-pub unsafe fn prepare_transfer<P: Translator, A: PageFrameAllocate + PageFrameFree>(
+pub unsafe fn prepare_transfer<P: Translator, A: Alloc>(
 	mapper: &mut AddressSpaceHandle,
 	alloc: &mut A,
 	pat: &P,

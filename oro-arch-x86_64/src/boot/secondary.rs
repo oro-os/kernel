@@ -14,7 +14,7 @@ use oro_debug::{dbg, dbg_err};
 use oro_macro::{asm_buffer, assert};
 use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
-	pfa::alloc::{PageFrameAllocate, PageFrameFree},
+	pfa::alloc::Alloc,
 	translate::{OffsetTranslator, Translator},
 };
 
@@ -46,7 +46,7 @@ pub enum BootError {
 ///
 /// Caller must ensure these pages are mapped (via the PAT) and accessible.
 #[expect(clippy::missing_docs_in_private_items)]
-pub unsafe fn boot_secondary<A: PageFrameAllocate + PageFrameFree>(
+pub unsafe fn boot_secondary<A: Alloc>(
 	primary_handle: &AddressSpaceHandle,
 	pfa: &mut A,
 	pat: &OffsetTranslator,

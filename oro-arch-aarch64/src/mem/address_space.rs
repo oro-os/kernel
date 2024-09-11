@@ -12,7 +12,7 @@ use crate::{
 	},
 	reg::tcr_el1::TcrEl1,
 };
-use oro_mem::{mapper::AddressSpace, pfa::alloc::PageFrameAllocate, translate::Translator};
+use oro_mem::{mapper::AddressSpace, pfa::alloc::Alloc, translate::Translator};
 
 /// A lightweight handle to an address space.
 pub struct AddressSpaceHandle {
@@ -180,7 +180,7 @@ impl AddressSpaceLayout {
 		virt_start: usize,
 	) -> Option<AddressSpaceHandle>
 	where
-		A: PageFrameAllocate,
+		A: Alloc,
 		P: Translator,
 	{
 		let base_phys = alloc.allocate()?;
@@ -205,7 +205,7 @@ impl AddressSpaceLayout {
 		translator: &P,
 	) -> Option<<Self as AddressSpace>::SupervisorHandle>
 	where
-		A: PageFrameAllocate,
+		A: Alloc,
 		P: Translator,
 	{
 		unsafe { Self::new_supervisor_space_with_start(alloc, translator, 0) }
@@ -265,7 +265,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 
 	fn new_supervisor_space<A, P>(alloc: &mut A, translator: &P) -> Option<Self::SupervisorHandle>
 	where
-		A: PageFrameAllocate,
+		A: Alloc,
 		P: Translator,
 	{
 		// NOTE(qix-): We currently specify that the kernel uses `TCR_EL1.TnSZ=16`,
@@ -281,7 +281,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		translator: &P,
 	) -> Option<Self::SupervisorHandle>
 	where
-		A: PageFrameAllocate,
+		A: Alloc,
 		P: Translator,
 	{
 		let base_phys = alloc.allocate()?;

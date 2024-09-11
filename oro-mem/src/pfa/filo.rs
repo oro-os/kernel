@@ -2,10 +2,7 @@
 //! whereby page frames form a linked list of free pages. See [`FiloPageFrameAllocator`]
 //! for more information.
 
-use crate::{
-	pfa::alloc::{PageFrameAllocate, PageFrameFree},
-	translate::Translator,
-};
+use crate::{pfa::alloc::Alloc, translate::Translator};
 
 /// First in, last out (FILO) page frame allocator.
 ///
@@ -72,7 +69,7 @@ where
 	}
 }
 
-unsafe impl<M> PageFrameAllocate for FiloPageFrameAllocator<M>
+unsafe impl<M> Alloc for FiloPageFrameAllocator<M>
 where
 	M: FiloPageFrameManager,
 {
@@ -89,13 +86,7 @@ where
 			Some(page_frame)
 		}
 	}
-}
 
-unsafe impl<M> PageFrameFree for FiloPageFrameAllocator<M>
-where
-	M: FiloPageFrameManager,
-{
-	#[inline]
 	unsafe fn free(&mut self, frame: u64) {
 		assert_eq!(frame % 4096, 0, "frame is not page-aligned");
 		#[cfg(debug_assertions)]

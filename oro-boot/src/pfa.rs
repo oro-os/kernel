@@ -188,17 +188,13 @@ impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> PrebootPfa<M, I> 
 	}
 }
 
-unsafe impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone>
-	oro_mem::pfa::alloc::PageFrameAllocate for PrebootPfa<M, I>
+unsafe impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> oro_mem::pfa::alloc::Alloc
+	for PrebootPfa<M, I>
 {
 	fn allocate(&mut self) -> Option<u64> {
 		self.allocate_page()
 	}
-}
 
-unsafe impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone>
-	oro_mem::pfa::alloc::PageFrameFree for PrebootPfa<M, I>
-{
 	unsafe fn free(&mut self, _frame: u64) {
 		panic!("preboot PFA cannot free frames");
 	}

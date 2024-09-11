@@ -29,7 +29,7 @@ use core::{
 use oro_macro::unlikely;
 use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError},
-	pfa::alloc::{PageFrameAllocate, PageFrameFree},
+	pfa::alloc::Alloc,
 	translate::Translator,
 };
 use oro_sync::spinlock::unfair_critical::{InterruptController, UnfairCriticalSpinlock};
@@ -135,15 +135,11 @@ where
 	///
 	/// Typically, this function should be called once
 	/// at boot time.
-	pub fn new<Pfa>(
+	pub fn new<Pfa: Alloc>(
 		pat: Pat,
 		pfa: &mut Pfa,
 		segment: AddrSpace::SupervisorSegment,
-	) -> Result<Self, MapError>
-	where
-		Pat: Translator,
-		Pfa: PageFrameAllocate + PageFrameFree,
-	{
+	) -> Result<Self, MapError> {
 		// SAFETY(qix-): We can more or less guarantee that this registry
 		// SAFETY(qix-): is being constructed in the supervisor space.
 		// SAFETY(qix-): Further, we can't guarantee that the segment is
@@ -177,14 +173,11 @@ where
 	/// # Safety
 	/// Marked unsafe because misuse of this function can lead to
 	/// memory leaks. You probably want to use [`Self::insert()`] instead.
-	pub unsafe fn insert_permanent<Pfa>(
+	pub unsafe fn insert_permanent<Pfa: Alloc>(
 		&self,
 		pfa: &UnfairCriticalSpinlock<Pfa>,
 		item: T,
-	) -> Result<usize, MapError>
-	where
-		Pfa: PageFrameAllocate + PageFrameFree,
-	{
+	) -> Result<usize, MapError> {
 		// SAFETY(qix-): We don't panic in this function.
 		let mut bk = unsafe { self.bookkeeping.lock::<IntCtrl>() };
 
@@ -256,14 +249,11 @@ where
 	///
 	/// Takes a reference to the spinlock itself, since not all allocations require
 	/// locking the PFA.
-	pub fn insert<Pfa>(
+	pub fn insert<Pfa: Alloc>(
 		&'static self,
 		pfa: &UnfairCriticalSpinlock<Pfa>,
 		item: T,
-	) -> Result<Handle<T>, MapError>
-	where
-		Pfa: PageFrameAllocate + PageFrameFree,
-	{
+	) -> Result<Handle<T>, MapError> {
 		// SAFETY(qix-): `insert_permanent` simply creates a new item
 		// SAFETY(qix-): with a user count of 1, but doesn't return a handle
 		// SAFETY(qix-): to it. Since this is the only other place that
