@@ -43,7 +43,7 @@ use oro_sync::spinlock::unfair_critical::{InterruptController, UnfairCriticalSpi
 ///
 /// Registry allocations return [`Handle`]s, which can be cloned
 /// and will free the slot when the final user drops it.
-pub struct Registry<T, IntCtrl, AddrSpace, Pat>
+pub(crate) struct Registry<T, IntCtrl, AddrSpace, Pat>
 where
 	T: Sized + 'static,
 	IntCtrl: InterruptController,
@@ -399,7 +399,7 @@ where
 	}
 }
 
-/// A lightweight handle to an item in a [`Registry`].
+/// A lightweight handle to an item in a registry.
 ///
 /// The handle is a reference-counted item in the registry,
 /// and is a thin wrapper around an [`UnfairCriticalSpinlock`]

@@ -20,9 +20,8 @@ use oro_sync::spinlock::unfair_critical::{InterruptController, UnfairCriticalSpi
 pub mod id;
 pub mod module;
 pub mod port;
+pub mod registry;
 pub mod ring;
-
-pub(crate) mod registry;
 
 /// Core-local instance of the Oro kernel.
 ///
