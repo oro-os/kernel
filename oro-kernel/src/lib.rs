@@ -143,10 +143,21 @@ where
 
 	/// Inserts a [`ring::Ring`] into the registry and returns
 	/// its [`registry::Handle`].
+	///
+	/// `ring.id` will be set to the allocated ID, and is ignored
+	/// when passed in.
+	///
+	/// Note that the returned handle is reference counted; dropping
+	/// it will drop the ring from the registry. If the ring is
+	/// intended to be kept alive, it should be added to a scheduler.
 	pub fn insert_ring(
 		&'static self,
 		ring: ring::Ring,
 	) -> Result<registry::Handle<ring::Ring>, MapError> {
-		self.ring_registry.insert(&self.pfa, ring)
+		let handle = self.ring_registry.insert(&self.pfa, ring)?;
+		unsafe {
+			handle.lock::<IntCtrl>().id = handle.id();
+		}
+		Ok(handle)
 	}
 }
