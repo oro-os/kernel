@@ -176,8 +176,10 @@ where
 	pub unsafe fn insert_permanent<Pfa: Alloc>(
 		&self,
 		pfa: &UnfairCriticalSpinlock<Pfa>,
-		item: T,
+		item: impl Into<T>,
 	) -> Result<usize, MapError> {
+		let item = item.into();
+
 		// SAFETY(qix-): We don't panic in this function.
 		let mut bk = unsafe { self.bookkeeping.lock::<IntCtrl>() };
 
@@ -252,7 +254,7 @@ where
 	pub fn insert<Pfa: Alloc>(
 		&'static self,
 		pfa: &UnfairCriticalSpinlock<Pfa>,
-		item: T,
+		item: impl Into<T>,
 	) -> Result<Handle<T>, MapError> {
 		// SAFETY(qix-): `insert_permanent` simply creates a new item
 		// SAFETY(qix-): with a user count of 1, but doesn't return a handle
@@ -463,6 +465,275 @@ impl<T: Sized + 'static> Drop for Handle<T> {
 		// SAFETY(qix-): externally), the ID is valid.
 		unsafe {
 			self.registry.forget_item_at(self.id);
+		}
+	}
+}
+
+/// Doubly linked collection adapter interface for a registry.
+///
+/// Collections are used via two registries:
+/// - The item registry, storing type `T` items.
+/// - The list registry, storing [`Item<T>`] items.
+///
+/// Then other structures that want to store independent
+/// lists of type `T` would use this structure to manage
+/// the list.
+///
+/// # Not a List
+/// This type is not a list, set, or any other convention
+/// datatype, despite looking like one.
+///
+/// It is meant to group together handles of type `T` in
+/// a manner that works for arenas (specifically,
+/// registries).
+///
+/// An `Item` is doubly linked, and there is no concept
+/// of a "beginning" or "end" of the list - at least,
+/// not in any managed way. Having a handle to an `Item<T>`
+/// is not a handle to a list, but a handle to a single
+/// item in a list, and traversal can go in either direction
+/// depending on if `prev` or `next` is used.
+///
+/// There is no way to get the "first" item in the list
+/// without traversal, and there is no way to get the "last"
+/// in any other way, either.
+///
+/// This means that item collections can be merged, split,
+/// spliced, re-ordered, etc. quite freely at the expense
+/// of not providing common list-like operations (which
+/// generally are _not_ needed in the Oro kernel).
+///
+/// # Loops
+/// Items cannot directly be linked to themselves via the
+/// accessor methods; all methods only take handles to the
+/// underlying items. While this does not prevent duplicates
+/// in the list, it does prevent loops.
+///
+/// For this reason, almost all methods that work on
+/// `Handle<Item<T>>` will mutate the underlying registry
+/// in some way.
+pub struct Item<T: Sized + 'static> {
+	/// The previous item in the list, or `None` if there is no previous item.
+	prev:   Option<Handle<Item<T>>>,
+	/// The next item in the list, or `None` if there is no next item.
+	next:   Option<Handle<Item<T>>>,
+	/// The handle to the item in its respective registry.
+	handle: Handle<T>,
+}
+
+impl<T: Sized + 'static> Item<T> {
+	/// Creates a new item with the given handle.
+	///
+	/// The item is not linked to any other items.
+	#[must_use]
+	pub fn new(handle: Handle<T>) -> Self {
+		Self {
+			prev: None,
+			next: None,
+			handle,
+		}
+	}
+}
+
+impl<T: Sized + 'static> Deref for Item<T> {
+	type Target = UnfairCriticalSpinlock<T>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.handle
+	}
+}
+
+// impl simply for `Registry<Item<T>, ...>`
+impl<T: Sized + 'static, IntCtrl, AddrSpace, Pat> Registry<Item<T>, IntCtrl, AddrSpace, Pat>
+where
+	IntCtrl: InterruptController,
+	AddrSpace: AddressSpace,
+	Pat: Translator,
+{
+	/// Inserts an item after the given item.
+	///
+	/// If the given item already has a 'next'
+	/// item, the new item will be inserted between
+	/// the given item and its 'next' item.
+	#[expect(dead_code)]
+	pub fn insert_after<Pfa: Alloc>(
+		&'static self,
+		pfa: &UnfairCriticalSpinlock<Pfa>,
+		item: &Handle<Item<T>>,
+		new_item: impl Into<Item<T>>,
+	) -> Result<Handle<Item<T>>, MapError> {
+		let handle = self.insert(pfa, new_item)?;
+
+		// SAFETY(qix-): We will not panic here.
+		{
+			let mut item_lock = unsafe { item.lock::<IntCtrl>() };
+			let mut new_item_lock = unsafe { handle.lock::<IntCtrl>() };
+			new_item_lock.prev = Some(item.clone());
+			new_item_lock.next.clone_from(&item_lock.next);
+			item_lock.next = Some(handle.clone());
+		}
+
+		Ok(handle)
+	}
+
+	/// Returns an iterator over linked items,
+	/// starting at the given item and traversing
+	/// forward.
+	///
+	/// Any previous items are ignored.
+	#[allow(dead_code, clippy::unused_self)]
+	pub fn iter_forward(
+		&'static self,
+		item: &Option<Handle<Item<T>>>,
+	) -> impl Iterator<Item = Handle<Item<T>>> {
+		ItemIter {
+			current:   item.clone(),
+			direction: ItemIterDirection::Forward,
+			_int_ctrl: PhantomData::<IntCtrl>,
+		}
+	}
+
+	/// Returns an iterator over linked items,
+	/// starting at the given item and traversing
+	/// backward.
+	///
+	/// Any next items are ignored.
+	#[allow(dead_code, clippy::unused_self)]
+	pub fn iter_backward(
+		&'static self,
+		item: &Option<Handle<Item<T>>>,
+	) -> impl Iterator<Item = Handle<Item<T>>> {
+		ItemIter {
+			current:   item.clone(),
+			direction: ItemIterDirection::Backward,
+			_int_ctrl: PhantomData::<IntCtrl>,
+		}
+	}
+
+	/// Returns an iterator over all items,
+	/// starting at the first item in the list.
+	///
+	/// This function will immediately perform
+	/// a reverse traversal to find the first
+	/// item in the list, and then return
+	/// an iterator starting at that item.
+	#[allow(dead_code, clippy::unused_self)]
+	pub fn iter_all(
+		&'static self,
+		item: &Option<Handle<Item<T>>>,
+	) -> impl Iterator<Item = Handle<Item<T>>> {
+		ItemIter {
+			current:   self.iter_backward(item).last(),
+			direction: ItemIterDirection::Forward,
+			_int_ctrl: PhantomData::<IntCtrl>,
+		}
+	}
+}
+
+impl<T: Sized + 'static> From<Handle<T>> for Item<T> {
+	fn from(handle: Handle<T>) -> Self {
+		Self::new(handle)
+	}
+}
+
+/// The direction of an item iterator.
+enum ItemIterDirection {
+	/// Forward iteration.
+	Forward,
+	/// Backward iteration.
+	Backward,
+}
+
+/// An iterator over linked [`Item`]s in a registry.
+pub struct ItemIter<T: Sized + 'static, IntCtrl: InterruptController> {
+	/// The current item in the iteration.
+	current:   Option<Handle<Item<T>>>,
+	/// The direction of the iteration.
+	direction: ItemIterDirection,
+	/// The interrupt controller for the iteration.
+	_int_ctrl: PhantomData<IntCtrl>,
+}
+
+impl<T: Sized + 'static, IntCtrl: InterruptController> Iterator for ItemIter<T, IntCtrl> {
+	type Item = Handle<Item<T>>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		let current = self.current.take()?;
+
+		let next = match self.direction {
+			ItemIterDirection::Forward => unsafe { current.lock::<IntCtrl>().next.clone() },
+			ItemIterDirection::Backward => unsafe { current.lock::<IntCtrl>().prev.clone() },
+		};
+
+		self.current.clone_from(&next);
+
+		next
+	}
+}
+
+/// Iterator adapter trait, implemented for `Handle<Item<T>>` and
+/// `Option<Handle<Item<T>>>`.
+pub trait ItemIterEx {
+	/// The base, most inner type that is wrapped by handles and items.
+	type Item: Sized + 'static;
+
+	/// Creates a forward iterator over the items,
+	/// ignoring any previous items.
+	fn iter_forward<IntCtrl: InterruptController>(&self) -> ItemIter<Self::Item, IntCtrl>;
+
+	/// Creates a backward iterator over the items,
+	/// ignoring any next items.
+	fn iter_backward<IntCtrl: InterruptController>(&self) -> ItemIter<Self::Item, IntCtrl>;
+
+	/// Creates an iterator over all items,
+	/// first traversing backward to find the first
+	/// item in the list, and then returning a forward
+	/// iterator starting at that item.
+	fn iter_all<IntCtrl: InterruptController>(&self) -> ItemIter<Self::Item, IntCtrl> {
+		ItemIter {
+			current:   self.iter_backward::<IntCtrl>().last(),
+			direction: ItemIterDirection::Forward,
+			_int_ctrl: PhantomData,
+		}
+	}
+}
+
+impl<T: Sized + 'static> ItemIterEx for Handle<Item<T>> {
+	type Item = T;
+
+	fn iter_forward<IntCtrl: InterruptController>(&self) -> ItemIter<Self::Item, IntCtrl> {
+		ItemIter {
+			current:   Some(self.clone()),
+			direction: ItemIterDirection::Forward,
+			_int_ctrl: PhantomData,
+		}
+	}
+
+	fn iter_backward<IntCtrl: InterruptController>(&self) -> ItemIter<Self::Item, IntCtrl> {
+		ItemIter {
+			current:   Some(self.clone()),
+			direction: ItemIterDirection::Backward,
+			_int_ctrl: PhantomData,
+		}
+	}
+}
+
+impl<T: Sized + 'static> ItemIterEx for Option<Handle<Item<T>>> {
+	type Item = T;
+
+	fn iter_forward<IntCtrl: InterruptController>(&self) -> ItemIter<Self::Item, IntCtrl> {
+		ItemIter {
+			current:   self.clone(),
+			direction: ItemIterDirection::Forward,
+			_int_ctrl: PhantomData,
+		}
+	}
+
+	fn iter_backward<IntCtrl: InterruptController>(&self) -> ItemIter<Self::Item, IntCtrl> {
+		ItemIter {
+			current:   self.clone(),
+			direction: ItemIterDirection::Backward,
+			_int_ctrl: PhantomData,
 		}
 	}
 }

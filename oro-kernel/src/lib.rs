@@ -9,14 +9,6 @@
 // NOTE(qix-): https://github.com/rust-lang/rust/issues/95174
 #![feature(adt_const_params)]
 
-use oro_macro::assert;
-use oro_mem::{
-	mapper::{AddressSegment, AddressSpace, MapError},
-	pfa::alloc::Alloc,
-	translate::Translator,
-};
-use oro_sync::spinlock::unfair_critical::{InterruptController, UnfairCriticalSpinlock};
-
 pub mod id;
 pub mod instance;
 pub mod module;
@@ -24,6 +16,15 @@ pub mod port;
 pub mod registry;
 pub mod ring;
 pub mod thread;
+
+use self::registry::Handle;
+use oro_macro::assert;
+use oro_mem::{
+	mapper::{AddressSegment, AddressSpace, MapError},
+	pfa::alloc::Alloc,
+	translate::Translator,
+};
+use oro_sync::spinlock::unfair_critical::{InterruptController, UnfairCriticalSpinlock};
 
 /// Core-local instance of the Oro kernel.
 ///
@@ -126,7 +127,7 @@ where
 	/// The physical address translator.
 	pat:           Pat,
 	/// Ring registry.
-	ring_registry: registry::Registry<ring::Ring, IntCtrl, AddrSpace, Pat>,
+	ring_registry: registry::Registry<ring::Ring<AddrSpace>, IntCtrl, AddrSpace, Pat>,
 }
 
 impl<Pfa, Pat, AddrSpace, IntCtrl> KernelState<Pfa, Pat, AddrSpace, IntCtrl>
@@ -167,8 +168,9 @@ where
 		let root_ring_id = ring_registry.insert_permanent(
 			&pfa,
 			ring::Ring {
-				id:     0,
+				id: 0,
 				parent: None,
+				root_instance: None,
 			},
 		)?;
 		assert_eq!(root_ring_id, 0, "root ring ID must be 0");
@@ -198,27 +200,29 @@ where
 	/// In almost all cases, you should be using [`registry::Handle`]s
 	/// directly. They are also easier to work with than calling
 	/// this function.
-	pub unsafe fn ring_by_id(&'static self, id: usize) -> Option<registry::Handle<ring::Ring>> {
+	pub unsafe fn ring_by_id(&'static self, id: usize) -> Option<Handle<ring::Ring<AddrSpace>>> {
 		self.ring_registry.get(id)
 	}
 
-	/// Inserts a [`ring::Ring`] into the registry and returns
-	/// its [`registry::Handle`].
-	///
-	/// `ring.id` will be set to the allocated ID, and is ignored
-	/// when passed in.
-	///
-	/// Note that the returned handle is reference counted; dropping
-	/// it will drop the ring from the registry. If the ring is
-	/// intended to be kept alive, it should be added to a scheduler.
-	pub fn insert_ring(
+	/// Creates a new ring and returns a [`registry::Handle`] to it.
+	pub fn create_ring(
 		&'static self,
-		ring: ring::Ring,
-	) -> Result<registry::Handle<ring::Ring>, MapError> {
-		let handle = self.ring_registry.insert(&self.pfa, ring)?;
+		parent: Handle<ring::Ring<AddrSpace>>,
+	) -> Result<Handle<ring::Ring<AddrSpace>>, MapError> {
+		let ring = self.ring_registry.insert(
+			&self.pfa,
+			ring::Ring {
+				id: usize::MAX, // placeholder
+				parent: Some(parent),
+				root_instance: None,
+			},
+		)?;
+
+		// SAFETY(qix-): Will not panic.
 		unsafe {
-			handle.lock::<IntCtrl>().id = handle.id();
+			ring.lock::<IntCtrl>().id = ring.id();
 		}
-		Ok(handle)
+
+		Ok(ring)
 	}
 }
