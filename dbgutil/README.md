@@ -52,3 +52,26 @@ oro boot limine
 > make -j$(nproc)
 > sudo make install
 > ```
+
+## False Positives
+In high degress of symmetric multiprocessing (SMP) or other complex scenarios, GDB
+struggles to respond to breakpoints faster than other cores can be paused. Since
+the GDB tracker services (e.g. the PFA or lock tracker) use breakpoints to receive
+in-kernel events as they happen, more SMP arity can lead to race conditions that,
+while innocuous to the actual kernel's execution, can cause dbgutil to report
+false positives (e.g. double-alloc PFA events, release-without-acquire lock events,
+etc).
+
+If you suspect a false positive, try reducing the number of cores in your QEMU	
+invocation, or try running the kernel with a single core. This will reduce the
+likelihood that a breakpoint race condition occurs, assuming the symptom you're
+trying to debug is still replicable with fewer cores.
+
+Further, if you're not using a tracker, you can probably disable it, as they
+are enabled by default and can cause overhead in the kernel's execution. You can
+some or all of them with the following commands in GDB:
+
+```
+set oro-pfa off
+set oro-lock off
+```
