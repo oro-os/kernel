@@ -56,9 +56,17 @@ impl AddressSpaceLayout {
 	/// The segment for the ring registry
 	pub const KERNEL_RING_REGISTRY_IDX: usize = 400;
 	/// The segment for the module instance registry
-	pub const KERNEL_MODULE_INSTANCE_REGISTRY_IDX: usize = 401;
+	pub const KERNEL_INSTANCE_REGISTRY_IDX: usize = 401;
+	/// The segment for the module instance item registry
+	pub const KERNEL_INSTANCE_ITEM_REGISTRY_IDX: usize = 402;
+	/// The segment for the thread registry
+	pub const KERNEL_THREAD_REGISTRY_IDX: usize = 403;
+	/// The segment for the thread item registry
+	pub const KERNEL_THREAD_ITEM_REGISTRY_IDX: usize = 404;
+	/// The segment for the module registry
+	pub const KERNEL_MODULE_REGISTRY_IDX: usize = 405;
 	/// The segment for the port registry
-	pub const KERNEL_PORT_REGISTRY_IDX: usize = 402;
+	pub const KERNEL_PORT_REGISTRY_IDX: usize = 406;
 	/// The kernel executable range, shared by the RX, RO, and RW segments.
 	pub const KERNEL_EXE_IDX: usize = 511;
 }
@@ -146,6 +154,31 @@ impl AddressSpaceLayout {
 	}
 }
 
+#[expect(clippy::missing_docs_in_private_items)]
+macro_rules! registries {
+	($($name:ident => $idx:ident),* $(,)?) => {
+		$(fn $name() -> Self::SupervisorSegment {
+			const DESCRIPTOR: AddressSegment = AddressSegment {
+				valid_range: (
+					AddressSpaceLayout::$idx,
+					AddressSpaceLayout::$idx,
+				),
+				entry_template: PageTableEntry::new()
+					.with_global()
+					.with_present()
+					.with_no_exec()
+					.with_writable(),
+				intermediate_entry_template: PageTableEntry::new()
+					.with_present()
+					.with_no_exec()
+					.with_writable(),
+			};
+
+			&DESCRIPTOR
+		})*
+	}
+}
+
 /// Intermediate page table entry template for the kernel code segment.
 ///
 /// Defined here so that the overlapping kernel segments can share the same
@@ -163,6 +196,16 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	type SupervisorSegment = &'static AddressSegment;
 	type UserHandle = AddressSpaceHandle;
 	type UserSegment = &'static AddressSegment;
+
+	registries! {
+		kernel_ring_registry => KERNEL_RING_REGISTRY_IDX,
+		kernel_instance_registry => KERNEL_INSTANCE_REGISTRY_IDX,
+		kernel_instance_item_registry => KERNEL_INSTANCE_ITEM_REGISTRY_IDX,
+		kernel_port_registry => KERNEL_PORT_REGISTRY_IDX,
+		kernel_thread_registry => KERNEL_THREAD_REGISTRY_IDX,
+		kernel_thread_item_registry => KERNEL_THREAD_ITEM_REGISTRY_IDX,
+		kernel_module_registry => KERNEL_MODULE_REGISTRY_IDX,
+	}
 
 	unsafe fn current_supervisor_space<P>(_translator: &P) -> Self::SupervisorHandle
 	where
@@ -287,69 +330,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 			valid_range: (
 				AddressSpaceLayout::KERNEL_CORE_LOCAL_IDX,
 				AddressSpaceLayout::KERNEL_CORE_LOCAL_IDX,
-			),
-			entry_template: PageTableEntry::new()
-				.with_global()
-				.with_present()
-				.with_no_exec()
-				.with_writable(),
-			intermediate_entry_template: PageTableEntry::new()
-				.with_present()
-				.with_no_exec()
-				.with_writable(),
-		};
-
-		&DESCRIPTOR
-	}
-
-	fn kernel_ring_registry() -> Self::SupervisorSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
-		const DESCRIPTOR: AddressSegment = AddressSegment {
-			valid_range: (
-				AddressSpaceLayout::KERNEL_RING_REGISTRY_IDX,
-				AddressSpaceLayout::KERNEL_RING_REGISTRY_IDX,
-			),
-			entry_template: PageTableEntry::new()
-				.with_global()
-				.with_present()
-				.with_no_exec()
-				.with_writable(),
-			intermediate_entry_template: PageTableEntry::new()
-				.with_present()
-				.with_no_exec()
-				.with_writable(),
-		};
-
-		&DESCRIPTOR
-	}
-
-	fn kernel_port_registry() -> Self::SupervisorSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
-		const DESCRIPTOR: AddressSegment = AddressSegment {
-			valid_range: (
-				AddressSpaceLayout::KERNEL_PORT_REGISTRY_IDX,
-				AddressSpaceLayout::KERNEL_PORT_REGISTRY_IDX,
-			),
-			entry_template: PageTableEntry::new()
-				.with_global()
-				.with_present()
-				.with_no_exec()
-				.with_writable(),
-			intermediate_entry_template: PageTableEntry::new()
-				.with_present()
-				.with_no_exec()
-				.with_writable(),
-		};
-
-		&DESCRIPTOR
-	}
-
-	fn kernel_module_instance_registry() -> Self::SupervisorSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
-		const DESCRIPTOR: AddressSegment = AddressSegment {
-			valid_range: (
-				AddressSpaceLayout::KERNEL_MODULE_INSTANCE_REGISTRY_IDX,
-				AddressSpaceLayout::KERNEL_MODULE_INSTANCE_REGISTRY_IDX,
 			),
 			entry_template: PageTableEntry::new()
 				.with_global()

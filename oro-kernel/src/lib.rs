@@ -17,7 +17,7 @@ pub mod registry;
 pub mod ring;
 pub mod thread;
 
-use self::registry::Handle;
+use self::registry::{Handle, Item};
 use oro_macro::assert;
 use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError},
@@ -123,11 +123,29 @@ where
 {
 	/// The shared, spinlocked page frame allocator (PFA) for the
 	/// entire system.
-	pfa:           UnfairCriticalSpinlock<Pfa>,
+	pfa: UnfairCriticalSpinlock<Pfa>,
 	/// The physical address translator.
-	pat:           Pat,
+	pat: Pat,
+
 	/// Ring registry.
-	ring_registry: registry::Registry<ring::Ring<AddrSpace>, IntCtrl, AddrSpace, Pat>,
+	ring_registry:          registry::Registry<ring::Ring<AddrSpace>, IntCtrl, AddrSpace, Pat>,
+	/// Thread registry.
+	#[expect(dead_code)]
+	thread_registry:        registry::Registry<thread::Thread<AddrSpace>, IntCtrl, AddrSpace, Pat>,
+	/// Module registry.
+	#[expect(dead_code)]
+	module_registry:        registry::Registry<module::Module, IntCtrl, AddrSpace, Pat>,
+	/// Instance registry.
+	#[expect(dead_code)]
+	instance_registry: registry::Registry<instance::Instance<AddrSpace>, IntCtrl, AddrSpace, Pat>,
+	/// Instance item registry.
+	#[expect(dead_code)]
+	instance_item_registry:
+		registry::Registry<Item<instance::Instance<AddrSpace>>, IntCtrl, AddrSpace, Pat>,
+	/// Thread item registry.
+	#[expect(dead_code)]
+	thread_item_registry:
+		registry::Registry<Item<thread::Thread<AddrSpace>>, IntCtrl, AddrSpace, Pat>,
 }
 
 impl<Pfa, Pat, AddrSpace, IntCtrl> KernelState<Pfa, Pat, AddrSpace, IntCtrl>
@@ -151,19 +169,35 @@ where
 	/// or else registry accesses will page fault.
 	#[allow(clippy::missing_panics_doc)]
 	pub unsafe fn new(pat: Pat, pfa: UnfairCriticalSpinlock<Pfa>) -> Result<Self, MapError> {
-		let ring_registry = {
-			let mut pfa_lock = pfa.lock::<IntCtrl>();
+		#[expect(clippy::missing_docs_in_private_items)]
+		macro_rules! init_registries {
+			($($id:ident => $regfn:ident),* $(,)?) => {
+				$(
+					let $id = {
+						let mut pfa_lock = pfa.lock::<IntCtrl>();
 
-			let reg = registry::Registry::new(
-				pat.clone(),
-				&mut *pfa_lock,
-				AddrSpace::kernel_ring_registry(),
-			)?;
+						let reg = registry::Registry::new(
+							pat.clone(),
+							&mut *pfa_lock,
+							AddrSpace::$regfn(),
+						)?;
 
-			let _ = pfa_lock;
+						let _ = pfa_lock;
 
-			reg
-		};
+						reg
+					};
+				)*
+			};
+		}
+
+		init_registries! {
+			ring_registry => kernel_ring_registry,
+			thread_registry => kernel_thread_registry,
+			module_registry => kernel_module_registry,
+			instance_registry => kernel_instance_registry,
+			instance_item_registry => kernel_instance_item_registry,
+			thread_item_registry => kernel_thread_item_registry,
+		}
 
 		let root_ring_id = ring_registry.insert_permanent(
 			&pfa,
@@ -179,6 +213,11 @@ where
 			pfa,
 			pat,
 			ring_registry,
+			thread_registry,
+			module_registry,
+			instance_registry,
+			instance_item_registry,
+			thread_item_registry,
 		})
 	}
 

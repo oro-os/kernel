@@ -87,9 +87,17 @@ impl AddressSpaceLayout {
 	/// The segment for the ring registry
 	pub const KERNEL_RING_REGISTRY_IDX: usize = 400;
 	/// The segment for the module instance registry
-	pub const KERNEL_MODULE_INSTANCE_REGISTRY_IDX: usize = 401;
+	pub const KERNEL_INSTANCE_REGISTRY_IDX: usize = 401;
+	/// The segment for the module instance item registry
+	pub const KERNEL_INSTANCE_ITEM_REGISTRY_IDX: usize = 402;
+	/// The segment for the thread registry
+	pub const KERNEL_THREAD_REGISTRY_IDX: usize = 403;
+	/// The segment for the thread item registry
+	pub const KERNEL_THREAD_ITEM_REGISTRY_IDX: usize = 404;
+	/// The segment for the module registry
+	pub const KERNEL_MODULE_REGISTRY_IDX: usize = 405;
 	/// The segment for the port registry
-	pub const KERNEL_PORT_REGISTRY_IDX: usize = 402;
+	pub const KERNEL_PORT_REGISTRY_IDX: usize = 406;
 	/// The kernel executable range, shared by the RX, RO, and RW segments.
 	pub const KERNEL_EXE_IDX: usize = 511;
 }
@@ -233,6 +241,48 @@ impl AddressSpaceLayout {
 	}
 }
 
+#[expect(clippy::missing_docs_in_private_items)]
+macro_rules! registries {
+	($($name:ident => $idx:ident),* $(,)?) => {
+		$(fn $name() -> Self::SupervisorSegment {
+			static DESCRIPTOR: Segment = unsafe {
+				Segment {
+					valid_range:       (
+						AddressSpaceLayout::$idx,
+						AddressSpaceLayout::$idx,
+					),
+					l0_template:       L0PageTableDescriptor::new()
+						.with_valid()
+						.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
+						.with_user_no_exec()
+						.with_kernel_no_exec(),
+					l1_table_template: L1PageTableDescriptor::new()
+						.with_valid()
+						.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
+						.with_user_no_exec()
+						.with_kernel_no_exec(),
+					l2_table_template: L2PageTableDescriptor::new()
+						.with_valid()
+						.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
+						.with_user_no_exec()
+						.with_kernel_no_exec(),
+					l3_template:       L3PageTableBlockDescriptor::new()
+						.with_valid()
+						.with_block_access_permissions(
+							PageTableEntryBlockAccessPerm::KernelRWUserNoAccess,
+						)
+						.with_user_no_exec()
+						.with_kernel_no_exec()
+						.with_not_secure()
+						.with_mair_index(MairEntry::NormalMemory.index() as u64),
+				}
+			};
+
+			&DESCRIPTOR
+		})*
+	}
+}
+
 /// L0 intermediate PTE for the kernel executable segment.
 ///
 /// Defined here as a constant since it's used within overlapping
@@ -269,6 +319,16 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	type SupervisorSegment = &'static Segment;
 	type UserHandle = Ttbr0Handle;
 	type UserSegment = &'static Segment;
+
+	registries! {
+		kernel_ring_registry => KERNEL_RING_REGISTRY_IDX,
+		kernel_instance_registry => KERNEL_INSTANCE_REGISTRY_IDX,
+		kernel_instance_item_registry => KERNEL_INSTANCE_ITEM_REGISTRY_IDX,
+		kernel_port_registry => KERNEL_PORT_REGISTRY_IDX,
+		kernel_thread_registry => KERNEL_THREAD_REGISTRY_IDX,
+		kernel_thread_item_registry => KERNEL_THREAD_ITEM_REGISTRY_IDX,
+		kernel_module_registry => KERNEL_MODULE_REGISTRY_IDX,
+	}
 
 	unsafe fn current_supervisor_space<P>(_translator: &P) -> Self::SupervisorHandle
 	where
@@ -431,120 +491,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 				valid_range:       (
 					AddressSpaceLayout::KERNEL_CORE_LOCAL_IDX,
 					AddressSpaceLayout::KERNEL_CORE_LOCAL_IDX,
-				),
-				l0_template:       L0PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l1_table_template: L1PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l2_table_template: L2PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l3_template:       L3PageTableBlockDescriptor::new()
-					.with_valid()
-					.with_block_access_permissions(
-						PageTableEntryBlockAccessPerm::KernelRWUserNoAccess,
-					)
-					.with_user_no_exec()
-					.with_kernel_no_exec()
-					.with_not_secure()
-					.with_mair_index(MairEntry::NormalMemory.index() as u64),
-			}
-		};
-
-		&DESCRIPTOR
-	}
-
-	fn kernel_ring_registry() -> Self::SupervisorSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
-		static DESCRIPTOR: Segment = unsafe {
-			Segment {
-				valid_range:       (
-					AddressSpaceLayout::KERNEL_RING_REGISTRY_IDX,
-					AddressSpaceLayout::KERNEL_RING_REGISTRY_IDX,
-				),
-				l0_template:       L0PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l1_table_template: L1PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l2_table_template: L2PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l3_template:       L3PageTableBlockDescriptor::new()
-					.with_valid()
-					.with_block_access_permissions(
-						PageTableEntryBlockAccessPerm::KernelRWUserNoAccess,
-					)
-					.with_user_no_exec()
-					.with_kernel_no_exec()
-					.with_not_secure()
-					.with_mair_index(MairEntry::NormalMemory.index() as u64),
-			}
-		};
-
-		&DESCRIPTOR
-	}
-
-	fn kernel_module_instance_registry() -> Self::SupervisorSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
-		static DESCRIPTOR: Segment = unsafe {
-			Segment {
-				valid_range:       (
-					AddressSpaceLayout::KERNEL_MODULE_INSTANCE_REGISTRY_IDX,
-					AddressSpaceLayout::KERNEL_MODULE_INSTANCE_REGISTRY_IDX,
-				),
-				l0_template:       L0PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l1_table_template: L1PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l2_table_template: L2PageTableDescriptor::new()
-					.with_valid()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-					.with_user_no_exec()
-					.with_kernel_no_exec(),
-				l3_template:       L3PageTableBlockDescriptor::new()
-					.with_valid()
-					.with_block_access_permissions(
-						PageTableEntryBlockAccessPerm::KernelRWUserNoAccess,
-					)
-					.with_user_no_exec()
-					.with_kernel_no_exec()
-					.with_not_secure()
-					.with_mair_index(MairEntry::NormalMemory.index() as u64),
-			}
-		};
-
-		&DESCRIPTOR
-	}
-
-	fn kernel_port_registry() -> Self::SupervisorSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
-		static DESCRIPTOR: Segment = unsafe {
-			Segment {
-				valid_range:       (
-					AddressSpaceLayout::KERNEL_PORT_REGISTRY_IDX,
-					AddressSpaceLayout::KERNEL_PORT_REGISTRY_IDX,
 				),
 				l0_template:       L0PageTableDescriptor::new()
 					.with_valid()
