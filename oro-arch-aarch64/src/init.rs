@@ -56,7 +56,9 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: Pfa) {
 /// Must be called _exactly once_ per core, per core lifetime
 /// (i.e. boot, or powerdown/subsequent bringup).
 pub unsafe fn boot() -> ! {
-	let _kernel = Kernel::new(KERNEL_STATE.assume_init_ref());
+	// SAFETY(qix-): THIS MUST ABSOLUTELY BE FIRST.
+	let _kernel = Kernel::initialize_for_core(KERNEL_STATE.assume_init_ref())
+		.expect("failed to initialize kernel");
 
 	oro_debug::dbg!("boot");
 

@@ -299,7 +299,7 @@ impl Segment {
 }
 
 unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
-	fn range(&self, _handle: &Handle) -> (usize, usize) {
+	fn range(&self) -> (usize, usize) {
 		let start = (self.valid_range.0 << 39) | Handle::VIRT_START;
 		// TODO(qix-): Assumes a 48-bit virtual address space for each TT; will need
 		// TODO(qix-): to adjust this when other addressing modes are supported.

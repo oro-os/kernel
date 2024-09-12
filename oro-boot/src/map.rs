@@ -152,7 +152,7 @@ pub fn map_kernel_stack<
 	let last_stack_page_virt =
 		<<TargetAddressSpace as AddressSpace>::SupervisorSegment as AddressSegment<
 			<TargetAddressSpace as AddressSpace>::SupervisorHandle,
-		>>::range(&kernel_stack_segment, supervisor_space)
+		>>::range(&kernel_stack_segment)
 		.1 & !0xFFF;
 
 	// make sure top guard page is unmapped

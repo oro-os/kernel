@@ -13,6 +13,7 @@ use oro_boot_protocol::{memory_map::MemoryMapKind, MemoryMapEntry, MemoryMapEntr
 use oro_debug::{dbg, dbg_warn};
 use oro_macro::assert;
 use oro_mem::{
+	mapper::AddressSegment,
 	pfa::{alloc::Alloc, filo::FiloPageFrameAllocator},
 	translate::{OffsetTranslator, Translator},
 };

@@ -104,6 +104,14 @@ pub unsafe trait AddressSpace: 'static {
 	/// Must **not** overlap with any other segment.
 	fn kernel_stack() -> Self::SupervisorSegment;
 
+	/// Returns the core-local layout descriptor for the kernel.
+	///
+	/// This must be read-write, non-user accessible, and is
+	/// **not** executable.
+	///
+	/// It **must not** overlap with any other segment.
+	fn kernel_core_local() -> Self::SupervisorSegment;
+
 	/// Returns the layout descriptor for the kernel's Ring registry.
 	///
 	/// This must be read-write, non-user accessible, and is
@@ -169,10 +177,7 @@ pub unsafe trait AddressSegment<Handle: Sized>: 'static {
 	/// Returns the range of virtual addresses that this segment covers.
 	///
 	/// The range is inclusive of the start and end addresses.
-	///
-	/// The handle is passed as the handle itself may contain information
-	/// that affects the range of the segment.
-	fn range(&self, handle: &Handle) -> (usize, usize);
+	fn range(&self) -> (usize, usize);
 
 	/// Makes the segment shared across all address spaces.
 	///

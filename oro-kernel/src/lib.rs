@@ -9,8 +9,9 @@
 // NOTE(qix-): https://github.com/rust-lang/rust/issues/95174
 #![feature(adt_const_params)]
 
+use oro_macro::assert;
 use oro_mem::{
-	mapper::{AddressSpace, MapError},
+	mapper::{AddressSegment, AddressSpace, MapError},
 	pfa::alloc::Alloc,
 	translate::Translator,
 };
@@ -26,9 +27,9 @@ pub mod thread;
 
 /// Core-local instance of the Oro kernel.
 ///
-/// Intended to live on the core's respective stack,
-/// living for the lifetime of the core (and destroyed
-/// and re-created on core powerdown/subsequent bringup).
+/// This object's constructor sets up a core-local
+/// mapping of itself such that it can be accessed
+/// from anywhere in the kernel as a static reference.
 pub struct Kernel<Pfa, Pat, AddrSpace, IntCtrl>
 where
 	Pfa: Alloc + 'static,
@@ -47,7 +48,11 @@ where
 	AddrSpace: AddressSpace,
 	IntCtrl: InterruptController,
 {
-	/// Creates a new core-local instance of the Kernel.
+	/// Initializes a new core-local instance of the Oro kernel.
+	///
+	/// The [`AddressSpace::kernel_core_local()`] segment must
+	/// be empty prior to calling this function, else it will
+	/// return [`MapError::Exists`].
 	///
 	/// # Safety
 	/// Must only be called once per CPU session (i.e.
@@ -58,8 +63,45 @@ where
 	/// The `state` given to the kernel must be shared for all
 	/// instances of the kernel that wish to partake in the same
 	/// Oro kernel universe.
-	pub unsafe fn new(state: &'static KernelState<Pfa, Pat, AddrSpace, IntCtrl>) -> Self {
-		Self { state }
+	pub unsafe fn initialize_for_core(
+		state: &'static KernelState<Pfa, Pat, AddrSpace, IntCtrl>,
+	) -> Result<&'static Self, MapError> {
+		assert::fits::<Self, 4096>();
+
+		let mapper = AddrSpace::current_supervisor_space(&state.pat);
+		let core_local_segment = AddrSpace::kernel_core_local();
+
+		let kernel_base = core_local_segment.range().0;
+		debug_assert!((kernel_base as *mut Self).is_aligned());
+
+		{
+			let mut pfa = state.pfa.lock::<IntCtrl>();
+			let phys = pfa.allocate().ok_or(MapError::OutOfMemory)?;
+			core_local_segment.map(&mapper, &mut *pfa, &state.pat, kernel_base, phys)?;
+		}
+
+		let kernel_ptr = kernel_base as *mut Self;
+		kernel_ptr.write(Self { state });
+
+		Ok(&*kernel_ptr)
+	}
+
+	/// Returns a reference to the core-local kernel instance.
+	///
+	/// # Assumed Safety
+	/// This function is not marked `unsafe` since, under pretty much
+	/// every circumstance, the kernel instance should be initialized
+	/// for the core before any other code runs. If this function is
+	/// called before the kernel is initialized, undefined behavior
+	/// will occur.
+	///
+	/// Architectures **must** make sure [`Self::initialize_for_core()`]
+	/// has been called as soon as possible after the core boots.
+	#[must_use]
+	pub fn get() -> &'static Self {
+		// SAFETY(qix-): The kernel instance is initialized for the core
+		// SAFETY(qix-): before any other code runs.
+		unsafe { &*(AddrSpace::kernel_core_local().range().0 as *const Self) }
 	}
 
 	/// Returns the underlying [`KernelState`] for this kernel instance.
@@ -81,6 +123,8 @@ where
 	/// The shared, spinlocked page frame allocator (PFA) for the
 	/// entire system.
 	pfa:           UnfairCriticalSpinlock<Pfa>,
+	/// The physical address translator.
+	pat:           Pat,
 	/// Ring registry.
 	ring_registry: registry::Registry<ring::Ring, IntCtrl, AddrSpace, Pat>,
 }
@@ -96,6 +140,10 @@ where
 	/// once for all cores at boot time.
 	///
 	/// # Safety
+	/// This function must ONLY be called by the primary core,
+	/// only at boot time, and only before any other cores are brought up,
+	/// exactly once.
+	///
 	/// This function sets up shared page table mappings that MUST be
 	/// shared across cores. The caller MUST initialize the kernel
 	/// state (this struct) prior to booting _any other cores_
@@ -105,7 +153,15 @@ where
 		let ring_registry = {
 			let mut pfa_lock = pfa.lock::<IntCtrl>();
 
-			registry::Registry::new(pat, &mut *pfa_lock, AddrSpace::kernel_ring_registry())?
+			let reg = registry::Registry::new(
+				pat.clone(),
+				&mut *pfa_lock,
+				AddrSpace::kernel_ring_registry(),
+			)?;
+
+			let _ = pfa_lock;
+
+			reg
 		};
 
 		let root_ring_id = ring_registry.insert_permanent(
@@ -117,7 +173,11 @@ where
 		)?;
 		assert_eq!(root_ring_id, 0, "root ring ID must be 0");
 
-		Ok(Self { pfa, ring_registry })
+		Ok(Self {
+			pfa,
+			pat,
+			ring_registry,
+		})
 	}
 
 	/// Returns the underlying PFA belonging to the kernel state.
