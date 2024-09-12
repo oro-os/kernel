@@ -26,6 +26,7 @@ members = [
 	"oro-debug-uart16550",
 	"oro-type",
 	"oro-dtb",
+	"oro-dbgutil",
 ]
 
 [workspace.dependencies]
@@ -46,6 +47,7 @@ oro-debug-pl011.path = "oro-debug-pl011"
 oro-debug-uart16550.path = "oro-debug-uart16550"
 oro-type.path = "oro-type"
 oro-dtb.path = "oro-dtb"
+oro-dbgutil.path = "oro-dbgutil"
 
 limine = "0.2.0"
 uart_16550 = "0.3.0"
