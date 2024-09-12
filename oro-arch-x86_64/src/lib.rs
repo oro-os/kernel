@@ -76,6 +76,7 @@ pub mod sync;
 pub(crate) mod init;
 
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
+use oro_mem::{pfa::filo::FiloPageFrameAllocator, translate::OffsetTranslator};
 
 /// The ELF class of the x86_64 architecture.
 pub const ELF_CLASS: ElfClass = ElfClass::Class64;
@@ -83,3 +84,23 @@ pub const ELF_CLASS: ElfClass = ElfClass::Class64;
 pub const ELF_ENDIANNESS: ElfEndianness = ElfEndianness::Little;
 /// The ELF machine of the x86_64 architecture.
 pub const ELF_MACHINE: ElfMachine = ElfMachine::X86_64;
+
+/// Type alias for the PFA (page frame allocator) implementation used
+/// by the architecture.
+pub(crate) type Pfa = FiloPageFrameAllocator<OffsetTranslator>;
+
+/// Type alias for the Oro kernel core-local instance type.
+pub(crate) type Kernel = oro_kernel::Kernel<
+	CoreState,
+	Pfa,
+	OffsetTranslator,
+	crate::mem::address_space::AddressSpaceLayout,
+	crate::sync::InterruptController,
+>;
+
+/// Architecture-specific core-local state.
+pub(crate) struct CoreState {
+	/// The LAPIC (Local Advanced Programmable Interrupt Controller)
+	/// for the core.
+	pub lapic: lapic::Lapic,
+}

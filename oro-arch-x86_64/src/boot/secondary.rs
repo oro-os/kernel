@@ -512,5 +512,5 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 		AddressSpaceLayout::secondary_boot_stub_stack().unmap_without_reclaim(&mapper, &pat);
 	}
 
-	crate::init::boot();
+	crate::init::boot(lapic);
 }

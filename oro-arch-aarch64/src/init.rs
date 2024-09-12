@@ -2,19 +2,15 @@
 //! routines and global state definitions.
 
 use core::mem::MaybeUninit;
-use oro_kernel::{Kernel, KernelState};
-use oro_mem::{pfa::filo::FiloPageFrameAllocator, translate::OffsetTranslator};
+use oro_kernel::KernelState;
+use oro_mem::translate::OffsetTranslator;
 use oro_sync::spinlock::unfair_critical::UnfairCriticalSpinlock;
-
-/// Type alias for the PFA (page frame allocator) implementation used
-/// by the architecture.
-pub type Pfa = FiloPageFrameAllocator<OffsetTranslator>;
 
 /// The global kernel state. Initialized once during boot
 /// and re-used across all cores.
 pub static mut KERNEL_STATE: MaybeUninit<
 	KernelState<
-		Pfa,
+		crate::Pfa,
 		OffsetTranslator,
 		crate::mem::address_space::AddressSpaceLayout,
 		crate::sync::InterruptController,
@@ -27,7 +23,7 @@ pub static mut KERNEL_STATE: MaybeUninit<
 /// Must be called exactly once for the lifetime of the system,
 /// only by the boot processor at boot time (_not_ at any
 /// subsequent bringup).
-pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: Pfa) {
+pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 	#[cfg(debug_assertions)]
 	{
 		use core::sync::atomic::{AtomicBool, Ordering};
@@ -57,8 +53,11 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: Pfa) {
 /// (i.e. boot, or powerdown/subsequent bringup).
 pub unsafe fn boot() -> ! {
 	// SAFETY(qix-): THIS MUST ABSOLUTELY BE FIRST.
-	let _kernel = Kernel::initialize_for_core(KERNEL_STATE.assume_init_ref())
-		.expect("failed to initialize kernel");
+	let _kernel = crate::Kernel::initialize_for_core(
+		KERNEL_STATE.assume_init_ref(),
+		crate::CoreState { unused: 0 },
+	)
+	.expect("failed to initialize kernel");
 
 	oro_debug::dbg!("boot");
 
