@@ -47,6 +47,9 @@ impl<T> UnfairSpinlock<T> {
 			.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
 			.ok()
 			.map(|_| {
+				#[cfg(debug_assertions)]
+				oro_dbgutil::__oro_dbgutil_lock_acquire(::core::ptr::from_ref(&self.value) as usize);
+
 				UnfairSpinlockGuard {
 					lock:  &self.owned,
 					value: self.value.get(),
@@ -81,6 +84,8 @@ impl<T> Drop for UnfairSpinlockGuard<'_, T> {
 	#[inline]
 	fn drop(&mut self) {
 		self.lock.store(false, Ordering::Release);
+		#[cfg(debug_assertions)]
+		oro_dbgutil::__oro_dbgutil_lock_release(self.value as usize);
 	}
 }
 

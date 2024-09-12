@@ -76,6 +76,9 @@ impl<T> UnfairCriticalSpinlock<T> {
 				let interrupt_state = C::fetch_interrupts();
 				C::disable_interrupts();
 
+				#[cfg(debug_assertions)]
+				oro_dbgutil::__oro_dbgutil_lock_acquire(self.value.get() as usize);
+
 				UnfairCriticalSpinlockGuard {
 					lock: &self.owned,
 					value: self.value.get(),
@@ -122,6 +125,9 @@ impl<T> UnfairCriticalSpinlock<T> {
 			.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
 			.ok()
 			.map(|_| {
+				#[cfg(debug_assertions)]
+				oro_dbgutil::__oro_dbgutil_lock_acquire(self.value.get() as usize);
+
 				UnfairCriticalSpinlockGuard {
 					lock: &self.owned,
 					value: self.value.get(),
@@ -156,6 +162,8 @@ impl<C: InterruptController, T> Drop for UnfairCriticalSpinlockGuard<'_, C, T> {
 		// NOTE(qix-): restoration, causing starvation of other cores
 		// NOTE(qix-): for the duration of the interrupt handler.
 		self.lock.store(false, Ordering::Release);
+		#[cfg(debug_assertions)]
+		oro_dbgutil::__oro_dbgutil_lock_release(self.value as usize);
 		C::restore_interrupts(self.interrupt_state);
 	}
 }

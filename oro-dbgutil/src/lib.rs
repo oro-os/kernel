@@ -7,10 +7,10 @@
 #![feature(naked_functions)]
 
 use core::arch::asm;
-#[cfg(all(debug_assertions))]
+#[cfg(debug_assertions)]
 use oro_macro::gdb_autoload_inline;
 
-#[cfg(all(debug_assertions))]
+#[cfg(debug_assertions)]
 gdb_autoload_inline!("dbgutil.py");
 
 /// Transfer marker stub for `gdbutil` that allows the debugger to switch
@@ -138,6 +138,36 @@ pub extern "C" fn __oro_dbgutil_pfa_mass_free(
 			"nop",
 			in(reg) start_do_not_change_this_parameter,
 			in(reg) end_exclusive_do_not_change_this_parameter,
+			options(nostack, nomem, preserves_flags)
+		);
+	}
+}
+
+/// Tells the lock tracker that a lock is about to be acquired.
+#[no_mangle]
+#[link_section = ".text.force_keep"]
+pub extern "C" fn __oro_dbgutil_lock_acquire(lock_self_addr_do_not_change_this_parameter: usize) {
+	unsafe {
+		asm!(
+			"/*{}*/",
+			"nop",
+			in(reg) lock_self_addr_do_not_change_this_parameter,
+			options(nostack, nomem, preserves_flags)
+		);
+	}
+}
+
+/// Tells the lock tracker that a lock has been released.
+///
+/// `this` must be the same value as passed to `__oro_dbgutil_lock_acquire`.
+#[no_mangle]
+#[link_section = ".text.force_keep"]
+pub extern "C" fn __oro_dbgutil_lock_release(lock_self_addr_do_not_change_this_parameter: usize) {
+	unsafe {
+		asm!(
+			"/*{}*/",
+			"nop",
+			in(reg) lock_self_addr_do_not_change_this_parameter,
 			options(nostack, nomem, preserves_flags)
 		);
 	}
