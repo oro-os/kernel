@@ -2,25 +2,29 @@ import gdb  # type: ignore
 from ..log import debug
 
 ## AArch64: AT S1E1R instruction stub
-SYM_AARCH64_ATS1E1R = "oro_debug::__oro_dbgutil_ATS1E1R"
+SYM_AARCH64_ATS1E1R = "oro_dbgutil::__oro_dbgutil_ATS1E1R"
 ## All: Transfer to kernel function hook
-SYM_KERNEL_TRANSFER = "oro_debug::__oro_dbgutil_kernel_will_transfer"
+SYM_KERNEL_TRANSFER = "oro_dbgutil::__oro_dbgutil_kernel_will_transfer"
 ## All: Page frame allocation hook (4KiB page)
-SYM_PAGE_ALLOC = "oro_debug::__oro_dbgutil_pfa_alloc"
+SYM_PAGE_ALLOC = "oro_dbgutil::__oro_dbgutil_pfa_alloc"
 ## All: Page frame free hook (4KiB page)
-SYM_PAGE_FREE = "oro_debug::__oro_dbgutil_pfa_free"
+SYM_PAGE_FREE = "oro_dbgutil::__oro_dbgutil_pfa_free"
 ## All: The kernel is about to free a lot of pages;
 ##      the PFA tracker expects that the kernel will then call
 ##      SYM_PFA_MASS_FREE zero or more times, followed by
 ##      SYM_PFA_FINISHED_MASS_FREE.
-SYM_PFA_WILL_MASS_FREE = "oro_debug::__oro_dbgutil_pfa_will_mass_free"
+SYM_PFA_WILL_MASS_FREE = "oro_dbgutil::__oro_dbgutil_pfa_will_mass_free"
 ## All: The kernel has finished freeing a lot of pages.
-SYM_PFA_FINISHED_MASS_FREE = "oro_debug::__oro_dbgutil_pfa_finished_mass_free"
+SYM_PFA_FINISHED_MASS_FREE = "oro_dbgutil::__oro_dbgutil_pfa_finished_mass_free"
 ## All: Indicates that a region of memory has been freed.
 ##      This is used by the kernel when performing the initial
 ##      population of the PFA. It'll most likely go away in the future
 ##      when the PFA supports regions.
-SYM_PFA_MASS_FREE = "oro_debug::__oro_dbgutil_pfa_mass_free"
+SYM_PFA_MASS_FREE = "oro_dbgutil::__oro_dbgutil_pfa_mass_free"
+## All: Indicates that a lock has been acquired.
+SYM_LOCK_ACQUIRE = "oro_dbgutil::__oro_dbgutil_lock_acquire"
+## All: Indicates that a lock has been released.
+SYM_LOCK_RELEASE = "oro_dbgutil::__oro_dbgutil_lock_release"
 
 TRACKED_SYMBOLS = frozenset(
     set(
@@ -32,6 +36,8 @@ TRACKED_SYMBOLS = frozenset(
             ("f", SYM_PFA_WILL_MASS_FREE),
             ("f", SYM_PFA_FINISHED_MASS_FREE),
             ("f", SYM_PFA_MASS_FREE),
+            ("f", SYM_LOCK_ACQUIRE),
+            ("f", SYM_LOCK_RELEASE),
         ]
     )
 )

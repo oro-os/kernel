@@ -9,22 +9,7 @@ from .autosym import (
     SYM_PFA_FINISHED_MASS_FREE,
     SYM_PFA_MASS_FREE,
 )
-
-# fmt: off
-_THREAD_COLORS = [
-    171, 80, 221, 27, 163, 178, 99, 204,
-    167, 149, 207, 32, 215, 185, 74, 173,
-    148, 201, 198, 63, 164, 68, 112,
-    41, 206, 62, 203, 172, 98, 169,
-    78, 81, 69, 160, 165, 134, 135,
-    197, 128, 75, 170, 21, 205, 214,
-    79, 92, 199, 196, 76, 184, 77, 20,
-    33, 44, 26, 162, 161, 202, 56,
-    166, 40, 45, 42, 200, 129, 168,
-    209, 220, 113, 57, 39, 93, 38,
-    43, 179, 208,
-]
-# fmt: on
+from .backtrace import get_backtrace, warn_backtrace
 
 
 class PfaTracker(object):
@@ -43,6 +28,9 @@ class PfaTracker(object):
         self.__pfa_allocs.clear()
         debug("pfa_tracker: cleared all mappings")
 
+        if reattach:
+            self.attach()
+
     @property
     def enabled(self):
         return self.__enabled
@@ -52,45 +40,12 @@ class PfaTracker(object):
         self.__enabled = value
         self.attach()
 
-    def _get_backtrace():
-        thread = gdb.selected_thread().num
-        frame = gdb.newest_frame()
-        frames = []
-        while frame:
-            sal = frame.find_sal()
-            frames.append(
-                {
-                    "function": frame.function(),
-                    "pc": sal.pc,
-                    "line": sal.line,
-                    "filename": sal.symtab.filename if sal.symtab else None,
-                }
-            )
-            frame = frame.older()
-        return {
-            "thread": thread,
-            "frames": frames,
-        }
-
-    def _warn_backtrace(bt):
-        warn(
-            f"pfa_tracker:         on GDB thread \x1b[38;5;{_THREAD_COLORS[bt['thread']-1]}m{bt['thread']}"
-        )
-        if len(bt["frames"]) > 0:
-            for frame in bt["frames"]:
-                warn(
-                    f"pfa_tracker:         at {frame.get('filename', '<unknown filename>')}:{frame['line']}"
-                )
-                warn(
-                    f"pfa_tracker:            \x1b[2m{frame.get('function', '<unknown fn>')} (0x{frame.get('pc', 0):016X})\x1b[22m"
-                )
-
     def track_alloc_4kib(self, addr):
-        bt = PfaTracker._get_backtrace()
+        bt = get_backtrace()
 
         if self._free_is_pfa_populating:
             warn(f"pfa_tracker: allocation during PFA population event: 0x{addr:016X}")
-            PfaTracker._warn_backtrace(bt)
+            warn_backtrace("pfa_tracker", bt)
 
         events = self.__pfa_allocs[addr]
         if len(events) == 0:
@@ -98,9 +53,9 @@ class PfaTracker(object):
                 debug(f"pfa_tracker: alloc: 0x{addr:016X} (first)")
         elif events[-1]["type"] == "alloc":
             warn(f"pfa_tracker: double alloc: 0x{addr:016X}")
-            PfaTracker._warn_backtrace(bt)
+            warn_backtrace("pfa_tracker", bt)
             warn(f"pfa_tracker:    previous alloc:")
-            PfaTracker._warn_backtrace(events[-1]["bt"])
+            warn_backtrace("pfa_tracker", events[-1]["bt"])
         elif events[-1]["type"] == "free":
             if self.verbose:
                 debug(f"pfa_tracker: alloc: 0x{addr:016X}")
@@ -115,11 +70,11 @@ class PfaTracker(object):
         )
 
     def track_free_4kib(self, addr):
-        bt = PfaTracker._get_backtrace()
+        bt = get_backtrace()
 
         if addr & 0xFFF:
             warn(f"pfa_tracker: freeing unaligned address: 0x{addr:016X}")
-            PfaTracker._warn_backtrace(bt)
+            warn_backtrace("pfa_tracker", bt)
 
         if self._free_is_pfa_populating:
             if addr in self.__pfa_allocs and len(self.__pfa_allocs[addr]) > 0:
@@ -128,16 +83,16 @@ class PfaTracker(object):
                     warn(
                         f"pfa_tracker: freeing an allocated page during PFA population event: 0x{addr:016X}"
                     )
-                    PfaTracker._warn_backtrace(bt)
+                    warn_backtrace("pfa_tracker", bt)
                     warn(f"pfa_tracker:     previous allocation:")
-                    PfaTracker._warn_backtrace(event["bt"])
+                    warn_backtrace("pfa_tracker", event["bt"])
                 elif event["type"] == "free":
                     warn(
                         f"pfa_tracker: double free during PFA population event: 0x{addr:016X}"
                     )
-                    PfaTracker._warn_backtrace(bt)
+                    warn_backtrace("pfa_tracker", bt)
                     warn(f"pfa_tracker:     previous free:")
-                    PfaTracker._warn_backtrace(event["bt"])
+                    warn_backtrace("pfa_tracker", event["bt"])
                 else:
                     assert False, f"unknown allocation type: {event['type']}"
             return
@@ -145,15 +100,15 @@ class PfaTracker(object):
         events = self.__pfa_allocs[addr]
         if len(events) == 0:
             warn(f"pfa_tracker: freeing never-allocated page: 0x{addr:016X}")
-            PfaTracker._warn_backtrace(bt)
+            warn_backtrace("pfa_tracker", bt)
         elif events[-1]["type"] == "alloc":
             if self.verbose:
                 debug(f"pfa_tracker: free: 0x{addr:016X}")
         else:
             warn(f"pfa_tracker: double free: 0x{addr:016X}")
-            PfaTracker._warn_backtrace(bt)
+            warn_backtrace("pfa_tracker", bt)
             warn(f"pfa_tracker:    previous free:")
-            PfaTracker._warn_backtrace(events[-1]["bt"])
+            warn_backtrace("pfa_tracker", events[-1]["bt"])
 
         events.append(
             {
@@ -170,13 +125,13 @@ class PfaTracker(object):
 
         if start & 0xFFF:
             warn(f"pfa_tracker: mass free with unaligned start address: 0x{start:016X}")
-            PfaTracker._warn_backtrace(PfaTracker._get_backtrace())
+            warn_backtrace("pfa_tracker", get_backtrace())
 
         if end_excl & 0xFFF:
             warn(
                 f"pfa_tracker: mass free with unaligned end address: 0x{end_excl:016X} (exclusive)"
             )
-            PfaTracker._warn_backtrace(PfaTracker._get_backtrace())
+            warn_backtrace("pfa_tracker", get_backtrace())
 
         # Just free the entire range; the `track_free_4kib()`
         # function handles the corner cases for e.g. a PFA
