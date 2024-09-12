@@ -21,8 +21,8 @@ To use these utilities, simply open a debug profile variant of the Oro
 kernel in GDB.
 
 ```shell
-rust-gdb -q /path/to/oro-os/kernel/repo/target/x86_64-unknown-oro/debug/oro-kernel-x86_64
-rust-gdb -q /path/to/oro-os/kernel/repo/target/aarch64-unknown-oro/debug/oro-kernel-aarch64
+rust-gdb -q target/x86_64-unknown-oro/debug/oro-kernel-x86_64
+rust-gdb -q target/aarch64-unknown-oro/debug/oro-kernel-aarch64
 ```
 
 You can then boot directly to the kernel via QEMU with the `oro boot` convenience
