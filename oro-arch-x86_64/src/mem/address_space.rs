@@ -281,6 +281,27 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		&DESCRIPTOR
 	}
 
+	fn kernel_core_local() -> Self::SupervisorSegment {
+		#[expect(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range: (
+				AddressSpaceLayout::KERNEL_CORE_LOCAL_IDX,
+				AddressSpaceLayout::KERNEL_CORE_LOCAL_IDX,
+			),
+			entry_template: PageTableEntry::new()
+				.with_global()
+				.with_present()
+				.with_no_exec()
+				.with_writable(),
+			intermediate_entry_template: PageTableEntry::new()
+				.with_present()
+				.with_no_exec()
+				.with_writable(),
+		};
+
+		&DESCRIPTOR
+	}
+
 	fn kernel_ring_registry() -> Self::SupervisorSegment {
 		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {

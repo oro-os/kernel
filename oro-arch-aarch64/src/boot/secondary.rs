@@ -1,6 +1,12 @@
 //! Secondary core (application processor) boot routine.
 
-use crate::{mem::address_space::AddressSpaceLayout, psci::PsciMethod};
+use crate::{
+	mem::{
+		address_space::{AddressSpaceLayout, Ttbr1Handle},
+		segment::Segment,
+	},
+	psci::PsciMethod,
+};
 use core::{
 	arch::asm,
 	ffi::CStr,
@@ -350,7 +356,7 @@ unsafe fn boot_secondary(
 
 	// Allocate a new stack for it...
 	let stack_segment = AddressSpaceLayout::kernel_stack();
-	let stack_end = stack_segment.range(&mapper).1 & !0xFFF;
+	let stack_end = <&Segment as AddressSegment<Ttbr1Handle>>::range(&stack_segment).1 & !0xFFF;
 
 	for stack_virt in (stack_end - stack_pages * 4096..stack_end).step_by(4096) {
 		let page = pfa.allocate().ok_or(SecondaryBootError::OutOfMemory)?;
