@@ -15,13 +15,11 @@ license = "MPL-2.0"
 doctest = false
 
 [features]
-default = ["dbgutil"]
-dbgutil = ["dep:oro-macro"]
+default = []
 pl011 = ["dep:oro-debug-pl011"]
 uart16550 = ["dep:oro-debug-uart16550"]
 
 [dependencies]
-oro-macro = { workspace = true, optional = true }
 oro-debug-pl011 = { workspace = true, optional = true }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]

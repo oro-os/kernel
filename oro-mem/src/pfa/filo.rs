@@ -82,7 +82,7 @@ where
 			let page_frame = self.last_free;
 			self.last_free = unsafe { self.manager.read_u64(page_frame) };
 			#[cfg(debug_assertions)]
-			oro_debug::__oro_dbgutil_pfa_alloc(page_frame);
+			oro_dbgutil::__oro_dbgutil_pfa_alloc(page_frame);
 			Some(page_frame)
 		}
 	}
@@ -90,7 +90,7 @@ where
 	unsafe fn free(&mut self, frame: u64) {
 		assert_eq!(frame % 4096, 0, "frame is not page-aligned");
 		#[cfg(debug_assertions)]
-		oro_debug::__oro_dbgutil_pfa_free(frame);
+		oro_dbgutil::__oro_dbgutil_pfa_free(frame);
 		self.manager.write_u64(frame, self.last_free);
 		self.last_free = frame;
 	}

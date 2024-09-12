@@ -118,7 +118,7 @@ impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> PrebootPfa<M, I> 
 				let next_page_end = (next_base + size) >> 12;
 				if current_page != next_page_end {
 					// Mark the new page as allocated
-					oro_debug::__oro_dbgutil_pfa_alloc(next_page_end << 12);
+					oro_dbgutil::__oro_dbgutil_pfa_alloc(next_page_end << 12);
 				}
 			}
 

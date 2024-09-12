@@ -127,7 +127,7 @@ pub unsafe fn transfer(
 
 	// Tell dbgutil we're about to switch
 	#[cfg(debug_assertions)]
-	oro_debug::__oro_dbgutil_kernel_will_transfer();
+	oro_dbgutil::__oro_dbgutil_kernel_will_transfer();
 
 	// Jump to stubs.
 	// SAFETY(qix-): Do NOT use `ax`, `bx`, `dx`, `cx` for transfer registers.

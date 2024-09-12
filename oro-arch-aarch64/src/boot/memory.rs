@@ -107,8 +107,8 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 
 		#[cfg(debug_assertions)]
 		{
-			oro_debug::__oro_dbgutil_pfa_will_mass_free(1);
-			oro_debug::__oro_dbgutil_pfa_mass_free(aligned_base, aligned_base + length);
+			oro_dbgutil::__oro_dbgutil_pfa_will_mass_free(1);
+			oro_dbgutil::__oro_dbgutil_pfa_mass_free(aligned_base, aligned_base + length);
 		}
 
 		for page in (aligned_base..(aligned_base + length)).step_by(4096) {
@@ -116,7 +116,7 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 		}
 
 		#[cfg(debug_assertions)]
-		oro_debug::__oro_dbgutil_pfa_finished_mass_free();
+		oro_dbgutil::__oro_dbgutil_pfa_finished_mass_free();
 	}
 
 	// Now unmap the recursive entry.
@@ -458,7 +458,7 @@ impl<'a> Iterator for MemoryMapPfa<'a> {
 		self.current_entry.length -= 4096;
 
 		#[cfg(debug_assertions)]
-		oro_debug::__oro_dbgutil_pfa_alloc(result);
+		oro_dbgutil::__oro_dbgutil_pfa_alloc(result);
 
 		Some(result)
 	}
