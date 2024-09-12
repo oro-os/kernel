@@ -30,6 +30,8 @@ class RegCmd(gdb.Command):
         elif arch == "i386:x86-64":
             if reg == "cr0":
                 return self._decode_cr0(value)
+            if reg == "eflags":
+                return self._decode_eflags(value)
 
         error(f"reg: register '{reg}' not supported for architecture '{arch}'")
 
@@ -348,6 +350,70 @@ class RegCmd(gdb.Command):
         log(f"reg:    .reserved[17]\t= 0b{res17:01b}")
         log(f"reg:    .reserved[28:19]\t= 0b{res19:010b}")
         log(f"reg:    .reserved[63:32]\t= 0x{res32:08X}")
+        # fmt: on
+
+    def _decode_eflags(self, value=None):
+        if value is None:
+            value = gdb.parse_and_eval("$eflags")
+            if value.type.code == gdb.TYPE_CODE_VOID:
+                error("reg: EFLAGS register not available (is the kernel running?)")
+                return
+
+            value = int(value)
+
+        log(f"reg: EFLAGS\t= 0x{value:016X}")
+        log(f"reg:       \t= 0b{(value & 0xFFFF_FFFF):032b}")
+
+        # fmt: off
+        cf = (value >> 0) & 1
+        res1 = (value >> 1) & 1
+        pf = (value >> 2) & 1
+        res3 = (value >> 3) & 1
+        af = (value >> 4) & 1
+        res5 = (value >> 5) & 1
+        zf = (value >> 6) & 1
+        sf = (value >> 7) & 1
+        tf = (value >> 8) & 1
+        _if = (value >> 9) & 1
+        df = (value >> 10) & 1
+        of = (value >> 11) & 1
+        iopl = (value >> 12) & 0b11
+        nt = (value >> 14) & 1
+        res15 = (value >> 15) & 1
+        rf = (value >> 16) & 1
+        vm = (value >> 17) & 1
+        ac = (value >> 18) & 1
+        vif = (value >> 19) & 1
+        vip = (value >> 20) & 1
+        id = (value >> 21) & 1
+        res22 = (value >> 22) & 0x3FF
+        res32 = (value >> 32) & 0xFFFF_FFFF
+
+        log(f"reg:       .CF\t= {cf} ({'carry' if cf == 1 else 'no carry'})")
+        if res1 == 0:
+            warn("reg: EFLAGS[1] is reserved and should be 1.")
+        log(f"reg:       .PF\t= {pf} ({'parity' if pf == 1 else 'no parity'})")
+        if res3 == 1:
+            warn("reg: EFLAGS[3] is reserved and should be 0.")
+        log(f"reg:       .AF\t= {af} ({'auxiliary carry' if af == 1 else 'no auxiliary carry'})")
+        if res5 == 1:
+            warn("reg: EFLAGS[5] is reserved and should be 0.")
+        log(f"reg:       .ZF\t= {zf} ({'zero' if zf == 1 else 'non-zero'})")
+        log(f"reg:       .SF\t= {sf} ({'negative' if sf == 1 else 'non-negative'})")
+        log(f"reg:       .TF\t= {tf} ({'trap' if tf == 1 else 'no trap'})")
+        log(f"reg:       .IF\t= {_if} ({'interrupts enabled' if _if == 1 else 'interrupts disabled'})")
+        log(f"reg:       .DF\t= {df} ({'direction' if df == 1 else 'no direction'})")
+        log(f"reg:       .OF\t= {of} ({'overflow' if of == 1 else 'no overflow'})")
+        log(f"reg:       .IOPL\t= {iopl} (ring {iopl})")
+        log(f"reg:       .NT\t= {nt} ({'nested task' if nt == 1 else 'no nested task'})")
+        if res15 == 1:
+            warn("reg: EFLAGS[15] is reserved and should be 0.")
+        log(f"reg:       .RF\t= {rf} ({'resume' if rf == 1 else 'no resume'})")
+        log(f"reg:       .VM\t= {vm} ({'virtual 8086 mode' if vm == 1 else 'no virtual 8086 mode'})")
+        log(f"reg:       .AC\t= {ac} ({'alignment check' if ac == 1 else 'no alignment check'})")
+        log(f"reg:       .VIF\t= {vif} ({'virtual interrupt flag' if vif == 1 else 'no virtual interrupt flag'})")
+        log(f"reg:       .VIP\t= {vip} ({'virtual interrupt pending' if vip == 1 else 'no virtual interrupt pending'})")
+        log(f"reg:       .ID\t= {id} ({'identification' if id == 1 else 'no identification'})")
         # fmt: on
 
 
