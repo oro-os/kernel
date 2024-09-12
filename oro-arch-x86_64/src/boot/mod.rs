@@ -114,55 +114,60 @@ pub unsafe fn boot_primary() -> ! {
 	dbg!("local APIC ID: {lapic_id}");
 
 	crate::init::initialize_primary(pat.clone(), pfa);
-	let mut pfa = crate::init::KERNEL_STATE
-		.assume_init_ref()
-		.pfa()
-		.lock::<crate::sync::InterruptController>();
 
-	let num_cores = if has_cs89 {
-		dbg!("physical pages 0x8000/0x9000 are valid; attempting to boot secondary cores");
+	{
+		let mut pfa = crate::init::KERNEL_STATE
+			.assume_init_ref()
+			.pfa()
+			.lock::<crate::sync::InterruptController>();
 
-		// Get the current supervisor address space.
-		let mapper = AddressSpaceLayout::current_supervisor_space(&pat);
+		let num_cores = if has_cs89 {
+			dbg!("physical pages 0x8000/0x9000 are valid; attempting to boot secondary cores");
 
-		// Boot the secondary cores.
-		let mut num_cores = 1; // start at one for the bsp
-		for entry in madt.entries().flatten() {
-			if let MadtEntry::LocalApic(apic) = entry {
-				if apic.can_init() {
-					if apic.id() == lapic_id {
-						dbg!("cpu {}: not booting (primary core)", apic.id());
-					} else {
-						dbg!("cpu {}: booting...", apic.id());
-						match secondary::boot_secondary(
-							&mapper,
-							&mut *pfa,
-							&pat,
-							&lapic,
-							apic.id(),
-							SECONDARY_STACK_PAGES,
-						) {
-							Ok(()) => {
-								num_cores += 1;
-							}
-							Err(err) => {
-								dbg_warn!("cpu {} failed to boot: {err:?}", apic.id());
+			// Get the current supervisor address space.
+			let mapper = AddressSpaceLayout::current_supervisor_space(&pat);
+
+			// Boot the secondary cores.
+			let mut num_cores = 1; // start at one for the bsp
+			for entry in madt.entries().flatten() {
+				if let MadtEntry::LocalApic(apic) = entry {
+					if apic.can_init() {
+						if apic.id() == lapic_id {
+							dbg!("cpu {}: not booting (primary core)", apic.id());
+						} else {
+							dbg!("cpu {}: booting...", apic.id());
+							match secondary::boot_secondary(
+								&mapper,
+								&mut *pfa,
+								&pat,
+								&lapic,
+								apic.id(),
+								SECONDARY_STACK_PAGES,
+							) {
+								Ok(()) => {
+									num_cores += 1;
+								}
+								Err(err) => {
+									dbg_warn!("cpu {} failed to boot: {err:?}", apic.id());
+								}
 							}
 						}
+					} else {
+						dbg!("cpu {}: not booting (disabled)", apic.id());
 					}
-				} else {
-					dbg!("cpu {}: not booting (disabled)", apic.id());
 				}
 			}
-		}
 
-		num_cores
-	} else {
-		dbg_warn!("physical pages 0x8000/0x9000 are not available; cannot boot secondary cores");
-		1
-	};
+			num_cores
+		} else {
+			dbg_warn!(
+				"physical pages 0x8000/0x9000 are not available; cannot boot secondary cores"
+			);
+			1
+		};
 
-	dbg!("proceeding with {} core(s)", num_cores);
+		dbg!("proceeding with {} core(s)", num_cores);
+	}
 
 	crate::init::boot()
 }
