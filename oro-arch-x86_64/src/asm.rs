@@ -140,17 +140,17 @@ pub fn cr4() -> u64 {
 }
 
 /// Halts, indefinitely, the CPU (disabling interrupts).
-pub fn halt() -> ! {
+pub fn hang() -> ! {
 	unsafe {
 		asm!("cli");
 	}
 	loop {
-		halt_once_and_wait();
+		halt_once();
 	}
 }
 
 /// Halts the CPU once and waits for an interrupt.
-pub fn halt_once_and_wait() {
+pub fn halt_once() {
 	unsafe {
 		asm!("hlt");
 	}
