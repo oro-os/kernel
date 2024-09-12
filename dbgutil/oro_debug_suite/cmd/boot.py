@@ -28,12 +28,15 @@ class BootCmdLimine(gdb.Command):
         oro boot limine [-sbCK] [-n <num_cores>]
 
     Options:
-        -s, --switch         Switch to the Limine executable before booting.
+        -S, --no-switch      Don't switch to the Limine executable before booting.
+                             Specifying this will break many of the trackers.
+                             Probably not a good idea to use it.
         -n, --num_cores      Specify the number of CPU cores to emulate (default: 1).
         -C, --no-continue    Do not automatically continue execution after booting.
         -K, --no-autokernel  Do not automatically load the kernel image during transfer.
                              (Only useful with --switch)
-        -b, --break          Break at the start of the kernel image after transfer.
+        -b, --break          Break at the start of the bootloader or kernel image after transfer
+                             (whatever comes first).
     """
 
     def __init__(self):
@@ -53,7 +56,7 @@ class BootCmdLimine(gdb.Command):
         args = gdb.string_to_argv(arg)
         rest_args = []
 
-        switch = False
+        switch = True
         autoload_kernel = True
         num_cores = 1
         auto_continue = True
@@ -63,8 +66,8 @@ class BootCmdLimine(gdb.Command):
         while argi < len(args):
             arg = args[argi]
 
-            if arg in ["--switch", "-s"]:
-                switch = True
+            if arg in ["--no-switch", "-S"]:
+                switch = False
             elif arg in ["--num_cores", "-n"]:
                 if argi + 1 >= len(args):
                     error("missing argument for --num_cores")
