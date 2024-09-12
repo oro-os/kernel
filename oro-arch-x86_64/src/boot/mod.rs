@@ -169,5 +169,5 @@ pub unsafe fn boot_primary() -> ! {
 		dbg!("proceeding with {} core(s)", num_cores);
 	}
 
-	crate::init::boot()
+	crate::init::boot(lapic)
 }

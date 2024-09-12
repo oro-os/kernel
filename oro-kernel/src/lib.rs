@@ -31,19 +31,26 @@ use oro_sync::spinlock::unfair_critical::{InterruptController, UnfairCriticalSpi
 /// This object's constructor sets up a core-local
 /// mapping of itself such that it can be accessed
 /// from anywhere in the kernel as a static reference.
-pub struct Kernel<Pfa, Pat, AddrSpace, IntCtrl>
+pub struct Kernel<CoreState, Pfa, Pat, AddrSpace, IntCtrl>
 where
+	CoreState: Sized + 'static,
 	Pfa: Alloc + 'static,
 	Pat: Translator,
 	AddrSpace: AddressSpace + 'static,
 	IntCtrl: InterruptController + 'static,
 {
+	/// Local core state. The kernel instance owns this
+	/// due to all of the machinery already in place to make
+	/// this kernel instance object core-local and accessible
+	/// from anywhere in the kernel.
+	core_state: CoreState,
 	/// Global reference to the shared kernel state.
-	state: &'static KernelState<Pfa, Pat, AddrSpace, IntCtrl>,
+	state:      &'static KernelState<Pfa, Pat, AddrSpace, IntCtrl>,
 }
 
-impl<Pfa, Pat, AddrSpace, IntCtrl> Kernel<Pfa, Pat, AddrSpace, IntCtrl>
+impl<CoreState, Pfa, Pat, AddrSpace, IntCtrl> Kernel<CoreState, Pfa, Pat, AddrSpace, IntCtrl>
 where
+	CoreState: Sized + 'static,
 	Pfa: Alloc + 'static,
 	Pat: Translator,
 	AddrSpace: AddressSpace,
@@ -65,24 +72,28 @@ where
 	/// instances of the kernel that wish to partake in the same
 	/// Oro kernel universe.
 	pub unsafe fn initialize_for_core(
-		state: &'static KernelState<Pfa, Pat, AddrSpace, IntCtrl>,
+		global_state: &'static KernelState<Pfa, Pat, AddrSpace, IntCtrl>,
+		core_state: CoreState,
 	) -> Result<&'static Self, MapError> {
 		assert::fits::<Self, 4096>();
 
-		let mapper = AddrSpace::current_supervisor_space(&state.pat);
+		let mapper = AddrSpace::current_supervisor_space(&global_state.pat);
 		let core_local_segment = AddrSpace::kernel_core_local();
 
 		let kernel_base = core_local_segment.range().0;
 		debug_assert!((kernel_base as *mut Self).is_aligned());
 
 		{
-			let mut pfa = state.pfa.lock::<IntCtrl>();
+			let mut pfa = global_state.pfa.lock::<IntCtrl>();
 			let phys = pfa.allocate().ok_or(MapError::OutOfMemory)?;
-			core_local_segment.map(&mapper, &mut *pfa, &state.pat, kernel_base, phys)?;
+			core_local_segment.map(&mapper, &mut *pfa, &global_state.pat, kernel_base, phys)?;
 		}
 
 		let kernel_ptr = kernel_base as *mut Self;
-		kernel_ptr.write(Self { state });
+		kernel_ptr.write(Self {
+			core_state,
+			state: global_state,
+		});
 
 		Ok(&*kernel_ptr)
 	}
@@ -109,6 +120,12 @@ where
 	#[must_use]
 	pub fn state(&self) -> &'static KernelState<Pfa, Pat, AddrSpace, IntCtrl> {
 		self.state
+	}
+
+	/// Returns the architecture-specific core local state reference.
+	#[must_use]
+	pub fn core(&self) -> &CoreState {
+		&self.core_state
 	}
 }
 
