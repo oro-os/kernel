@@ -82,8 +82,9 @@ class TtCmdVirt(gdb.Command):
             return
 
         try:
-            virt = int(args[0], 0)
-        except ValueError:
+            virt = int(gdb.parse_and_eval(args[0])) & 0xFFFF_FFFF_FFFF_FFFF
+        except ValueError as e:
+            error(f"tt: failed to parse expression: {str(e)}")
             gdb.execute("help oro tt virt")
             return
 
@@ -608,8 +609,9 @@ class TtCmdAt(gdb.Command):
             return
 
         try:
-            virt = int(args[0], 0)
-        except ValueError:
+            virt = int(gdb.parse_and_eval(args[0])) & 0xFFFF_FFFF_FFFF_FFFF
+        except ValueError as e:
+            error(f"tt: failed to parse expression: {str(e)}")
             gdb.execute("help oro tt at")
             return
 
