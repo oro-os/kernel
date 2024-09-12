@@ -17,7 +17,7 @@ pub struct Thread<AddrSpace: AddressSpace> {
 	/// The thread's ID.
 	pub(crate) id:       usize,
 	/// The module instance to which this thread belongs.
-	pub(crate) instance: Handle<Instance>,
+	pub(crate) instance: Handle<Instance<AddrSpace>>,
 	/// The thread's address space handle.
 	pub(crate) space:    AddrSpace::UserHandle,
 }
@@ -40,7 +40,7 @@ impl<AddrSpace: AddressSpace> Thread<AddrSpace> {
 	}
 
 	/// Returns module instance [`Handle`] to which this thread belongs.
-	pub fn instance(&self) -> Handle<Instance> {
+	pub fn instance(&self) -> Handle<Instance<AddrSpace>> {
 		self.instance.clone()
 	}
 

@@ -1,6 +1,13 @@
 //! Module instance types and functionality.
 
-use crate::{module::Module, registry::Handle, ring::Ring};
+use crate::{
+	module::Module,
+	registry::{Handle, Item, ItemIterEx},
+	ring::Ring,
+	thread::Thread,
+};
+use oro_mem::mapper::AddressSpace;
+use oro_sync::spinlock::unfair_critical::InterruptController;
 
 /// A singular module instance.
 ///
@@ -31,16 +38,18 @@ use crate::{module::Module, registry::Handle, ring::Ring};
 /// to interact with the kernel directly via the built-in modules, and
 /// from there can spawn additional rings and instances as needed to
 /// bootstrap the rest of the system as they see fit.
-pub struct Instance {
+pub struct Instance<AddrSpace: AddressSpace> {
 	/// The module instance ID.
-	id:     usize,
+	pub(crate) id:          usize,
 	/// The module from which this instance was spawned.
-	module: Handle<Module>,
+	pub(crate) module:      Handle<Module>,
 	/// The ring on which this instance resides.
-	ring:   Handle<Ring>,
+	pub(crate) ring:        Handle<Ring<AddrSpace>>,
+	/// The root thread item of the instance.
+	pub(crate) root_thread: Option<Handle<Item<Thread<AddrSpace>>>>,
 }
 
-impl Instance {
+impl<AddrSpace: AddressSpace> Instance<AddrSpace> {
 	/// Returns the instance ID.
 	///
 	/// # Safety
@@ -61,7 +70,14 @@ impl Instance {
 	}
 
 	/// The [`Handle`] to the ring on which this instance resides.
-	pub fn ring(&self) -> Handle<Ring> {
+	pub fn ring(&self) -> Handle<Ring<AddrSpace>> {
 		self.ring.clone()
+	}
+
+	/// Gets an iterator over all threads in this instance.
+	pub fn threads<IntCtrl: InterruptController>(
+		&self,
+	) -> impl Iterator<Item = Handle<Item<Thread<AddrSpace>>>> {
+		self.root_thread.iter_all::<IntCtrl>()
 	}
 }
