@@ -55,14 +55,26 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 /// (i.e. boot, or powerdown/subsequent bringup).
 pub unsafe fn boot(lapic: Lapic) -> ! {
 	// SAFETY(qix-): THIS MUST ABSOLUTELY BE FIRST.
-	let _kernel = crate::Kernel::initialize_for_core(
+	let kernel = crate::Kernel::initialize_for_core(
 		KERNEL_STATE.assume_init_ref(),
 		crate::CoreState { lapic },
 	)
 	.expect("failed to initialize kernel");
 
+	crate::interrupt::install_idt();
 
 	dbg!("boot");
 
-	crate::asm::hang();
+	// XXX DEBUG
+	let id = kernel.core().lapic.id();
+	loop {
+		dbg!(
+			"DBG: timer counter: {id}: {}",
+			crate::interrupt::TIM_COUNT.load(core::sync::atomic::Ordering::Relaxed)
+		);
+
+		kernel.core().lapic.set_timer_initial_count(1_000_000);
+
+		crate::asm::halt_once();
+	}
 }
