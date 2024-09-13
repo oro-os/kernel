@@ -163,3 +163,22 @@ pub fn strong_memory_barrier() {
 		asm!("mfence", options(nostack, preserves_flags),);
 	}
 }
+
+/// Reads the value of an MSR
+#[inline(always)]
+#[must_use]
+pub fn rdmsr(msr: u32) -> u64 {
+	let val_a: u32;
+	let val_d: u32;
+	unsafe {
+		asm!(
+			"rdmsr",
+			in("ecx") msr,
+			out("eax") val_a,
+			out("edx") val_d,
+			options(nostack, preserves_flags)
+		);
+	}
+
+	(u64::from(val_d) << 32) | u64::from(val_a)
+}
