@@ -74,14 +74,12 @@ impl IdtEntry {
 /// The IDT (Interrupt Descriptor Table) for the kernel.
 static mut IDT: Aligned16<[IdtEntry; 256]> = Aligned16([IdtEntry::new(); 256]);
 
-/// XXX DEBUG
-pub static TIM_COUNT: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
-
 /// The ISR (Interrupt Service Routine) for the system timer.
 #[no_mangle]
 unsafe extern "C" fn isr_sys_timer_rust() {
-	TIM_COUNT.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
-	crate::Kernel::get().core().lapic.eoi();
+	let handler = crate::handler::Handler::new();
+	handler.kernel().scheduler().event_timer_expired(&handler);
+	handler.kernel().core().lapic.eoi();
 }
 
 /// The ISR (Interrupt Service Routine) trampoline stub for the system timer.

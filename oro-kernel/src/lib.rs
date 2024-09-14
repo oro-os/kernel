@@ -15,9 +15,13 @@ pub mod module;
 pub mod port;
 pub mod registry;
 pub mod ring;
+pub mod scheduler;
 pub mod thread;
 
-use self::registry::{Handle, List, ListRegistry, Registry};
+use self::{
+	registry::{Handle, List, ListRegistry, Registry},
+	scheduler::Scheduler,
+};
 use core::mem::MaybeUninit;
 use oro_macro::assert;
 use oro_mem::{
@@ -40,6 +44,8 @@ pub struct Kernel<CoreState: Sized + 'static, A: Arch> {
 	core_state: CoreState,
 	/// Global reference to the shared kernel state.
 	state:      &'static KernelState<A>,
+	/// The kernel scheduler
+	scheduler:  Scheduler<A>,
 }
 
 impl<CoreState: Sized + 'static, A: Arch> Kernel<CoreState, A> {
@@ -80,6 +86,7 @@ impl<CoreState: Sized + 'static, A: Arch> Kernel<CoreState, A> {
 		kernel_ptr.write(Self {
 			core_state,
 			state: global_state,
+			scheduler: Scheduler::new(),
 		});
 
 		Ok(&*kernel_ptr)
@@ -113,6 +120,12 @@ impl<CoreState: Sized + 'static, A: Arch> Kernel<CoreState, A> {
 	#[must_use]
 	pub fn core(&self) -> &CoreState {
 		&self.core_state
+	}
+
+	/// Gets a reference to the scheduler.
+	#[must_use]
+	pub fn scheduler(&self) -> &Scheduler<A> {
+		&self.scheduler
 	}
 }
 
