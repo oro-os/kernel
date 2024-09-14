@@ -226,6 +226,23 @@ impl<const TY: IdType> Id<TY> {
 	pub fn is_null(&self) -> bool {
 		AnyId::is_buf_null(&self.0)
 	}
+
+	/// Whether or not the ID is internal
+	/// (i.e. a kernel module).
+	#[must_use]
+	pub fn is_internal(&self) -> bool {
+		if self.0[0] & 0b0001_1111 != 0 {
+			return false;
+		}
+
+		for byte in &self.0[1..9] {
+			if *byte != 0 {
+				return false;
+			}
+		}
+
+		true
+	}
 }
 
 impl AnyId {
