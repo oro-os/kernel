@@ -78,6 +78,7 @@ struct_field_names = "allow"
 items_after_statements = "allow"
 cast_possible_truncation = "allow" # TODO(qix-): Temporary until the virt/phys types land.
 assertions_on_constants = "allow"
+new_without_default = "allow"
 
 [profile.dev]
 panic = "abort"            # Use "abort" panic strategy
