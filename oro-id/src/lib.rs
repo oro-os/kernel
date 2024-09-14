@@ -1,5 +1,9 @@
 //! Implements Oro IDs in the kernel.
-#![expect(clippy::module_name_repetitions)]
+#![cfg_attr(not(test), no_std)]
+// NOTE(qix-): `adt_const_params` isn't strictly necessary but is on track for acceptance,
+// NOTE(qix-): and the open questions (e.g. mangling) are not of concern here.
+// NOTE(qix-): https://github.com/rust-lang/rust/issues/95174
+#![feature(adt_const_params)]
 
 use core::{marker::ConstParamTy, str::FromStr};
 

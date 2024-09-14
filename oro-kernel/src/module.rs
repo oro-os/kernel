@@ -1,6 +1,6 @@
 //! Implements Oro module instances in the kernel.
 
-use crate::id::{Id, IdType};
+use oro_id::{Id, IdType};
 
 /// Module metadata.
 pub struct Module {

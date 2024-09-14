@@ -287,9 +287,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "oro-id"
+version = "0.0.0"
+
+[[package]]
 name = "oro-kernel"
 version = "0.0.0"
 dependencies = [
+ "oro-id",
  "oro-macro",
  "oro-mem",
  "oro-sync",

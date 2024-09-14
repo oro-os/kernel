@@ -1,6 +1,6 @@
 //! Implements Oro ports in the kernel.
 
-use crate::id::{Id, IdType};
+use oro_id::{Id, IdType};
 
 /// A singular port.
 ///
