@@ -2,10 +2,9 @@
 
 use crate::{
 	instance::Instance,
-	registry::{Handle, Item, ItemIterEx},
+	registry::{Handle, List},
+	Arch,
 };
-use oro_mem::mapper::AddressSpace;
-use oro_sync::spinlock::unfair_critical::InterruptController;
 
 /// A singular ring.
 ///
@@ -27,19 +26,19 @@ use oro_sync::spinlock::unfair_critical::InterruptController;
 /// system, and can interact with the kernel directly. Child rings may
 /// only do so if one of the root ring's module instances has granted
 /// them such access via a port.
-pub struct Ring<AddrSpace: AddressSpace> {
+pub struct Ring<A: Arch> {
 	/// The ring ID.
 	///
 	/// This is unique for each ring, but can be re-used if rings are destroyed.
 	/// It is the offset of the arena slot into the arena pool.
-	pub(crate) id: usize,
+	pub(crate) id:        usize,
 	/// The parent ring [`Handle`]. `None` if this is the root ring.
-	pub(crate) parent: Option<Handle<Ring<AddrSpace>>>,
-	/// The module [`Instance`]s on the ring, or `None` if there are none.
-	pub(crate) root_instance: Option<Handle<Item<Instance<AddrSpace>>>>,
+	pub(crate) parent:    Option<Handle<Ring<A>>>,
+	/// The module [`Instance`]s on the ring.
+	pub(crate) instances: Handle<List<Instance<A>, A>>,
 }
 
-impl<AddrSpace: AddressSpace> Ring<AddrSpace> {
+impl<A: Arch> Ring<A> {
 	/// Returns the ring's ID.
 	///
 	/// # Safety
@@ -60,14 +59,12 @@ impl<AddrSpace: AddressSpace> Ring<AddrSpace> {
 	///
 	/// If the ring is the root ring, this function will return `None`.
 	#[must_use]
-	pub fn parent(&self) -> Option<Handle<Ring<AddrSpace>>> {
+	pub fn parent(&self) -> Option<Handle<Ring<A>>> {
 		self.parent.clone()
 	}
 
-	/// Gets an iterator over all instances in this instance.
-	pub fn instances<IntCtrl: InterruptController>(
-		&self,
-	) -> impl Iterator<Item = Handle<Item<Instance<AddrSpace>>>> {
-		self.root_instance.iter_all::<IntCtrl>()
+	/// Returns a handle to the list of instances on the ring.
+	pub fn instances(&self) -> Handle<List<Instance<A>, A>> {
+		self.instances.clone()
 	}
 }

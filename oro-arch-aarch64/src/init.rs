@@ -8,14 +8,7 @@ use oro_sync::spinlock::unfair_critical::UnfairCriticalSpinlock;
 
 /// The global kernel state. Initialized once during boot
 /// and re-used across all cores.
-pub static mut KERNEL_STATE: MaybeUninit<
-	KernelState<
-		crate::Pfa,
-		OffsetTranslator,
-		crate::mem::address_space::AddressSpaceLayout,
-		crate::sync::InterruptController,
-	>,
-> = MaybeUninit::uninit();
+pub static mut KERNEL_STATE: MaybeUninit<KernelState<crate::Arch>> = MaybeUninit::uninit();
 
 /// Initializes the global state of the architecture.
 ///
@@ -39,10 +32,10 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 		}
 	}
 
-	KERNEL_STATE.write(
-		KernelState::new(pat, UnfairCriticalSpinlock::new(pfa))
-			.expect("failed to create global kernel state"),
-	);
+	// SAFETY(qix-): We know what we're doing here.
+	#[expect(static_mut_refs)]
+	KernelState::init(&mut KERNEL_STATE, pat, UnfairCriticalSpinlock::new(pfa))
+		.expect("failed to create global kernel state");
 }
 
 /// Main boot sequence for all cores for each bringup

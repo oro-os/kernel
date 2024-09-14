@@ -135,18 +135,34 @@ pub unsafe trait AddressSpace: 'static {
 	define_registries! {
 		/// Returns the layout descriptor for the kernel's Ring registry.
 		kernel_ring_registry;
+		/// Returns the layout descriptor for the kernel's Ring item registry.
+		kernel_ring_item_registry;
+		/// Returns the layout descriptor for the kernel's Ring list registry.
+		kernel_ring_list_registry;
 		/// Returns the layout descriptor for the kernel's Port registry.
 		kernel_port_registry;
+		/// Returns the layout descriptor for the kernel's Port item registry.
+		kernel_port_item_registry;
+		/// Returns the layout descriptor for the kernel's Port list registry.
+		kernel_port_list_registry;
 		/// Returns the layout descriptor for the kernel's Thread registry.
 		kernel_thread_registry;
 		/// Returns the layout descriptor for the kernel's Thread item registry.
 		kernel_thread_item_registry;
+		/// Returns the layout descriptor for the kernel's Thread list registry.
+		kernel_thread_list_registry;
 		/// Returns the layout descriptor for the kernel's Module Instance registry.
 		kernel_instance_registry;
 		/// Returns the layout descriptor for the kernel's Module Instance item registry.
 		kernel_instance_item_registry;
+		/// Returns the layout descriptor for the kernel's Module Instance list registry.
+		kernel_instance_list_registry;
 		/// Returns the layout descriptor for the kernel's Module registry.
 		kernel_module_registry;
+		/// Returns the layout descriptor for the kernel's Module item registry.
+		kernel_module_item_registry;
+		/// Returns the layout descriptor for the kernel's Module list registry.
+		kernel_module_list_registry;
 	}
 }
 

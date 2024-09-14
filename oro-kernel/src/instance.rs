@@ -2,12 +2,12 @@
 
 use crate::{
 	module::Module,
-	registry::{Handle, Item, ItemIterEx},
+	port::Port,
+	registry::{Handle, List},
 	ring::Ring,
 	thread::Thread,
+	Arch,
 };
-use oro_mem::mapper::AddressSpace;
-use oro_sync::spinlock::unfair_critical::InterruptController;
 
 /// A singular module instance.
 ///
@@ -38,18 +38,20 @@ use oro_sync::spinlock::unfair_critical::InterruptController;
 /// to interact with the kernel directly via the built-in modules, and
 /// from there can spawn additional rings and instances as needed to
 /// bootstrap the rest of the system as they see fit.
-pub struct Instance<AddrSpace: AddressSpace> {
+pub struct Instance<A: Arch> {
 	/// The module instance ID.
-	pub(crate) id:          usize,
+	pub(crate) id:      usize,
 	/// The module from which this instance was spawned.
-	pub(crate) module:      Handle<Module>,
+	pub(crate) module:  Handle<Module>,
 	/// The ring on which this instance resides.
-	pub(crate) ring:        Handle<Ring<AddrSpace>>,
-	/// The root thread item of the instance.
-	pub(crate) root_thread: Option<Handle<Item<Thread<AddrSpace>>>>,
+	pub(crate) ring:    Handle<Ring<A>>,
+	/// The thread list for the instance.
+	pub(crate) threads: Handle<List<Thread<A>, A>>,
+	/// The port list for the instance.
+	pub(crate) ports:   Handle<List<Port, A>>,
 }
 
-impl<AddrSpace: AddressSpace> Instance<AddrSpace> {
+impl<A: Arch> Instance<A> {
 	/// Returns the instance ID.
 	///
 	/// # Safety
@@ -70,14 +72,17 @@ impl<AddrSpace: AddressSpace> Instance<AddrSpace> {
 	}
 
 	/// The [`Handle`] to the ring on which this instance resides.
-	pub fn ring(&self) -> Handle<Ring<AddrSpace>> {
+	pub fn ring(&self) -> Handle<Ring<A>> {
 		self.ring.clone()
 	}
 
-	/// Gets an iterator over all threads in this instance.
-	pub fn threads<IntCtrl: InterruptController>(
-		&self,
-	) -> impl Iterator<Item = Handle<Item<Thread<AddrSpace>>>> {
-		self.root_thread.iter_all::<IntCtrl>()
+	/// Gets a handle to the list of threads for this instance.
+	pub fn threads(&self) -> Handle<List<Thread<A>, A>> {
+		self.threads.clone()
+	}
+
+	/// Gets a handle to the list of ports for this instance.
+	pub fn ports(&self) -> Handle<List<Port, A>> {
+		self.ports.clone()
 	}
 }

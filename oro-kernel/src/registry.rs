@@ -20,6 +20,7 @@
 // NOTE(qix-): unsafety into the codebase. This is a very delicate module.
 // NOTE(qix-): It will be HEAVILY scrutinized in code review. Be ready.
 
+use crate::{AddrSpace, Arch, SupervisorHandle, SupervisorSegment};
 use core::{
 	marker::PhantomData,
 	mem::{size_of, ManuallyDrop, MaybeUninit},
@@ -30,9 +31,8 @@ use oro_macro::unlikely;
 use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError},
 	pfa::alloc::Alloc,
-	translate::Translator,
 };
-use oro_sync::spinlock::unfair_critical::{InterruptController, UnfairCriticalSpinlock};
+use oro_sync::spinlock::unfair_critical::UnfairCriticalSpinlock;
 
 /// A registry for reference-counted arena allocation.
 ///
@@ -43,13 +43,7 @@ use oro_sync::spinlock::unfair_critical::{InterruptController, UnfairCriticalSpi
 ///
 /// Registry allocations return [`Handle`]s, which can be cloned
 /// and will free the slot when the final user drops it.
-pub(crate) struct Registry<T, IntCtrl, AddrSpace, Pat>
-where
-	T: Sized + 'static,
-	IntCtrl: InterruptController,
-	AddrSpace: AddressSpace,
-	Pat: Translator,
-{
+pub(crate) struct Registry<T: Sized + 'static, A: Arch> {
 	/// The base address of the registry.
 	// TODO(qix-): Remove this field once const trait functions are stabilized,
 	// TODO(qix-): replacing it with `segment.range().0 as *mut _` and saving
@@ -58,15 +52,13 @@ where
 	/// Bookkeeping counters used in the registry.
 	bookkeeping: UnfairCriticalSpinlock<RegistryBookkeeping>,
 	/// The segment this registry is in.
-	segment: AddrSpace::SupervisorSegment,
+	segment:     SupervisorSegment<A>,
 	/// The mapper for the registry.
-	mapper: AddrSpace::SupervisorHandle,
+	mapper:      SupervisorHandle<A>,
 	/// The physical address translator (PAT) this registry will use.
-	pat: Pat,
-	/// The interrupt controller for the registry.
-	_interrupt_controller: PhantomData<IntCtrl>,
-	/// The address space for the registry.
-	_address_space: PhantomData<AddrSpace>,
+	pat:         A::Pat,
+	/// The architecture trait type
+	_arch:       PhantomData<A>,
 }
 
 /// Registry-level bookkeeping fields, protected
@@ -115,13 +107,7 @@ union MaybeItem<T: Sized + 'static> {
 	next_free: usize,
 }
 
-impl<T, IntCtrl, AddrSpace, Pat> Registry<T, IntCtrl, AddrSpace, Pat>
-where
-	T: Sized + 'static,
-	IntCtrl: InterruptController,
-	AddrSpace: AddressSpace,
-	Pat: Translator,
-{
+impl<T: Sized + 'static, A: Arch> Registry<T, A> {
 	/// Creates a new, empty registry in the given
 	/// segment.
 	///
@@ -135,10 +121,10 @@ where
 	///
 	/// Typically, this function should be called once
 	/// at boot time.
-	pub fn new<Pfa: Alloc>(
-		pat: Pat,
-		pfa: &mut Pfa,
-		segment: AddrSpace::SupervisorSegment,
+	pub fn new(
+		pat: A::Pat,
+		pfa: &mut A::Pfa,
+		segment: SupervisorSegment<A>,
 	) -> Result<Self, MapError> {
 		// SAFETY(qix-): We can more or less guarantee that this registry
 		// SAFETY(qix-): is being constructed in the supervisor space.
@@ -146,7 +132,7 @@ where
 		// SAFETY(qix-): going to be accessed separately from other segments
 		// SAFETY(qix-): quite yet, but we'll verify that we have exclusive
 		// SAFETY(qix-): access to the segment directly after this call.
-		let mapper = unsafe { AddrSpace::current_supervisor_space(&pat) };
+		let mapper = unsafe { AddrSpace::<A>::current_supervisor_space(&pat) };
 		segment.provision_as_shared(&mapper, pfa, &pat)?;
 
 		Ok(Self {
@@ -155,35 +141,27 @@ where
 			pat,
 			segment,
 			mapper,
-			_interrupt_controller: PhantomData,
-			_address_space: PhantomData,
+			_arch: PhantomData,
 		})
 	}
 
-	/// Allocates and inserts an item `T` into the registry, permanently.
-	/// Returns the `id` rather than a `Handle`. This is useful for
-	/// items that are not intended to be reference-counted and must
-	/// always be valid throughout the lifetime of the kernel.
+	/// Allocates and inserts an item `T` into the registry.
 	///
 	/// Returns an error if there was a problem allocating the item.
 	///
 	/// Takes a reference to the spinlock itself, since not all allocations require
 	/// locking the PFA.
-	///
-	/// # Safety
-	/// Marked unsafe because misuse of this function can lead to
-	/// memory leaks. You probably want to use [`Self::insert()`] instead.
-	pub unsafe fn insert_permanent<Pfa: Alloc>(
-		&self,
-		pfa: &UnfairCriticalSpinlock<Pfa>,
+	pub fn insert(
+		&'static self,
+		pfa: &UnfairCriticalSpinlock<A::Pfa>,
 		item: impl Into<T>,
-	) -> Result<usize, MapError> {
+	) -> Result<Handle<T>, MapError> {
 		let item = item.into();
 
 		// SAFETY(qix-): We don't panic in this function.
-		let mut bk = unsafe { self.bookkeeping.lock::<IntCtrl>() };
+		let mut bk = unsafe { self.bookkeeping.lock::<A::IntCtrl>() };
 
-		if bk.last_free_id == usize::MAX {
+		let id = if bk.last_free_id == usize::MAX {
 			let byte_offset = bk.total_count * size_of::<MaybeUninit<ItemFrame<T>>>();
 			let byte_offset_end = byte_offset + size_of::<MaybeUninit<ItemFrame<T>>>();
 
@@ -197,7 +175,7 @@ where
 
 			if new_page_count > bk.total_page_count {
 				// SAFETY(qix-): We don't panic in this function.
-				let mut pfa = unsafe { pfa.lock::<IntCtrl>() };
+				let mut pfa = unsafe { pfa.lock::<A::IntCtrl>() };
 
 				for page_id in bk.total_page_count..new_page_count {
 					let page = pfa.allocate().ok_or(MapError::OutOfMemory)?;
@@ -232,7 +210,7 @@ where
 				user_count: AtomicUsize::new(1),
 			});
 
-			Ok(id)
+			id
 		} else {
 			let id = bk.last_free_id;
 			let slot = unsafe { (*self.base.add(id)).assume_init_mut() };
@@ -241,30 +219,9 @@ where
 			debug_assert_eq!(last_user_count, 0);
 			slot.maybe_item.item = ManuallyDrop::new(UnfairCriticalSpinlock::new(item));
 
-			Ok(id)
-		}
-	}
+			id
+		};
 
-	/// Allocates and inserts an item `T` into the registry.
-	///
-	/// Returns an error if there was a problem allocating the item.
-	///
-	/// Takes a reference to the spinlock itself, since not all allocations require
-	/// locking the PFA.
-	pub fn insert<Pfa: Alloc>(
-		&'static self,
-		pfa: &UnfairCriticalSpinlock<Pfa>,
-		item: impl Into<T>,
-	) -> Result<Handle<T>, MapError> {
-		// SAFETY(qix-): `insert_permanent` simply creates a new item
-		// SAFETY(qix-): with a user count of 1, but doesn't return a handle
-		// SAFETY(qix-): to it. Since this is the only other place that
-		// SAFETY(qix-): a `Handle` can even be constructed, it means
-		// SAFETY(qix-): all other usages really *are* permanent, but ours
-		// SAFETY(qix-): is not and instead piggie-backs off the user count
-		// SAFETY(qix-): being 1 to simply initialize a handle that *does*
-		// SAFETY(qix-): become reference counted.
-		let id = unsafe { self.insert_permanent(pfa, item)? };
 		Ok(Handle { id, registry: self })
 	}
 
@@ -281,6 +238,7 @@ where
 	/// slot is dropped and re-allocated.
 	///
 	/// For that reason, this function is marked as unsafe.
+	#[expect(dead_code)]
 	pub unsafe fn get(&'static self, id: usize) -> Option<Handle<T>> {
 		// We have to keep this lock open even during the lookup
 		// since user counts are not locked at the record level
@@ -290,7 +248,7 @@ where
 		// NOTE(qix-): We could load and then do a compare-and-swap, but this function
 		// NOTE(qix-): really should be seldom used, and I'm not interested in
 		// NOTE(qix-): fleshing it out further at this time. PR welcome.
-		let bk = self.bookkeeping.lock::<IntCtrl>();
+		let bk = self.bookkeeping.lock::<A::IntCtrl>();
 
 		if id >= bk.total_count {
 			return None;
@@ -348,23 +306,16 @@ trait RegistryAccess<T: Sized + 'static> {
 	unsafe fn forget_item_at(&self, id: usize);
 }
 
-impl<T, IntCtrl, AddrSpace, Pat> RegistryAccess<T> for Registry<T, IntCtrl, AddrSpace, Pat>
-where
-	T: Sized + 'static,
-	IntCtrl: InterruptController,
-	AddrSpace: AddressSpace,
-	Pat: Translator,
-{
+impl<T: Sized + 'static, A: Arch> RegistryAccess<T> for Registry<T, A> {
 	unsafe fn get(&self, id: usize) -> &UnfairCriticalSpinlock<T> {
 		&(*self.base.add(id)).assume_init_ref().maybe_item.item
 	}
 
 	unsafe fn lease_item_at(&self, id: usize) {
-		let last_user_count = (*self.base.add(id))
+		(*self.base.add(id))
 			.assume_init_ref()
 			.user_count
 			.fetch_add(1, Ordering::Relaxed);
-		debug_assert_eq!(last_user_count, 0);
 	}
 
 	unsafe fn forget_item_at(&self, id: usize) {
@@ -375,6 +326,9 @@ where
 			.user_count
 			.fetch_sub(1, Ordering::Relaxed);
 
+		// Should never be the case, as it means we somehow
+		// missed dropping the item or otherwise mismanaged
+		// the user count, which is a bug.
 		debug_assert_ne!(last_user_count, 0);
 
 		if last_user_count == 1 {
@@ -384,7 +338,7 @@ where
 
 			// SAFETY(qix-): DO NOT PUT THIS LOCK BEFORE THE ABOVE DROP.
 			// SAFETY(qix-): YOU WILL DEADLOCK THE KERNEL.
-			let mut bk = self.bookkeeping.lock::<IntCtrl>();
+			let mut bk = self.bookkeeping.lock::<A::IntCtrl>();
 			slot.maybe_item.next_free = bk.last_free_id;
 			bk.last_free_id = id;
 		}
@@ -439,6 +393,24 @@ impl<T: Sized + 'static> Deref for Handle<T> {
 		// SAFETY(qix-): is even created (and cannot be created
 		// SAFETY(qix-): externally), the ID is valid.
 		unsafe { self.registry.get(self.id) }
+	}
+}
+
+impl<T: Sized + 'static> PartialEq for Handle<T> {
+	fn eq(&self, other: &Self) -> bool {
+		self.id == other.id
+			&& core::ptr::addr_eq(
+				core::ptr::from_ref(self.registry),
+				core::ptr::from_ref(other.registry),
+			)
+	}
+}
+
+impl<T: Sized + 'static> core::fmt::Debug for Handle<T> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("Handle")
+			.field("id", &self.id)
+			.finish_non_exhaustive()
 	}
 }
 
@@ -512,22 +484,27 @@ impl<T: Sized + 'static> Drop for Handle<T> {
 /// For this reason, almost all methods that work on
 /// `Handle<Item<T>>` will mutate the underlying registry
 /// in some way.
-pub struct Item<T: Sized + 'static> {
+pub struct Item<T: Sized + 'static, A: Arch> {
+	/// The list that owns this item.
+	///
+	/// `None` if the item does not belong to a list.
+	list:   Option<Handle<List<T, A>>>,
 	/// The previous item in the list, or `None` if there is no previous item.
-	prev:   Option<Handle<Item<T>>>,
+	prev:   Option<Handle<Item<T, A>>>,
 	/// The next item in the list, or `None` if there is no next item.
-	next:   Option<Handle<Item<T>>>,
+	next:   Option<Handle<Item<T, A>>>,
 	/// The handle to the item in its respective registry.
 	handle: Handle<T>,
 }
 
-impl<T: Sized + 'static> Item<T> {
+impl<T: Sized + 'static, A: Arch> Item<T, A> {
 	/// Creates a new item with the given handle.
 	///
 	/// The item is not linked to any other items.
 	#[must_use]
-	pub fn new(handle: Handle<T>) -> Self {
+	fn new(handle: Handle<T>) -> Self {
 		Self {
+			list: None,
 			prev: None,
 			next: None,
 			handle,
@@ -535,7 +512,7 @@ impl<T: Sized + 'static> Item<T> {
 	}
 }
 
-impl<T: Sized + 'static> Deref for Item<T> {
+impl<T: Sized + 'static, A: Arch> Deref for Item<T, A> {
 	type Target = UnfairCriticalSpinlock<T>;
 
 	fn deref(&self) -> &Self::Target {
@@ -543,197 +520,164 @@ impl<T: Sized + 'static> Deref for Item<T> {
 	}
 }
 
-// impl simply for `Registry<Item<T>, ...>`
-impl<T: Sized + 'static, IntCtrl, AddrSpace, Pat> Registry<Item<T>, IntCtrl, AddrSpace, Pat>
-where
-	IntCtrl: InterruptController,
-	AddrSpace: AddressSpace,
-	Pat: Translator,
-{
-	/// Inserts an item after the given item.
+impl<T: Sized + 'static, A: Arch> Handle<Item<T, A>> {
+	/// Removes the item from the list.
 	///
-	/// If the given item already has a 'next'
-	/// item, the new item will be inserted between
-	/// the given item and its 'next' item.
-	#[expect(dead_code)]
-	pub fn insert_after<Pfa: Alloc>(
-		&'static self,
-		pfa: &UnfairCriticalSpinlock<Pfa>,
-		item: &Handle<Item<T>>,
-		new_item: impl Into<Item<T>>,
-	) -> Result<Handle<Item<T>>, MapError> {
-		let handle = self.insert(pfa, new_item)?;
+	/// Note that the underlying handle is still kept, including
+	/// any handles to the list item directly (i.e. `Self`).
+	pub fn delete(&self) {
+		// SAFETY(qix-): We don't panic here.
+		let mut lock = unsafe { self.lock::<A::IntCtrl>() };
+		if let Some(list) = lock.list.take() {
+			// SAFETY(qix-): We don't panic here.
+			let mut list_lock = unsafe { list.lock::<A::IntCtrl>() };
+			debug_assert!(list_lock.count > 0);
+			list_lock.count -= 1;
+			match (lock.prev.take(), lock.next.take()) {
+				// Middle of the list.
+				(Some(prev), Some(next)) => {
+					// SAFETY(qix-): We don't panic here.
+					let mut prev_lock = unsafe { prev.lock::<A::IntCtrl>() };
+					let mut next_lock = unsafe { next.lock::<A::IntCtrl>() };
 
-		// SAFETY(qix-): We will not panic here.
+					debug_assert_eq!(prev_lock.next.as_ref(), Some(self));
+					debug_assert_eq!(next_lock.prev.as_ref(), Some(self));
+
+					prev_lock.next = Some(next.clone());
+					next_lock.prev = Some(prev.clone());
+				}
+				// End of the list.
+				(Some(prev), None) => {
+					let mut prev_lock = unsafe { prev.lock::<A::IntCtrl>() };
+
+					debug_assert_eq!(prev_lock.next.as_ref(), Some(self));
+					debug_assert_eq!(list_lock.last.as_ref(), Some(self));
+
+					prev_lock.next = None;
+					list_lock.last = Some(prev.clone());
+				}
+				// Beginning of the list.
+				(None, Some(next)) => {
+					let mut next_lock = unsafe { next.lock::<A::IntCtrl>() };
+
+					debug_assert_eq!(next_lock.prev.as_ref(), Some(self));
+					debug_assert_eq!(list_lock.first.as_ref(), Some(self));
+
+					next_lock.prev = None;
+					list_lock.first = Some(next.clone());
+				}
+				// Only item in the list.
+				(None, None) => {
+					debug_assert_eq!(list_lock.first.as_ref(), Some(self));
+					debug_assert_eq!(list_lock.last.as_ref(), Some(self));
+					debug_assert_eq!(list_lock.count, 0);
+
+					list_lock.first = None;
+					list_lock.last = None;
+				}
+			}
+		}
+	}
+}
+
+/// A single list in a registry.
+///
+/// Holds [`Item`]s in a doubly linked list.
+pub struct List<T: Sized + 'static, A: Arch> {
+	/// Holds a static reference to the underlying list item registry.
+	item_registry: &'static Registry<Item<T, A>, A>,
+	/// The first item in the list, or `None` if the list is empty.
+	first:         Option<Handle<Item<T, A>>>,
+	/// The last item in the list, or `None` if the list is empty.
+	last:          Option<Handle<Item<T, A>>>,
+	/// The count of items in the list.
+	count:         usize,
+}
+
+impl<T: Sized + 'static, A: Arch> Handle<List<T, A>> {
+	/// Inserts an item to the end of the list.
+	pub fn append(
+		&self,
+		pfa: &UnfairCriticalSpinlock<A::Pfa>,
+		item: Handle<T>,
+	) -> Result<Handle<Item<T, A>>, MapError> {
+		// SAFETY(qix-): We don't panic here.
+		let mut list_lock = unsafe { self.lock::<A::IntCtrl>() };
+
+		let item = list_lock.item_registry.insert(pfa, Item::new(item))?;
+
 		{
-			let mut item_lock = unsafe { item.lock::<IntCtrl>() };
-			let mut new_item_lock = unsafe { handle.lock::<IntCtrl>() };
-			new_item_lock.prev = Some(item.clone());
-			new_item_lock.next.clone_from(&item_lock.next);
-			item_lock.next = Some(handle.clone());
+			let last = list_lock.last.replace(item.clone());
+
+			// SAFETY(qix-): We don't panic here.
+			let mut item_lock = unsafe { item.lock::<A::IntCtrl>() };
+			item_lock.list = Some(self.clone());
+			item_lock.prev = last;
+
+			if list_lock.count == 0 {
+				list_lock.first = Some(item.clone());
+			}
+
+			list_lock.count += 1;
 		}
 
-		Ok(handle)
+		Ok(item)
 	}
+}
 
-	/// Returns an iterator over linked items,
-	/// starting at the given item and traversing
-	/// forward.
+impl<T: Sized + 'static, A: Arch> List<T, A> {
+	/// Creates a new, empty list
+	fn new(item_registry: &'static Registry<Item<T, A>, A>) -> Self {
+		Self {
+			item_registry,
+			first: None,
+			last: None,
+			count: 0,
+		}
+	}
+}
+
+/// A wrapper around two registries to create lists and list items.
+pub(crate) struct ListRegistry<T: Sized + 'static, A: Arch> {
+	/// The item registry.
+	item_registry: Registry<Item<T, A>, A>,
+	/// The list registry.
+	// TODO(qix-): Change this to simply use `Self::List` once this is resolved:
+	// TODO(qix-): https://github.com/rust-lang/rust/issues/108491
+	list_registry: Registry<List<T, A>, A>,
+}
+
+impl<T: Sized + 'static, A: Arch> ListRegistry<T, A> {
+	/// Creates a new list registry.
 	///
-	/// Any previous items are ignored.
-	#[allow(dead_code, clippy::unused_self)]
-	pub fn iter_forward(
-		&'static self,
-		item: &Option<Handle<Item<T>>>,
-	) -> impl Iterator<Item = Handle<Item<T>>> {
-		ItemIter {
-			current:   item.clone(),
-			direction: ItemIterDirection::Forward,
-			_int_ctrl: PhantomData::<IntCtrl>,
-		}
-	}
-
-	/// Returns an iterator over linked items,
-	/// starting at the given item and traversing
-	/// backward.
+	/// The list registry is a pair of registries, one for
+	/// items and one for lists. The item registry stores
+	/// the items in the list, and the list registry stores
+	/// the lists themselves.
 	///
-	/// Any next items are ignored.
-	#[allow(dead_code, clippy::unused_self)]
-	pub fn iter_backward(
-		&'static self,
-		item: &Option<Handle<Item<T>>>,
-	) -> impl Iterator<Item = Handle<Item<T>>> {
-		ItemIter {
-			current:   item.clone(),
-			direction: ItemIterDirection::Backward,
-			_int_ctrl: PhantomData::<IntCtrl>,
-		}
+	/// The list registry is used to manage lists of items
+	/// in a way that is safe and efficient for the Oro
+	/// kernel.
+	pub fn new(
+		pat: A::Pat,
+		pfa: &mut A::Pfa,
+		list_segment: SupervisorSegment<A>,
+		item_segment: SupervisorSegment<A>,
+	) -> Result<Self, MapError> {
+		Ok(Self {
+			item_registry: Registry::new(pat.clone(), pfa, item_segment)?,
+			list_registry: Registry::new(pat, pfa, list_segment)?,
+		})
 	}
 
-	/// Returns an iterator over all items,
-	/// starting at the first item in the list.
+	/// Creates a new list in the list registry.
 	///
-	/// This function will immediately perform
-	/// a reverse traversal to find the first
-	/// item in the list, and then return
-	/// an iterator starting at that item.
-	#[allow(dead_code, clippy::unused_self)]
-	pub fn iter_all(
+	/// The list is empty when created.
+	pub fn create_list(
 		&'static self,
-		item: &Option<Handle<Item<T>>>,
-	) -> impl Iterator<Item = Handle<Item<T>>> {
-		ItemIter {
-			current:   self.iter_backward(item).last(),
-			direction: ItemIterDirection::Forward,
-			_int_ctrl: PhantomData::<IntCtrl>,
-		}
-	}
-}
-
-impl<T: Sized + 'static> From<Handle<T>> for Item<T> {
-	fn from(handle: Handle<T>) -> Self {
-		Self::new(handle)
-	}
-}
-
-/// The direction of an item iterator.
-enum ItemIterDirection {
-	/// Forward iteration.
-	Forward,
-	/// Backward iteration.
-	Backward,
-}
-
-/// An iterator over linked [`Item`]s in a registry.
-pub struct ItemIter<T: Sized + 'static, IntCtrl: InterruptController> {
-	/// The current item in the iteration.
-	current:   Option<Handle<Item<T>>>,
-	/// The direction of the iteration.
-	direction: ItemIterDirection,
-	/// The interrupt controller for the iteration.
-	_int_ctrl: PhantomData<IntCtrl>,
-}
-
-impl<T: Sized + 'static, IntCtrl: InterruptController> Iterator for ItemIter<T, IntCtrl> {
-	type Item = Handle<Item<T>>;
-
-	fn next(&mut self) -> Option<Self::Item> {
-		let current = self.current.take()?;
-
-		let next = match self.direction {
-			ItemIterDirection::Forward => unsafe { current.lock::<IntCtrl>().next.clone() },
-			ItemIterDirection::Backward => unsafe { current.lock::<IntCtrl>().prev.clone() },
-		};
-
-		self.current.clone_from(&next);
-
-		next
-	}
-}
-
-/// Iterator adapter trait, implemented for `Handle<Item<T>>` and
-/// `Option<Handle<Item<T>>>`.
-pub trait ItemIterEx {
-	/// The base, most inner type that is wrapped by handles and items.
-	type Item: Sized + 'static;
-
-	/// Creates a forward iterator over the items,
-	/// ignoring any previous items.
-	fn iter_forward<IntCtrl: InterruptController>(&self) -> ItemIter<Self::Item, IntCtrl>;
-
-	/// Creates a backward iterator over the items,
-	/// ignoring any next items.
-	fn iter_backward<IntCtrl: InterruptController>(&self) -> ItemIter<Self::Item, IntCtrl>;
-
-	/// Creates an iterator over all items,
-	/// first traversing backward to find the first
-	/// item in the list, and then returning a forward
-	/// iterator starting at that item.
-	fn iter_all<IntCtrl: InterruptController>(&self) -> ItemIter<Self::Item, IntCtrl> {
-		ItemIter {
-			current:   self.iter_backward::<IntCtrl>().last(),
-			direction: ItemIterDirection::Forward,
-			_int_ctrl: PhantomData,
-		}
-	}
-}
-
-impl<T: Sized + 'static> ItemIterEx for Handle<Item<T>> {
-	type Item = T;
-
-	fn iter_forward<IntCtrl: InterruptController>(&self) -> ItemIter<Self::Item, IntCtrl> {
-		ItemIter {
-			current:   Some(self.clone()),
-			direction: ItemIterDirection::Forward,
-			_int_ctrl: PhantomData,
-		}
-	}
-
-	fn iter_backward<IntCtrl: InterruptController>(&self) -> ItemIter<Self::Item, IntCtrl> {
-		ItemIter {
-			current:   Some(self.clone()),
-			direction: ItemIterDirection::Backward,
-			_int_ctrl: PhantomData,
-		}
-	}
-}
-
-impl<T: Sized + 'static> ItemIterEx for Option<Handle<Item<T>>> {
-	type Item = T;
-
-	fn iter_forward<IntCtrl: InterruptController>(&self) -> ItemIter<Self::Item, IntCtrl> {
-		ItemIter {
-			current:   self.clone(),
-			direction: ItemIterDirection::Forward,
-			_int_ctrl: PhantomData,
-		}
-	}
-
-	fn iter_backward<IntCtrl: InterruptController>(&self) -> ItemIter<Self::Item, IntCtrl> {
-		ItemIter {
-			current:   self.clone(),
-			direction: ItemIterDirection::Backward,
-			_int_ctrl: PhantomData,
-		}
+		pfa: &UnfairCriticalSpinlock<A::Pfa>,
+	) -> Result<Handle<List<T, A>>, MapError> {
+		self.list_registry
+			.insert(pfa, List::new(&self.item_registry))
 	}
 }
