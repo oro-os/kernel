@@ -200,7 +200,7 @@ pub unsafe fn init() -> ! {
 			};
 
 			let bs = if let Some(modules) = REQ_MODULES.get_response() {
-				if let Some(dtb_module) = modules
+				let mut bs = if let Some(dtb_module) = modules
 					.modules()
 					.iter()
 					.find(|module| module.path() == DTB_PATH.to_bytes())
@@ -212,7 +212,27 @@ pub unsafe fn init() -> ! {
 					})
 				} else {
 					bs
-				}
+				};
+
+				let next_phys = bs.serialize(
+					modules
+						.modules()
+						.iter()
+						.filter(|module| {
+							module.path() != DTB_PATH.to_bytes()
+								&& module.path() != KERNEL_PATH.to_bytes()
+						})
+						.map(|module| {
+							oro_boot_protocol::Module {
+								base:   u64::try_from(module.addr() as usize).unwrap()
+									- hhdm_offset,
+								length: module.size(),
+								next:   0, // will be written by the serializer
+							}
+						}),
+				)?;
+
+				bs.send(oro_boot_protocol::modules::ModulesDataV0 { next: next_phys })
 			} else {
 				bs
 			};

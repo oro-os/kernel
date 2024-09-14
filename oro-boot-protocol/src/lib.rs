@@ -196,6 +196,16 @@ pub struct Module {
 	pub next:   u64,
 }
 
+#[cfg(feature = "utils")]
+impl crate::macros::Sealed for Module {}
+
+#[cfg(feature = "utils")]
+impl crate::util::SetNext for Module {
+	fn set_next(&mut self, next: u64) {
+		self.next = next;
+	}
+}
+
 /// A memory map entry, representing a chunk of physical memory
 /// available to the system.
 #[repr(C)]
