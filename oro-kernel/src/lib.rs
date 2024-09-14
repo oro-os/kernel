@@ -9,7 +9,6 @@
 // NOTE(qix-): https://github.com/rust-lang/rust/issues/95174
 #![feature(adt_const_params)]
 
-pub mod id;
 pub mod instance;
 pub mod module;
 pub mod port;
