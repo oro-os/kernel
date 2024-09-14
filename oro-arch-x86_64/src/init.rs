@@ -38,6 +38,14 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 	#[expect(static_mut_refs)]
 	KernelState::init(&mut KERNEL_STATE, pat, UnfairCriticalSpinlock::new(pfa))
 		.expect("failed to create global kernel state");
+
+	// XXX TODO(qix-): list out the modules the bootloader sent
+	if let Some(oro_boot_protocol::modules::ModulesKind::V0(modules)) =
+		crate::boot::protocol::MODULES_REQUEST.response()
+	{
+		let modules = modules.assume_init_ref();
+		dbg!("got modules next: {:016x}", modules.next);
+	}
 }
 
 /// Main boot sequence for all cores for each bringup

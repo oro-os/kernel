@@ -218,3 +218,11 @@ pub trait RequestData: crate::RequestTag {
 	/// Marks the request as populated.
 	fn mark_populated(&mut self);
 }
+
+/// Mutator utility trait for boot protocol types
+/// that chain to the next item in the list.
+#[expect(private_bounds)]
+pub trait SetNext: crate::macros::Sealed + 'static {
+	/// Sets the next pointer to the given physical address.
+	fn set_next(&mut self, next: u64);
+}

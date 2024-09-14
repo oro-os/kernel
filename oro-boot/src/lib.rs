@@ -196,6 +196,35 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 		self
 	}
 
+	/// Serializes the given item(s) into the kernel's memory,
+	/// returning a physical address that can be handed to the kernel
+	/// via a `u64` request field.
+	///
+	/// If no items are yielded from the iterator, this function
+	/// returns zero.
+	///
+	/// # Safety
+	/// It is up to the caller to ensure that the datatype that is
+	/// serialized is the requested type, as the boot protocol only
+	/// works with physical addresses with no associated type information.
+	pub fn serialize<T: oro_boot_protocol::util::SetNext>(
+		&mut self,
+		iter: impl Iterator<Item = T>,
+	) -> Result<u64> {
+		let mut last_phys = 0;
+
+		for item in iter {
+			let (phys, data) = self
+				.pfa
+				.allocate::<T>()
+				.ok_or(Error::MapError(MapError::OutOfMemory))?;
+			data.write(item);
+			last_phys = phys;
+		}
+
+		Ok(last_phys)
+	}
+
 	/// Consumes this object and boots into the Oro kernel.
 	///
 	/// Returns an error if mapping the memory map or boot stubs
