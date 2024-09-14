@@ -195,8 +195,6 @@ class BootCmdLimine(gdb.Command):
                 "-no-shutdown",
                 "-serial",
                 "stdio",
-                "-cdrom",
-                iso_path,
                 "-smp",
                 f"{num_cores}",
                 "-m",
@@ -215,6 +213,9 @@ class BootCmdLimine(gdb.Command):
                 check=True,
             )
             extra_iso_files.append((dtb_path, "oro-device-tree.dtb"))
+
+            qemu_args.append("-cdrom")
+            qemu_args.append(iso_path)
         else:
             error(f"unsupported QEMU architecture: {kernel_arch}")
             return
