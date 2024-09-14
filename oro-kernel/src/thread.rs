@@ -1,7 +1,6 @@
 //! Thread management types and functions.
 
-use crate::{instance::Instance, registry::Handle};
-use oro_mem::mapper::AddressSpace;
+use crate::{instance::Instance, registry::Handle, Arch, UserHandle};
 
 /// A singular system thread.
 ///
@@ -13,16 +12,16 @@ use oro_mem::mapper::AddressSpace;
 /// Threads belong to module [`Instance`]s and, unlike
 /// other OSes, are not nested (i.e. a thread does not
 /// have a parent thread).
-pub struct Thread<AddrSpace: AddressSpace> {
+pub struct Thread<A: Arch> {
 	/// The thread's ID.
 	pub(crate) id:       usize,
 	/// The module instance to which this thread belongs.
-	pub(crate) instance: Handle<Instance<AddrSpace>>,
+	pub(crate) instance: Handle<Instance<A>>,
 	/// The thread's address space handle.
-	pub(crate) space:    AddrSpace::UserHandle,
+	pub(crate) space:    UserHandle<A>,
 }
 
-impl<AddrSpace: AddressSpace> Thread<AddrSpace> {
+impl<A: Arch> Thread<A> {
 	/// Returns the thread's ID.
 	///
 	/// # Safety
@@ -40,13 +39,13 @@ impl<AddrSpace: AddressSpace> Thread<AddrSpace> {
 	}
 
 	/// Returns module instance [`Handle`] to which this thread belongs.
-	pub fn instance(&self) -> Handle<Instance<AddrSpace>> {
+	pub fn instance(&self) -> Handle<Instance<A>> {
 		self.instance.clone()
 	}
 
 	/// Returns the thread's address space handle.
 	#[must_use]
-	pub fn space(&self) -> &AddrSpace::UserHandle {
+	pub fn space(&self) -> &UserHandle<A> {
 		&self.space
 	}
 }

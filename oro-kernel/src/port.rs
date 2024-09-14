@@ -86,7 +86,39 @@ pub struct Port {
 	///
 	/// This is unique for each port, but can be re-used if ports are destroyed.
 	/// It is the offset of the arena slot into the arena pool.
-	pub id:      u32,
+	id:        usize,
 	/// The type ID of the port.
-	pub type_id: Id<{ IdType::PortType }>,
+	type_id:   Id<{ IdType::PortType }>,
+	/// Gets the length of the port's message.
+	slot_size: usize,
+}
+
+impl Port {
+	/// Returns the port's ID.
+	///
+	/// # Safety
+	/// **DO NOT USE THIS FUNCTION FOR ANYTHING SECURITY RELATED.**
+	///
+	/// IDs are re-used by registries when items are dropped, so
+	/// multiple calls to an ID lookup function may return handles to
+	/// different port items as the IDs get recycled.
+	///
+	/// Only use this function for debugging or logging purposes, or
+	/// for handing IDs to the user.
+	#[must_use]
+	pub unsafe fn id(&self) -> usize {
+		self.id
+	}
+
+	/// Returns the port's type ID.
+	#[must_use]
+	pub fn type_id(&self) -> &Id<{ IdType::PortType }> {
+		&self.type_id
+	}
+
+	/// Returns the port's slot size.
+	#[must_use]
+	pub fn slot_size(&self) -> usize {
+		self.slot_size
+	}
 }

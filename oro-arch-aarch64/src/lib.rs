@@ -57,14 +57,19 @@ pub const ELF_MACHINE: ElfMachine = ElfMachine::Aarch64;
 /// by the architecture.
 pub(crate) type Pfa = FiloPageFrameAllocator<OffsetTranslator>;
 
+/// Zero-sized type for specifying the architecture-specific types
+/// used throughout the `oro-kernel` crate.
+pub(crate) struct Arch;
+
+impl oro_kernel::Arch for Arch {
+	type AddrSpace = crate::mem::address_space::AddressSpaceLayout;
+	type IntCtrl = crate::sync::InterruptController;
+	type Pat = OffsetTranslator;
+	type Pfa = Pfa;
+}
+
 /// Type alias for the Oro kernel core-local instance type.
-pub(crate) type Kernel = oro_kernel::Kernel<
-	CoreState,
-	Pfa,
-	OffsetTranslator,
-	crate::mem::address_space::AddressSpaceLayout,
-	crate::sync::InterruptController,
->;
+pub(crate) type Kernel = oro_kernel::Kernel<CoreState, Arch>;
 
 /// Architecture-specific core-local state.
 pub(crate) struct CoreState {
