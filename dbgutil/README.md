@@ -75,3 +75,13 @@ some or all of them with the following commands in GDB:
 set oro-pfa off
 set oro-lock off
 ```
+
+## Problems
+
+A few common problems:
+
+### Can't find `pip`, but it's installed.
+
+Go into `gdb` and run `python print(sys.executable)`. This will print the
+Python installation that `gdb` is using. If it's not the same as the one you
+installed `pip` to, make sure to install `pip` using that version.
