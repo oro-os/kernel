@@ -28,15 +28,20 @@ class BootCmdLimine(gdb.Command):
         oro boot limine [-sbCK] [-n <num_cores>]
 
     Options:
-        -S, --no-switch      Don't switch to the Limine executable before booting.
-                             Specifying this will break many of the trackers.
-                             Probably not a good idea to use it.
-        -n, --num_cores      Specify the number of CPU cores to emulate (default: 1).
-        -C, --no-continue    Do not automatically continue execution after booting.
-        -K, --no-autokernel  Do not automatically load the kernel image during transfer.
-                             (Only useful with --switch)
-        -b, --break          Break at the start of the bootloader or kernel image after transfer
-                             (whatever comes first).
+        -S, --no-switch        Don't switch to the Limine executable before booting.
+                               Specifying this will break many of the trackers.
+                               Probably not a good idea to use it.
+        -n, --num_cores        Specify the number of CPU cores to emulate (default: 1).
+        -C, --no-continue      Do not automatically continue execution after booting.
+        -K, --no-autokernel    Do not automatically load the kernel image during transfer.
+                               (Only useful with --switch)
+        -b, --break            Break at the start of the bootloader or kernel image after transfer
+                               (whatever comes first).
+        -M, --no-env-modules   Don't load a module list from the `ORO_ROOT_MODULES` environment variable.
+        -m, --module <path>    Include a module from `<path>` to be loaded onto the root ring.
+                               Can be specified multiple times. In addition to this option, a
+                               semi-colon separated list of modules can be specified in the
+                               `ORO_ROOT_MODULES` environment variable.
     """
 
     def __init__(self):
@@ -56,6 +61,8 @@ class BootCmdLimine(gdb.Command):
         args = gdb.string_to_argv(arg)
         rest_args = []
 
+        modules = []
+        load_modules_from_env = True
         switch = True
         autoload_kernel = True
         num_cores = 1
@@ -89,6 +96,15 @@ class BootCmdLimine(gdb.Command):
                 autoload_kernel = False
             elif arg in ["--break", "-b"]:
                 break_at_start = True
+            elif arg in ["--no-env-modules", "-M"]:
+                load_modules_from_env = False
+            elif arg in ["--module", "-m"]:
+                if argi + 1 >= len(args):
+                    error("missing argument for --module")
+                    return
+
+                modules.append(args[argi + 1])
+                argi += 1
             elif arg == "--":
                 rest_args = args[argi + 1 :]
                 break
@@ -97,6 +113,17 @@ class BootCmdLimine(gdb.Command):
                 return
 
             argi += 1
+
+        if load_modules_from_env:
+            env_modules = os.getenv("ORO_ROOT_MODULES")
+            if env_modules:
+                modules.extend(env_modules.split(";"))
+
+        # Make sure they exist
+        for module in modules:
+            if not path.exists(module):
+                error(f"module file not found: {module}")
+                return
 
         # Fetch Limine if it doesn't exist
         limine_dir = fetch_limine()
@@ -243,9 +270,13 @@ class BootCmdLimine(gdb.Command):
         copy_limine("limine-bios-cd.bin")
         copy_limine("limine-bios.sys")
 
+        module_config = "\n".join(
+            [f"MODULE_PATH=boot:///{path.basename(m)}" for m in modules]
+        )
+
         with open(path.join(iso_dir, "limine.cfg"), "w") as f:
             f.write(
-                """
+                f"""
                 TIMEOUT=0
                 GRAPHICS=no
                 VERBOSE=yes
@@ -259,7 +290,8 @@ class BootCmdLimine(gdb.Command):
                 PROTOCOL=limine
                 KERNEL_PATH=boot:///oro-limine
                 SERIAL=yes
-            """
+                {module_config}
+                """
             )
 
         copyfile(kernel_path, path.join(iso_dir, "oro-kernel"))
@@ -273,6 +305,8 @@ class BootCmdLimine(gdb.Command):
 
         for src, dst in extra_iso_files:
             copyfile(src, path.join(iso_dir, dst))
+        for module in modules:
+            copyfile(module, path.join(iso_dir, path.basename(module)))
 
         # Run xorriso to create the ISO
         log("creating Limine ISO")
