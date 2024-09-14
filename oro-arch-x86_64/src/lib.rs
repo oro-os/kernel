@@ -68,6 +68,7 @@
 pub mod asm;
 pub mod boot;
 pub mod gdt;
+pub mod handler;
 pub mod interrupt;
 pub mod lapic;
 pub mod mem;

@@ -1,7 +1,7 @@
 //! Architecture / core initialization
 //! routines and global state definitions.
 
-use crate::lapic::Lapic;
+use crate::{handler::Handler, lapic::Lapic};
 use core::mem::MaybeUninit;
 use oro_debug::dbg;
 use oro_kernel::KernelState;
@@ -48,7 +48,7 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 /// (i.e. boot, or powerdown/subsequent bringup).
 pub unsafe fn boot(lapic: Lapic) -> ! {
 	// SAFETY(qix-): THIS MUST ABSOLUTELY BE FIRST.
-	let kernel = crate::Kernel::initialize_for_core(
+	let _ = crate::Kernel::initialize_for_core(
 		KERNEL_STATE.assume_init_ref(),
 		crate::CoreState { lapic },
 	)
@@ -58,16 +58,15 @@ pub unsafe fn boot(lapic: Lapic) -> ! {
 
 	dbg!("boot");
 
-	// XXX DEBUG
-	let id = kernel.core().lapic.id();
+	let handler = Handler::new();
 	loop {
-		dbg!(
-			"DBG: timer counter: {id}: {}",
-			crate::interrupt::TIM_COUNT.load(core::sync::atomic::Ordering::Relaxed)
-		);
-
-		kernel.core().lapic.set_timer_initial_count(1_000_000);
-
-		crate::asm::halt_once();
+		if let Some(_user_ctx) = handler.kernel().scheduler().event_idle(&handler) {
+			todo!();
+		} else {
+			// Nothing to do. Wait for an interrupt.
+			// Scheduler will have asked us to set a timer
+			// if it wants to be woken up.
+			crate::asm::halt_once();
+		}
 	}
 }

@@ -228,6 +228,16 @@ impl Lapic {
 		}
 	}
 
+	/// Cancels the timer.
+	pub fn cancel_timer(&self) {
+		// From the Intel SDM Vol. 3A 11.5.4:
+		//
+		// > A write of 0 to the initial-count register
+		// > effectively stops the local APIC timer,
+		// > in both one-shot and periodic mode
+		self.set_timer_initial_count(0);
+	}
+
 	/// Reads the LAPIC timer's current count.
 	#[must_use]
 	pub fn timer_current_count(&self) -> u32 {
