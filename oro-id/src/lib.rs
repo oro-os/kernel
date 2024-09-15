@@ -5,7 +5,7 @@
 // NOTE(qix-): https://github.com/rust-lang/rust/issues/95174
 #![feature(adt_const_params)]
 
-use core::{marker::ConstParamTy, str::FromStr};
+use core::{fmt, marker::ConstParamTy, str::FromStr};
 
 /// An Oro ID.
 ///
@@ -83,6 +83,7 @@ pub struct Id<const TY: IdType>([u8; 16]);
 /// where the type is not known until parsing.
 ///
 /// For more information on the ID format, see [`Id`].
+#[derive(Debug, PartialEq, Eq, Copy, Clone, ConstParamTy)]
 pub struct AnyId([u8; 16]);
 
 /// An ID type.
@@ -199,6 +200,18 @@ impl<const TY: IdType> Id<TY> {
 		id
 	}
 
+	/// Creates a new ID from two `u64` values.
+	///
+	/// The type identifier is set to the type `T`.
+	#[must_use]
+	pub fn from_high_low(high: u64, low: u64) -> Self {
+		let mut id = Self::new([0; 16]);
+		id.0[..8].copy_from_slice(&high.to_be_bytes());
+		id.0[8..].copy_from_slice(&low.to_be_bytes());
+		id.0[0] = (id.0[0] & 0b0001_1111) | (TY as u8) << 5;
+		id
+	}
+
 	/// Tries to create a new ID from a 16-byte array.
 	///
 	/// If the type does not match `Ty`, returns `None`.
@@ -235,17 +248,7 @@ impl<const TY: IdType> Id<TY> {
 	/// (i.e. a kernel module).
 	#[must_use]
 	pub fn is_internal(&self) -> bool {
-		if self.0[0] & 0b0001_1111 != 0 {
-			return false;
-		}
-
-		for byte in &self.0[1..9] {
-			if *byte != 0 {
-				return false;
-			}
-		}
-
-		true
+		AnyId::is_buf_internal(&self.0)
 	}
 }
 
@@ -259,6 +262,32 @@ impl AnyId {
 	#[must_use]
 	pub fn new(data: [u8; 16]) -> Self {
 		Self(data)
+	}
+
+	/// Creates a new ID from two `u64` values.
+	///
+	/// The high bits are the first 8 bytes, and the low
+	/// bits are the last 8 bytes.
+	#[must_use]
+	pub fn from_high_low(high: u64, low: u64) -> Self {
+		Self([
+			(high >> 56) as u8,
+			(high >> 48) as u8,
+			(high >> 40) as u8,
+			(high >> 32) as u8,
+			(high >> 24) as u8,
+			(high >> 16) as u8,
+			(high >> 8) as u8,
+			high as u8,
+			(low >> 56) as u8,
+			(low >> 48) as u8,
+			(low >> 40) as u8,
+			(low >> 32) as u8,
+			(low >> 24) as u8,
+			(low >> 16) as u8,
+			(low >> 8) as u8,
+			low as u8,
+		])
 	}
 
 	/// Returns the type of the ID.
@@ -370,6 +399,47 @@ impl AnyId {
 		}
 
 		true
+	}
+
+	/// Returns the high bits of the ID as a `u64`.
+	#[must_use]
+	pub fn high_bits(&self) -> u64 {
+		u64::from_be_bytes([
+			self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5], self.0[6], self.0[7],
+		])
+	}
+
+	/// Returns the low bits of the ID as a `u64`.
+	#[must_use]
+	pub fn low_bits(&self) -> u64 {
+		u64::from_be_bytes([
+			self.0[8], self.0[9], self.0[10], self.0[11], self.0[12], self.0[13], self.0[14],
+			self.0[15],
+		])
+	}
+
+	/// Returns whether or not the given buffer of ID bytes
+	/// is considered 'internal' (a kernel module).
+	#[must_use]
+	pub fn is_buf_internal(data: &[u8; 16]) -> bool {
+		if data[0] & 0b0001_1111 != 0 {
+			return false;
+		}
+
+		for byte in &data[1..9] {
+			if *byte != 0 {
+				return false;
+			}
+		}
+
+		true
+	}
+
+	/// Returns whether or not the ID is considered 'internal'
+	/// (a kernel module).
+	#[must_use]
+	pub fn is_internal(&self) -> bool {
+		Self::is_buf_internal(&self.0)
 	}
 }
 
@@ -497,5 +567,13 @@ impl<const TY: IdType> TryFrom<AnyId> for Id<TY> {
 impl<const TY: IdType> From<Id<TY>> for AnyId {
 	fn from(value: Id<TY>) -> Self {
 		Self(value.0)
+	}
+}
+
+impl<const TY: IdType> fmt::Display for Id<TY> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let mut buf = [0; 27];
+		let s = self.to_str(&mut buf);
+		f.write_str(s)
 	}
 }
