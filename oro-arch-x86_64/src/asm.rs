@@ -99,6 +99,14 @@ pub fn disable_interrupts() {
 	}
 }
 
+/// Enables all interrupts.
+#[inline(always)]
+pub fn enable_interrupts() {
+	unsafe {
+		asm!("sti", options(nostack, preserves_flags));
+	}
+}
+
 /// Sends a byte to the specified I/O port.
 #[inline(always)]
 pub fn outb(port: u16, value: u8) {
