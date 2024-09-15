@@ -7,7 +7,7 @@
 //! See the `bin/` directory for architecture-specific entry points.
 #![no_std]
 
-use core::ffi::CStr;
+use core::{ffi::CStr, str::FromStr};
 #[cfg(debug_assertions)]
 use limine::request::StackSizeRequest;
 use limine::{
@@ -182,11 +182,12 @@ pub unsafe fn init() -> ! {
 					};
 
 					Module {
-						// Expects a physical address but the Limine system gives us
-						// a virtual address. We have to un-translate it.
-						base:   u64::try_from(kernel_module.addr() as usize).unwrap() - hhdm_offset,
-						length: kernel_module.size(),
-						next:   0,
+						id_high: 0,
+						id_low:  0,
+						base:    u64::try_from(kernel_module.addr() as usize).unwrap()
+							- hhdm_offset,
+						length:  kernel_module.size(),
+						next:    0,
 					}
 				},
 			)?;
@@ -222,13 +223,62 @@ pub unsafe fn init() -> ! {
 							module.path() != DTB_PATH.to_bytes()
 								&& module.path() != KERNEL_PATH.to_bytes()
 						})
-						.map(|module| {
-							oro_boot_protocol::Module {
-								base:   u64::try_from(module.addr() as usize).unwrap()
+						.filter_map(|module| {
+							// Get the basename by finding the text after
+							// the last `/`, if any.
+							let path = module.path();
+							let basename = path
+								.iter()
+								.rev()
+								.position(|&c| c == b'/')
+								.map_or(path, |pos| &path[path.len() - pos..]);
+
+							let Ok(id_str) = core::str::from_utf8(basename) else {
+								dbg_err!(
+									"failed to parse module path (characters after last '/' are \
+									 not utf-8): {basename:?}",
+								);
+								return None;
+							};
+
+							let any_id = match oro_id::AnyId::from_str(id_str) {
+								Ok(id) => id,
+								Err(err) => {
+									dbg_err!(
+										"failed to parse module path as Oro ID: {err:?}: \
+										 {id_str:?}"
+									);
+									return None;
+								}
+							};
+
+							if any_id.ty() != Some(oro_id::IdType::Module) {
+								dbg_err!(
+									"failed to parse module path as Oro ID (not a module ID): \
+									 {id_str:?}"
+								);
+								return None;
+							};
+
+							if any_id.is_internal() {
+								dbg_err!(
+									"failed to parse module path as Oro ID (internal module ID): \
+									 {id_str:?}"
+								);
+								return None;
+							};
+
+							let high = any_id.high_bits();
+							let low = any_id.low_bits();
+
+							Some(oro_boot_protocol::Module {
+								id_high: high,
+								id_low:  low,
+								base:    u64::try_from(module.addr() as usize).unwrap()
 									- hhdm_offset,
-								length: module.size(),
-								next:   0, // will be written by the serializer
-							}
+								length:  module.size(),
+								next:    0, // will be written by the serializer
+							})
 						}),
 				)?;
 

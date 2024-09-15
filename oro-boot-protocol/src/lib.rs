@@ -187,13 +187,28 @@ macros::oro_boot_protocol! {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Module {
+	/// The highest 64 bits of the module 128 bit ID.
+	///
+	/// The module ID **must not** be reserved, or
+	/// the kernel will reject loading it.
+	///
+	/// See the `oro-id` crate for more information.
+	pub id_high: u64,
+	/// The lowest 64 bits of the module 128 bit ID.
+	///
+	/// The module ID **must not** be reserved, or
+	/// the kernel will reject loading it.
+	///
+	/// See the `oro-id` crate for more information.
 	/// The physical base address of the module.
-	pub base:   u64,
+	pub id_low:  u64,
+	/// The physical start address of the module.
+	pub base:    u64,
 	/// The length of the module.
-	pub length: u64,
+	pub length:  u64,
 	/// The physical address of the next module in the list,
 	/// or `0` if this is the last module.
-	pub next:   u64,
+	pub next:    u64,
 }
 
 #[cfg(feature = "utils")]
