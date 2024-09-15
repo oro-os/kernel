@@ -20,6 +20,23 @@ class BootCmd(gdb.Command):
         gdb.execute("help oro boot")
 
 
+def parse_module(arg_value):
+    split_result = arg_value.split("=", 1)
+
+    if len(split_result) == 2:
+        k, v = split_result
+    else:
+        basename = path.basename(arg_value)
+        k, _ = path.splitext(basename)
+        v = arg_value
+
+    if not path.exists(v):
+        error(f"module file not found: {v}")
+        return None
+
+    return (k, v)
+
+
 class BootCmdLimine(gdb.Command):
     """
     Boot the kernel under QEMU using the Limine bootloader.
@@ -28,20 +45,55 @@ class BootCmdLimine(gdb.Command):
         oro boot limine [-sbCK] [-n <num_cores>]
 
     Options:
-        -S, --no-switch        Don't switch to the Limine executable before booting.
-                               Specifying this will break many of the trackers.
-                               Probably not a good idea to use it.
-        -n, --num_cores        Specify the number of CPU cores to emulate (default: 1).
-        -C, --no-continue      Do not automatically continue execution after booting.
-        -K, --no-autokernel    Do not automatically load the kernel image during transfer.
-                               (Only useful with --switch)
-        -b, --break            Break at the start of the bootloader or kernel image after transfer
-                               (whatever comes first).
-        -M, --no-env-modules   Don't load a module list from the `ORO_ROOT_MODULES` environment variable.
-        -m, --module <path>    Include a module from `<path>` to be loaded onto the root ring.
-                               Can be specified multiple times. In addition to this option, a
-                               semi-colon separated list of modules can be specified in the
-                               `ORO_ROOT_MODULES` environment variable.
+        -S, --no-switch          Don't switch to the Limine executable before booting.
+                                 Specifying this will break many of the trackers.
+                                 Probably not a good idea to use it.
+        -n, --num_cores          Specify the number of CPU cores to emulate (default: 1).
+        -C, --no-continue        Do not automatically continue execution after booting.
+        -K, --no-autokernel      Do not automatically load the kernel image during transfer.
+                                 (Only useful with --switch)
+        -b, --break              Break at the start of the bootloader or kernel image after transfer
+                                 (whatever comes first).
+        -M, --no-env-modules     Don't load a module list from the `ORO_ROOT_MODULES` environment variable.
+        -m, --module [id=]<path> Include a module from `<path>` to be loaded onto the root ring.
+                                 Can be specified multiple times. In addition to this option, a
+                                 semi-colon separated list of modules can be specified in the
+                                 `ORO_ROOT_MODULES` environment variable.
+
+    Module Specification:
+        Modules are specified as paths to files on the host filesystem. They are
+        copied into the boot medium and are passed to the kernel to be loaded
+        onto the root ring.
+
+        They can either be passed on the command line to `oro boot <bootloader>`
+        with the `-m` command line option (described above), or they can be
+        listed in the `ORO_ROOT_MODULES` environment variable as a semi-colon
+        separated list of module specifications.
+
+        A module must arrive at the kernel with an Oro ID (see the `oro-id` crate).
+        These are 128-bit IDs - the 3 upper bits indicate the ID type (currently,
+        1=module, 2=port_type, all others reserved), and the remaining 125 bits
+        are the ID itself, encoded in a human-friendly base32 format (5 bits per
+        character).
+
+        Bits [60:32] must be something other than 0x0, as IDs with those bits
+        cleared are reserved for kernel modules, and will be rejected by
+        either the kernel or the bootloader (whichever sees it first).
+
+        An example module ID:    M-6397GTPH5MWJH6P0P4JGAGPAZ
+        An example port type ID: P-M33FKEGA218J0G1VPMK3800UV
+
+        You can generate random module/port IDs using a script in the `oro-id` crate:
+
+            ./oro-id/script/randgen.rs --help
+            ./oro-id/script/randgen.rs --module
+            ./oro-id/script/randgen.rs --port-type
+            ./oro-id/script/randgen.rs -m --internal
+            ./oro-id/script/randgen.rs -m -n 10
+
+        When specifying modules, you can use either the `id=path` form, where `id`
+        is the module ID and `path` is a path to the module file, or just `path`
+        on its own, in which case the module ID is the basename (and must be valid).
     """
 
     def __init__(self):
@@ -103,7 +155,10 @@ class BootCmdLimine(gdb.Command):
                     error("missing argument for --module")
                     return
 
-                modules.append(args[argi + 1])
+                kv = parse_mod(args[argi + 1])
+                if kv is not None:
+                    modules.append(kv)
+
                 argi += 1
             elif arg == "--":
                 rest_args = args[argi + 1 :]
@@ -117,13 +172,10 @@ class BootCmdLimine(gdb.Command):
         if load_modules_from_env:
             env_modules = os.getenv("ORO_ROOT_MODULES")
             if env_modules:
-                modules.extend(env_modules.split(";"))
-
-        # Make sure they exist
-        for module in modules:
-            if not path.exists(module):
-                error(f"module file not found: {module}")
-                return
+                for module in env_modules.split(";"):
+                    kv = parse_module(module)
+                    if kv is not None:
+                        modules.append(kv)
 
         # Fetch Limine if it doesn't exist
         limine_dir = fetch_limine()
@@ -270,9 +322,7 @@ class BootCmdLimine(gdb.Command):
         copy_limine("limine-bios-cd.bin")
         copy_limine("limine-bios.sys")
 
-        module_config = "\n".join(
-            [f"MODULE_PATH=boot:///{path.basename(m)}" for m in modules]
-        )
+        module_config = "\n".join([f"MODULE_PATH=boot:///{k}" for (k, _) in modules])
 
         with open(path.join(iso_dir, "limine.cfg"), "w") as f:
             f.write(
@@ -305,8 +355,8 @@ class BootCmdLimine(gdb.Command):
 
         for src, dst in extra_iso_files:
             copyfile(src, path.join(iso_dir, dst))
-        for module in modules:
-            copyfile(module, path.join(iso_dir, path.basename(module)))
+        for dst_basename, src in modules:
+            copyfile(src, path.join(iso_dir, dst_basename))
 
         # Run xorriso to create the ISO
         log("creating Limine ISO")
