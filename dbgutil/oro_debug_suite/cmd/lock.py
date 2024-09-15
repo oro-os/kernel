@@ -8,7 +8,7 @@ class LockCmd(gdb.Command):
     """
     Manages the lock tracker.
 
-    The lock tracker is turned on by default, but with no verbose output.
+    The lock tracker is turned off by default.
 
     The lock has a few parameters that can be used to control its behavior:
 

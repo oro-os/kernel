@@ -6,7 +6,7 @@ class PfaCmd(gdb.Command):
     """
     Manages the PFA tracker.
 
-    The PFA tracker is turned on by default, but with no verbose output.
+    The PFA tracker is turned off by default.
 
     The PFA has a few parameters that can be used to control its behavior:
 
