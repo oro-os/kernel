@@ -202,6 +202,7 @@ dependencies = [
  "oro-dbgutil",
  "oro-debug",
  "oro-elf",
+ "oro-id",
  "oro-kernel",
  "oro-macro",
  "oro-mem",
@@ -239,6 +240,7 @@ dependencies = [
  "oro-boot",
  "oro-boot-protocol",
  "oro-debug",
+ "oro-id",
 ]
 
 [[package]]

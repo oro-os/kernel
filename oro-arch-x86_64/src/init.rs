@@ -3,9 +3,9 @@
 
 use crate::{handler::Handler, lapic::Lapic};
 use core::mem::MaybeUninit;
-use oro_debug::dbg;
+use oro_debug::{dbg, dbg_warn};
 use oro_kernel::KernelState;
-use oro_mem::translate::OffsetTranslator;
+use oro_mem::translate::{OffsetTranslator, Translator};
 use oro_sync::spinlock::unfair_critical::UnfairCriticalSpinlock;
 
 /// The global kernel state. Initialized once during boot
@@ -18,6 +18,7 @@ pub static mut KERNEL_STATE: MaybeUninit<KernelState<crate::Arch>> = MaybeUninit
 /// Must be called exactly once for the lifetime of the system,
 /// only by the boot processor at boot time (_not_ at any
 /// subsequent bringup).
+#[expect(clippy::needless_pass_by_value)]
 pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 	#[cfg(debug_assertions)]
 	{
@@ -36,15 +37,46 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 
 	// SAFETY(qix-): We know what we're doing here.
 	#[expect(static_mut_refs)]
-	KernelState::init(&mut KERNEL_STATE, pat, UnfairCriticalSpinlock::new(pfa))
-		.expect("failed to create global kernel state");
+	KernelState::init(
+		&mut KERNEL_STATE,
+		pat.clone(),
+		UnfairCriticalSpinlock::new(pfa),
+	)
+	.expect("failed to create global kernel state");
 
-	// XXX TODO(qix-): list out the modules the bootloader sent
+	// TODO(qix-): Not sure that I like that this is ELF-aware. This may get
+	// TODO(qix-): refactored at some point.
 	if let Some(oro_boot_protocol::modules::ModulesKind::V0(modules)) =
 		crate::boot::protocol::MODULES_REQUEST.response()
 	{
 		let modules = modules.assume_init_ref();
-		dbg!("got modules next: {:016x}", modules.next);
+		let mut next = modules.next;
+
+		while next != 0 {
+			let module = &*pat.translate::<oro_boot_protocol::Module>(next);
+			next = module.next;
+
+			let id = oro_id::AnyId::from_high_low(module.id_high, module.id_low);
+
+			let Ok(id) = oro_id::Id::<{ oro_id::IdType::Module }>::try_from(id) else {
+				dbg_warn!(
+					"skipping module; not a valid module ID: {:?}",
+					id.as_bytes()
+				);
+				continue;
+			};
+
+			if id.is_internal() {
+				dbg_warn!("skipping module; internal module ID: {:?}", id.as_bytes());
+				continue;
+			}
+
+			dbg!(
+				"loading module: {id} @ {:016X} ({})",
+				module.base,
+				module.length
+			);
+		}
 	}
 }
 
