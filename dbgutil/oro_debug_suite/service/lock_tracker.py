@@ -15,7 +15,7 @@ class LockTracker(object):
         self._lock_breakpoint = None
         self._release_breakpoint = None
         self.verbose = False
-        self.__enabled = True
+        self.__enabled = False
 
         SYMBOLS.on_loaded(self.attach)
         QEMU.on_started(self.clear)

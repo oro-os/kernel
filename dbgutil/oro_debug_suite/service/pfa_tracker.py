@@ -18,7 +18,7 @@ class PfaTracker(object):
         self.__breakpoints = []
         self._free_breakpoint = None
         self.verbose = False
-        self.__enabled = True
+        self.__enabled = False
         self._free_is_pfa_populating = False
 
         SYMBOLS.on_loaded(self.attach)
