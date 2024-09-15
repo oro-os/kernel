@@ -85,7 +85,7 @@ pub unsafe fn boot_secondary<A: Alloc>(
 	debug_assert!(SECONDARY_BOOT_LONG_MODE_STUB.len() <= 0x400);
 
 	// ... and that the GDT fits in the second part (minus TOP_RESERVE bytes).
-	let gdt_slice = crate::gdt::gdt_bytes();
+	let gdt_slice = crate::gdt::GDT.as_bytes();
 	debug_assert!(gdt_slice.len() <= (0x800 - TOP_RESERVE));
 
 	// Create a new supervisor address space based on the current address space.
@@ -418,7 +418,7 @@ const SECONDARY_BOOT_LONG_MODE_STUB: &[u8] = &asm_buffer! {
 /// the *actual* long mode environment.
 #[no_mangle]
 unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
-	crate::gdt::install_gdt();
+	crate::gdt::GDT.install();
 
 	// Get references to the secondary boot flags.
 	let primary_flag = &*(0x8FB0 as *const AtomicU64);

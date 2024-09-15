@@ -1,24 +1,33 @@
 //! Structures and implementations for managing
 //! descriptor tables and their entries.
 
+use crate::tss::Tss;
 use core::arch::asm;
 
 /// A global descriptor table (GDT) entry.
+///
+/// Note that task state segment (TSS) entries are
+/// ultimately stored in the GDT as two GDT entries,,
+/// so the introspection of GDT entries is not recommended
+/// unless you know the GDT layout.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[must_use]
 #[repr(transparent)]
-struct GdtEntry(u64);
+pub struct GdtEntry(u64);
 
 // NOTE(qix-): Most fields are ignored in 64-bit mode, so
 // NOTE(qix-): mutators aren't added here.
+// TODO(qix-): Make these mutators mask off the bits before applying them.
 impl GdtEntry {
 	/// Returns a null descriptor, used as the first
 	/// entry in the GDT.
-	const fn null_descriptor() -> Self {
+	pub const fn null_descriptor() -> Self {
 		Self(0)
 	}
 
 	/// Returns the kernel code segment descriptor
 	/// for the x86_64 architecture.
-	const fn kernel_code_segment() -> Self {
+	pub const fn kernel_code_segment() -> Self {
 		Self(0)
 			.with_present()
 			.with_accessed()
@@ -30,7 +39,7 @@ impl GdtEntry {
 
 	/// Returns the kernel data segment descriptor
 	/// for the x86_64 architecture.
-	const fn kernel_data_segment() -> Self {
+	pub const fn kernel_data_segment() -> Self {
 		Self(0)
 			.with_present()
 			.with_accessed()
@@ -42,7 +51,7 @@ impl GdtEntry {
 
 	/// Returns the user code segment descriptor
 	/// for the x86_64 architecture.
-	const fn user_code_segment() -> Self {
+	pub const fn user_code_segment() -> Self {
 		Self(0)
 			.with_present()
 			.with_accessed()
@@ -54,7 +63,7 @@ impl GdtEntry {
 
 	/// Returns the user data segment descriptor
 	/// for the x86_64 architecture.
-	const fn user_data_segment() -> Self {
+	pub const fn user_data_segment() -> Self {
 		Self(0)
 			.with_present()
 			.with_accessed()
@@ -66,52 +75,51 @@ impl GdtEntry {
 
 	/// Setting this flag will prevents the GDT from
 	/// writing to the segment on first use.
-	const fn with_accessed(self) -> Self {
+	pub const fn with_accessed(self) -> Self {
 		Self(self.0 | 1 << 40)
 	}
 
 	/// Setting this flag allows the segment to be
 	/// written to.
-	const fn with_writable(self) -> Self {
+	pub const fn with_writable(self) -> Self {
 		Self(self.0 | 1 << 41)
 	}
 
 	/// Setting this flag allows the segment to be
 	/// executed. Must be set for CS and unset for DS.
-	const fn with_executable(self) -> Self {
+	pub const fn with_executable(self) -> Self {
 		Self(self.0 | 1 << 43)
 	}
 
 	/// Must be set for user segments.
-	const fn with_user(self) -> Self {
+	pub const fn with_user(self) -> Self {
 		Self(self.0 | 1 << 44)
 	}
 
 	/// Sets the DPL (Data Privilege Level) for the
 	/// descriptor. This corresponds to the ring level
 	/// of the descriptor.
-	const fn with_ring(self, ring: Dpl) -> Self {
+	pub const fn with_ring(self, ring: Dpl) -> Self {
 		Self(self.0 | (ring as u64) << 45)
 	}
 
 	/// Sets the present bit for the descriptor.
 	/// Must be set for all valid descriptors.
-	const fn with_present(self) -> Self {
+	pub const fn with_present(self) -> Self {
 		Self(self.0 | 1 << 47)
 	}
 
 	/// Sets the long mode bit for the descriptor.
 	/// Must be set for all valid descriptors.
-	const fn with_long_mode(self) -> Self {
+	pub const fn with_long_mode(self) -> Self {
 		Self(self.0 | 1 << 53)
 	}
 }
 
 /// A Data Privilege Level (DPL) for a descriptor.
-#[expect(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
-enum Dpl {
+pub enum Dpl {
 	/// Ring 0.
 	Ring0 = 0,
 	/// Ring 1.
@@ -122,51 +130,238 @@ enum Dpl {
 	Ring3 = 3,
 }
 
-/// The GDT.
-static GDT: [GdtEntry; 5] = [
-	GdtEntry::null_descriptor(),
-	GdtEntry::kernel_code_segment(), // kernel code MUST be index 1
-	GdtEntry::kernel_data_segment(),
-	GdtEntry::user_code_segment(),
-	GdtEntry::user_data_segment(),
-];
-
-/// Returns a byte slice of the GDT.
-///
-/// This is mostly used by the secondary core initialization
-/// code to write the GDT to a 32-bit page, as is required
-/// when running in a 16/32-bit mode.
+/// A system segment (task state segment (TSS) or LDT) entry for x86_64.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(clippy::missing_docs_in_private_items)]
 #[must_use]
-pub fn gdt_bytes() -> &'static [u8] {
-	// SAFETY(qix-): The GDT is a static array, so it's always valid.
-	unsafe { core::slice::from_raw_parts(GDT.as_ptr().cast::<u8>(), core::mem::size_of_val(&GDT)) }
+#[repr(C, align(8))]
+pub struct SysEntry {
+	low:  u64,
+	high: u64,
 }
 
-/// Installs the GDT.
-pub fn install_gdt() {
-	/// A GDT descriptor. Used exclusively by the `lgdt` instruction.
+impl SysEntry {
+	/// Creates a new TSS entry.
 	///
-	/// Must be packed, order matters.
-	#[repr(C, packed(2))]
-	struct GdtDescriptor {
-		/// The limit. First, due to little-endian architecture.
-		limit: u16,
-		/// The base address of the GDT. Virtual, not physical.
-		base:  u64,
+	/// Automatically sets the `S` bit.
+	pub const fn new() -> Self {
+		Self {
+			low:  0x0000_1000_0000_0000,
+			high: 0,
+		}
 	}
 
-	let base = GDT.as_ptr() as u64;
-	let gdt_size = core::mem::size_of_val(&GDT);
-	#[expect(clippy::cast_possible_truncation)]
-	let limit = (gdt_size - 1) as u16;
+	/// Creates a basic TSS entry for DPL 0 with the given pointer to
+	/// a [`Tss`] structure.
+	pub fn with_tss(self, tss: *const Tss) -> Self {
+		Self::new()
+			.with_granularity(true)
+			.with_limit(core::mem::size_of::<Tss>() as u32 - 1)
+			.with_present()
+			.with_type(SysType::TssAvail)
+			.with_ring(Dpl::Ring0)
+			.with_base(tss as u64)
+	}
 
-	let gdt_descriptor = GdtDescriptor { limit, base };
+	/// Sets the base address of the system segment.
+	pub const fn with_base(self, base: u64) -> Self {
+		Self {
+			low:  (self.low & 0x00FF_FF00_0000_FFFF)
+				| ((base & 0x00FF_FFFF) << 16)
+				| ((base & 0xFF00_0000) << 56),
+			high: base >> 32,
+		}
+	}
 
-	// SAFETY(qix-): The GDT is a static array, so it's always valid.
-	// SAFETY(qix-): There's also nothing about marking this function
-	// SAFETY(qix-): as 'unsafe' that would prevent a crash on incorrect
-	// SAFETY(qix-): GDT configuration.
-	unsafe {
+	/// Sets the limit of the system segment.
+	///
+	/// Bits higher than 19 are ignored.
+	pub const fn with_limit(self, limit: u32) -> Self {
+		Self {
+			low:  (self.low & 0xFFF0_FFFF_FFFF_0000)
+				| (limit as u64 & 0xFFFF)
+				| ((limit as u64 & 0xF0000) << 32),
+			high: self.high,
+		}
+	}
+
+	/// Sets the type of the system segment.
+	pub const fn with_type(self, ty: SysType) -> Self {
+		Self {
+			low:  (self.low & 0xFFFF_F0FF_FFFF_FFFF) | ((ty as u64) << 40),
+			high: self.high,
+		}
+	}
+
+	/// Sets the DPL (Data Privilege Level) for the
+	/// descriptor. This corresponds to the ring level
+	/// of the descriptor.
+	pub const fn with_ring(self, ring: Dpl) -> Self {
+		Self {
+			low:  (self.low & 0xFFFF_9FFF_FFFF_FFFF) | ((ring as u64) << 45),
+			high: self.high,
+		}
+	}
+
+	/// Sets the present bit for the descriptor.
+	/// Must be set for all valid descriptors.
+	pub const fn with_present(self) -> Self {
+		Self {
+			low:  self.low | 1 << 47,
+			high: self.high,
+		}
+	}
+
+	/// Sets the granularity of the descriptor.
+	///
+	/// If `true`, the limit is in 4KiB blocks.
+	/// If `false`, the limit is in bytes.
+	pub const fn with_granularity(self, gran: bool) -> Self {
+		Self {
+			low:  (self.low & 0xFF7F_FFFF_FFFF_FFFF) | ((gran as u64) << 55),
+			high: self.high,
+		}
+	}
+
+	/// Sets the long mode bit for the descriptor.
+	/// Must be set for all valid descriptors.
+	pub const fn with_long_mode(self) -> Self {
+		Self {
+			low:  self.low | 1 << 53,
+			high: self.high,
+		}
+	}
+}
+
+/// A system segment type.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u64)]
+pub enum SysType {
+	/// A local descriptor table (LDT) entry.
+	Ldt      = 0x2,
+	/// 64-bit TSS (task state segment), available.
+	TssAvail = 0x9,
+	/// 64-bit TSS (task state segment), busy.
+	TssBusy  = 0xB,
+}
+
+/// A basic GDT that can be used for early-stage booting.
+pub static GDT: Gdt<5> = Gdt::<5>::new();
+
+/// A global descriptor table (GDT).
+#[must_use]
+#[repr(C, align(16))]
+pub struct Gdt<const COUNT: usize> {
+	/// The entries in the GDT.
+	entries: [GdtEntry; COUNT],
+}
+
+impl<const COUNT: usize> Gdt<COUNT> {
+	/// The offset into the standard GDT of the kernel code segment.
+	pub const KERNEL_CS: usize = 0x08;
+	/// The offset into the standard GDT of the kernel data segment.
+	pub const KERNEL_DS: usize = 0x10;
+	/// The offset into the standard GDT of the user code segment.
+	pub const USER_CS: usize = 0x18;
+	/// The offset into the standard GDT of the user data segment.
+	pub const USER_DS: usize = 0x20;
+
+	/// Creates a new GDT with the standard entries (see the `*_CS` and `*_DS` constants).
+	pub const fn new() -> Gdt<5> {
+		Gdt {
+			// MUST match the `*_CS` and `*_DS` constants above.
+			entries: [
+				GdtEntry::null_descriptor(),
+				GdtEntry::kernel_code_segment(),
+				GdtEntry::kernel_data_segment(),
+				GdtEntry::user_code_segment(),
+				GdtEntry::user_data_segment(),
+			],
+		}
+	}
+
+	/// Returns a new GDT with the given entry added.
+	///
+	/// Returns the offset (in bytes) of the entry and the new GDT as a tuple.
+	pub const fn with_entry(self, entry: GdtEntry) -> (usize, Gdt<{ COUNT + 1 }>) {
+		#[expect(clippy::missing_docs_in_private_items)]
+		#[repr(C)]
+		#[derive(Copy, Clone)]
+		struct Concat<A, B>(A, B);
+		let concat = Concat(self.entries, entry);
+		(
+			COUNT * 0x08,
+			Gdt {
+				entries: unsafe { core::mem::transmute_copy(&concat) },
+			},
+		)
+	}
+
+	/// Returns a new GDT with the given system entry added.
+	///
+	/// Returns the offset (in bytes) of the entry and the new GDT as a tuple.
+	pub const fn with_sys_entry(self, entry: SysEntry) -> (usize, Gdt<{ COUNT + 2 }>) {
+		#[expect(clippy::missing_docs_in_private_items)]
+		#[repr(C)]
+		#[derive(Copy, Clone)]
+		struct Concat<A, B>(A, B);
+
+		let low = GdtEntry(entry.low);
+		let high = GdtEntry(entry.high);
+		let concat = Concat(self.entries, [low, high]);
+
+		(
+			COUNT * 0x08,
+			Gdt {
+				entries: unsafe { core::mem::transmute_copy(&concat) },
+			},
+		)
+	}
+
+	/// Returns a byte slice of the GDT.
+	///
+	/// This is mostly used by the secondary core initialization
+	/// code to write the GDT to a 32-bit page, as is required
+	/// when running in a 16/32-bit mode.
+	#[must_use]
+	pub fn as_bytes(&self) -> &'static [u8] {
+		// SAFETY(qix-): The GDT is a static array, so it's always valid.
+		unsafe {
+			core::slice::from_raw_parts(
+				self.entries.as_ptr().cast::<u8>(),
+				core::mem::size_of_val(&GDT),
+			)
+		}
+	}
+
+	/// Installs the GDT.
+	///
+	/// # Safety
+	/// The GDT must not be moved and remain valid until a new GDT is installed.
+	///
+	/// If a new GDT is never installed, `self` must exist at the same address
+	/// for the entire duration of the system's operation.
+	pub unsafe fn install(&self) {
+		/// A GDT descriptor. Used exclusively by the `lgdt` instruction.
+		///
+		/// Must be packed, order matters.
+		#[repr(C, packed(2))]
+		struct GdtDescriptor {
+			/// The limit. First, due to little-endian architecture.
+			limit: u16,
+			/// The base address of the GDT. Virtual, not physical.
+			base:  u64,
+		}
+
+		let base = self.entries.as_ptr() as u64;
+		let gdt_size = core::mem::size_of_val(self);
+		#[expect(clippy::cast_possible_truncation)]
+		let limit = (gdt_size - 1) as u16;
+
+		let gdt_descriptor = GdtDescriptor { limit, base };
+
+		// SAFETY(qix-): The offsets in this function must only refer
+		// SAFETY(qix-): to the forced offsets defined in `Gdt`.
 		asm! {
 			// Load the GDT.
 			"lgdt [{0}]",
