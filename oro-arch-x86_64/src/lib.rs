@@ -64,6 +64,10 @@
 // SAFETY(qix-): where it'll end up so I'm not too worried about using this feature flag.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/15701
 #![feature(stmt_expr_attributes)]
+// SAFETY(qix-): Required for GDT manipulation.
+// SAFETY(qix-): https://github.com/rust-lang/rust/issues/76560
+#![expect(incomplete_features)]
+#![feature(generic_const_exprs)]
 
 pub mod asm;
 pub mod boot;
@@ -74,6 +78,7 @@ pub mod lapic;
 pub mod mem;
 pub mod reg;
 pub mod sync;
+pub mod tss;
 
 pub(crate) mod init;
 

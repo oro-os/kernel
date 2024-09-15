@@ -26,7 +26,7 @@ const SECONDARY_STACK_PAGES: usize = 16;
 /// Panics if any of the boot requests are missing or malformed.
 pub unsafe fn boot_primary() -> ! {
 	crate::asm::disable_interrupts();
-	crate::gdt::install_gdt();
+	crate::gdt::GDT.install();
 	crate::asm::flush_tlb();
 
 	#[cfg(debug_assertions)]
