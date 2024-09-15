@@ -82,6 +82,7 @@ pub mod tss;
 
 pub(crate) mod init;
 
+use core::{cell::UnsafeCell, mem::MaybeUninit};
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 use oro_mem::{pfa::filo::FiloPageFrameAllocator, translate::OffsetTranslator};
 
@@ -110,9 +111,22 @@ impl oro_kernel::Arch for Arch {
 /// Type alias for the Oro kernel core-local instance type.
 pub(crate) type Kernel = oro_kernel::Kernel<CoreState, Arch>;
 
+/// The guaranteed offset of the task state segment (TSS) in the GDT.
+///
+/// Verified at boot time, such that this index can be used without having
+/// to perform a lookup.
+pub const TSS_GDT_OFFSET: u16 = 0x28;
+
 /// Architecture-specific core-local state.
 pub(crate) struct CoreState {
 	/// The LAPIC (Local Advanced Programmable Interrupt Controller)
 	/// for the core.
 	pub lapic: lapic::Lapic,
+	/// The core's local GDT
+	///
+	/// Only valid after the Kernel has been initialized
+	/// and properly mapped.
+	pub gdt:   UnsafeCell<MaybeUninit<gdt::Gdt<7>>>,
+	/// The TSS (Task State Segment) for the core.
+	pub tss:   UnsafeCell<tss::Tss>,
 }

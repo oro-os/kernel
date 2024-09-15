@@ -25,13 +25,18 @@ impl GdtEntry {
 		Self(0)
 	}
 
+	/// Returns a new GDT entry with the 'descriptor type'
+	/// bit set.
+	pub const fn new() -> Self {
+		Self(1 << 44)
+	}
+
 	/// Returns the kernel code segment descriptor
 	/// for the x86_64 architecture.
 	pub const fn kernel_code_segment() -> Self {
-		Self(0)
+		Self::new()
 			.with_present()
 			.with_accessed()
-			.with_user()
 			.with_long_mode()
 			.with_ring(Dpl::Ring0)
 			.with_executable()
@@ -40,10 +45,9 @@ impl GdtEntry {
 	/// Returns the kernel data segment descriptor
 	/// for the x86_64 architecture.
 	pub const fn kernel_data_segment() -> Self {
-		Self(0)
+		Self::new()
 			.with_present()
 			.with_accessed()
-			.with_user()
 			.with_writable()
 			.with_long_mode()
 			.with_ring(Dpl::Ring0)
@@ -52,10 +56,9 @@ impl GdtEntry {
 	/// Returns the user code segment descriptor
 	/// for the x86_64 architecture.
 	pub const fn user_code_segment() -> Self {
-		Self(0)
+		Self::new()
 			.with_present()
 			.with_accessed()
-			.with_user()
 			.with_long_mode()
 			.with_ring(Dpl::Ring3)
 			.with_executable()
@@ -64,10 +67,9 @@ impl GdtEntry {
 	/// Returns the user data segment descriptor
 	/// for the x86_64 architecture.
 	pub const fn user_data_segment() -> Self {
-		Self(0)
+		Self::new()
 			.with_present()
 			.with_accessed()
-			.with_user()
 			.with_writable()
 			.with_long_mode()
 			.with_ring(Dpl::Ring3)
@@ -89,11 +91,6 @@ impl GdtEntry {
 	/// executed. Must be set for CS and unset for DS.
 	pub const fn with_executable(self) -> Self {
 		Self(self.0 | 1 << 43)
-	}
-
-	/// Must be set for user segments.
-	pub const fn with_user(self) -> Self {
-		Self(self.0 | 1 << 44)
 	}
 
 	/// Sets the DPL (Data Privilege Level) for the
@@ -142,20 +139,16 @@ pub struct SysEntry {
 
 impl SysEntry {
 	/// Creates a new TSS entry.
-	///
-	/// Automatically sets the `S` bit.
 	pub const fn new() -> Self {
-		Self {
-			low:  0x0000_1000_0000_0000,
-			high: 0,
-		}
+		Self { low: 0, high: 0 }
 	}
 
 	/// Creates a basic TSS entry for DPL 0 with the given pointer to
 	/// a [`Tss`] structure.
-	pub fn with_tss(self, tss: *const Tss) -> Self {
+	pub fn for_tss(tss: *const Tss) -> Self {
 		Self::new()
 			.with_granularity(true)
+			.with_long_mode()
 			.with_limit(core::mem::size_of::<Tss>() as u32 - 1)
 			.with_present()
 			.with_type(SysType::TssAvail)
@@ -256,16 +249,16 @@ pub struct Gdt<const COUNT: usize> {
 	entries: [GdtEntry; COUNT],
 }
 
-impl<const COUNT: usize> Gdt<COUNT> {
-	/// The offset into the standard GDT of the kernel code segment.
-	pub const KERNEL_CS: usize = 0x08;
-	/// The offset into the standard GDT of the kernel data segment.
-	pub const KERNEL_DS: usize = 0x10;
-	/// The offset into the standard GDT of the user code segment.
-	pub const USER_CS: usize = 0x18;
-	/// The offset into the standard GDT of the user data segment.
-	pub const USER_DS: usize = 0x20;
+/// The offset into the standard GDT of the kernel code segment.
+pub const KERNEL_CS: u16 = 0x08;
+/// The offset into the standard GDT of the kernel data segment.
+pub const KERNEL_DS: u16 = 0x10;
+/// The offset into the standard GDT of the user code segment.
+pub const USER_CS: u16 = 0x18;
+/// The offset into the standard GDT of the user data segment.
+pub const USER_DS: u16 = 0x20;
 
+impl<const COUNT: usize> Gdt<COUNT> {
 	/// Creates a new GDT with the standard entries (see the `*_CS` and `*_DS` constants).
 	pub const fn new() -> Gdt<5> {
 		Gdt {
@@ -283,14 +276,17 @@ impl<const COUNT: usize> Gdt<COUNT> {
 	/// Returns a new GDT with the given entry added.
 	///
 	/// Returns the offset (in bytes) of the entry and the new GDT as a tuple.
-	pub const fn with_entry(self, entry: GdtEntry) -> (usize, Gdt<{ COUNT + 1 }>) {
+	pub const fn with_entry(self, entry: GdtEntry) -> (u16, Gdt<{ COUNT + 1 }>) {
 		#[expect(clippy::missing_docs_in_private_items)]
 		#[repr(C)]
 		#[derive(Copy, Clone)]
 		struct Concat<A, B>(A, B);
 		let concat = Concat(self.entries, entry);
 		(
-			COUNT * 0x08,
+			// TODO(qix-): When const traits are eventually stabilized
+			// TODO(qix-): (a ways off), change the `as u16` line to this:
+			// TODO(qix-): u16::try_from(COUNT * 0x08).expect("GDT too big"),
+			(COUNT * 0x08) as u16,
 			Gdt {
 				entries: unsafe { core::mem::transmute_copy(&concat) },
 			},
@@ -300,7 +296,7 @@ impl<const COUNT: usize> Gdt<COUNT> {
 	/// Returns a new GDT with the given system entry added.
 	///
 	/// Returns the offset (in bytes) of the entry and the new GDT as a tuple.
-	pub const fn with_sys_entry(self, entry: SysEntry) -> (usize, Gdt<{ COUNT + 2 }>) {
+	pub const fn with_sys_entry(self, entry: SysEntry) -> (u16, Gdt<{ COUNT + 2 }>) {
 		#[expect(clippy::missing_docs_in_private_items)]
 		#[repr(C)]
 		#[derive(Copy, Clone)]
@@ -311,7 +307,10 @@ impl<const COUNT: usize> Gdt<COUNT> {
 		let concat = Concat(self.entries, [low, high]);
 
 		(
-			COUNT * 0x08,
+			// TODO(qix-): When const traits are eventually stabilized
+			// TODO(qix-): (a ways off), change the `as u16` line to this:
+			// TODO(qix-): u16::try_from(COUNT * 0x08).expect("GDT too big"),
+			(COUNT * 0x08) as u16,
 			Gdt {
 				entries: unsafe { core::mem::transmute_copy(&concat) },
 			},

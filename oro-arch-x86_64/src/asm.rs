@@ -182,3 +182,15 @@ pub fn rdmsr(msr: u32) -> u64 {
 
 	(u64::from(val_d) << 32) | u64::from(val_a)
 }
+
+/// Loads (sets) the given GDT offset as the TSS (Task State Segment) for the current core.
+#[inline(always)]
+pub fn load_tss(offset: u16) {
+	unsafe {
+		asm!(
+			"ltr ax",
+			in("ax") offset,
+			options(nostack, preserves_flags)
+		);
+	}
+}

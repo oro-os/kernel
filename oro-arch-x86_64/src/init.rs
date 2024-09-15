@@ -1,8 +1,13 @@
 //! Architecture / core initialization
 //! routines and global state definitions.
 
-use crate::{handler::Handler, lapic::Lapic};
-use core::mem::MaybeUninit;
+use crate::{
+	gdt::{Gdt, SysEntry},
+	handler::Handler,
+	lapic::Lapic,
+	tss::Tss,
+};
+use core::{cell::UnsafeCell, mem::MaybeUninit};
 use oro_debug::{dbg, dbg_warn};
 use oro_kernel::KernelState;
 use oro_mem::translate::{OffsetTranslator, Translator};
@@ -88,13 +93,31 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 /// (i.e. boot, or powerdown/subsequent bringup).
 pub unsafe fn boot(lapic: Lapic) -> ! {
 	// SAFETY(qix-): THIS MUST ABSOLUTELY BE FIRST.
-	let _ = crate::Kernel::initialize_for_core(
+	let kernel = crate::Kernel::initialize_for_core(
 		KERNEL_STATE.assume_init_ref(),
-		crate::CoreState { lapic },
+		crate::CoreState {
+			lapic,
+			gdt: UnsafeCell::new(MaybeUninit::uninit()),
+			tss: UnsafeCell::new(Tss::default()),
+		},
 	)
 	.expect("failed to initialize kernel");
 
+	let (tss_offset, gdt) =
+		Gdt::<5>::new().with_sys_entry(SysEntry::for_tss(kernel.core().tss.get()));
+
+	assert_eq!(tss_offset, crate::TSS_GDT_OFFSET, "TSS offset mismatch");
+
+	{
+		let gdt_raw = kernel.core().gdt.get();
+		let gdt_mut = &mut *gdt_raw;
+		gdt_mut.write(gdt);
+		core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+		gdt_mut.assume_init_ref().install();
+	}
+
 	crate::interrupt::install_idt();
+	crate::asm::load_tss(crate::TSS_GDT_OFFSET);
 
 	dbg!("boot");
 
