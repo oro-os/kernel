@@ -150,7 +150,6 @@ pub unsafe fn install_idt() {
 
 	core::arch::asm!(
 		"lidt [{}]",
-		"sti",
 		in(reg) &idtr,
 		options(nostack, preserves_flags)
 	);

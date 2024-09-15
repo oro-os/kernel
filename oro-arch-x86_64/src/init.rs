@@ -123,12 +123,15 @@ pub unsafe fn boot(lapic: Lapic) -> ! {
 
 	let handler = Handler::new();
 	loop {
+		crate::asm::disable_interrupts();
 		if let Some(_user_ctx) = handler.kernel().scheduler().event_idle(&handler) {
+			crate::asm::enable_interrupts();
 			todo!();
 		} else {
 			// Nothing to do. Wait for an interrupt.
 			// Scheduler will have asked us to set a timer
 			// if it wants to be woken up.
+			crate::asm::enable_interrupts();
 			crate::asm::halt_once();
 		}
 	}
