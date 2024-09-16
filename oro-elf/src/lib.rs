@@ -431,7 +431,12 @@ impl<'a> ElfSegment for ElfSegmentHeader<'a> {
 				_ => ElfSegmentType::Invalid { flags, ptype },
 			}
 		} else {
-			ElfSegmentType::Ignored
+			match (is_x, is_w, is_r) {
+				(true, false, true) => ElfSegmentType::ModuleCode,
+				(false, true, true) => ElfSegmentType::ModuleData,
+				(false, false, true) => ElfSegmentType::ModuleRoData,
+				_ => ElfSegmentType::Invalid { flags, ptype },
+			}
 		}
 	}
 
@@ -512,6 +517,23 @@ pub enum ElfSegmentType {
 	KernelRoData,
 	/// Kernel configuration requests (read-only)
 	KernelRequests,
+	/// Module code segment
+	ModuleCode,
+	/// Module data segment (read-write)
+	ModuleData,
+	/// Module read-only data segment
+	ModuleRoData,
+}
+
+impl ElfSegmentType {
+	/// Returns `true` if the segment is a kernel segment.
+	#[must_use]
+	pub fn is_kernel_segment(&self) -> bool {
+		matches!(
+			self,
+			Self::KernelCode | Self::KernelData | Self::KernelRoData | Self::KernelRequests
+		)
+	}
 }
 
 /// An ELF64 header.
