@@ -6,7 +6,7 @@ use crate::{
 	registry::{Handle, List},
 	ring::Ring,
 	thread::Thread,
-	Arch,
+	Arch, UserHandle,
 };
 
 /// A singular module instance.
@@ -42,13 +42,18 @@ pub struct Instance<A: Arch> {
 	/// The module instance ID.
 	pub(crate) id:      usize,
 	/// The module from which this instance was spawned.
-	pub(crate) module:  Handle<Module>,
+	pub(crate) module:  Handle<Module<A>>,
 	/// The ring on which this instance resides.
 	pub(crate) ring:    Handle<Ring<A>>,
 	/// The thread list for the instance.
 	pub(crate) threads: Handle<List<Thread<A>, A>>,
 	/// The port list for the instance.
 	pub(crate) ports:   Handle<List<Port, A>>,
+	/// The instance's address space mapper handle.
+	///
+	/// This is typically cloned from the module's user
+	/// space handle.
+	pub(crate) mapper:  UserHandle<A>,
 }
 
 impl<A: Arch> Instance<A> {
@@ -67,7 +72,7 @@ impl<A: Arch> Instance<A> {
 	}
 
 	/// The [`Handle`] to the module from which this instance was spawned.
-	pub fn module(&self) -> Handle<Module> {
+	pub fn module(&self) -> Handle<Module<A>> {
 		self.module.clone()
 	}
 
@@ -84,5 +89,11 @@ impl<A: Arch> Instance<A> {
 	/// Gets a handle to the list of ports for this instance.
 	pub fn ports(&self) -> Handle<List<Port, A>> {
 		self.ports.clone()
+	}
+
+	/// Returns the instance's address space handle.
+	#[must_use]
+	pub fn mapper(&self) -> &UserHandle<A> {
+		&self.mapper
 	}
 }

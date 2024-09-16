@@ -22,6 +22,7 @@ use self::{
 	scheduler::Scheduler,
 };
 use core::mem::MaybeUninit;
+use oro_id::{Id, IdType};
 use oro_macro::assert;
 use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError},
@@ -63,6 +64,10 @@ impl<CoreState: Sized + 'static, A: Arch> Kernel<CoreState, A> {
 	/// The `state` given to the kernel must be shared for all
 	/// instances of the kernel that wish to partake in the same
 	/// Oro kernel universe.
+	///
+	/// This function will fetch and store the current supervisor
+	/// address space mapper handle for the kernel to use. It must
+	/// be the final one that will be used for the lifetime of the core.
 	pub unsafe fn initialize_for_core(
 		global_state: &'static KernelState<A>,
 		core_state: CoreState,
@@ -137,16 +142,31 @@ pub struct KernelState<A: Arch> {
 	/// The physical address translator.
 	pat: A::Pat,
 
+	/// The base userspace address space mapper.
+	///
+	/// This is a clone of the supervisor space mapper handle
+	/// devoid of any userspace mappings, as well as all kernel-local
+	/// mappings removed.
+	///
+	/// It serves as the base for all userspace mappers.
+	user_mapper: UserHandle<A>,
+
 	/// List of all modules.
 	///
 	/// Always `Some` after a valid initialization.
 	/// Can be safely `.unwrap()`'d in most situations.
-	modules:   Option<Handle<List<module::Module, A>>>,
+	modules:   Option<Handle<List<module::Module<A>, A>>>,
 	/// List of all rings.
 	///
 	/// Always `Some` after a valid initialization.
 	/// Can be safely `.unwrap()`'d in most situations.
 	rings:     Option<Handle<List<ring::Ring<A>, A>>>,
+	/// List of all instances.
+	///
+	/// Always `Some` after a valid initialization.
+	/// Can be safely `.unwrap()`'d in most situations.
+	instances: Option<Handle<List<instance::Instance<A>, A>>>,
+
 	/// The root ring.
 	///
 	/// Always `Some` after a valid initialization.
@@ -158,12 +178,10 @@ pub struct KernelState<A: Arch> {
 	/// Ring list registry.
 	ring_list_registry:     ListRegistry<ring::Ring<A>, A>,
 	/// Module registry.
-	#[expect(dead_code)]
-	module_registry:        Registry<module::Module, A>,
+	module_registry:        Registry<module::Module<A>, A>,
 	/// Module list registry.
-	module_list_registry:   ListRegistry<module::Module, A>,
+	module_list_registry:   ListRegistry<module::Module<A>, A>,
 	/// Instance registry.
-	#[expect(dead_code)]
 	instance_registry:      Registry<instance::Instance<A>, A>,
 	/// Instance list registry.
 	instance_list_registry: ListRegistry<instance::Instance<A>, A>,
@@ -171,13 +189,11 @@ pub struct KernelState<A: Arch> {
 	#[expect(dead_code)]
 	thread_registry:        Registry<thread::Thread<A>, A>,
 	/// Thread list registry.
-	#[expect(dead_code)]
 	thread_list_registry:   ListRegistry<thread::Thread<A>, A>,
 	/// Port registry.
 	#[expect(dead_code)]
 	port_registry:          Registry<port::Port, A>,
 	/// Port list registry.
-	#[expect(dead_code)]
 	port_list_registry:     ListRegistry<port::Port, A>,
 }
 
@@ -245,12 +261,19 @@ impl<A: Arch> KernelState<A> {
 			port_list_registry => (kernel_port_list_registry, kernel_port_item_registry),
 		}
 
+		let supervisor_space = AddrSpace::<A>::current_supervisor_space(&pat);
+		let user_mapper =
+			AddrSpace::<A>::new_user_space(&supervisor_space, &mut *pfa.lock::<A::IntCtrl>(), &pat)
+				.ok_or(MapError::OutOfMemory)?;
+
 		this.write(Self {
 			pfa,
 			pat,
+			user_mapper,
 			root_ring: None,
 			modules: None,
 			rings: None,
+			instances: None,
 			ring_registry,
 			ring_list_registry,
 			module_registry,
@@ -277,12 +300,14 @@ impl<A: Arch> KernelState<A> {
 
 		let modules = this.module_list_registry.create_list(&this.pfa)?;
 		let rings = this.ring_list_registry.create_list(&this.pfa)?;
+		let instances = this.instance_list_registry.create_list(&this.pfa)?;
 
 		let _ = rings.append(&this.pfa, root_ring.clone())?;
 
 		this.root_ring = Some(root_ring);
 		this.rings = Some(rings);
 		this.modules = Some(modules);
+		this.instances = Some(instances);
 
 		Ok(())
 	}
@@ -292,7 +317,14 @@ impl<A: Arch> KernelState<A> {
 		&self.pfa
 	}
 
-	/// Creates a new ring and returns a [`registry::Handle`] to it.
+	/// Returns a [`Handle`] to the root ring.
+	#[expect(clippy::missing_panics_doc)]
+	pub fn root_ring(&'static self) -> Handle<ring::Ring<A>> {
+		// SAFETY(qix-): We always assume the root ring is initialized.
+		self.root_ring.clone().unwrap()
+	}
+
+	/// Creates a new ring and returns a [`Handle`] to it.
 	#[expect(clippy::missing_panics_doc)]
 	pub fn create_ring(
 		&'static self,
@@ -317,6 +349,96 @@ impl<A: Arch> KernelState<A> {
 		let _ = self.rings.as_ref().unwrap().append(&self.pfa, ring.clone());
 
 		Ok(ring)
+	}
+
+	/// Creates a new module and returns a [`Handle`] to it.
+	#[expect(clippy::missing_panics_doc)]
+	pub fn create_module(
+		&'static self,
+		id: Id<{ IdType::Module }>,
+	) -> Result<Handle<module::Module<A>>, MapError> {
+		let instance_list = self.instance_list_registry.create_list(&self.pfa)?;
+
+		let mapper = {
+			// SAFETY(qix-): We don't panic here.
+			let mut pfa = unsafe { self.pfa.lock::<A::IntCtrl>() };
+			AddrSpace::<A>::duplicate_user_space_shallow(&self.user_mapper, &mut *pfa, &self.pat)
+				.ok_or(MapError::OutOfMemory)?
+		};
+
+		let module = self.module_registry.insert(
+			&self.pfa,
+			module::Module::<A> {
+				id: 0,
+				module_id: id,
+				instances: instance_list,
+				mapper,
+			},
+		)?;
+
+		// SAFETY(qix-): Will not panic.
+		unsafe {
+			module.lock::<A::IntCtrl>().id = module.id();
+		}
+
+		// SAFETY(qix-): As long as the kernel state has been initialized,
+		// SAFETY(qix-): this won't panic.
+		let _ = self
+			.modules
+			.as_ref()
+			.unwrap()
+			.append(&self.pfa, module.clone());
+
+		Ok(module)
+	}
+
+	/// Creates a new instance and returns a [`Handle`] to it.
+	#[expect(clippy::needless_pass_by_value)]
+	pub fn create_instance(
+		&'static self,
+		module: Handle<module::Module<A>>,
+		ring: Handle<ring::Ring<A>>,
+	) -> Result<Handle<instance::Instance<A>>, MapError> {
+		let thread_list = self.thread_list_registry.create_list(&self.pfa)?;
+		let port_list = self.port_list_registry.create_list(&self.pfa)?;
+
+		// SAFETY(qix-): We don't panic here.
+		let mapper = unsafe {
+			let module_lock = module.lock::<A::IntCtrl>();
+			let mut pfa = self.pfa.lock::<A::IntCtrl>();
+			AddrSpace::<A>::duplicate_user_space_shallow(module_lock.mapper(), &mut *pfa, &self.pat)
+				.ok_or(MapError::OutOfMemory)?
+		};
+
+		let instance = self.instance_registry.insert(
+			&self.pfa,
+			instance::Instance {
+				id: 0,
+				module: module.clone(),
+				ring: ring.clone(),
+				threads: thread_list,
+				ports: port_list,
+				mapper,
+			},
+		)?;
+
+		// SAFETY(qix-): Will not panic.
+		unsafe {
+			instance.lock::<A::IntCtrl>().id = instance.id();
+
+			// SAFETY(qix-): As long as the kernel state has been initialized,
+			// SAFETY(qix-): this won't panic.
+			let _ = module
+				.lock::<A::IntCtrl>()
+				.instances
+				.append(&self.pfa, instance.clone());
+			let _ = ring
+				.lock::<A::IntCtrl>()
+				.instances
+				.append(&self.pfa, instance.clone());
+		}
+
+		Ok(instance)
 	}
 }
 

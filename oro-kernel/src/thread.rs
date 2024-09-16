@@ -18,6 +18,9 @@ pub struct Thread<A: Arch> {
 	/// The module instance to which this thread belongs.
 	pub(crate) instance: Handle<Instance<A>>,
 	/// The thread's address space handle.
+	///
+	/// This is typically cloned from the instance's
+	/// userspace handle.
 	pub(crate) space:    UserHandle<A>,
 }
 
