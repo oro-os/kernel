@@ -83,8 +83,13 @@ pub mod tss;
 pub(crate) mod init;
 
 use core::{cell::UnsafeCell, mem::MaybeUninit};
+use mem::address_space::AddressSpaceLayout;
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
-use oro_mem::{pfa::filo::FiloPageFrameAllocator, translate::OffsetTranslator};
+use oro_mem::{
+	mapper::{AddressSegment, MapError, UnmapError},
+	pfa::{alloc::Alloc, filo::FiloPageFrameAllocator},
+	translate::OffsetTranslator,
+};
 
 /// The ELF class of the x86_64 architecture.
 pub const ELF_CLASS: ElfClass = ElfClass::Class64;
@@ -106,6 +111,57 @@ impl oro_kernel::Arch for Arch {
 	type IntCtrl = crate::sync::InterruptController;
 	type Pat = OffsetTranslator;
 	type Pfa = Pfa;
+
+	fn initialize_thread_mappings(
+		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
+		pfa: &mut Self::Pfa,
+		pat: &Self::Pat,
+	) -> Result<(), oro_mem::mapper::MapError> {
+		// Map only a page, with a stack guard.
+		let irq_stack_segment = AddressSpaceLayout::module_interrupt_stack();
+		let stack_high_guard = irq_stack_segment.range().1 & !0xFFF;
+		let stack_start = stack_high_guard - 0x1000;
+		#[cfg(debug_assertions)]
+		let stack_low_guard = stack_start - 0x1000;
+
+		// Make sure the guard pages are unmapped.
+		// More of a debug check, as this should never be the case
+		// with a bug-free implementation.
+		#[cfg(debug_assertions)]
+		{
+			match irq_stack_segment.unmap(thread, pfa, pat, stack_high_guard) {
+				Ok(phys) => panic!("interrupt stack high guard was already mapped at {phys:016X}"),
+				Err(UnmapError::NotMapped) => {}
+				Err(err) => {
+					panic!("interrupt stack high guard encountered error when unmapping: {err:?}")
+				}
+			}
+
+			match irq_stack_segment.unmap(thread, pfa, pat, stack_low_guard) {
+				Ok(phys) => panic!("interrupt stack low guard was already mapped at {phys:016X}"),
+				Err(UnmapError::NotMapped) => {}
+				Err(err) => {
+					panic!("interrupt stack low guard encountered error when unmapping: {err:?}")
+				}
+			}
+		}
+
+		// Map the stack page.
+		let phys = pfa.allocate().ok_or(MapError::OutOfMemory)?;
+		irq_stack_segment.map(thread, pfa, pat, stack_start, phys)
+	}
+
+	fn reclaim_thread_mappings(
+		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
+
+		pfa: &mut Self::Pfa,
+		pat: &Self::Pat,
+	) -> Result<(), UnmapError> {
+		// SAFETY(qix-): The module interrupt stack space is fully reclaimable and never shared.
+		unsafe {
+			AddressSpaceLayout::module_interrupt_stack().unmap_all_and_reclaim(thread, pfa, pat)
+		}
+	}
 }
 
 /// Type alias for the Oro kernel core-local instance type.

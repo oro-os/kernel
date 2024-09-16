@@ -352,6 +352,50 @@ impl AddressSegment {
 			}
 		}
 	}
+
+	/// Takes the page table entry at the given index and unmaps it based on the current
+	/// depth.
+	///
+	/// # Safety
+	/// Really only meant for mass-unmapping operations. `level` must be the paging
+	/// level minus one.
+	///
+	/// Caller must ensure that ALL pages under the given entry are reclaimable and
+	/// that the entry itself is reclaimable, and that none of the reclaimed pages
+	/// are still being used.
+	#[expect(clippy::only_used_in_recursion)] // false positive
+	unsafe fn unmap_and_reclaim_entry<A, P>(
+		&self,
+		entry: &mut PageTableEntry,
+		alloc: &mut A,
+		translator: &P,
+		level: usize,
+	) where
+		A: Alloc,
+		P: Translator,
+	{
+		if entry.present() {
+			let phys = entry.address();
+			// SAFETY(qix-): We know that the physical address is valid.
+			let pt = unsafe { &mut *translator.translate_mut::<PageTable>(phys) };
+
+			if level == 1 {
+				for idx in 0..512 {
+					let entry = &mut pt[idx];
+					if entry.present() {
+						alloc.free(entry.address());
+					}
+				}
+			} else {
+				for idx in 0..512 {
+					self.unmap_and_reclaim_entry(&mut pt[idx], alloc, translator, level - 1);
+				}
+			}
+
+			// SAFETY(qix-): We know that the physical address is valid.
+			alloc.free(phys);
+		}
+	}
 }
 
 unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
@@ -372,6 +416,30 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 				)
 			}
 		}
+	}
+
+	unsafe fn unmap_all_and_reclaim<A, P>(
+		&self,
+		space: &AddressSpaceHandle,
+		alloc: &mut A,
+		translator: &P,
+	) -> Result<(), UnmapError>
+	where
+		A: Alloc,
+		P: Translator,
+	{
+		let top_level = &mut *translator.translate_mut::<PageTable>(space.base_phys());
+
+		for idx in self.valid_range.0..=self.valid_range.1 {
+			self.unmap_and_reclaim_entry(
+				&mut top_level[idx],
+				alloc,
+				translator,
+				space.paging_level.as_usize() - 1,
+			);
+		}
+
+		Ok(())
 	}
 
 	fn provision_as_shared<A, P>(

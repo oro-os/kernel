@@ -48,6 +48,10 @@ impl AddressSpaceLayout {
 
 	/// The index for the module segments.
 	pub const MODULE_EXE_IDX: (usize, usize) = (5, 16);
+	/// The index for the module thread stack segment.
+	pub const MODULE_THREAD_STACK_IDX: usize = 17;
+	/// The index for the module thread interrupt stack.
+	pub const MODULE_INTERRUPT_STACK_IDX: usize = 18;
 
 	/// The recursive index for the page table.
 	pub const RECURSIVE_IDX: usize = 256;
@@ -232,6 +236,32 @@ impl AddressSpaceLayout {
 
 		&DESCRIPTOR
 	}
+
+	/// Returns a segment for the module's interrupt thread stack.
+	///
+	/// This MUST NOT overlap with any other segment, must be
+	/// writable, and must NOT be user-accessible (despite being
+	/// in the user address space). It must also not be executable.
+	#[must_use]
+	pub fn module_interrupt_stack() -> &'static AddressSegment {
+		#[expect(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range: (
+				AddressSpaceLayout::MODULE_INTERRUPT_STACK_IDX,
+				AddressSpaceLayout::MODULE_INTERRUPT_STACK_IDX,
+			),
+			entry_template: PageTableEntry::new()
+				.with_present()
+				.with_writable()
+				.with_no_exec(),
+			intermediate_entry_template: PageTableEntry::new()
+				.with_present()
+				.with_writable()
+				.with_no_exec(),
+		};
+
+		&DESCRIPTOR
+	}
 }
 
 #[expect(clippy::missing_docs_in_private_items)]
@@ -373,6 +403,34 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	{
 		// Supervisor and userspace handles are the same on x86_64.
 		Self::duplicate_supervisor_space_shallow(space, alloc, translator)
+	}
+
+	fn free_user_space<A, P>(space: Self::UserHandle, alloc: &mut A, _translator: &P)
+	where
+		A: Alloc,
+		P: Translator,
+	{
+		// SAFETY(qix-): We can guarantee that if we have a valid handle,
+		// SAFETY(qix-): we own this physical page and can free it.
+		unsafe { alloc.free(space.base_phys) };
+	}
+
+	fn module_thread_stack() -> Self::UserSegment {
+		#[expect(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range: (
+				AddressSpaceLayout::MODULE_THREAD_STACK_IDX,
+				AddressSpaceLayout::MODULE_THREAD_STACK_IDX,
+			),
+			entry_template: PageTableEntry::new()
+				.with_user()
+				.with_writable()
+				.with_no_exec()
+				.with_present(),
+			intermediate_entry_template: MODULE_EXE_INTERMEDIATE_ENTRY,
+		};
+
+		&DESCRIPTOR
 	}
 
 	fn kernel_code() -> Self::SupervisorSegment {

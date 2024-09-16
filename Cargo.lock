@@ -296,6 +296,7 @@ version = "0.0.0"
 name = "oro-kernel"
 version = "0.0.0"
 dependencies = [
+ "oro-debug",
  "oro-id",
  "oro-macro",
  "oro-mem",

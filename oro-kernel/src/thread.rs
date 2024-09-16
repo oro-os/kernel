@@ -1,6 +1,7 @@
 //! Thread management types and functions.
 
 use crate::{instance::Instance, registry::Handle, Arch, UserHandle};
+use core::mem::MaybeUninit;
 
 /// A singular system thread.
 ///
@@ -21,7 +22,11 @@ pub struct Thread<A: Arch> {
 	///
 	/// This is typically cloned from the instance's
 	/// userspace handle.
-	pub(crate) space:    UserHandle<A>,
+	///
+	/// The mapper is valid and can be assumed initialized
+	/// after the call to [`crate::KernelState::create_thread`]
+	/// returns.
+	pub(crate) mapper:   MaybeUninit<UserHandle<A>>,
 }
 
 impl<A: Arch> Thread<A> {
@@ -48,7 +53,10 @@ impl<A: Arch> Thread<A> {
 
 	/// Returns the thread's address space handle.
 	#[must_use]
-	pub fn space(&self) -> &UserHandle<A> {
-		&self.space
+	pub fn mapper(&self) -> &UserHandle<A> {
+		// SAFETY(qix-): Safe to call after the thread is created.
+		// SAFETY(qix-): NOTE: This *does* mean it's UNSAFE to call this
+		// SAFETY(qix-): NOTE: from within `Kernel::create_thread()`.
+		unsafe { self.mapper.assume_init_ref() }
 	}
 }
