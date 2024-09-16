@@ -266,6 +266,29 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		})
 	}
 
+	fn new_user_space<A, P>(
+		space: &Self::SupervisorHandle,
+		alloc: &mut A,
+		translator: &P,
+	) -> Option<Self::UserHandle>
+	where
+		A: Alloc,
+		P: Translator,
+	{
+		let duplicated = Self::duplicate_supervisor_space_shallow(space, alloc, translator)?;
+
+		// Unmap core-local segments.
+		for segment in [Self::kernel_core_local(), Self::kernel_stack()] {
+			// SAFETY(qix-): We're purposefully not reclaiming the memory here.
+			unsafe {
+				segment.unmap_without_reclaim(&duplicated, translator);
+			}
+		}
+
+		// Supervisor and userspace handles are the same on x86_64.
+		Some(duplicated)
+	}
+
 	fn duplicate_supervisor_space_shallow<A: Alloc, P: Translator>(
 		space: &Self::SupervisorHandle,
 		alloc: &mut A,
@@ -282,6 +305,19 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 			base_phys,
 			paging_level: PagingLevel::current_from_cpu(),
 		})
+	}
+
+	fn duplicate_user_space_shallow<A, P>(
+		space: &Self::UserHandle,
+		alloc: &mut A,
+		translator: &P,
+	) -> Option<Self::UserHandle>
+	where
+		A: Alloc,
+		P: Translator,
+	{
+		// Supervisor and userspace handles are the same on x86_64.
+		Self::duplicate_supervisor_space_shallow(space, alloc, translator)
 	}
 
 	fn kernel_code() -> Self::SupervisorSegment {
