@@ -4,10 +4,13 @@
 //! etc. and provides a common interface for architectures to implement
 //! the Oro kernel on their respective platforms.
 #![no_std]
-// NOTE(qix-): `adt_const_params` isn't strictly necessary but is on track for acceptance,
-// NOTE(qix-): and the open questions (e.g. mangling) are not of concern here.
-// NOTE(qix-): https://github.com/rust-lang/rust/issues/95174
+// SAFETY(qix-): `adt_const_params` isn't strictly necessary but is on track for acceptance,
+// SAFETY(qix-): and the open questions (e.g. mangling) are not of concern here.
+// SAFETY(qix-): https://github.com/rust-lang/rust/issues/95174
 #![feature(adt_const_params)]
+// SAFETY(qix-): Technically not required but helps clean things up a bit for the archs.
+// SAFETY(qix-): https://github.com/rust-lang/rust/issues/29661
+#![feature(associated_type_defaults)]
 
 pub mod instance;
 pub mod module;
@@ -462,6 +465,8 @@ impl<A: Arch> KernelState<A> {
 			.ok_or(MapError::OutOfMemory)?
 		};
 
+		let mut thread_state = A::ThreadState::default();
+
 		// Map the stack for the thread.
 		// SAFETY(qix-): We don't panic here.
 		let thread = unsafe {
@@ -512,7 +517,7 @@ impl<A: Arch> KernelState<A> {
 				}
 
 				// Let the architecture do any additional stack setup.
-				A::initialize_thread_mappings(&mapper, &mut *pfa, &self.pat)?;
+				A::initialize_thread_mappings(&mapper, &mut thread_state, &mut *pfa, &self.pat)?;
 
 				// Kill the PFA lock so that we can safely pass the reference
 				// to the lock itself to the `.insert()`/`.append()` functions
@@ -522,10 +527,12 @@ impl<A: Arch> KernelState<A> {
 				let thread = self.thread_registry.insert(
 					&self.pfa,
 					thread::Thread::<A> {
-						id:       0,
-						instance: instance.clone(),
+						id:           0,
+						instance:     instance.clone(),
 						// We set it in a moment.
-						mapper:   MaybeUninit::uninit(),
+						mapper:       MaybeUninit::uninit(),
+						// We set it in a moment.
+						thread_state: MaybeUninit::uninit(),
 					},
 				)?;
 
@@ -544,7 +551,9 @@ impl<A: Arch> KernelState<A> {
 				Err(err) => {
 					let mut pfa = self.pfa.lock::<A::IntCtrl>();
 
-					if let Err(err) = A::reclaim_thread_mappings(&mapper, &mut *pfa, &self.pat) {
+					if let Err(err) =
+						A::reclaim_thread_mappings(&mapper, &mut thread_state, &mut *pfa, &self.pat)
+					{
 						dbg_err!(
 							"failed to reclaim architecture thread mappings - MEMORY MAY LEAK: \
 							 {err:?}"
@@ -567,7 +576,9 @@ impl<A: Arch> KernelState<A> {
 
 		// SAFETY(qix-): We don't panic here.
 		unsafe {
-			thread.lock::<A::IntCtrl>().mapper.write(mapper);
+			let mut thread_lock = thread.lock::<A::IntCtrl>();
+			thread_lock.mapper.write(mapper);
+			thread_lock.thread_state.write(thread_state);
 		}
 
 		Ok(thread)
@@ -587,6 +598,9 @@ pub trait Arch: 'static {
 	type IntCtrl: InterruptController;
 	/// The address space layout the architecture uses.
 	type AddrSpace: AddressSpace;
+	/// Architecture-specific thread state to be stored alongside
+	/// each thread.
+	type ThreadState: Default + Sized = ();
 
 	/// Allows the architecture to further initialize an instance
 	/// thread's mappings when threads are created.
@@ -596,6 +610,7 @@ pub trait Arch: 'static {
 	/// correctly for the architecture.
 	fn initialize_thread_mappings(
 		_thread: &<Self::AddrSpace as AddressSpace>::UserHandle,
+		_thread_state: &mut Self::ThreadState,
 		_pfa: &mut Self::Pfa,
 		_pat: &Self::Pat,
 	) -> Result<(), MapError> {
@@ -613,7 +628,7 @@ pub trait Arch: 'static {
 	/// thread creation, causing a fragmented thread map.
 	fn reclaim_thread_mappings(
 		_thread: &<Self::AddrSpace as AddressSpace>::UserHandle,
-
+		_thread_state: &mut Self::ThreadState,
 		_pfa: &mut Self::Pfa,
 		_pat: &Self::Pat,
 	) -> Result<(), UnmapError> {
