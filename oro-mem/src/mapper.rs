@@ -126,6 +126,21 @@ pub unsafe trait AddressSpace: 'static {
 		A: Alloc,
 		P: Translator;
 
+	/// Frees and reclaims the user address space handle.
+	///
+	/// Frees the TOP LEVEL page table, without reclaiming any of the pages
+	/// that the page table points to.
+	fn free_user_space<A, P>(space: Self::UserHandle, alloc: &mut A, translator: &P)
+	where
+		A: Alloc,
+		P: Translator;
+
+	/// Returns the layout descriptor for the module thread segment.
+	///
+	/// This must be read-write, user accessible, and is
+	/// **not** executable.
+	fn module_thread_stack() -> Self::UserSegment;
+
 	/// Returns the layout descriptor for the kernel code segment.
 	///
 	/// This must be read-only, user accessible if the architecture
@@ -252,6 +267,21 @@ pub unsafe trait AddressSegment<Handle: Sized>: 'static {
 		virt: usize,
 		phys: u64,
 	) -> Result<(), MapError>
+	where
+		A: Alloc,
+		P: Translator;
+
+	/// Unmaps and reclaims all pages in the segment.
+	///
+	/// # Safety
+	/// Caller must ensure that all reclaimed pages are truly
+	/// freeable and not in use by any other address space handle.
+	unsafe fn unmap_all_and_reclaim<A, P>(
+		&self,
+		space: &Handle,
+		alloc: &mut A,
+		translator: &P,
+	) -> Result<(), UnmapError>
 	where
 		A: Alloc,
 		P: Translator;

@@ -192,9 +192,15 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 				}
 			}
 
-			let _instance = state
+			let instance = state
 				.create_instance(module_handle, root_ring.clone())
 				.expect("failed to create root ring instance");
+
+			// Create a thread for the entry point.
+			// TODO(qix-): Allow stack size to be passed in via module command line.
+			let _thread = state
+				.create_thread(instance, 16 * 1024)
+				.expect("failed to create root ring instance thread");
 		}
 	}
 }

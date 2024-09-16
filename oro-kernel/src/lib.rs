@@ -22,10 +22,11 @@ use self::{
 	scheduler::Scheduler,
 };
 use core::mem::MaybeUninit;
+use oro_debug::dbg_err;
 use oro_id::{Id, IdType};
 use oro_macro::assert;
 use oro_mem::{
-	mapper::{AddressSegment, AddressSpace, MapError},
+	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::alloc::Alloc,
 	translate::Translator,
 };
@@ -186,7 +187,6 @@ pub struct KernelState<A: Arch> {
 	/// Instance list registry.
 	instance_list_registry: ListRegistry<instance::Instance<A>, A>,
 	/// Thread registry.
-	#[expect(dead_code)]
 	thread_registry:        Registry<thread::Thread<A>, A>,
 	/// Thread list registry.
 	thread_list_registry:   ListRegistry<thread::Thread<A>, A>,
@@ -440,6 +440,138 @@ impl<A: Arch> KernelState<A> {
 
 		Ok(instance)
 	}
+
+	/// Creates a new thread and returns a [`Handle`] to it.
+	///
+	/// `stack_size` is rounded up to the next page size.
+	#[expect(clippy::missing_panics_doc, clippy::needless_pass_by_value)]
+	pub fn create_thread(
+		&'static self,
+		instance: Handle<instance::Instance<A>>,
+		stack_size: usize,
+	) -> Result<Handle<thread::Thread<A>>, MapError> {
+		// SAFETY(qix-): We don't panic here.
+		let mapper = unsafe {
+			let instance_lock = instance.lock::<A::IntCtrl>();
+			let mut pfa = self.pfa.lock::<A::IntCtrl>();
+			AddrSpace::<A>::duplicate_user_space_shallow(
+				instance_lock.mapper(),
+				&mut *pfa,
+				&self.pat,
+			)
+			.ok_or(MapError::OutOfMemory)?
+		};
+
+		// Map the stack for the thread.
+		// SAFETY(qix-): We don't panic here.
+		let thread = unsafe {
+			// Map a stack for the thread.
+			let stack_segment = AddrSpace::<A>::module_thread_stack();
+			let stack_size = (stack_size + 0xFFF) & !0xFFF;
+
+			let stack_high_guard = stack_segment.range().1 & !0xFFF;
+			let stack_first_page = stack_high_guard - stack_size;
+			#[cfg(debug_assertions)]
+			let stack_low_guard = stack_first_page - 0x1000;
+
+			let map_result = {
+				let mut pfa = self.pfa.lock::<A::IntCtrl>();
+
+				for virt in (stack_first_page..stack_high_guard).step_by(0x1000) {
+					let phys = pfa.allocate().ok_or(MapError::OutOfMemory)?;
+					stack_segment.map(&mapper, &mut *pfa, &self.pat, virt, phys)?;
+				}
+
+				// Make sure the guard pages are unmapped.
+				// This is more of an assertion to make sure the thread
+				// state is not in a bad state, but should never be the
+				// case outside of bugs.
+				#[cfg(debug_assertions)]
+				{
+					match stack_segment.unmap(&mapper, &mut *pfa, &self.pat, stack_low_guard) {
+						Ok(phys) => {
+							panic!("a module's thread stack low guard page was mapped: {phys:016X}")
+						}
+						Err(UnmapError::NotMapped) => {}
+						Err(e) => {
+							panic!("failed to unmap a module's thread stack low guard page: {e:?}")
+						}
+					}
+
+					match stack_segment.unmap(&mapper, &mut *pfa, &self.pat, stack_high_guard) {
+						Ok(phys) => {
+							panic!(
+								"a module's thread stack high guard page was mapped: {phys:016X}"
+							)
+						}
+						Err(UnmapError::NotMapped) => {}
+						Err(e) => {
+							panic!("failed to unmap a module's thread stack high guard page: {e:?}")
+						}
+					}
+				}
+
+				// Let the architecture do any additional stack setup.
+				A::initialize_thread_mappings(&mapper, &mut *pfa, &self.pat)?;
+
+				// Kill the PFA lock so that we can safely pass the reference
+				// to the lock itself to the `.insert()`/`.append()` functions
+				// without deadlocking.
+				drop(pfa);
+
+				let thread = self.thread_registry.insert(
+					&self.pfa,
+					thread::Thread::<A> {
+						id:       0,
+						instance: instance.clone(),
+						// We set it in a moment.
+						mapper:   MaybeUninit::uninit(),
+					},
+				)?;
+
+				thread.lock::<A::IntCtrl>().id = thread.id();
+
+				let _ = instance
+					.lock::<A::IntCtrl>()
+					.threads
+					.append(&self.pfa, thread.clone())?;
+
+				Ok(thread)
+			};
+
+			// Try to reclaim the memory we just allocated, if any.
+			match map_result {
+				Err(err) => {
+					let mut pfa = self.pfa.lock::<A::IntCtrl>();
+
+					if let Err(err) = A::reclaim_thread_mappings(&mapper, &mut *pfa, &self.pat) {
+						dbg_err!(
+							"failed to reclaim architecture thread mappings - MEMORY MAY LEAK: \
+							 {err:?}"
+						);
+					}
+
+					if let Err(err) =
+						stack_segment.unmap_all_and_reclaim(&mapper, &mut *pfa, &self.pat)
+					{
+						dbg_err!("failed to reclaim thread stack - MEMORY MAY LEAK: {err:?}");
+					}
+
+					AddrSpace::<A>::free_user_space(mapper, &mut *pfa, &self.pat);
+
+					return Err(err);
+				}
+				Ok(thread) => thread,
+			}
+		};
+
+		// SAFETY(qix-): We don't panic here.
+		unsafe {
+			thread.lock::<A::IntCtrl>().mapper.write(mapper);
+		}
+
+		Ok(thread)
+	}
 }
 
 /// A trait for architectures to list commonly used types
@@ -455,6 +587,38 @@ pub trait Arch: 'static {
 	type IntCtrl: InterruptController;
 	/// The address space layout the architecture uses.
 	type AddrSpace: AddressSpace;
+
+	/// Allows the architecture to further initialize an instance
+	/// thread's mappings when threads are created.
+	///
+	/// This guarantees that, no matter from where the thread is
+	/// created, the thread's address space will be initialized
+	/// correctly for the architecture.
+	fn initialize_thread_mappings(
+		_thread: &<Self::AddrSpace as AddressSpace>::UserHandle,
+		_pfa: &mut Self::Pfa,
+		_pat: &Self::Pat,
+	) -> Result<(), MapError> {
+		Ok(())
+	}
+
+	/// Allows the architecture to further reclaim any memory
+	/// associated with a thread when it is destroyed.
+	///
+	/// This method only reclaim memory that was allocated in
+	/// [`Self::initialize_thread_mappings()`].
+	///
+	/// Further, it should _not_ expect the mappings to be present
+	/// all the time; it may be called if allocation fails during
+	/// thread creation, causing a fragmented thread map.
+	fn reclaim_thread_mappings(
+		_thread: &<Self::AddrSpace as AddressSpace>::UserHandle,
+
+		_pfa: &mut Self::Pfa,
+		_pat: &Self::Pat,
+	) -> Result<(), UnmapError> {
+		Ok(())
+	}
 }
 
 /// Helper trait association type for `Arch::AddrSpace`.
