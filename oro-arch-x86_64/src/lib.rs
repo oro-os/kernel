@@ -111,18 +111,23 @@ impl oro_kernel::Arch for Arch {
 	type IntCtrl = crate::sync::InterruptController;
 	type Pat = OffsetTranslator;
 	type Pfa = Pfa;
+	type ThreadState = ThreadState;
 
 	fn initialize_thread_mappings(
 		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
+		thread_state: &mut Self::ThreadState,
 		pfa: &mut Self::Pfa,
 		pat: &Self::Pat,
 	) -> Result<(), oro_mem::mapper::MapError> {
 		// Map only a page, with a stack guard.
+		// Must match below, in `ThreadState::default`.
 		let irq_stack_segment = AddressSpaceLayout::module_interrupt_stack();
 		let stack_high_guard = irq_stack_segment.range().1 & !0xFFF;
 		let stack_start = stack_high_guard - 0x1000;
 		#[cfg(debug_assertions)]
 		let stack_low_guard = stack_start - 0x1000;
+
+		debug_assert_eq!(thread_state.irq_stack_ptr, stack_start);
 
 		// Make sure the guard pages are unmapped.
 		// More of a debug check, as this should never be the case
@@ -153,7 +158,7 @@ impl oro_kernel::Arch for Arch {
 
 	fn reclaim_thread_mappings(
 		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
-
+		_thread_state: &mut Self::ThreadState,
 		pfa: &mut Self::Pfa,
 		pat: &Self::Pat,
 	) -> Result<(), UnmapError> {
@@ -185,4 +190,23 @@ pub(crate) struct CoreState {
 	pub gdt:   UnsafeCell<MaybeUninit<gdt::Gdt<7>>>,
 	/// The TSS (Task State Segment) for the core.
 	pub tss:   UnsafeCell<tss::Tss>,
+}
+
+/// x86_64-specific thread state.
+pub(crate) struct ThreadState {
+	/// The thread's interrupt stack pointer.
+	pub irq_stack_ptr: usize,
+}
+
+impl Default for ThreadState {
+	fn default() -> Self {
+		// Must match above in `Arch::initialize_thread_mappings`.
+		let irq_stack_segment = AddressSpaceLayout::module_interrupt_stack();
+		let stack_high_guard = irq_stack_segment.range().1 & !0xFFF;
+		let stack_start = stack_high_guard - 0x1000;
+
+		Self {
+			irq_stack_ptr: stack_start,
+		}
+	}
 }

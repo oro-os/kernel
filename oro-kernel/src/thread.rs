@@ -15,9 +15,9 @@ use core::mem::MaybeUninit;
 /// have a parent thread).
 pub struct Thread<A: Arch> {
 	/// The thread's ID.
-	pub(crate) id:       usize,
+	pub(crate) id:           usize,
 	/// The module instance to which this thread belongs.
-	pub(crate) instance: Handle<Instance<A>>,
+	pub(crate) instance:     Handle<Instance<A>>,
 	/// The thread's address space handle.
 	///
 	/// This is typically cloned from the instance's
@@ -26,7 +26,13 @@ pub struct Thread<A: Arch> {
 	/// The mapper is valid and can be assumed initialized
 	/// after the call to [`crate::KernelState::create_thread`]
 	/// returns.
-	pub(crate) mapper:   MaybeUninit<UserHandle<A>>,
+	pub(crate) mapper:       MaybeUninit<UserHandle<A>>,
+	/// Architecture-specific thread state.
+	///
+	/// Valid and can be assumed initialized (at least, in terms
+	/// of `MaybeUninit`'s guarantees) after the call to
+	/// [`crate::KernelState::create_thread`] returns.
+	pub(crate) thread_state: MaybeUninit<A::ThreadState>,
 }
 
 impl<A: Arch> Thread<A> {
