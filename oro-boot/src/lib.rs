@@ -36,6 +36,7 @@ use oro_boot_protocol::{
 	DataRevision, RequestTag,
 };
 use oro_debug::{dbg, dbg_warn};
+use oro_elf::ElfSegmentType;
 pub use oro_mem::mapper::MapError;
 use oro_mem::{mapper::AddressSpace, translate::OffsetTranslator};
 
@@ -50,12 +51,7 @@ pub enum Error {
 	/// The provided kernel ELF file has no kernel segments.
 	NoKernelSegments,
 	/// The provided kernel ELF file has an invalid segment.
-	InvalidSegment {
-		/// The ELF flags of the unrecognized / invalid segment.
-		flags: u32,
-		/// The ELF type of the unrecognized / invalid segment.
-		ptype: u32,
-	},
+	InvalidSegment(ElfSegmentType),
 	/// The kernel module has multiple kernel request segments.
 	MultipleKernelRequestSegments,
 	/// The kernel module has no kernel request segment.

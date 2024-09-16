@@ -45,13 +45,13 @@ pub fn map_kernel_to_supervisor_space<
 	for segment in kernel_elf.segments() {
 		let mapper_segment = match segment.ty() {
 			ElfSegmentType::Ignored => continue,
-			ElfSegmentType::Invalid { flags, ptype } => {
-				return Err(crate::Error::InvalidSegment { flags, ptype });
-			}
 			ElfSegmentType::KernelCode => <TargetAddressSpace as AddressSpace>::kernel_code(),
 			ElfSegmentType::KernelData => <TargetAddressSpace as AddressSpace>::kernel_data(),
 			ElfSegmentType::KernelRoData | ElfSegmentType::KernelRequests => {
 				<TargetAddressSpace as AddressSpace>::kernel_rodata()
+			}
+			ty => {
+				return Err(crate::Error::InvalidSegment(ty));
 			}
 		};
 
