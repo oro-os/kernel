@@ -71,6 +71,10 @@ impl AddressSpaceLayout {
 	/// Since we identity map the stubs, we must specify an index
 	/// range that spans the entirety of the lower half.
 	pub const STUBS_IDX: (usize, usize) = (0, 255);
+
+	/// The index for the module segments.
+	pub const MODULE_EXE_IDX: (usize, usize) = (5, 16);
+
 	/// The recursive entry indices.
 	pub const RECURSIVE_ENTRY_IDX: (usize, usize) = (256, 259);
 	/// The stack space range
