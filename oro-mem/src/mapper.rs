@@ -79,7 +79,23 @@ pub unsafe trait AddressSpace: 'static {
 		A: Alloc,
 		P: Translator;
 
+	/// Creates a new user address space handle based on the given supervisor handle.
+	///
+	/// The resulting userspace handle should _not_ have any core-local
+	/// mappings.
+	///
+	/// Returns None if any allocation(s) fail.
+	fn new_user_space<A, P>(
+		space: &Self::SupervisorHandle,
+		alloc: &mut A,
+		translator: &P,
+	) -> Option<Self::UserHandle>
+	where
+		A: Alloc,
+		P: Translator;
+
 	/// Duplicates the given supervisor address space handle.
+	///
 	/// The duplication is performed shallowly, meaning that the new handle
 	/// will have its own root page table physical address, but the root mappings
 	/// will point to the same physical pages as the original handle.
@@ -90,6 +106,22 @@ pub unsafe trait AddressSpace: 'static {
 		alloc: &mut A,
 		translator: &P,
 	) -> Option<Self::SupervisorHandle>
+	where
+		A: Alloc,
+		P: Translator;
+
+	/// Duplicates the given user address space handle.
+	///
+	/// The duplication is performed shallowly, meaning that the new handle
+	/// will have its own root page table physical address, but the root mappings
+	/// will point to the same physical pages as the original handle.
+	///
+	/// Returns None if any allocation(s) fail.
+	fn duplicate_user_space_shallow<A, P>(
+		space: &Self::UserHandle,
+		alloc: &mut A,
+		translator: &P,
+	) -> Option<Self::UserHandle>
 	where
 		A: Alloc,
 		P: Translator;
