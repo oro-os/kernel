@@ -393,6 +393,24 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		Some(Ttbr1Handle { base_phys })
 	}
 
+	fn new_user_space<A, P>(
+		_space: &Self::SupervisorHandle,
+		alloc: &mut A,
+		translator: &P,
+	) -> Option<Self::UserHandle>
+	where
+		A: Alloc,
+		P: Translator,
+	{
+		let base_phys = alloc.allocate()?;
+
+		unsafe {
+			(*translator.translate_mut::<PageTable>(base_phys)).reset();
+		}
+
+		Some(Ttbr0Handle { base_phys })
+	}
+
 	fn duplicate_supervisor_space_shallow<A, P>(
 		space: &Self::SupervisorHandle,
 		alloc: &mut A,
@@ -411,6 +429,26 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		}
 
 		Some(Self::SupervisorHandle { base_phys })
+	}
+
+	fn duplicate_user_space_shallow<A, P>(
+		space: &Self::UserHandle,
+		alloc: &mut A,
+		translator: &P,
+	) -> Option<Self::UserHandle>
+	where
+		A: Alloc,
+		P: Translator,
+	{
+		let base_phys = alloc.allocate()?;
+
+		unsafe {
+			let pt = &mut *translator.translate_mut::<PageTable>(base_phys);
+			pt.reset();
+			pt.shallow_copy_from(&*translator.translate(space.base_phys));
+		}
+
+		Some(Self::UserHandle { base_phys })
 	}
 
 	fn kernel_code() -> Self::SupervisorSegment {
