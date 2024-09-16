@@ -45,6 +45,10 @@ impl AddressSpaceLayout {
 	/// Only used during boot; do not change. Can overlap
 	/// if the segment is used for userspace.
 	pub const KERNEL_SECONDARY_BOOT_IDX: usize = 0;
+
+	/// The index for the module segments.
+	pub const MODULE_EXE_IDX: (usize, usize) = (5, 16);
+
 	/// The recursive index for the page table.
 	pub const RECURSIVE_IDX: usize = 256;
 	/// The stack space range
@@ -94,6 +98,16 @@ impl AddressSpaceLayout {
 	/// MUST BE 511.
 	pub const KERNEL_EXE_IDX: usize = 511;
 }
+
+/// Intermediate page table entry template for the module code/data segments.
+///
+/// Defined here so that the overlapping module segments can share the same
+/// intermediate entry, differences between which would cause indeterministic
+/// behavior.
+const MODULE_EXE_INTERMEDIATE_ENTRY: PageTableEntry = PageTableEntry::new()
+	.with_user()
+	.with_present()
+	.with_writable();
 
 impl AddressSpaceLayout {
 	/// Adds the recursive mapping to the provided page table.
@@ -176,6 +190,48 @@ impl AddressSpaceLayout {
 
 		&DESCRIPTOR
 	}
+
+	/// Returns a segment for the module code segment.
+	#[must_use]
+	pub fn module_code() -> &'static AddressSegment {
+		#[expect(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range: AddressSpaceLayout::MODULE_EXE_IDX,
+			entry_template: PageTableEntry::new().with_user().with_present(),
+			intermediate_entry_template: MODULE_EXE_INTERMEDIATE_ENTRY,
+		};
+
+		&DESCRIPTOR
+	}
+
+	/// Returns a segment for the module data segment.
+	#[must_use]
+	pub fn module_data() -> &'static AddressSegment {
+		#[expect(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range: AddressSpaceLayout::MODULE_EXE_IDX,
+			entry_template: PageTableEntry::new()
+				.with_present()
+				.with_no_exec()
+				.with_writable(),
+			intermediate_entry_template: MODULE_EXE_INTERMEDIATE_ENTRY,
+		};
+
+		&DESCRIPTOR
+	}
+
+	/// Returns a segment for the module read-only data segment.
+	#[must_use]
+	pub fn module_rodata() -> &'static AddressSegment {
+		#[expect(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range: AddressSpaceLayout::MODULE_EXE_IDX,
+			entry_template: PageTableEntry::new().with_present().with_no_exec(),
+			intermediate_entry_template: MODULE_EXE_INTERMEDIATE_ENTRY,
+		};
+
+		&DESCRIPTOR
+	}
 }
 
 #[expect(clippy::missing_docs_in_private_items)]
@@ -209,7 +265,6 @@ macro_rules! registries {
 /// intermediate entry, differences between which would cause indeterministic
 /// behavior.
 const KERNEL_EXE_INTERMEDIATE_ENTRY: PageTableEntry = PageTableEntry::new()
-	.with_user()
 	.with_global()
 	.with_present()
 	.with_writable();
