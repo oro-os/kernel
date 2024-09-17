@@ -4,6 +4,7 @@
 
 #![expect(clippy::module_name_repetitions)]
 
+use super::unfair::UnfairSpinlockGuard;
 use core::{
 	cell::UnsafeCell,
 	marker::PhantomData,
@@ -24,6 +25,15 @@ pub trait InterruptController: 'static {
 
 	/// Fetches the current interrupt state.
 	fn fetch_interrupts() -> Self::InterruptState;
+
+	/// Returns whether or not interrupts are currently enabled.
+	///
+	/// This is a debug-only function; implementations must
+	/// add a `#[cfg(debug_assertions)]` attribute to the function.
+	/// This is done to prevent misuse and race conditions, and only
+	/// as precondition checks in debug builds.
+	#[cfg(debug_assertions)]
+	fn interrupts_enabled() -> bool;
 }
 
 /// The unfair critical spinlock is a simple spinlock that does not guarantee
@@ -135,6 +145,46 @@ impl<T> UnfairCriticalSpinlock<T> {
 					_arch: PhantomData,
 				}
 			})
+	}
+
+	/// Tries to lock the spinlock using a non-critical section.
+	///
+	/// # Safety
+	/// This method is unsafe because the code that acquires the lock **must not panic**.
+	///
+	/// Further, interrupts should be disabled before calling this function.
+	#[inline]
+	#[must_use]
+	pub unsafe fn try_lock_noncritical(&self) -> Option<UnfairSpinlockGuard<T>> {
+		self.owned
+			.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+			.ok()
+			.map(|_| {
+				#[cfg(debug_assertions)]
+				oro_dbgutil::__oro_dbgutil_lock_acquire(self.value.get() as usize);
+
+				UnfairSpinlockGuard {
+					lock:  &self.owned,
+					value: self.value.get(),
+				}
+			})
+	}
+
+	/// Locks the spinlock using a non-critical section.
+	///
+	/// # Safety
+	/// This method is unsafe because the code that acquires the lock **must not panic**.
+	///
+	/// Further, interrupts should be disabled before calling this function.
+	#[inline]
+	#[must_use]
+	pub unsafe fn lock_noncritical(&self) -> UnfairSpinlockGuard<T> {
+		loop {
+			if let Some(guard) = self.try_lock_noncritical() {
+				return guard;
+			}
+			::core::hint::spin_loop();
+		}
 	}
 }
 

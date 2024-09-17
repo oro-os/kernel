@@ -75,9 +75,9 @@ impl<T> UnfairSpinlock<T> {
 /// A lock held by an [`UnfairSpinlock`].
 pub struct UnfairSpinlockGuard<'a, T> {
 	/// A handle to the 'owned' flag in the spinlock.
-	lock:  &'a AtomicBool,
+	pub(crate) lock:  &'a AtomicBool,
 	/// A pointer to the value protected by the spinlock.
-	value: *mut T,
+	pub(crate) value: *mut T,
 }
 
 impl<T> Drop for UnfairSpinlockGuard<'_, T> {

@@ -214,6 +214,7 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 pub unsafe fn boot(lapic: Lapic) -> ! {
 	// SAFETY(qix-): THIS MUST ABSOLUTELY BE FIRST.
 	let kernel = crate::Kernel::initialize_for_core(
+		lapic.id().into(),
 		KERNEL_STATE.assume_init_ref(),
 		crate::CoreState {
 			lapic,
@@ -244,7 +245,14 @@ pub unsafe fn boot(lapic: Lapic) -> ! {
 	let handler = Handler::new();
 	loop {
 		crate::asm::disable_interrupts();
-		if let Some(_user_ctx) = handler.kernel().scheduler().event_idle(&handler) {
+		let maybe_ctx = {
+			let mut lock = handler.kernel().scheduler().lock();
+			let ctx = lock.event_idle(&handler);
+			drop(lock);
+			ctx
+		};
+
+		if let Some(_user_ctx) = maybe_ctx {
 			crate::asm::enable_interrupts();
 			todo!();
 		} else {

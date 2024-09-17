@@ -108,6 +108,7 @@ pub(crate) struct Arch;
 
 impl oro_kernel::Arch for Arch {
 	type AddrSpace = crate::mem::address_space::AddressSpaceLayout;
+	type CoreState = CoreState;
 	type IntCtrl = crate::sync::InterruptController;
 	type Pat = OffsetTranslator;
 	type Pfa = Pfa;
@@ -170,7 +171,7 @@ impl oro_kernel::Arch for Arch {
 }
 
 /// Type alias for the Oro kernel core-local instance type.
-pub(crate) type Kernel = oro_kernel::Kernel<CoreState, Arch>;
+pub(crate) type Kernel = oro_kernel::Kernel<Arch>;
 
 /// The guaranteed offset of the task state segment (TSS) in the GDT.
 ///
