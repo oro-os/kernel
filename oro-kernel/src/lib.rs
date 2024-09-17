@@ -33,26 +33,33 @@ use oro_mem::{
 	pfa::alloc::Alloc,
 	translate::Translator,
 };
-use oro_sync::spinlock::unfair_critical::{InterruptController, UnfairCriticalSpinlock};
+use oro_sync::spinlock::{
+	unfair::UnfairSpinlock,
+	unfair_critical::{InterruptController, UnfairCriticalSpinlock},
+};
 
 /// Core-local instance of the Oro kernel.
 ///
 /// This object's constructor sets up a core-local
 /// mapping of itself such that it can be accessed
 /// from anywhere in the kernel as a static reference.
-pub struct Kernel<CoreState: Sized + 'static, A: Arch> {
+pub struct Kernel<A: Arch> {
+	/// The core's ID.
+	id:         usize,
 	/// Local core state. The kernel instance owns this
 	/// due to all of the machinery already in place to make
 	/// this kernel instance object core-local and accessible
 	/// from anywhere in the kernel.
-	core_state: CoreState,
+	core_state: A::CoreState,
 	/// Global reference to the shared kernel state.
 	state:      &'static KernelState<A>,
-	/// The kernel scheduler
-	scheduler:  Scheduler<A>,
+	/// The kernel scheduler.
+	///
+	/// Guaranteed valid after a successful call to `initialize_for_core`.
+	scheduler:  MaybeUninit<UnfairSpinlock<Scheduler<A>>>,
 }
 
-impl<CoreState: Sized + 'static, A: Arch> Kernel<CoreState, A> {
+impl<A: Arch> Kernel<A> {
 	/// Initializes a new core-local instance of the Oro kernel.
 	///
 	/// The [`AddressSpace::kernel_core_local()`] segment must
@@ -73,8 +80,9 @@ impl<CoreState: Sized + 'static, A: Arch> Kernel<CoreState, A> {
 	/// address space mapper handle for the kernel to use. It must
 	/// be the final one that will be used for the lifetime of the core.
 	pub unsafe fn initialize_for_core(
+		id: usize,
 		global_state: &'static KernelState<A>,
-		core_state: CoreState,
+		core_state: A::CoreState,
 	) -> Result<&'static Self, MapError> {
 		assert::fits::<Self, 4096>();
 
@@ -92,10 +100,15 @@ impl<CoreState: Sized + 'static, A: Arch> Kernel<CoreState, A> {
 
 		let kernel_ptr = kernel_base as *mut Self;
 		kernel_ptr.write(Self {
+			id,
 			core_state,
 			state: global_state,
-			scheduler: Scheduler::new(),
+			scheduler: MaybeUninit::uninit(),
 		});
+
+		(*kernel_ptr)
+			.scheduler
+			.write(UnfairSpinlock::new(Scheduler::new(&*kernel_ptr)));
 
 		Ok(&*kernel_ptr)
 	}
@@ -118,6 +131,12 @@ impl<CoreState: Sized + 'static, A: Arch> Kernel<CoreState, A> {
 		unsafe { &*(AddrSpace::<A>::kernel_core_local().range().0 as *const Self) }
 	}
 
+	/// Returns the core's ID.
+	#[must_use]
+	pub fn id(&self) -> usize {
+		self.id
+	}
+
 	/// Returns the underlying [`KernelState`] for this kernel instance.
 	#[must_use]
 	pub fn state(&self) -> &'static KernelState<A> {
@@ -126,14 +145,21 @@ impl<CoreState: Sized + 'static, A: Arch> Kernel<CoreState, A> {
 
 	/// Returns the architecture-specific core local state reference.
 	#[must_use]
-	pub fn core(&self) -> &CoreState {
+	pub fn core(&self) -> &A::CoreState {
 		&self.core_state
 	}
 
 	/// Gets a reference to the scheduler.
+	///
+	/// # Safety
+	/// Before locking the scheduler, the caller must ensure that
+	/// interrupts are disabled; the spinlock is _not_ a critical
+	/// spinlock and thus does not disable interrupts.
 	#[must_use]
-	pub fn scheduler(&self) -> &Scheduler<A> {
-		&self.scheduler
+	pub unsafe fn scheduler(&self) -> &UnfairSpinlock<Scheduler<A>> {
+		#[cfg(debug_assertions)]
+		debug_assert!(!A::IntCtrl::interrupts_enabled());
+		self.scheduler.assume_init_ref()
 	}
 }
 
@@ -170,6 +196,11 @@ pub struct KernelState<A: Arch> {
 	/// Always `Some` after a valid initialization.
 	/// Can be safely `.unwrap()`'d in most situations.
 	instances: Option<Handle<List<instance::Instance<A>, A>>>,
+	/// List of all threads.
+	///
+	/// Always `Some` after a valid initialization.
+	/// Can be safely `.unwrap()`'d in most situations.
+	threads:   Option<Handle<List<thread::Thread<A>, A>>>,
 
 	/// The root ring.
 	///
@@ -277,6 +308,7 @@ impl<A: Arch> KernelState<A> {
 			modules: None,
 			rings: None,
 			instances: None,
+			threads: None,
 			ring_registry,
 			ring_list_registry,
 			module_registry,
@@ -304,6 +336,7 @@ impl<A: Arch> KernelState<A> {
 		let modules = this.module_list_registry.create_list(&this.pfa)?;
 		let rings = this.ring_list_registry.create_list(&this.pfa)?;
 		let instances = this.instance_list_registry.create_list(&this.pfa)?;
+		let threads = this.thread_list_registry.create_list(&this.pfa)?;
 
 		let _ = rings.append(&this.pfa, root_ring.clone())?;
 
@@ -311,6 +344,7 @@ impl<A: Arch> KernelState<A> {
 		this.rings = Some(rings);
 		this.modules = Some(modules);
 		this.instances = Some(instances);
+		this.threads = Some(threads);
 
 		Ok(())
 	}
@@ -325,6 +359,13 @@ impl<A: Arch> KernelState<A> {
 	pub fn root_ring(&'static self) -> Handle<ring::Ring<A>> {
 		// SAFETY(qix-): We always assume the root ring is initialized.
 		self.root_ring.clone().unwrap()
+	}
+
+	/// Returns a [`Handle`] to the list of all threads.
+	#[expect(clippy::missing_panics_doc)]
+	pub fn threads(&'static self) -> Handle<List<thread::Thread<A>, A>> {
+		// SAFETY(qix-): We always assume the threads list is initialized.
+		self.threads.clone().unwrap()
 	}
 
 	/// Creates a new ring and returns a [`Handle`] to it.
@@ -527,12 +568,14 @@ impl<A: Arch> KernelState<A> {
 				let thread = self.thread_registry.insert(
 					&self.pfa,
 					thread::Thread::<A> {
-						id:           0,
-						instance:     instance.clone(),
+						id: 0,
+						instance: instance.clone(),
 						// We set it in a moment.
-						mapper:       MaybeUninit::uninit(),
+						mapper: MaybeUninit::uninit(),
 						// We set it in a moment.
 						thread_state: MaybeUninit::uninit(),
+						run_on_id: None,
+						running_on_id: None,
 					},
 				)?;
 
@@ -541,6 +584,12 @@ impl<A: Arch> KernelState<A> {
 				let _ = instance
 					.lock::<A::IntCtrl>()
 					.threads
+					.append(&self.pfa, thread.clone())?;
+
+				let _ = self
+					.threads
+					.as_ref()
+					.unwrap()
 					.append(&self.pfa, thread.clone())?;
 
 				Ok(thread)
@@ -601,6 +650,8 @@ pub trait Arch: 'static {
 	/// Architecture-specific thread state to be stored alongside
 	/// each thread.
 	type ThreadState: Default + Sized = ();
+	/// The core-local state type.
+	type CoreState: Sized + 'static = ();
 
 	/// Allows the architecture to further initialize an instance
 	/// thread's mappings when threads are created.

@@ -78,7 +78,11 @@ static mut IDT: Aligned16<[IdtEntry; 256]> = Aligned16([IdtEntry::new(); 256]);
 #[no_mangle]
 unsafe extern "C" fn isr_sys_timer_rust() {
 	let handler = crate::handler::Handler::new();
-	handler.kernel().scheduler().event_timer_expired(&handler);
+	handler
+		.kernel()
+		.scheduler()
+		.lock()
+		.event_timer_expired(&handler);
 	handler.kernel().core().lapic.eoi();
 }
 

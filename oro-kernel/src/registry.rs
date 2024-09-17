@@ -510,6 +510,29 @@ impl<T: Sized + 'static, A: Arch> Item<T, A> {
 			handle,
 		}
 	}
+
+	/// Returns whether or not the item is in a list.
+	#[must_use]
+	pub fn in_list(&self) -> bool {
+		self.list.is_some()
+	}
+
+	/// Returns the previous item in the list, or `None` if there is no previous item.
+	#[must_use]
+	pub fn prev(&self) -> Option<Handle<Item<T, A>>> {
+		self.prev.clone()
+	}
+
+	/// Returns the next item in the list, or `None` if there is no next item.
+	#[must_use]
+	pub fn next(&self) -> Option<Handle<Item<T, A>>> {
+		self.next.clone()
+	}
+
+	/// Returns the underlying handle to the item.
+	pub fn handle(&self) -> &Handle<T> {
+		&self.handle
+	}
 }
 
 impl<T: Sized + 'static, A: Arch> Deref for Item<T, A> {
@@ -634,6 +657,12 @@ impl<T: Sized + 'static, A: Arch> List<T, A> {
 			last: None,
 			count: 0,
 		}
+	}
+
+	/// Returns the first item in the list, or `None` if the list is empty.
+	#[must_use]
+	pub fn first(&self) -> Option<Handle<Item<T, A>>> {
+		self.first.clone()
 	}
 }
 

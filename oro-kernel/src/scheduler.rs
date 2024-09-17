@@ -1,7 +1,10 @@
 //! Houses types, traits and functionality for the Oro kernel scheduler.
 
-use crate::{Arch, UserHandle};
-use core::marker::PhantomData;
+use crate::{
+	registry::{Handle, Item},
+	thread::Thread,
+	Arch, Kernel,
+};
 
 /// Architecture-specific handler for scheduler related
 /// commands.
@@ -19,7 +22,7 @@ use core::marker::PhantomData;
 /// kernel thread may execute tasks related to system management,
 /// kernel modules, etc. before handing control back to
 /// a userspace thread via the architecture.
-pub trait Handler {
+pub trait Handler<A: Arch> {
 	/// Tells a one-off timer to expire after `ticks`.
 	/// The architecture should not transform the number
 	/// of ticks unless it has good reason to.
@@ -34,6 +37,14 @@ pub trait Handler {
 	/// [`Self::schedule_timer()`], the architecture should
 	/// not call [`Scheduler::event_timer_expired()`].
 	fn cancel_timer(&self);
+
+	/// Migrates the given thread to this kernel core.
+	///
+	/// This function is called when a thread is assigned to
+	/// this core but is not currently running on it.
+	///
+	/// It must either succeed, or panic (killing the kernel).
+	fn migrate_thread(kernel: &Kernel<A>, thread: &mut Thread<A>);
 }
 
 /// Main scheduler state machine.
@@ -46,14 +57,84 @@ pub trait Handler {
 /// the Oro kernel, including that of the kernel thread
 /// itself.
 pub struct Scheduler<A: Arch> {
-	/// The architecture
-	_arch: PhantomData<A>,
+	/// A reference to the kernel instance.
+	kernel:         &'static Kernel<A>,
+	/// The current thread being run, as a list item.
+	///
+	/// `None` if no thread is currently running.
+	current_thread: Option<Handle<Item<Thread<A>, A>>>,
 }
 
 impl<A: Arch> Scheduler<A> {
 	/// Creates a new scheduler instance.
-	pub(crate) fn new() -> Self {
-		Self { _arch: PhantomData }
+	pub(crate) fn new(kernel: &'static Kernel<A>) -> Self {
+		Self {
+			kernel,
+			current_thread: None,
+		}
+	}
+
+	/// Selects a new thread to run.
+	///
+	/// This is one of the more expensive operations in the scheduler
+	/// relatively speaking, so it should only be called once it's been
+	/// determined that a new thread should be run.
+	///
+	/// It does NOT schedule kernel threads, only user threads.
+	/// Kernel threads must be scheduled by the caller if needed.
+	///
+	/// Performs thread migration if the selected thread is assigned
+	/// to our core but is not currently running on it.
+	///
+	/// Returns None if no user thread is available to run.
+	///
+	/// # Safety
+	/// Interrupts MUST be disabled before calling this function.
+	unsafe fn pick_user_thread<H: Handler<A>>(&mut self) -> Option<Handle<Thread<A>>> {
+		loop {
+			let selected_thread_item = if let Some(current_thread) = self.current_thread.take() {
+				let next_thread = {
+					let current_thread_lock = current_thread.lock_noncritical();
+					if current_thread_lock.in_list() {
+						current_thread_lock.next()
+					} else {
+						// The current thread was removed from the threads list
+						// (probably pending removal), so we start from the beginning.
+						// This shouldn't happen often, as it's a recoverable "race condition".
+						// Not ideal but it's not a critical issue.
+						None
+					}
+				};
+
+				next_thread.or_else(|| self.kernel.state().threads().lock_noncritical().first())
+			} else {
+				self.kernel.state().threads().lock_noncritical().first()
+			}?;
+
+			let selected_thread_item_lock = selected_thread_item.lock_noncritical();
+			let mut selected_thread_lock = selected_thread_item_lock.lock_noncritical();
+
+			let this_kernel_id = self.kernel.id();
+
+			// Try to claim any orphan threads.
+			if *selected_thread_lock.run_on_id.get_or_insert(this_kernel_id) == this_kernel_id {
+				let needs_migration = selected_thread_lock
+					.running_on_id
+					.map_or_else(|| true, |id| id != this_kernel_id);
+
+				if needs_migration {
+					H::migrate_thread(self.kernel, &mut *selected_thread_lock);
+					selected_thread_lock.running_on_id = Some(this_kernel_id);
+				}
+
+				let result = selected_thread_item_lock.handle().clone();
+
+				drop(selected_thread_lock);
+				drop(selected_thread_item_lock);
+
+				return Some(result);
+			}
+		}
 	}
 
 	/// Called whenever the architecture has reached a codepath
@@ -76,10 +157,10 @@ impl<A: Arch> Scheduler<A> {
 	/// disabled before calling this function.** At no point
 	/// can other scheduler methods be invoked while this function
 	/// is running.
-	pub unsafe fn event_idle<H: Handler>(&self, handler: &H) -> Option<UserHandle<A>> {
-		// XXX TODO(qix-): debug placeholder.
+	pub unsafe fn event_idle<H: Handler<A>>(&mut self, handler: &H) -> Option<Handle<Thread<A>>> {
+		let result = self.pick_user_thread::<H>();
 		handler.schedule_timer(10000);
-		None
+		result
 	}
 
 	/// Indicates to the kernel that the system timer has fired,
@@ -105,9 +186,12 @@ impl<A: Arch> Scheduler<A> {
 	/// disabled before calling this function.** At no point
 	/// can other scheduler methods be invoked while this function
 	/// is running.
-	pub unsafe fn event_timer_expired<H: Handler>(&self, handler: &H) -> Option<UserHandle<A>> {
-		// XXX TODO(qix-): debug placeholder.
+	pub unsafe fn event_timer_expired<H: Handler<A>>(
+		&mut self,
+		handler: &H,
+	) -> Option<Handle<Thread<A>>> {
+		let result = self.pick_user_thread::<H>();
 		handler.schedule_timer(10000);
-		None
+		result
 	}
 }

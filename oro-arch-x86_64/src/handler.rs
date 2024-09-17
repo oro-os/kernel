@@ -23,12 +23,19 @@ impl Handler {
 	}
 }
 
-impl oro_kernel::scheduler::Handler for Handler {
+impl oro_kernel::scheduler::Handler<crate::Arch> for Handler {
 	fn schedule_timer(&self, ticks: u32) {
 		self.kernel.core().lapic.set_timer_initial_count(ticks);
 	}
 
 	fn cancel_timer(&self) {
 		self.kernel.core().lapic.cancel_timer();
+	}
+
+	fn migrate_thread(
+		_kernel: &oro_kernel::Kernel<crate::Arch>,
+		_thread: &mut oro_kernel::thread::Thread<crate::Arch>,
+	) {
+		// TODO(qix-): migrate core-local sections.
 	}
 }

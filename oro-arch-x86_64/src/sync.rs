@@ -25,4 +25,13 @@ impl oro_sync::spinlock::unfair_critical::InterruptController for InterruptContr
 			asm!("push {}", "popfq", in(reg) state, options(nostack));
 		}
 	}
+
+	#[cfg(debug_assertions)]
+	fn interrupts_enabled() -> bool {
+		let eflags: usize;
+		unsafe {
+			asm!("pushfq", "pop {}", out(reg) eflags, options(nostack));
+		}
+		(eflags & 0x200) != 0
+	}
 }
