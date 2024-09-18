@@ -284,8 +284,12 @@ pub unsafe fn boot(lapic: Lapic) -> ! {
 			// Nothing to do. Wait for an interrupt.
 			// Scheduler will have asked us to set a timer
 			// if it wants to be woken up.
-			crate::asm::enable_interrupts();
-			crate::asm::halt_once();
+			let kernel_rsp_ptr = kernel.core().kernel_stack.get() as u64;
+
+			asm! {
+				"call oro_x86_64_kernel_to_idle",
+				in("r9") kernel_rsp_ptr,
+			}
 		}
 	}
 }

@@ -44,6 +44,7 @@ pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64) -> u6
 	write_u64(0); // r13
 	write_u64(0); // r14
 	write_u64(0); // r15
+	write_u64(0); // rflags (for compatibility with kernel switches)
 
 	written
 }
@@ -84,15 +85,15 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 	// Push all general purpose registers
 	// and then store the stack state.
 	asm!(
-		// "push rax", -- Not needed; `rax` is clobbered anyway.
+		"push rax",
 		"push rbx",
 		"push rcx",
-		// "push rdx", -- Not needed; `rdx` is clobbered anyway.
+		"push rdx",
 		"push rsi",
 		"push rdi",
 		"push rbp",
 		"push r8",
-		// "push r9", -- Not needed; `r9` is clobbered anyway.
+		"push r9",
 		"push r10",
 		"push r11",
 		"push r12",
@@ -109,6 +110,7 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 		"mov es, ax",
 		"mov fs, ax",
 		"mov gs, ax",
+		"popfq",
 		"pop r15",
 		"pop r14",
 		"pop r13",
@@ -171,6 +173,7 @@ pub unsafe extern "C" fn oro_x86_64_user_to_user() {
 		"mov es, ax",
 		"mov fs, ax",
 		"mov gs, ax",
+		"popfq",
 		"pop r15",
 		"pop r14",
 		"pop r13",
@@ -230,10 +233,92 @@ macro_rules! isr_store_user_task_and_jmp {
 			"push r13",
 			"push r14",
 			"push r15",
+			"pushfq",
 			"mov rcx, rsp",
 			concat!("jmp ", stringify!($jmp_to)),
 			"ud2",
 			options(noreturn)
 		);
 	};
+}
+
+/// Pops the kernel state from the stack and returns to the kernel.
+///
+/// **This is not a normal function. It must be
+/// called from an `asm!()` block.**
+///
+/// - `r9` must be the kernel's stack pointer that was
+///   stored before the user task was switched to.
+/// - `jmp` must be used to jump to this function.
+///
+/// # Safety
+/// This method is inherently unsafe.
+///
+/// Caller MUST NOT have any critical sections
+/// enabled, or any locks held.
+///
+/// **Interrupts must be disabled before calling
+/// this function.**
+///
+/// This function MUST NOT be called; it must
+/// always be jumped to.
+#[no_mangle]
+#[naked]
+pub unsafe extern "C" fn oro_x86_64_return_to_kernel() {
+	asm!(
+		"popfq",
+		"pop r15",
+		"pop r14",
+		"pop r13",
+		"pop r12",
+		"pop r11",
+		"pop r10",
+		"add rsp, 8", // Skip r9 (it's common-clobbered)
+		"pop r8",
+		"pop rbp",
+		"pop rdi",
+		"pop rsi",
+		"pop rdx",
+		"pop rcx",
+		"pop rbx",
+		"pop rax",
+		"mov rsp, r9",
+		"ret",
+		options(noreturn)
+	);
+}
+
+/// Pushes the kernel state and halts the core, waiting
+/// for an interrupt.
+///
+/// **This is not a normal function. It must be
+/// called from an `asm!()` block.**
+///
+/// - `r9` must be the kernel's stack pointer.
+/// - `call` must be used to jump to this function.
+///
+/// **The `asm!()` call MUST declare `r9` as clobbered!**
+///
+/// # Safety
+/// This method is inherently unsafe.
+///
+/// Caller MUST NOT have any critical sections
+/// enabled, or any locks held.
+///
+/// **Interrupts must be disabled before calling
+/// this function.**
+///
+/// This function MUST NOT be jumped to; it must
+/// always be called normally.
+#[no_mangle]
+#[naked]
+pub unsafe extern "C" fn oro_x86_64_kernel_to_idle() {
+	asm!(
+		"mov [r9], rsp",
+		"sti",
+		"4: hlt",
+		"jmp 4b",
+		"ud2",
+		options(noreturn)
+	);
 }
