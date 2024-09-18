@@ -75,4 +75,13 @@ impl<A: Arch> Thread<A> {
 		// SAFETY(qix-): NOTE: from within `Kernel::create_thread()`.
 		unsafe { self.mapper.assume_init_ref() }
 	}
+
+	/// Returns the thread's architecture-specific state.
+	#[must_use]
+	pub fn thread_state(&self) -> &A::ThreadState {
+		// SAFETY(qix-): Safe to call after the thread is created.
+		// SAFETY(qix-): NOTE: This *does* mean it's UNSAFE to call this
+		// SAFETY(qix-): NOTE: from within `Kernel::create_thread()`.
+		unsafe { self.thread_state.assume_init_ref() }
+	}
 }
