@@ -112,7 +112,7 @@ impl<A: Arch> Scheduler<A> {
 			let selected_thread_item = if let Some(current_thread) = self.current_thread.take() {
 				let next_thread = {
 					let current_thread_lock = current_thread.lock_noncritical();
-					if current_thread_lock.in_list() {
+					let next = if current_thread_lock.in_list() {
 						current_thread_lock.next()
 					} else {
 						// The current thread was removed from the threads list
@@ -120,13 +120,18 @@ impl<A: Arch> Scheduler<A> {
 						// This shouldn't happen often, as it's a recoverable "race condition".
 						// Not ideal but it's not a critical issue.
 						None
-					}
+					};
+					drop(current_thread_lock);
+					next
 				};
 
-				next_thread.or_else(|| self.kernel.state().threads().lock_noncritical().first())
+				// If we've reached the end of the list, force breaking back into the kernel.
+				Some(next_thread?)
 			} else {
 				self.kernel.state().threads().lock_noncritical().first()
 			}?;
+
+			self.current_thread = Some(selected_thread_item.clone());
 
 			let selected_thread_item_lock = selected_thread_item.lock_noncritical();
 			let mut selected_thread_lock = selected_thread_item_lock.lock_noncritical();
@@ -149,9 +154,11 @@ impl<A: Arch> Scheduler<A> {
 				drop(selected_thread_lock);
 				drop(selected_thread_item_lock);
 
-				self.current_thread = Some(selected_thread_item.clone());
 				return Some(result);
 			}
+
+			drop(selected_thread_lock);
+			drop(selected_thread_item_lock);
 		}
 	}
 
@@ -178,7 +185,7 @@ impl<A: Arch> Scheduler<A> {
 	#[must_use]
 	pub unsafe fn event_idle<H: Handler<A>>(&mut self, handler: &H) -> Option<Handle<Thread<A>>> {
 		let result = self.pick_user_thread::<H>();
-		handler.schedule_timer(10000);
+		handler.schedule_timer(1000);
 		result
 	}
 
@@ -211,7 +218,7 @@ impl<A: Arch> Scheduler<A> {
 		handler: &H,
 	) -> Option<Handle<Thread<A>>> {
 		let result = self.pick_user_thread::<H>();
-		handler.schedule_timer(10000);
+		handler.schedule_timer(1000);
 		result
 	}
 }

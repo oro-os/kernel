@@ -229,6 +229,7 @@ pub unsafe fn boot(lapic: Lapic) -> ! {
 			gdt: UnsafeCell::new(MaybeUninit::uninit()),
 			tss: UnsafeCell::new(Tss::default()),
 			kernel_stack: UnsafeCell::new(0),
+			kernel_irq_stack: UnsafeCell::new(0),
 		},
 	)
 	.expect("failed to initialize kernel");
@@ -261,23 +262,25 @@ pub unsafe fn boot(lapic: Lapic) -> ! {
 		};
 
 		if let Some(user_ctx) = maybe_ctx {
-			let (thread_cr3_phys, thread_rsp, kernel_rsp) = unsafe {
+			let (thread_cr3_phys, thread_rsp, kernel_rsp, kernel_irq_rsp) = unsafe {
 				let ctx_lock = user_ctx.lock_noncritical();
 				let cr3 = ctx_lock.mapper().base_phys;
 				let rsp = ctx_lock.thread_state().irq_stack_ptr;
 				let kernel_rsp_ptr = kernel.core().kernel_stack.get() as u64;
+				let kernel_irq_rsp_ptr = kernel.core().kernel_irq_stack.get() as u64;
 				(*kernel.core().tss.get())
 					.rsp0
 					.write(AddressSpaceLayout::module_interrupt_stack().range().1 as u64 & !0xFFF);
 				drop(ctx_lock);
-				(cr3, rsp, kernel_rsp_ptr)
+				(cr3, rsp, kernel_rsp_ptr, kernel_irq_rsp_ptr)
 			};
 
 			asm! {
 				"call oro_x86_64_kernel_to_user",
 				in("rax") thread_cr3_phys,
 				in("rdx") thread_rsp,
-				in("r9") kernel_rsp,
+				in("r9") kernel_irq_rsp,
+				in("r10") kernel_rsp,
 			}
 		} else {
 			// Nothing to do. Wait for an interrupt.
