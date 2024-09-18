@@ -60,7 +60,8 @@ pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64) -> u6
 /// - `rax` must be the physical address of the
 ///   user task's CR3.
 /// - `rdx` must be the user task's IRQ stack pointer.
-/// - `r9` must be a pointer to the core state `kernel_stack` field.
+/// - `r9` must be a pointer to the core state `kernel_irq_stack` field.
+/// - `r10` must be a pointer to the core state `kernel_stack` field.
 /// - `call` must be used to jump to this function.
 ///
 /// All registers must be marked as clobbered.
@@ -85,6 +86,7 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 	// Push all general purpose registers
 	// and then store the stack state.
 	asm!(
+		"mov [r10], rsp",
 		"push rax",
 		"push rbx",
 		"push rcx",
@@ -247,9 +249,11 @@ macro_rules! isr_store_user_task_and_jmp {
 /// **This is not a normal function. It must be
 /// called from an `asm!()` block.**
 ///
-/// - `r9` must be the kernel's stack pointer that was
-///   stored before the user task was switched to.
+/// - `r9` must be the kernel's stack prior to the context switch.
 /// - `jmp` must be used to jump to this function.
+///
+/// **`r9` must be marked as clobbered at the callsite from which
+/// the kernel context was switched!**
 ///
 /// # Safety
 /// This method is inherently unsafe.
@@ -273,7 +277,7 @@ pub unsafe extern "C" fn oro_x86_64_return_to_kernel() {
 		"pop r12",
 		"pop r11",
 		"pop r10",
-		"add rsp, 8", // Skip r9 (it's common-clobbered)
+		"add rsp, 8", // skip r9; it's common-clobbered and an input to this function.
 		"pop r8",
 		"pop rbp",
 		"pop rdi",

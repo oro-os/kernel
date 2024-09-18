@@ -89,6 +89,7 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 
 	let handler = crate::handler::Handler::new();
 
+	let mut coming_from_user = false;
 	{
 		let scheduler_lock = handler.kernel().scheduler().lock();
 
@@ -99,6 +100,15 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 				.lock_noncritical()
 				.thread_state_mut()
 				.irq_stack_ptr = irq_stack_ptr;
+
+			coming_from_user = true;
+		} else {
+			handler
+				.kernel()
+				.core()
+				.kernel_irq_stack
+				.get()
+				.write(irq_stack_ptr);
 		}
 
 		drop(scheduler_lock);
@@ -131,15 +141,29 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 			options(noreturn),
 		};
 	} else {
-		// Get the kernel's stack and return to it.
-		let kernel_rsp = *handler.kernel().core().kernel_stack.get();
-		asm! {
-			"mov rsp, rcx",
-			"jmp oro_x86_64_return_to_kernel",
-			in("r9") kernel_rsp,
-			in("rcx") irq_stack_ptr,
-			options(noreturn),
-		};
+		let kernel_irq_stack = handler.kernel().core().kernel_irq_stack.get().read();
+		let kernel_stack = handler.kernel().core().kernel_stack.get().read();
+		if coming_from_user {
+			let kernel_cr3 = handler.kernel().mapper().base_phys;
+
+			asm! {
+				"mov cr3, rdx",
+				"mov rsp, rcx",
+				"jmp oro_x86_64_return_to_kernel",
+				in("rcx") kernel_irq_stack,
+				in("r9") kernel_stack,
+				in("rdx") kernel_cr3,
+				options(noreturn),
+			};
+		} else {
+			asm! {
+				"mov rsp, rcx",
+				"jmp oro_x86_64_return_to_kernel",
+				in("rcx") kernel_irq_stack,
+				in("r9") kernel_stack,
+				options(noreturn),
+			};
+		}
 	}
 }
 
