@@ -90,6 +90,7 @@ impl<A: Arch> Scheduler<A> {
 	///
 	/// # Safety
 	/// Interrupts MUST be disabled before calling this function.
+	#[must_use]
 	unsafe fn pick_user_thread<H: Handler<A>>(&mut self) -> Option<Handle<Thread<A>>> {
 		loop {
 			let selected_thread_item = if let Some(current_thread) = self.current_thread.take() {
@@ -157,6 +158,7 @@ impl<A: Arch> Scheduler<A> {
 	/// disabled before calling this function.** At no point
 	/// can other scheduler methods be invoked while this function
 	/// is running.
+	#[must_use]
 	pub unsafe fn event_idle<H: Handler<A>>(&mut self, handler: &H) -> Option<Handle<Thread<A>>> {
 		let result = self.pick_user_thread::<H>();
 		handler.schedule_timer(10000);
@@ -186,6 +188,7 @@ impl<A: Arch> Scheduler<A> {
 	/// disabled before calling this function.** At no point
 	/// can other scheduler methods be invoked while this function
 	/// is running.
+	#[must_use]
 	pub unsafe fn event_timer_expired<H: Handler<A>>(
 		&mut self,
 		handler: &H,
