@@ -68,16 +68,6 @@ pub fn cr3() -> u64 {
 	cr3
 }
 
-/// Sets the value of the `cr3` register to `value`.
-///
-/// # Safety
-/// Callers must be prepared for the consequences of changing the
-/// page table base address.
-#[inline(always)]
-pub unsafe fn _set_cr3(value: u64) {
-	asm!("mov cr3, {}", in(reg) value, options(nostack, preserves_flags));
-}
-
 /// Disables the 8259 PIC by masking off all interrupts.
 #[inline(always)]
 pub fn disable_8259() {
@@ -201,4 +191,15 @@ pub fn load_tss(offset: u16) {
 			options(nostack, preserves_flags)
 		);
 	}
+}
+
+/// Returns the current RFLAGS value
+#[inline(always)]
+#[must_use]
+pub fn rflags() -> u64 {
+	let rflags: u64;
+	unsafe {
+		asm!("pushfq", "pop rax", out("rax") rflags, options(nostack, preserves_flags));
+	}
+	rflags
 }

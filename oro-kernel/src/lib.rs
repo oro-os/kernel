@@ -507,6 +507,7 @@ impl<A: Arch> KernelState<A> {
 		&'static self,
 		instance: Handle<instance::Instance<A>>,
 		stack_size: usize,
+		mut thread_state: A::ThreadState,
 	) -> Result<Handle<thread::Thread<A>>, MapError> {
 		// SAFETY(qix-): We don't panic here.
 		let mapper = unsafe {
@@ -519,8 +520,6 @@ impl<A: Arch> KernelState<A> {
 			)
 			.ok_or(MapError::OutOfMemory)?
 		};
-
-		let mut thread_state = A::ThreadState::default();
 
 		// Map the stack for the thread.
 		// SAFETY(qix-): We don't panic here.
@@ -663,7 +662,7 @@ pub trait Arch: 'static {
 	type AddrSpace: AddressSpace;
 	/// Architecture-specific thread state to be stored alongside
 	/// each thread.
-	type ThreadState: Default + Sized = ();
+	type ThreadState: Sized = ();
 	/// The core-local state type.
 	type CoreState: Sized + 'static = ();
 

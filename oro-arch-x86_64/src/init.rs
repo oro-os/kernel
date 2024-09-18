@@ -8,7 +8,7 @@ use crate::{
 	mem::address_space::AddressSpaceLayout,
 	tss::Tss,
 };
-use core::{cell::UnsafeCell, mem::MaybeUninit};
+use core::{arch::asm, cell::UnsafeCell, mem::MaybeUninit};
 use oro_debug::{dbg, dbg_err, dbg_warn};
 use oro_elf::{ElfSegment, ElfSegmentType};
 use oro_kernel::KernelState;
@@ -99,7 +99,7 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 				.create_module(id.clone())
 				.expect("failed to create root ring module");
 
-			{
+			let entry_point = {
 				let module_lock = module_handle
 					.try_lock::<crate::sync::InterruptController>()
 					.expect("failed to lock module");
@@ -190,7 +190,9 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 							.expect("failed to map segment");
 					}
 				}
-			}
+
+				elf.entry_point()
+			};
 
 			let instance = state
 				.create_instance(module_handle, root_ring.clone())
@@ -199,7 +201,11 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 			// Create a thread for the entry point.
 			// TODO(qix-): Allow stack size to be passed in via module command line.
 			let _thread = state
-				.create_thread(instance, 16 * 1024)
+				.create_thread(
+					instance,
+					16 * 1024,
+					crate::ThreadState::new(u64::try_from(entry_point).unwrap()),
+				)
 				.expect("failed to create root ring instance thread");
 		}
 	}
@@ -220,6 +226,7 @@ pub unsafe fn boot(lapic: Lapic) -> ! {
 			lapic,
 			gdt: UnsafeCell::new(MaybeUninit::uninit()),
 			tss: UnsafeCell::new(Tss::default()),
+			kernel_stack: UnsafeCell::new(0),
 		},
 	)
 	.expect("failed to initialize kernel");
@@ -244,7 +251,9 @@ pub unsafe fn boot(lapic: Lapic) -> ! {
 
 	let handler = Handler::new();
 	loop {
+		// SAFETY(qix-): We must disable interrupts before continuing!
 		crate::asm::disable_interrupts();
+
 		let maybe_ctx = {
 			let mut lock = handler.kernel().scheduler().lock();
 			let ctx = lock.event_idle(&handler);
@@ -252,9 +261,25 @@ pub unsafe fn boot(lapic: Lapic) -> ! {
 			ctx
 		};
 
-		if let Some(_user_ctx) = maybe_ctx {
-			crate::asm::enable_interrupts();
-			todo!();
+		if let Some(user_ctx) = maybe_ctx {
+			let (thread_cr3_phys, thread_rsp, kernel_rsp) = unsafe {
+				let ctx_lock = user_ctx.lock_noncritical();
+				let cr3 = ctx_lock.mapper().base_phys;
+				let rsp = ctx_lock.thread_state().irq_stack_ptr;
+				let kernel_rsp_ptr = kernel.core().kernel_stack.get() as u64;
+				(*kernel.core().tss.get())
+					.rsp0
+					.write(AddressSpaceLayout::module_interrupt_stack().range().1 as u64 & !0xFFF);
+				drop(ctx_lock);
+				(cr3, rsp, kernel_rsp_ptr)
+			};
+
+			asm! {
+				"call oro_x86_64_kernel_to_user",
+				in("rax") thread_cr3_phys,
+				in("rdx") thread_rsp,
+				in("r9") kernel_rsp,
+			}
 		} else {
 			// Nothing to do. Wait for an interrupt.
 			// Scheduler will have asked us to set a timer

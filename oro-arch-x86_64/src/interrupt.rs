@@ -1,6 +1,12 @@
 //! Interrupt handling for x86_64 architecture.
 
-use crate::lapic::{ApicSvr, ApicTimerConfig, ApicTimerMode};
+use crate::{
+	isr_store_user_task_and_jmp,
+	lapic::{ApicSvr, ApicTimerConfig, ApicTimerMode},
+	mem::address_space::AddressSpaceLayout,
+};
+use core::arch::asm;
+use oro_mem::mapper::AddressSegment;
 
 /// A single IDT (Interrupt Descriptor Table) entry.
 #[derive(Debug, Clone, Copy, Default)]
@@ -77,25 +83,65 @@ static mut IDT: Aligned16<[IdtEntry; 256]> = Aligned16([IdtEntry::new(); 256]);
 /// The ISR (Interrupt Service Routine) for the system timer.
 #[no_mangle]
 unsafe extern "C" fn isr_sys_timer_rust() {
+	// Must be first.
+	let irq_stack_ptr: u64;
+	asm!("", out("rcx") irq_stack_ptr, options(nostack, preserves_flags));
+
 	let handler = crate::handler::Handler::new();
-	handler
+
+	{
+		let scheduler_lock = handler.kernel().scheduler().lock();
+
+		// SAFETY(qix-): The `.unwrap()` must work, and should if the scheduler
+		// SAFETY(qix-): has actually initialized a task.
+		scheduler_lock
+			.current_thread()
+			.unwrap()
+			.lock_noncritical()
+			.thread_state_mut()
+			.irq_stack_ptr = irq_stack_ptr;
+
+		drop(scheduler_lock);
+	}
+
+	handler.kernel().core().lapic.eoi();
+
+	let maybe_user_context = handler
 		.kernel()
 		.scheduler()
 		.lock()
 		.event_timer_expired(&handler);
-	handler.kernel().core().lapic.eoi();
+
+	if let Some(user_ctx) = maybe_user_context {
+		let (thread_cr3_phys, thread_rsp) = unsafe {
+			let ctx_lock = user_ctx.lock_noncritical();
+			let cr3 = ctx_lock.mapper().base_phys;
+			let rsp = ctx_lock.thread_state().irq_stack_ptr;
+			(*handler.kernel().core().tss.get())
+				.rsp0
+				.write(AddressSpaceLayout::module_interrupt_stack().range().1 as u64 & !0xFFF);
+			drop(ctx_lock);
+			(cr3, rsp)
+		};
+
+		asm! {
+			"jmp oro_x86_64_user_to_user",
+			in("rax") thread_cr3_phys,
+			in("rdx") thread_rsp,
+		}
+
+		unreachable!();
+	} else {
+		todo!();
+	}
+
+	// RETURNS TO KERNEL, NOT TO ISR STUB.
 }
 
 /// The ISR (Interrupt Service Routine) trampoline stub for the system timer.
 #[naked]
 unsafe extern "C" fn isr_sys_timer() -> ! {
-	core::arch::asm!(
-		"cli",
-		"call isr_sys_timer_rust",
-		"sti",
-		"iretq",
-		options(noreturn)
-	);
+	isr_store_user_task_and_jmp!(isr_sys_timer_rust);
 }
 
 /// The ISR (Interrupt Service Routine) for the APIC spurious interrupt.
@@ -107,13 +153,7 @@ unsafe extern "C" fn isr_apic_svr_rust() {
 /// The ISR (Interrupt Service Routine) trampoline stub for the APIC spurious interrupt.
 #[naked]
 unsafe extern "C" fn isr_apic_svr() -> ! {
-	core::arch::asm!(
-		"cli",
-		"call isr_apic_svr_rust",
-		"sti",
-		"iretq",
-		options(noreturn)
-	);
+	asm!("cli", "jmp isr_apic_svr_rust", options(noreturn));
 }
 
 /// Aligns a `T` value to 16 bytes.
@@ -152,7 +192,7 @@ pub unsafe fn install_idt() {
 		base:  IDT.0.as_ptr(),
 	};
 
-	core::arch::asm!(
+	asm!(
 		"lidt [{}]",
 		in(reg) &idtr,
 		options(nostack, preserves_flags)
