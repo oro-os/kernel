@@ -65,3 +65,11 @@ impl From<u64> for TssPtr {
 		}
 	}
 }
+
+impl TssPtr {
+	/// Writes the given u64 value to the TSS pointer.
+	pub fn write(&mut self, value: u64) {
+		self.low = value as u32;
+		self.high = (value >> 32) as u32;
+	}
+}

@@ -74,6 +74,22 @@ impl<A: Arch> Scheduler<A> {
 		}
 	}
 
+	/// Returns a [`Handle`] of the currently
+	/// running thread, if any.
+	///
+	/// This must always return `Some` if a user task
+	/// has been scheduled.
+	///
+	/// # Safety
+	/// **Interrupts or any other asynchronous events must be
+	/// disabled before calling this function.**
+	#[must_use]
+	pub unsafe fn current_thread(&self) -> Option<Handle<Thread<A>>> {
+		self.current_thread
+			.as_ref()
+			.map(|item| item.lock_noncritical().handle().clone())
+	}
+
 	/// Selects a new thread to run.
 	///
 	/// This is one of the more expensive operations in the scheduler
@@ -133,6 +149,7 @@ impl<A: Arch> Scheduler<A> {
 				drop(selected_thread_lock);
 				drop(selected_thread_item_lock);
 
+				self.current_thread = Some(selected_thread_item.clone());
 				return Some(result);
 			}
 		}
@@ -147,11 +164,11 @@ impl<A: Arch> Scheduler<A> {
 	/// though it is _not_ explicitly required to be called from
 	/// such a context.
 	///
-	/// It must be called with the original kernel stack in place,
-	/// and must run in the supervisor's context (including any
-	/// permissions levels relevant for supervisory instructions
-	/// to execute without access faults, as well as the kernel
-	/// memory map being intact).
+	/// It does _not_ need to be called with the original kernel
+	/// stack in place, but _must_ run in the supervisor's context
+	/// (including any permissions levels relevant for supervisory
+	/// instructions to execute without access faults, as well as
+	/// the kernel memory map being intact).
 	///
 	/// # Safety
 	/// **Interrupts or any other asynchronous events must be
@@ -177,11 +194,11 @@ impl<A: Arch> Scheduler<A> {
 	/// though it is _not_ explicitly required to be called from
 	/// such a context.
 	///
-	/// It must be called with the original kernel stack in place,
-	/// and must run in the supervisor's context (including any
-	/// permissions levels relevant for supervisory instructions
-	/// to execute without access faults, as well as the kernel
-	/// memory map being intact).
+	/// It does _not_ need to be called with the original kernel
+	/// stack in place, but _must_ run in the supervisor's context
+	/// (including any permissions levels relevant for supervisory
+	/// instructions to execute without access faults, as well as
+	/// the kernel memory map being intact).
 	///
 	/// # Safety
 	/// **Interrupts or any other asynchronous events must be

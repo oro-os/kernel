@@ -78,6 +78,7 @@ pub mod lapic;
 pub mod mem;
 pub mod reg;
 pub mod sync;
+pub mod task;
 pub mod tss;
 
 pub(crate) mod init;
@@ -88,7 +89,7 @@ use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 use oro_mem::{
 	mapper::{AddressSegment, MapError, UnmapError},
 	pfa::{alloc::Alloc, filo::FiloPageFrameAllocator},
-	translate::OffsetTranslator,
+	translate::{OffsetTranslator, Translator},
 };
 
 /// The ELF class of the x86_64 architecture.
@@ -128,7 +129,7 @@ impl oro_kernel::Arch for Arch {
 		#[cfg(debug_assertions)]
 		let stack_low_guard = stack_start - 0x1000;
 
-		debug_assert_eq!(thread_state.irq_stack_ptr, stack_start);
+		debug_assert_eq!(thread_state.irq_stack_ptr, stack_high_guard as u64);
 
 		// Make sure the guard pages are unmapped.
 		// More of a debug check, as this should never be the case
@@ -154,7 +155,19 @@ impl oro_kernel::Arch for Arch {
 
 		// Map the stack page.
 		let phys = pfa.allocate().ok_or(MapError::OutOfMemory)?;
-		irq_stack_segment.map(thread, pfa, pat, stack_start, phys)
+		irq_stack_segment.map(thread, pfa, pat, stack_start, phys)?;
+
+		// Now write the initial `iretq` information to the frame.
+		// SAFETY(qix-): We know that these are valid addresses.
+		unsafe {
+			let page_slice =
+				core::slice::from_raw_parts_mut(pat.translate_mut::<u64>(phys), 4096 >> 3);
+			let written =
+				crate::task::initialize_user_irq_stack(page_slice, thread_state.entry_point);
+			thread_state.irq_stack_ptr -= written;
+		}
+
+		Ok(())
 	}
 
 	fn reclaim_thread_mappings(
@@ -183,31 +196,36 @@ pub const TSS_GDT_OFFSET: u16 = 0x28;
 pub(crate) struct CoreState {
 	/// The LAPIC (Local Advanced Programmable Interrupt Controller)
 	/// for the core.
-	pub lapic: lapic::Lapic,
+	pub lapic:        lapic::Lapic,
 	/// The core's local GDT
 	///
 	/// Only valid after the Kernel has been initialized
 	/// and properly mapped.
-	pub gdt:   UnsafeCell<MaybeUninit<gdt::Gdt<7>>>,
+	pub gdt:          UnsafeCell<MaybeUninit<gdt::Gdt<7>>>,
 	/// The TSS (Task State Segment) for the core.
-	pub tss:   UnsafeCell<tss::Tss>,
+	pub tss:          UnsafeCell<tss::Tss>,
+	/// The kernel's stored stack pointer.
+	pub kernel_stack: UnsafeCell<u64>,
 }
 
 /// x86_64-specific thread state.
 pub(crate) struct ThreadState {
 	/// The thread's interrupt stack pointer.
-	pub irq_stack_ptr: usize,
+	pub irq_stack_ptr: u64,
+	/// The thread's entry point.
+	pub entry_point:   u64,
 }
 
-impl Default for ThreadState {
-	fn default() -> Self {
+impl ThreadState {
+	/// Creates a new thread state with the given entry point.
+	pub fn new(entry: u64) -> Self {
 		// Must match above in `Arch::initialize_thread_mappings`.
 		let irq_stack_segment = AddressSpaceLayout::module_interrupt_stack();
 		let stack_high_guard = irq_stack_segment.range().1 & !0xFFF;
-		let stack_start = stack_high_guard - 0x1000;
 
 		Self {
-			irq_stack_ptr: stack_start,
+			irq_stack_ptr: stack_high_guard as u64,
+			entry_point:   entry,
 		}
 	}
 }
