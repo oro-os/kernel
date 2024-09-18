@@ -82,7 +82,7 @@ static mut IDT: Aligned16<[IdtEntry; 256]> = Aligned16([IdtEntry::new(); 256]);
 
 /// The ISR (Interrupt Service Routine) for the system timer.
 #[no_mangle]
-unsafe extern "C" fn isr_sys_timer_rust() {
+unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 	// Must be first.
 	let irq_stack_ptr: u64;
 	asm!("", out("rcx") irq_stack_ptr, options(nostack, preserves_flags));
@@ -92,14 +92,14 @@ unsafe extern "C" fn isr_sys_timer_rust() {
 	{
 		let scheduler_lock = handler.kernel().scheduler().lock();
 
-		// SAFETY(qix-): The `.unwrap()` must work, and should if the scheduler
-		// SAFETY(qix-): has actually initialized a task.
-		scheduler_lock
-			.current_thread()
-			.unwrap()
-			.lock_noncritical()
-			.thread_state_mut()
-			.irq_stack_ptr = irq_stack_ptr;
+		// If this is `None`, then the kernel is currently running.
+		// Otherwise it's a userspace task that we just jumped from.
+		if let Some(user_task) = scheduler_lock.current_thread().as_ref() {
+			user_task
+				.lock_noncritical()
+				.thread_state_mut()
+				.irq_stack_ptr = irq_stack_ptr;
+		}
 
 		drop(scheduler_lock);
 	}
@@ -128,14 +128,19 @@ unsafe extern "C" fn isr_sys_timer_rust() {
 			"jmp oro_x86_64_user_to_user",
 			in("rax") thread_cr3_phys,
 			in("rdx") thread_rsp,
-		}
-
-		unreachable!();
+			options(noreturn),
+		};
 	} else {
-		todo!();
+		// Get the kernel's stack and return to it.
+		let kernel_rsp = *handler.kernel().core().kernel_stack.get();
+		asm! {
+			"mov rsp, rcx",
+			"jmp oro_x86_64_return_to_kernel",
+			in("r9") kernel_rsp,
+			in("rcx") irq_stack_ptr,
+			options(noreturn),
+		};
 	}
-
-	// RETURNS TO KERNEL, NOT TO ISR STUB.
 }
 
 /// The ISR (Interrupt Service Routine) trampoline stub for the system timer.
