@@ -396,6 +396,30 @@ impl AddressSegment {
 			alloc.free(phys);
 		}
 	}
+
+	/// Mirrors (maps the top level page tables) from one address space to another.
+	///
+	/// Performs no allocation; the mappings, if any, are copied directly from the source
+	/// to the destination.
+	///
+	/// Any existing mappings in the destination are overwritten.
+	///
+	/// # Safety
+	/// Caller must ensure that no overwrites would lead to leaks, and that the mappings
+	/// will not cause issues by being mapped between address spaces.
+	pub unsafe fn mirror_into<P: Translator>(
+		&self,
+		dest: &AddressSpaceHandle,
+		src: &AddressSpaceHandle,
+		pat: &P,
+	) {
+		let dest_pt = &mut *pat.translate_mut::<PageTable>(dest.base_phys());
+		let src_pt = &*pat.translate::<PageTable>(src.base_phys());
+
+		for idx in self.valid_range.0..=self.valid_range.1 {
+			dest_pt[idx] = src_pt[idx];
+		}
+	}
 }
 
 unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {

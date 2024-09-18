@@ -57,6 +57,8 @@ pub struct Kernel<A: Arch> {
 	///
 	/// Guaranteed valid after a successful call to `initialize_for_core`.
 	scheduler:  MaybeUninit<UnfairSpinlock<Scheduler<A>>>,
+	/// Cached mapper handle for the kernel.
+	mapper:     SupervisorHandle<A>,
 }
 
 impl<A: Arch> Kernel<A> {
@@ -104,6 +106,7 @@ impl<A: Arch> Kernel<A> {
 			core_state,
 			state: global_state,
 			scheduler: MaybeUninit::uninit(),
+			mapper,
 		});
 
 		(*kernel_ptr)
@@ -147,6 +150,12 @@ impl<A: Arch> Kernel<A> {
 	#[must_use]
 	pub fn core(&self) -> &A::CoreState {
 		&self.core_state
+	}
+
+	/// Returns the mapper for the kernel.
+	#[must_use]
+	pub fn mapper(&self) -> &SupervisorHandle<A> {
+		&self.mapper
 	}
 
 	/// Gets a reference to the scheduler.
@@ -352,6 +361,11 @@ impl<A: Arch> KernelState<A> {
 	/// Returns the underlying PFA belonging to the kernel state.
 	pub fn pfa(&'static self) -> &'static UnfairCriticalSpinlock<A::Pfa> {
 		&self.pfa
+	}
+
+	/// Returns the underlying physical address translator belonging to the kernel state.
+	pub fn pat(&'static self) -> &'static A::Pat {
+		&self.pat
 	}
 
 	/// Returns a [`Handle`] to the root ring.
