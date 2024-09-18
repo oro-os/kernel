@@ -217,6 +217,8 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 /// # Safety
 /// Must be called _exactly once_ per core, per core lifetime
 /// (i.e. boot, or powerdown/subsequent bringup).
+///
+/// **Interrupts must be disabled upon entering this function.**
 pub unsafe fn boot(lapic: Lapic) -> ! {
 	// SAFETY(qix-): THIS MUST ABSOLUTELY BE FIRST.
 	let kernel = crate::Kernel::initialize_for_core(
@@ -251,9 +253,6 @@ pub unsafe fn boot(lapic: Lapic) -> ! {
 
 	let handler = Handler::new();
 	loop {
-		// SAFETY(qix-): We must disable interrupts before continuing!
-		crate::asm::disable_interrupts();
-
 		let maybe_ctx = {
 			let mut lock = handler.kernel().scheduler().lock();
 			let ctx = lock.event_idle(&handler);
