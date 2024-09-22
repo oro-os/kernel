@@ -61,6 +61,8 @@ class BootCmdLimine(gdb.Command):
                                  `ORO_ROOT_MODULES` environment variable.
         -r, --release            Use the release kernel/bootloader instead of the debug version.
                                  Note that the release versions must be built and up to date.
+        -R, --relwithdebinfo     Use the RelWithDebInfo kernel/bootloader instead of the debug version.
+                                 (implies --release)
 
     Module Specification:
         Modules are specified as paths to files on the host filesystem. They are
@@ -123,6 +125,7 @@ class BootCmdLimine(gdb.Command):
         auto_continue = True
         break_at_start = False
         release = False
+        withdebinfo = False
 
         argi = 0
         while argi < len(args):
@@ -165,6 +168,9 @@ class BootCmdLimine(gdb.Command):
                 argi += 1
             elif arg in ["--release", "-r"]:
                 release = True
+            elif arg in ["--relwithdebinfo", "-R"]:
+                release = True
+                withdebinfo = True
             elif arg == "--":
                 rest_args = args[argi + 1 :]
                 break
@@ -204,8 +210,12 @@ class BootCmdLimine(gdb.Command):
         limine_path = path.join(path.dirname(kernel_path), limine_basename)
 
         if release:
-            kernel_path = kernel_path.replace("/debug/", "/release/")
-            limine_path = limine_path.replace("/debug/", "/release/")
+            if withdebinfo:
+                kernel_path = kernel_path.replace("/debug/", "/relwithdebinfo/")
+                limine_path = limine_path.replace("/debug/", "/relwithdebinfo/")
+            else:
+                kernel_path = kernel_path.replace("/debug/", "/release/")
+                limine_path = limine_path.replace("/debug/", "/release/")
 
         if kernel_arch == "x86_64":
             efi_basename = None
