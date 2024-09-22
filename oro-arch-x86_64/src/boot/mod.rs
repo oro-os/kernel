@@ -58,7 +58,7 @@ pub unsafe fn boot_primary() -> ! {
 		panic!("ACPI request and response revision number differ");
 	};
 
-	let rsdp_phys = rsdp_response.assume_init_ref().rsdp;
+	let rsdp_phys = core::ptr::read_volatile(&rsdp_response.assume_init_ref().rsdp);
 	dbg!("ACPI response OK: RSDP at {rsdp_phys:016?}");
 
 	let rsdp = oro_acpi::Rsdp::get(rsdp_phys, pat.clone())

@@ -192,11 +192,11 @@ macro_rules! oro_boot_protocol {
 					}
 
 					fn revision(&self) -> u64 {
-						self.header.revision
+						unsafe { core::ptr::read_volatile(&self.header.revision) }
 					}
 
 					fn mark_populated(&mut self) {
-						self.populated = 0xFF;
+						unsafe { core::ptr::write_volatile(&mut self.populated, 0xFF); }
 					}
 				}
 
@@ -224,11 +224,11 @@ macro_rules! oro_boot_protocol {
 					#[cfg(feature = "utils")]
 					#[expect(clippy::needless_lifetimes)]
 					pub fn response<'a>(&'a self) -> Option<%<snake_case:$ReqName>%::$ReqName %% Kind<'a>> {
-						if self.populated == 0 {
+						if unsafe { core::ptr::read_volatile(&self.populated) } == 0 {
 							return None;
 						}
 
-						match self.header.revision {
+						match unsafe { core::ptr::read_volatile(&self.header.revision) } {
 							$(
 								$revision => {
 									// SAFETY(qix-): We can safely cast a const pointer to a `MaybeUninit` reference.
@@ -255,7 +255,7 @@ macro_rules! oro_boot_protocol {
 					#[must_use]
 					#[expect(clippy::needless_lifetimes)]
 					pub unsafe fn response_mut_unchecked<'a>(&'a mut self) -> Option<%<snake_case:$ReqName>%::$ReqName %% KindMut<'a>> {
-						match self.header.revision {
+						match unsafe { core::ptr::read_volatile(&self.header.revision) } {
 							$(
 								$revision => {
 									// SAFETY: We can safely create the mutable reference as this is a `&mut self` method.

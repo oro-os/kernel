@@ -122,7 +122,7 @@ impl RequestScanner {
 		// SAFETY(qix-): union's base address is safe (if it was not `#[repr(C)]`,
 		// SAFETY(qix-): the union may have non-zero field offsets).
 		unsafe {
-			req.response_data().cast::<R>().write(data);
+			req.response_data().cast::<R>().write_volatile(data);
 		}
 
 		req.mark_populated();

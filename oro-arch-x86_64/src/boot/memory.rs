@@ -451,7 +451,7 @@ impl<'a> MemoryMapIterator<'a> {
 				// SAFETY(qix-): to ensure we've gotten at least the correct revision of the memory map,
 				// SAFETY(qix-): so to the best of our ability to determine the memory map is valid (though
 				// SAFETY(qix-): it's really up to the bootloader to make sure it is).
-				unsafe { res.assume_init_ref().next }
+				unsafe { core::ptr::read_volatile(&res.assume_init_ref().next) }
 			},
 			otf,
 		}

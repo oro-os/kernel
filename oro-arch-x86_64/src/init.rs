@@ -65,14 +65,14 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 	if let Some(oro_boot_protocol::modules::ModulesKind::V0(modules)) =
 		crate::boot::protocol::MODULES_REQUEST.response()
 	{
-		let modules = modules.assume_init_ref();
+		let modules = core::ptr::read_volatile(modules.assume_init_ref());
 		let mut next = modules.next;
 
 		let root_ring = state.root_ring();
 
 		'module: while next != 0 {
 			let module = &*pat.translate::<oro_boot_protocol::Module>(next);
-			next = module.next;
+			next = core::ptr::read_volatile(&module.next);
 
 			let id = oro_id::AnyId::from_high_low(module.id_high, module.id_low);
 
