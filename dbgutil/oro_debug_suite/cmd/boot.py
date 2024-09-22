@@ -59,6 +59,8 @@ class BootCmdLimine(gdb.Command):
                                  Can be specified multiple times. In addition to this option, a
                                  semi-colon separated list of modules can be specified in the
                                  `ORO_ROOT_MODULES` environment variable.
+        -r, --release            Use the release kernel/bootloader instead of the debug version.
+                                 Note that the release versions must be built and up to date.
 
     Module Specification:
         Modules are specified as paths to files on the host filesystem. They are
@@ -120,6 +122,7 @@ class BootCmdLimine(gdb.Command):
         num_cores = 1
         auto_continue = True
         break_at_start = False
+        release = False
 
         argi = 0
         while argi < len(args):
@@ -160,6 +163,8 @@ class BootCmdLimine(gdb.Command):
                     modules.append(kv)
 
                 argi += 1
+            elif arg in ["--release", "-r"]:
+                release = True
             elif arg == "--":
                 rest_args = args[argi + 1 :]
                 break
@@ -197,6 +202,10 @@ class BootCmdLimine(gdb.Command):
         kernel_arch = kernel_path.rsplit("-", 1)[1]
         limine_basename = f"oro-limine-{kernel_arch}"
         limine_path = path.join(path.dirname(kernel_path), limine_basename)
+
+        if release:
+            kernel_path = kernel_path.replace("/debug/", "/release/")
+            limine_path = limine_path.replace("/debug/", "/release/")
 
         if kernel_arch == "x86_64":
             efi_basename = None
