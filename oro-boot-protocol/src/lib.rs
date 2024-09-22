@@ -238,27 +238,6 @@ pub struct MemoryMapEntry {
 	pub length: u64,
 	/// The type of the memory region.
 	pub ty:     MemoryMapEntryType,
-	/// How much of this memory region, in bytes, was
-	/// used by the bootloader. That memory will be
-	/// reclaimed by the kernel after the bootloader
-	/// requests have been processed.
-	///
-	/// This field is ignored for regions not marked
-	/// as [`MemoryMapEntryType::Usable`], and should
-	/// be 0 for those regions.
-	///
-	/// Note that this is _not_ guaranteed to be aligned
-	/// to any particular value; the kernel will handle
-	/// alignment internally.
-	///
-	/// # x86 / x86_64 Specific
-	/// On x86 / x86_64, the first 1MiB of memory is
-	/// reserved and **must not** be used by the bootloader.
-	///
-	/// All bytes that fall under this region, regardless of
-	/// their type, should be added to the `used` field's
-	/// count.
-	pub used:   u64,
 	/// The physical address of the next entry in the list,
 	/// or `0` if this is the last entry.
 	pub next:   u64,
@@ -287,17 +266,26 @@ pub enum MemoryMapEntryType {
 	/// of memory that is available to the system but not any
 	/// specific type usable by the kernel.
 	#[default]
-	Unknown = 0,
+	Unknown     = 0,
 	/// General memory immediately usable by the kernel.
-	Usable  = 1,
+	Usable      = 1,
 	/// Memory that holds either the kernel itself, root ring modules,
 	/// or other boot-time binary data (e.g. `DeviceTree` blobs).
 	///
 	/// This memory is not reclaimed nor written to by the kernel.
-	Modules = 2,
+	Modules     = 2,
 	/// Bad memory. This memory is functionally equivalent to
 	/// `Unknown`, but is used to denote memory that is known to
 	/// be bad, broken, or malfunctioning. It is reported to the user
 	/// as such.
-	Bad     = 3,
+	Bad         = 3,
+	/// Boot protocol reclaimable memory
+	///
+	/// Memory that is used to populate the kernel's boot protocol
+	/// response structures can be reclaimed after the kernel boots.
+	/// Any memory that is allocated in order to populate the kernel's
+	/// boot protocol response structures should be marked as `Reclaimable`.
+	Reclaimable = 4,
+	/// Memory that belongs to the frame buffer, if any.
+	FrameBuffer = 5,
 }

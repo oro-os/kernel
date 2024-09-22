@@ -137,33 +137,14 @@ pub unsafe fn init() -> ! {
 							base:   region.base,
 							length: region.length,
 							ty:     match region.entry_type {
-								EntryType::USABLE | EntryType::BOOTLOADER_RECLAIMABLE => {
-									MemoryMapEntryType::Usable
+								EntryType::USABLE => MemoryMapEntryType::Usable,
+								EntryType::BOOTLOADER_RECLAIMABLE => {
+									MemoryMapEntryType::Reclaimable
 								}
 								EntryType::KERNEL_AND_MODULES => MemoryMapEntryType::Modules,
 								EntryType::BAD_MEMORY => MemoryMapEntryType::Bad,
+								EntryType::FRAMEBUFFER => MemoryMapEntryType::FrameBuffer,
 								_ => MemoryMapEntryType::Unknown,
-							},
-							used:   {
-								let used = if region.entry_type == EntryType::BOOTLOADER_RECLAIMABLE
-								{
-									region.length
-								} else {
-									0
-								};
-
-								// On x86/x86_64, the first 1MiB of memory is reserved and must not be used.
-								// We have to set this to at least however many bytes are in the first MiB.
-								#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-								let used = if region.base < MIB1 {
-									let end = region.base + region.length;
-									let end_mib = end.min(MIB1);
-									used.max(end_mib - region.base)
-								} else {
-									used
-								};
-
-								used
 							},
 						}
 					})

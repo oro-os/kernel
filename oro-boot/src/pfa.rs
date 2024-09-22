@@ -90,8 +90,8 @@ impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> PrebootPfa<M, I> 
 					entry = self.iter.next()?.into();
 				}
 
-				let base = entry.base + entry.used;
-				let length = entry.length - entry.used;
+				let base = entry.base;
+				let length = entry.length;
 				if length < 4096 {
 					self.used += length;
 					continue;
@@ -159,7 +159,7 @@ impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> PrebootPfa<M, I> 
 	pub fn write_memory_map(mut self) -> Option<u64> {
 		// Get a total count of bytes, including the size of
 		// all entries of the map itself.
-		let mut total_bytes = {
+		let mut remaining_used = {
 			let mut this = self.clone();
 			for _ in this.original_iter.clone() {
 				let _ = this.allocate::<OroMemRe>()?;
@@ -169,19 +169,32 @@ impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> PrebootPfa<M, I> 
 
 		let mut last_phys = 0;
 		for mut region in self.original_iter.clone().map(Into::into) {
-			let (phys, entry) = self.allocate::<OroMemRe>()?;
-
 			if region.ty == OroMemTy::Usable {
-				let unused = region.length - region.used;
-				let additionally_used = unused.min(total_bytes);
-				total_bytes -= additionally_used;
-				region.used += additionally_used;
+				let region_used = remaining_used.min(region.length);
+
+				if region_used > 0 {
+					let (phys, entry) = self.allocate::<OroMemRe>()?;
+					region.next = phys;
+					entry.write(OroMemRe {
+						base:   region.base,
+						length: region_used,
+						ty:     OroMemTy::Reclaimable,
+						next:   last_phys,
+					});
+
+					remaining_used -= region_used;
+					region.length -= region_used;
+					region.base += region_used;
+					last_phys = phys;
+				}
 			}
 
-			region.next = last_phys;
-
-			entry.write(region);
-			last_phys = phys;
+			if region.length > 0 {
+				let (phys, entry) = self.allocate::<OroMemRe>()?;
+				region.next = last_phys;
+				entry.write(region);
+				last_phys = phys;
+			}
 		}
 
 		Some(last_phys)
