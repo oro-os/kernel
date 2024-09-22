@@ -85,16 +85,6 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 		"recursive entry not mapped"
 	);
 
-	// Next, we validate that, at least at a basic level, some invariants
-	// about the 1MiB reserved region are true.
-	//
-	// - For any region fully within the first 1MiB, the `used` field
-	//   should be the length of the region.
-	// - For any region that overlaps the first 1MiB, the `used` field
-	//   should be at minimum the number of bytes below the 1MiB boundary.
-	//
-	// Further, we keep track of the minimum physical address that is usable
-	// below 1MiB.
 	let otf_mapper = OnTheFlyMapper::new();
 	let mmap_iterator = MemoryMapIterator::new(&otf_mapper);
 	let mut has_cs8 = false;
@@ -103,18 +93,6 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	for region in mmap_iterator.clone() {
 		if region.base < MIB_1 {
 			let end = region.base + region.length;
-			let end_1mib = end.min(MIB_1);
-			let min_used = end_1mib - region.base;
-			assert!(
-				region.used >= min_used,
-				"region {:016X}:{} overlaps the first 1MiB (reserved), but has less used bytes \
-				 than are within the first 1MiB: {} used bytes (min {}, {} short)",
-				region.base,
-				region.length,
-				region.used,
-				min_used,
-				min_used - region.used
-			);
 
 			if region.base <= 0x8000 && end >= 0x9000 {
 				has_cs8 = true;
@@ -131,10 +109,9 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	// bootloader using two iterators - the first is obviously to map
 	// the regions, but the second is used to allocate the page frames
 	// needed to map the actual regions. This second iterator first
-	// skips over all of the regions that are used by the bootloader
-	// (the `used` property of the memory map entry), and then maps
-	// uses next available `Usable` region to allocate the intermediate
-	// page table entry frames.
+	// skips over all of the regions that are marked 'reclaimable',
+	// and then maps uses next available `Usable` region to allocate
+	// the intermediate page table entry frames.
 	//
 	// We'll then get back an iterator of the remaining usable regions
 	// and free them back into a new page frame allocator, thus resulting
@@ -159,14 +136,10 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 			continue;
 		}
 
-		let base = region.base + region.used;
+		let base = region.base;
 
-		// NOTE(qix-): Technically the saturating sub isn't necessary here
-		// NOTE(qix-): assuming the bootloader has done its job correctly.
-		// NOTE(qix-): However it's good to keep the spaceship flying.
-		let length = region.length.saturating_sub(region.used);
 		let aligned_base = (base + 4095) & !4095;
-		let length = length.saturating_sub(aligned_base - base);
+		let length = region.length.saturating_sub(aligned_base - base);
 
 		debug_assert_eq!(aligned_base % 4096, 0);
 		debug_assert_eq!(length % 4096, 0);
@@ -264,7 +237,6 @@ unsafe fn linear_map_regions<'a>(
 		base:   0,
 		length: 1 << 32,
 		ty:     MemoryMapEntryType::Unknown,
-		used:   0,
 		next:   0,
 	}]
 	.into_iter()
@@ -382,8 +354,7 @@ unsafe fn linear_map_regions<'a>(
 	Some(mmap_offset)
 }
 
-/// A rudimentary page frame allocator over a [`MemoryMapIterator`]
-/// respecting the `used` field of the memory map entries.
+/// A rudimentary page frame allocator over a [`MemoryMapIterator`].
 struct MemoryMapPfa<'a> {
 	/// The iterator over all memory map items.
 	iterator:      MemoryMapIterator<'a>,
@@ -416,14 +387,11 @@ impl<'a> Iterator for MemoryMapPfa<'a> {
 		{
 			self.current_entry = self.iterator.next()?;
 
-			// Are there 'used' bytes left in this region?
-			// If so, adjust the base/length to account for them
-			// (they are still reserved, we cannot use them).
-			if self.current_entry.used > 0 {
-				let used = self.current_entry.used;
-				self.current_entry.used = 0;
-				self.current_entry.base += used;
-				self.current_entry.length -= used;
+			// Skip over any regions that are below the 1MiB mark.
+			if self.current_entry.base < MIB_1 {
+				let bytes_to_1mib = MIB_1 - self.current_entry.base;
+				self.current_entry.base += bytes_to_1mib;
+				self.current_entry.length = self.current_entry.length.saturating_sub(bytes_to_1mib);
 			}
 
 			// Are we page aligned?
@@ -455,9 +423,6 @@ impl<'a> Iterator for MemoryMapPfa<'a> {
 ///
 /// Note that, depending on how the bootloader has implemented
 /// populating the memory map, entries may be in any order.
-/// It is thus not guaranteed that the first entries will have
-/// non-zero `used` fields, followed by entries with zero
-/// `used` fields, etc.
 #[derive(Clone)]
 struct MemoryMapIterator<'a> {
 	/// The next physical address of the memory map entry.

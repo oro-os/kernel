@@ -430,16 +430,6 @@ impl<'a> Iterator for MemoryMapPfa<'a> {
 		{
 			self.current_entry = self.iterator.next()?;
 
-			// Are there 'used' bytes left in this region?
-			// If so, adjust the base/length to account for them
-			// (they are still reserved, we cannot use them).
-			if self.current_entry.used > 0 {
-				let used = self.current_entry.used;
-				self.current_entry.used = 0;
-				self.current_entry.base += used;
-				self.current_entry.length -= used;
-			}
-
 			// Are we page aligned?
 			if self.current_entry.base % 4096 != 0 {
 				let next_page = (self.current_entry.base + 4095) & !4095;
