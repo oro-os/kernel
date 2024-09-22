@@ -209,11 +209,12 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 	) -> Result<u64> {
 		let mut last_phys = 0;
 
-		for item in iter {
+		for mut item in iter {
 			let (phys, data) = self
 				.pfa
 				.allocate::<T>()
 				.ok_or(Error::MapError(MapError::OutOfMemory))?;
+			item.set_next(last_phys);
 			data.write(item);
 			last_phys = phys;
 		}
