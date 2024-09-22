@@ -158,7 +158,7 @@ class BootCmdLimine(gdb.Command):
                     error("missing argument for --module")
                     return
 
-                kv = parse_mod(args[argi + 1])
+                kv = parse_module(args[argi + 1])
                 if kv is not None:
                     modules.append(kv)
 
