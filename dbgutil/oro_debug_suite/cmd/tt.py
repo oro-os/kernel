@@ -445,7 +445,7 @@ class TtCmdVirt(gdb.Command):
                 )
                 if not p:
                     error("tt: entry not present")
-                    return None, False, False
+                    return None, False, False, None
                 rw = (pte >> 1) & 1
                 us = (pte >> 2) & 1
                 pwt = (pte >> 3) & 1
@@ -475,7 +475,7 @@ class TtCmdVirt(gdb.Command):
                         error(
                             f"tt:   .PS             = invalid (got 1; reserved, must be 0)"
                         )
-                        return None, False, False
+                        return None, False, False, None
                     if level > 1:
                         log(
                             f"tt:   .PS             = 1 ({'page' if level == 1 else 'huge page'})"
