@@ -435,10 +435,12 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	let AcpiKind::V0(acpi) = super::protocol::ACPI_REQUEST.response().unwrap() else {
 		unreachable!();
 	};
-	let Some(sdt) = Rsdp::get(acpi.assume_init_ref().rsdp, pat.clone())
-		.as_ref()
-		.and_then(Rsdp::sdt)
-	else {
+	let Some(sdt) = Rsdp::get(
+		core::ptr::read_volatile(&acpi.assume_init_ref().rsdp),
+		pat.clone(),
+	)
+	.as_ref()
+	.and_then(Rsdp::sdt) else {
 		// Tell the primary we failed.
 		dbg_err!("failed to get RSDT from ACPI tables");
 		secondary_flag.store(0xFFFF_FFFF_FFFF_FFFE, core::sync::atomic::Ordering::Release);
