@@ -13,6 +13,7 @@ use core::{
 	mem::{transmute, ManuallyDrop},
 	ptr::from_ref,
 };
+
 use oro_macro::assert;
 
 /// Marks a segment header as a kernel code segment.

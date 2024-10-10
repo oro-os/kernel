@@ -1,14 +1,8 @@
 //! Architecture / core initialization
 //! routines and global state definitions.
 
-use crate::{
-	gdt::{Gdt, SysEntry},
-	handler::Handler,
-	lapic::Lapic,
-	mem::address_space::AddressSpaceLayout,
-	tss::Tss,
-};
 use core::{arch::asm, cell::UnsafeCell, mem::MaybeUninit};
+
 use oro_debug::{dbg, dbg_err, dbg_warn};
 use oro_elf::{ElfSegment, ElfSegmentType};
 use oro_kernel::KernelState;
@@ -18,6 +12,14 @@ use oro_mem::{
 	translate::{OffsetTranslator, Translator},
 };
 use oro_sync::spinlock::unfair_critical::UnfairCriticalSpinlock;
+
+use crate::{
+	gdt::{Gdt, SysEntry},
+	handler::Handler,
+	lapic::Lapic,
+	mem::address_space::AddressSpaceLayout,
+	tss::Tss,
+};
 
 /// The global kernel state. Initialized once during boot
 /// and re-used across all cores.

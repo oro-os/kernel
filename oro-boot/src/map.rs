@@ -1,10 +1,11 @@
 //! Known-good method of mapping the kernel module
 //! into a supervisor address space.
 
-use crate::target::{AddressSpace as TargetAddressSpace, ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
 use oro_debug::dbg;
 use oro_elf::{Elf, ElfSegment, ElfSegmentType};
 use oro_mem::mapper::{AddressSegment, AddressSpace, MapError, UnmapError};
+
+use crate::target::{AddressSpace as TargetAddressSpace, ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
 
 /// Maps in the kernel module and returns the entry point
 /// and a request scanner for populating the kernel's requests.

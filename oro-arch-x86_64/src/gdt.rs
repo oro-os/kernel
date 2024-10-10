@@ -1,8 +1,9 @@
 //! Structures and implementations for managing
 //! descriptor tables and their entries.
 
-use crate::tss::Tss;
 use core::arch::asm;
+
+use crate::tss::Tss;
 
 /// A global descriptor table (GDT) entry.
 ///

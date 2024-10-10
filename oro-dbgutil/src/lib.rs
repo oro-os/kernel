@@ -7,6 +7,7 @@
 #![feature(naked_functions)]
 
 use core::arch::asm;
+
 #[cfg(debug_assertions)]
 use oro_macro::gdb_autoload_inline;
 

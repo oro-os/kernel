@@ -1,7 +1,8 @@
 #![expect(missing_docs, clippy::missing_docs_in_private_items)]
 
-use convert_case::{Case, Casing};
 use std::{io::Write, path::PathBuf, process::Command};
+
+use convert_case::{Case, Casing};
 
 const BLACKLIST_MODS: [&str; 1] = ["macros"];
 const VALID_REPR_TYPES: [&str; 4] = ["u8", "u16", "u32", "u64"]; // NOTE(qix-): usize explicitly excluded

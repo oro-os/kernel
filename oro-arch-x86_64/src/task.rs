@@ -1,8 +1,10 @@
 //! Task (context) switching routines.
 
-use crate::mem::address_space::AddressSpaceLayout;
 use core::arch::asm;
+
 use oro_mem::mapper::{AddressSegment, AddressSpace};
+
+use crate::mem::address_space::AddressSpaceLayout;
 
 /// Initializes a thread's IRQ stack, priming it for
 /// its first context switch.

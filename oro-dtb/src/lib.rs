@@ -2,6 +2,7 @@
 #![cfg_attr(not(test), no_std)]
 
 use core::{ffi::CStr, mem::size_of, ptr::from_ref};
+
 use oro_type::Be;
 
 /// The flattened DeviceTree blob header.

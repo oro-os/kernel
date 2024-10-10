@@ -14,6 +14,7 @@ use core::{
 	fmt,
 	ptr::{from_mut, from_ref},
 };
+
 use oro_macro::match_nonexhaustive;
 
 /// An accessor around a MAIR register value.

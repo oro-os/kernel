@@ -1,13 +1,7 @@
 //! Boot routines for secondary cores.
 
-use crate::{
-	lapic::Lapic,
-	mem::{
-		address_space::{AddressSpaceHandle, AddressSpaceLayout},
-		segment::MapperHandle,
-	},
-};
 use core::{mem::MaybeUninit, sync::atomic::AtomicU64};
+
 use oro_acpi::{Madt, Rsdp};
 use oro_boot_protocol::acpi::AcpiKind;
 use oro_debug::{dbg, dbg_err};
@@ -16,6 +10,14 @@ use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::alloc::Alloc,
 	translate::{OffsetTranslator, Translator},
+};
+
+use crate::{
+	lapic::Lapic,
+	mem::{
+		address_space::{AddressSpaceHandle, AddressSpaceLayout},
+		segment::MapperHandle,
+	},
 };
 
 /// The LA57 bit in the CR4 register.

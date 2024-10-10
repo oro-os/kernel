@@ -1,9 +1,10 @@
 //! Core functionality for the `paste!()` macro.
 #![expect(clippy::missing_docs_in_private_items)]
 
+use std::collections::VecDeque;
+
 use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenTree};
-use std::collections::VecDeque;
 use syn::{Error, Ident};
 
 #[expect(clippy::missing_docs_in_private_items, clippy::too_many_lines)]

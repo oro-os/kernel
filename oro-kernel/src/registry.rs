@@ -20,19 +20,21 @@
 // NOTE(qix-): unsafety into the codebase. This is a very delicate module.
 // NOTE(qix-): It will be HEAVILY scrutinized in code review. Be ready.
 
-use crate::{AddrSpace, Arch, SupervisorHandle, SupervisorSegment};
 use core::{
 	marker::PhantomData,
 	mem::{size_of, ManuallyDrop, MaybeUninit},
 	ops::Deref,
 	sync::atomic::{AtomicUsize, Ordering},
 };
+
 use oro_macro::unlikely;
 use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError},
 	pfa::alloc::Alloc,
 };
 use oro_sync::spinlock::unfair_critical::UnfairCriticalSpinlock;
+
+use crate::{AddrSpace, Arch, SupervisorHandle, SupervisorSegment};
 
 /// A registry for reference-counted arena allocation.
 ///

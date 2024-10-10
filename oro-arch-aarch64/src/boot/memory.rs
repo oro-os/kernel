@@ -1,5 +1,15 @@
 //! Boot time memory initialization for the AArch64 architecture.
 
+use core::arch::asm;
+
+use oro_boot_protocol::{memory_map::MemoryMapKind, MemoryMapEntry, MemoryMapEntryType};
+use oro_debug::{dbg, dbg_warn};
+use oro_macro::assert;
+use oro_mem::{
+	pfa::{alloc::Alloc, filo::FiloPageFrameAllocator},
+	translate::{OffsetTranslator, Translator},
+};
+
 use crate::{
 	mair::MairEntry,
 	mem::{
@@ -10,14 +20,6 @@ use crate::{
 			PageTableEntryBlockAccessPerm, PageTableEntryTableAccessPerm,
 		},
 	},
-};
-use core::arch::asm;
-use oro_boot_protocol::{memory_map::MemoryMapKind, MemoryMapEntry, MemoryMapEntryType};
-use oro_debug::{dbg, dbg_warn};
-use oro_macro::assert;
-use oro_mem::{
-	pfa::{alloc::Alloc, filo::FiloPageFrameAllocator},
-	translate::{OffsetTranslator, Translator},
 };
 
 /// Prepared memory items configured after preparing the memory

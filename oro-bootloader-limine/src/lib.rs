@@ -8,6 +8,7 @@
 #![no_std]
 
 use core::{ffi::CStr, str::FromStr};
+
 #[cfg(debug_assertions)]
 use limine::request::StackSizeRequest;
 use limine::{

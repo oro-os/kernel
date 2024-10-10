@@ -2,6 +2,7 @@
 //! from the preboot environment on x86_64.
 
 use core::arch::asm;
+
 use oro_arch_x86_64::mem::{
 	address_space::{AddressSpaceHandle, AddressSpaceLayout},
 	paging::PageTableEntry,

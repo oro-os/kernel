@@ -1,17 +1,11 @@
 //! Secondary core (application processor) boot routine.
 
-use crate::{
-	mem::{
-		address_space::{AddressSpaceLayout, Ttbr1Handle},
-		segment::Segment,
-	},
-	psci::PsciMethod,
-};
 use core::{
 	arch::asm,
 	ffi::CStr,
 	sync::atomic::{AtomicBool, Ordering},
 };
+
 use oro_boot_protocol::device_tree::{DeviceTreeDataV0, DeviceTreeKind};
 use oro_debug::{dbg, dbg_err, dbg_warn};
 use oro_dtb::{FdtHeader, FdtPathFilter, FdtToken};
@@ -22,6 +16,14 @@ use oro_mem::{
 	translate::{OffsetTranslator, Translator},
 };
 use oro_type::Be;
+
+use crate::{
+	mem::{
+		address_space::{AddressSpaceLayout, Ttbr1Handle},
+		segment::Segment,
+	},
+	psci::PsciMethod,
+};
 
 /// Brings up all secondary cores.
 ///

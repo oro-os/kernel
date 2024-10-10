@@ -1,8 +1,9 @@
 //! Provides a high level abstraction over the system control register (`SCTLR_EL1`)
 //! for AArch64.
 
-use crate::reg::field::field32;
 use core::arch::asm;
+
+use crate::reg::field::field32;
 
 /// The `SCTLR_EL1` register.
 #[derive(Clone, Copy)]

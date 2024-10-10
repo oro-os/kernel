@@ -9,6 +9,7 @@
 mod driver;
 
 use core::fmt::{self, Write};
+
 use oro_sync::spinlock::unfair::UnfairSpinlock;
 
 /// The shared serial port for the system.

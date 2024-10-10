@@ -2,14 +2,15 @@
 //! requests that a physical address be mapped into a specific range of virtual
 //! addresses.
 
-use super::{address_space::AddressSpaceHandle, paging::PageTable};
-use crate::mem::{paging::PageTableEntry, paging_level::PagingLevel};
 use oro_macro::unlikely;
 use oro_mem::{
 	mapper::{AddressSegment as Segment, MapError, UnmapError},
 	pfa::alloc::Alloc,
 	translate::Translator,
 };
+
+use super::{address_space::AddressSpaceHandle, paging::PageTable};
+use crate::mem::{paging::PageTableEntry, paging_level::PagingLevel};
 
 /// Sign-extends a value to the appropriate size for the current paging level.
 macro_rules! sign_extend {

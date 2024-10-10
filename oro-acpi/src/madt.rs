@@ -1,10 +1,12 @@
 //! Extension methods for the MADT table.
 #![expect(clippy::inline_always)]
 
-use crate::sys;
 use core::mem::ManuallyDrop;
+
 use oro_macro::paste;
 use oro_mem::translate::Translator;
+
+use crate::sys;
 
 /// Indicates that the 8259 PIC is present in the MADT.
 const PCAT_COMPAT: u32 = 1;
