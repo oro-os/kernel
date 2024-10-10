@@ -32,7 +32,7 @@ use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError},
 	pfa::alloc::Alloc,
 };
-use oro_sync::spinlock::unfair_critical::UnfairCriticalSpinlock;
+use spin::mutex::fair::FairMutex;
 
 use crate::{AddrSpace, Arch, SupervisorHandle, SupervisorSegment};
 
@@ -52,7 +52,7 @@ pub(crate) struct Registry<T: Sized + 'static, A: Arch> {
 	// TODO(qix-): a few bytes.
 	base: *mut MaybeUninit<ItemFrame<T>>,
 	/// Bookkeeping counters used in the registry.
-	bookkeeping: UnfairCriticalSpinlock<RegistryBookkeeping>,
+	bookkeeping: FairMutex<RegistryBookkeeping>,
 	/// The segment this registry is in.
 	segment:     SupervisorSegment<A>,
 	/// The mapper for the registry.
@@ -64,7 +64,7 @@ pub(crate) struct Registry<T: Sized + 'static, A: Arch> {
 }
 
 /// Registry-level bookkeeping fields, protected
-/// behind an [`UnfairCriticalSpinlock`].
+/// behind a [`FairMutex`].
 struct RegistryBookkeeping {
 	/// The last free ID in the registry.
 	///
@@ -104,7 +104,7 @@ struct ItemFrame<T: Sized + 'static> {
 /// next free slot.
 union MaybeItem<T: Sized + 'static> {
 	/// The item itself.
-	item:      ManuallyDrop<UnfairCriticalSpinlock<T>>,
+	item:      ManuallyDrop<FairMutex<T>>,
 	/// The next free index.
 	next_free: usize,
 }
@@ -139,7 +139,7 @@ impl<T: Sized + 'static, A: Arch> Registry<T, A> {
 
 		Ok(Self {
 			base: segment.range().0 as *mut _,
-			bookkeeping: UnfairCriticalSpinlock::new(RegistryBookkeeping::new()),
+			bookkeeping: FairMutex::new(RegistryBookkeeping::new()),
 			pat,
 			segment,
 			mapper,
@@ -155,13 +155,12 @@ impl<T: Sized + 'static, A: Arch> Registry<T, A> {
 	/// locking the PFA.
 	pub fn insert(
 		&'static self,
-		pfa: &UnfairCriticalSpinlock<A::Pfa>,
+		pfa: &FairMutex<A::Pfa>,
 		item: impl Into<T>,
 	) -> Result<Handle<T>, MapError> {
 		let item = item.into();
 
-		// SAFETY(qix-): We don't panic in this function.
-		let mut bk = unsafe { self.bookkeeping.lock::<A::IntCtrl>() };
+		let mut bk = self.bookkeeping.lock();
 
 		let id = if bk.last_free_id == usize::MAX {
 			let byte_offset = bk.total_count * size_of::<MaybeUninit<ItemFrame<T>>>();
@@ -176,8 +175,7 @@ impl<T: Sized + 'static, A: Arch> Registry<T, A> {
 			let new_page_count = new_page_end + 1;
 
 			if new_page_count > bk.total_page_count {
-				// SAFETY(qix-): We don't panic in this function.
-				let mut pfa = unsafe { pfa.lock::<A::IntCtrl>() };
+				let mut pfa = pfa.lock();
 
 				for page_id in bk.total_page_count..new_page_count {
 					let page = pfa.allocate().ok_or(MapError::OutOfMemory)?;
@@ -207,7 +205,7 @@ impl<T: Sized + 'static, A: Arch> Registry<T, A> {
 			let slot = unsafe { &mut *self.base.add(id) };
 			slot.write(ItemFrame {
 				maybe_item: MaybeItem {
-					item: ManuallyDrop::new(UnfairCriticalSpinlock::new(item)),
+					item: ManuallyDrop::new(FairMutex::new(item)),
 				},
 				user_count: AtomicUsize::new(1),
 			});
@@ -219,7 +217,7 @@ impl<T: Sized + 'static, A: Arch> Registry<T, A> {
 			bk.last_free_id = unsafe { slot.maybe_item.next_free };
 			let last_user_count = slot.user_count.fetch_add(1, Ordering::Relaxed);
 			debug_assert_eq!(last_user_count, 0);
-			slot.maybe_item.item = ManuallyDrop::new(UnfairCriticalSpinlock::new(item));
+			slot.maybe_item.item = ManuallyDrop::new(FairMutex::new(item));
 
 			id
 		};
@@ -250,7 +248,7 @@ impl<T: Sized + 'static, A: Arch> Registry<T, A> {
 		// NOTE(qix-): We could load and then do a compare-and-swap, but this function
 		// NOTE(qix-): really should be seldom used, and I'm not interested in
 		// NOTE(qix-): fleshing it out further at this time. PR welcome.
-		let bk = self.bookkeeping.lock::<A::IntCtrl>();
+		let bk = self.bookkeeping.lock();
 
 		if id >= bk.total_count {
 			return None;
@@ -278,7 +276,7 @@ trait RegistryAccess<T: Sized + 'static> {
 	/// This function performs no bounds checks,
 	/// and assumes if an ID is passed in, it is
 	/// valid.
-	unsafe fn get(&self, id: usize) -> &UnfairCriticalSpinlock<T>;
+	unsafe fn get(&self, id: usize) -> &FairMutex<T>;
 
 	/// Increments the user count of the item at the given ID.
 	///
@@ -309,7 +307,7 @@ trait RegistryAccess<T: Sized + 'static> {
 }
 
 impl<T: Sized + 'static, A: Arch> RegistryAccess<T> for Registry<T, A> {
-	unsafe fn get(&self, id: usize) -> &UnfairCriticalSpinlock<T> {
+	unsafe fn get(&self, id: usize) -> &FairMutex<T> {
 		&(*self.base.add(id)).assume_init_ref().maybe_item.item
 	}
 
@@ -340,7 +338,7 @@ impl<T: Sized + 'static, A: Arch> RegistryAccess<T> for Registry<T, A> {
 
 			// SAFETY(qix-): DO NOT PUT THIS LOCK BEFORE THE ABOVE DROP.
 			// SAFETY(qix-): YOU WILL DEADLOCK THE KERNEL.
-			let mut bk = self.bookkeeping.lock::<A::IntCtrl>();
+			let mut bk = self.bookkeeping.lock();
 			slot.maybe_item.next_free = bk.last_free_id;
 			bk.last_free_id = id;
 		}
@@ -350,7 +348,7 @@ impl<T: Sized + 'static, A: Arch> RegistryAccess<T> for Registry<T, A> {
 /// A lightweight handle to an item in a registry.
 ///
 /// The handle is a reference-counted item in the registry,
-/// and is a thin wrapper around an [`UnfairCriticalSpinlock`]
+/// and is a thin wrapper around an [`FairMutex`]
 /// to the item itself.
 ///
 /// Handles can be safely `clone()`d. When the last handle
@@ -388,7 +386,7 @@ impl<T: Sized + 'static> Handle<T> {
 }
 
 impl<T: Sized + 'static> Deref for Handle<T> {
-	type Target = UnfairCriticalSpinlock<T>;
+	type Target = FairMutex<T>;
 
 	fn deref(&self) -> &Self::Target {
 		// SAFETY(qix-): We can assume that, given this handle
@@ -538,7 +536,7 @@ impl<T: Sized + 'static, A: Arch> Item<T, A> {
 }
 
 impl<T: Sized + 'static, A: Arch> Deref for Item<T, A> {
-	type Target = UnfairCriticalSpinlock<T>;
+	type Target = FairMutex<T>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.handle
@@ -551,19 +549,16 @@ impl<T: Sized + 'static, A: Arch> Handle<Item<T, A>> {
 	/// Note that the underlying handle is still kept, including
 	/// any handles to the list item directly (i.e. `Self`).
 	pub fn delete(&self) {
-		// SAFETY(qix-): We don't panic here.
-		let mut lock = unsafe { self.lock::<A::IntCtrl>() };
+		let mut lock = self.lock();
 		if let Some(list) = lock.list.take() {
-			// SAFETY(qix-): We don't panic here.
-			let mut list_lock = unsafe { list.lock::<A::IntCtrl>() };
+			let mut list_lock = list.lock();
 			debug_assert!(list_lock.count > 0);
 			list_lock.count -= 1;
 			match (lock.prev.take(), lock.next.take()) {
 				// Middle of the list.
 				(Some(prev), Some(next)) => {
-					// SAFETY(qix-): We don't panic here.
-					let mut prev_lock = unsafe { prev.lock::<A::IntCtrl>() };
-					let mut next_lock = unsafe { next.lock::<A::IntCtrl>() };
+					let mut prev_lock = prev.lock();
+					let mut next_lock = next.lock();
 
 					debug_assert_eq!(prev_lock.next.as_ref(), Some(self));
 					debug_assert_eq!(next_lock.prev.as_ref(), Some(self));
@@ -573,7 +568,7 @@ impl<T: Sized + 'static, A: Arch> Handle<Item<T, A>> {
 				}
 				// End of the list.
 				(Some(prev), None) => {
-					let mut prev_lock = unsafe { prev.lock::<A::IntCtrl>() };
+					let mut prev_lock = prev.lock();
 
 					debug_assert_eq!(prev_lock.next.as_ref(), Some(self));
 					debug_assert_eq!(list_lock.last.as_ref(), Some(self));
@@ -583,7 +578,7 @@ impl<T: Sized + 'static, A: Arch> Handle<Item<T, A>> {
 				}
 				// Beginning of the list.
 				(None, Some(next)) => {
-					let mut next_lock = unsafe { next.lock::<A::IntCtrl>() };
+					let mut next_lock = next.lock();
 
 					debug_assert_eq!(next_lock.prev.as_ref(), Some(self));
 					debug_assert_eq!(list_lock.first.as_ref(), Some(self));
@@ -623,19 +618,17 @@ impl<T: Sized + 'static, A: Arch> Handle<List<T, A>> {
 	/// Inserts an item to the end of the list.
 	pub fn append(
 		&self,
-		pfa: &UnfairCriticalSpinlock<A::Pfa>,
+		pfa: &FairMutex<A::Pfa>,
 		item: Handle<T>,
 	) -> Result<Handle<Item<T, A>>, MapError> {
-		// SAFETY(qix-): We don't panic here.
-		let mut list_lock = unsafe { self.lock::<A::IntCtrl>() };
+		let mut list_lock = self.lock();
 
 		let item = list_lock.item_registry.insert(pfa, Item::new(item))?;
 
 		{
 			let last = list_lock.last.replace(item.clone());
 
-			// SAFETY(qix-): We don't panic here.
-			let mut item_lock = unsafe { item.lock::<A::IntCtrl>() };
+			let mut item_lock = item.lock();
 			item_lock.list = Some(self.clone());
 			item_lock.prev = last;
 
@@ -706,7 +699,7 @@ impl<T: Sized + 'static, A: Arch> ListRegistry<T, A> {
 	/// The list is empty when created.
 	pub fn create_list(
 		&'static self,
-		pfa: &UnfairCriticalSpinlock<A::Pfa>,
+		pfa: &FairMutex<A::Pfa>,
 	) -> Result<Handle<List<T, A>>, MapError> {
 		self.list_registry
 			.insert(pfa, List::new(&self.item_registry))

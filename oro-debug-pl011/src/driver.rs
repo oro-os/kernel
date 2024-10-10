@@ -21,6 +21,9 @@ pub struct PL011 {
 	parity:     Parity,
 }
 
+// SAFETY(qix-): We know that the register block is safe to share.
+unsafe impl Send for PL011 {}
+
 /// Specifies the parity bit settings for the UART.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]

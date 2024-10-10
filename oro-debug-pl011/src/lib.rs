@@ -10,12 +10,12 @@ mod driver;
 
 use core::fmt::{self, Write};
 
-use oro_sync::spinlock::unfair::UnfairSpinlock;
+use spin::mutex::fair::FairMutex;
 
 /// The shared serial port for the system.
 // NOTE(qix-): This is a temporary solution until pre-boot module loading
 // NOTE(qix-): is implemented.
-static SERIAL: UnfairSpinlock<Option<driver::PL011>> = UnfairSpinlock::new(None);
+static SERIAL: FairMutex<Option<driver::PL011>> = FairMutex::new(None);
 
 /// Initializes the PL011.
 pub fn init(offset: usize) {
@@ -39,13 +39,10 @@ pub fn init(offset: usize) {
 /// Logs a message to the PL011.
 #[expect(clippy::missing_panics_doc)]
 pub fn log(message: fmt::Arguments) {
-	// NOTE(qix-): This unsafe block MUST NOT PANIC.
-	unsafe {
-		if let Some(serial) = SERIAL.lock().as_mut() {
-			writeln!(serial, "{message}")
-		} else {
-			Ok(())
-		}
+	if let Some(serial) = SERIAL.lock().as_mut() {
+		writeln!(serial, "{message}")
+	} else {
+		Ok(())
 	}
 	.unwrap();
 }

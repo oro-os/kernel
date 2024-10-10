@@ -30,10 +30,7 @@ use oro_mem::{
 	pfa::alloc::Alloc,
 	translate::Translator,
 };
-use oro_sync::spinlock::{
-	unfair::UnfairSpinlock,
-	unfair_critical::{InterruptController, UnfairCriticalSpinlock},
-};
+use spin::mutex::fair::FairMutex;
 
 use self::{
 	registry::{Handle, List, ListRegistry, Registry},
@@ -58,7 +55,7 @@ pub struct Kernel<A: Arch> {
 	/// The kernel scheduler.
 	///
 	/// Guaranteed valid after a successful call to `initialize_for_core`.
-	scheduler:  MaybeUninit<UnfairSpinlock<Scheduler<A>>>,
+	scheduler:  MaybeUninit<FairMutex<Scheduler<A>>>,
 	/// Cached mapper handle for the kernel.
 	mapper:     SupervisorHandle<A>,
 }
@@ -97,7 +94,7 @@ impl<A: Arch> Kernel<A> {
 		debug_assert!((kernel_base as *mut Self).is_aligned());
 
 		{
-			let mut pfa = global_state.pfa.lock::<A::IntCtrl>();
+			let mut pfa = global_state.pfa.lock();
 			let phys = pfa.allocate().ok_or(MapError::OutOfMemory)?;
 			core_local_segment.map(&mapper, &mut *pfa, &global_state.pat, kernel_base, phys)?;
 		}
@@ -113,7 +110,7 @@ impl<A: Arch> Kernel<A> {
 
 		(*kernel_ptr)
 			.scheduler
-			.write(UnfairSpinlock::new(Scheduler::new(&*kernel_ptr)));
+			.write(FairMutex::new(Scheduler::new(&*kernel_ptr)));
 
 		Ok(&*kernel_ptr)
 	}
@@ -167,9 +164,7 @@ impl<A: Arch> Kernel<A> {
 	/// interrupts are disabled; the spinlock is _not_ a critical
 	/// spinlock and thus does not disable interrupts.
 	#[must_use]
-	pub unsafe fn scheduler(&self) -> &UnfairSpinlock<Scheduler<A>> {
-		#[cfg(debug_assertions)]
-		debug_assert!(!A::IntCtrl::interrupts_enabled());
+	pub unsafe fn scheduler(&self) -> &FairMutex<Scheduler<A>> {
 		self.scheduler.assume_init_ref()
 	}
 }
@@ -179,7 +174,7 @@ impl<A: Arch> Kernel<A> {
 pub struct KernelState<A: Arch> {
 	/// The shared, spinlocked page frame allocator (PFA) for the
 	/// entire system.
-	pfa: UnfairCriticalSpinlock<A::Pfa>,
+	pfa: FairMutex<A::Pfa>,
 	/// The physical address translator.
 	pat: A::Pat,
 
@@ -259,14 +254,14 @@ impl<A: Arch> KernelState<A> {
 	pub unsafe fn init(
 		this: &'static mut MaybeUninit<Self>,
 		pat: A::Pat,
-		pfa: UnfairCriticalSpinlock<A::Pfa>,
+		pfa: FairMutex<A::Pfa>,
 	) -> Result<(), MapError> {
 		#[expect(clippy::missing_docs_in_private_items)]
 		macro_rules! init_registries {
 			($($id:ident => $(($listregfn:ident, $itemregfn:ident))? $($regfn:ident)?),* $(,)?) => {
 				$(
 					let $id = {
-						let mut pfa_lock = pfa.lock::<A::IntCtrl>();
+						let mut pfa_lock = pfa.lock();
 						let reg = init_registries!(@inner pfa_lock, $(($listregfn, $itemregfn))? $($regfn)?);
 						let _ = pfa_lock;
 
@@ -307,9 +302,8 @@ impl<A: Arch> KernelState<A> {
 		}
 
 		let supervisor_space = AddrSpace::<A>::current_supervisor_space(&pat);
-		let user_mapper =
-			AddrSpace::<A>::new_user_space(&supervisor_space, &mut *pfa.lock::<A::IntCtrl>(), &pat)
-				.ok_or(MapError::OutOfMemory)?;
+		let user_mapper = AddrSpace::<A>::new_user_space(&supervisor_space, &mut *pfa.lock(), &pat)
+			.ok_or(MapError::OutOfMemory)?;
 
 		this.write(Self {
 			pfa,
@@ -361,7 +355,7 @@ impl<A: Arch> KernelState<A> {
 	}
 
 	/// Returns the underlying PFA belonging to the kernel state.
-	pub fn pfa(&'static self) -> &'static UnfairCriticalSpinlock<A::Pfa> {
+	pub fn pfa(&'static self) -> &'static FairMutex<A::Pfa> {
 		&self.pfa
 	}
 
@@ -399,9 +393,8 @@ impl<A: Arch> KernelState<A> {
 			},
 		)?;
 
-		// SAFETY(qix-): Will not panic.
-		unsafe {
-			ring.lock::<A::IntCtrl>().id = ring.id();
+		{
+			ring.lock().id = ring.id();
 		}
 
 		// SAFETY(qix-): As long as the kernel state has been initialized,
@@ -420,8 +413,7 @@ impl<A: Arch> KernelState<A> {
 		let instance_list = self.instance_list_registry.create_list(&self.pfa)?;
 
 		let mapper = {
-			// SAFETY(qix-): We don't panic here.
-			let mut pfa = unsafe { self.pfa.lock::<A::IntCtrl>() };
+			let mut pfa = self.pfa.lock();
 			AddrSpace::<A>::duplicate_user_space_shallow(&self.user_mapper, &mut *pfa, &self.pat)
 				.ok_or(MapError::OutOfMemory)?
 		};
@@ -436,9 +428,8 @@ impl<A: Arch> KernelState<A> {
 			},
 		)?;
 
-		// SAFETY(qix-): Will not panic.
-		unsafe {
-			module.lock::<A::IntCtrl>().id = module.id();
+		{
+			module.lock().id = module.id();
 		}
 
 		// SAFETY(qix-): As long as the kernel state has been initialized,
@@ -462,10 +453,9 @@ impl<A: Arch> KernelState<A> {
 		let thread_list = self.thread_list_registry.create_list(&self.pfa)?;
 		let port_list = self.port_list_registry.create_list(&self.pfa)?;
 
-		// SAFETY(qix-): We don't panic here.
-		let mapper = unsafe {
-			let module_lock = module.lock::<A::IntCtrl>();
-			let mut pfa = self.pfa.lock::<A::IntCtrl>();
+		let mapper = {
+			let module_lock = module.lock();
+			let mut pfa = self.pfa.lock();
 			AddrSpace::<A>::duplicate_user_space_shallow(module_lock.mapper(), &mut *pfa, &self.pat)
 				.ok_or(MapError::OutOfMemory)?
 		};
@@ -482,20 +472,13 @@ impl<A: Arch> KernelState<A> {
 			},
 		)?;
 
-		// SAFETY(qix-): Will not panic.
-		unsafe {
-			instance.lock::<A::IntCtrl>().id = instance.id();
+		{
+			instance.lock().id = instance.id();
 
 			// SAFETY(qix-): As long as the kernel state has been initialized,
 			// SAFETY(qix-): this won't panic.
-			let _ = module
-				.lock::<A::IntCtrl>()
-				.instances
-				.append(&self.pfa, instance.clone());
-			let _ = ring
-				.lock::<A::IntCtrl>()
-				.instances
-				.append(&self.pfa, instance.clone());
+			let _ = module.lock().instances.append(&self.pfa, instance.clone());
+			let _ = ring.lock().instances.append(&self.pfa, instance.clone());
 		}
 
 		Ok(instance)
@@ -511,10 +494,9 @@ impl<A: Arch> KernelState<A> {
 		stack_size: usize,
 		mut thread_state: A::ThreadState,
 	) -> Result<Handle<thread::Thread<A>>, MapError> {
-		// SAFETY(qix-): We don't panic here.
-		let mapper = unsafe {
-			let instance_lock = instance.lock::<A::IntCtrl>();
-			let mut pfa = self.pfa.lock::<A::IntCtrl>();
+		let mapper = {
+			let instance_lock = instance.lock();
+			let mut pfa = self.pfa.lock();
 			AddrSpace::<A>::duplicate_user_space_shallow(
 				instance_lock.mapper(),
 				&mut *pfa,
@@ -536,7 +518,7 @@ impl<A: Arch> KernelState<A> {
 			let stack_low_guard = stack_first_page - 0x1000;
 
 			let map_result = {
-				let mut pfa = self.pfa.lock::<A::IntCtrl>();
+				let mut pfa = self.pfa.lock();
 
 				for virt in (stack_first_page..stack_high_guard).step_by(0x1000) {
 					let phys = pfa.allocate().ok_or(MapError::OutOfMemory)?;
@@ -594,12 +576,9 @@ impl<A: Arch> KernelState<A> {
 					},
 				)?;
 
-				thread.lock::<A::IntCtrl>().id = thread.id();
+				thread.lock().id = thread.id();
 
-				let _ = instance
-					.lock::<A::IntCtrl>()
-					.threads
-					.append(&self.pfa, thread.clone())?;
+				let _ = instance.lock().threads.append(&self.pfa, thread.clone())?;
 
 				let _ = self
 					.threads
@@ -613,7 +592,7 @@ impl<A: Arch> KernelState<A> {
 			// Try to reclaim the memory we just allocated, if any.
 			match map_result {
 				Err(err) => {
-					let mut pfa = self.pfa.lock::<A::IntCtrl>();
+					let mut pfa = self.pfa.lock();
 
 					if let Err(err) =
 						A::reclaim_thread_mappings(&mapper, &mut thread_state, &mut *pfa, &self.pat)
@@ -638,9 +617,8 @@ impl<A: Arch> KernelState<A> {
 			}
 		};
 
-		// SAFETY(qix-): We don't panic here.
-		unsafe {
-			let mut thread_lock = thread.lock::<A::IntCtrl>();
+		{
+			let mut thread_lock = thread.lock();
 			thread_lock.mapper.write(mapper);
 			thread_lock.thread_state.write(thread_state);
 		}
@@ -658,8 +636,6 @@ pub trait Arch: 'static {
 	/// The type of page frame allocator (PFA) the architecture
 	/// uses.
 	type Pfa: Alloc;
-	/// The type of interrupt controller.
-	type IntCtrl: InterruptController;
 	/// The address space layout the architecture uses.
 	type AddrSpace: AddressSpace;
 	/// Architecture-specific thread state to be stored alongside

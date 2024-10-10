@@ -17,7 +17,6 @@ doctest = false
 [dependencies]
 oro-macro.workspace = true
 oro-elf.workspace = true
-oro-sync.workspace = true
 oro-debug.workspace = true
 oro-dbgutil.workspace = true
 
