@@ -11,6 +11,7 @@ mod asm_buffer;
 mod enum_as;
 mod enum_iterator;
 mod gdb_autoload;
+mod global_resource;
 mod paste;
 
 /// Derive macro for the `EnumIterator` trait.
@@ -162,4 +163,57 @@ pub fn gdb_autoload_inline(input: proc_macro::TokenStream) -> proc_macro::TokenS
 #[proc_macro]
 pub fn asm_buffer(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	self::asm_buffer::asm_buffer(input)
+}
+
+/// Creates global resource getters based on the name.
+///
+/// Should be used only by internal (kernel) crates, NOT
+/// by architectures or bootloaders.
+///
+/// The identifier passed to the macro is the name of the resource;
+/// check the various `oro_global_*` macros in `oro-macro-proc` for
+/// the names of each resource.
+#[proc_macro]
+pub fn oro_global_getter(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+	self::global_resource::global_getter(input)
+}
+
+/// Marks a static as the global physical address translator.
+///
+/// The global singleton is required by anything that uses either
+/// the `oro-kernel` or `oro-mem` crates, and is typically implemented
+/// by the architecture crates or bootloaders.
+///
+/// Used similarly to `#[global_allocator]` from the `alloc` crate.
+#[proc_macro_attribute]
+pub fn oro_global_translator(
+	args: proc_macro::TokenStream,
+	input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+	self::global_resource::mark_global_resource(
+		args,
+		input,
+		"translator",
+		syn::parse_quote!(::oro_mem::translate::Translator),
+	)
+}
+
+/// Marks a static as the global page frame allocator.
+///
+/// The global singleton is required by anything that uses either
+/// the `oro-kernel` or `oro-mem` crates, and is typically implemented
+/// by the architecture crates or bootloaders.
+///
+/// Used similarly to `#[global_allocator]` from the `alloc` crate.
+#[proc_macro_attribute]
+pub fn oro_global_pfa(
+	args: proc_macro::TokenStream,
+	input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+	self::global_resource::mark_global_resource(
+		args,
+		input,
+		"pfa",
+		syn::parse_quote!(::oro_mem::pfa::alloc::GlobalPfa),
+	)
 }
