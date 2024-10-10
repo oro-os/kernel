@@ -4,14 +4,13 @@
 use core::mem::ManuallyDrop;
 
 use oro_macro::paste;
-use oro_mem::translate::Translator;
 
 use crate::sys;
 
 /// Indicates that the 8259 PIC is present in the MADT.
 const PCAT_COMPAT: u32 = 1;
 
-impl<P: Translator> crate::Madt<P> {
+impl crate::Madt {
 	/// Returns whether or not the 8259 PIC is present in the MADT.
 	#[must_use]
 	pub fn has_8259(&self) -> bool {

@@ -14,7 +14,7 @@ use oro_macro::asm_buffer;
 use oro_mem::{
 	mapper::{AddressSegment as _, AddressSpace as _, MapError, UnmapError},
 	pfa::alloc::Alloc,
-	translate::Translator,
+	phys::PhysAddr,
 };
 
 #[expect(clippy::missing_docs_in_private_items)]
@@ -58,10 +58,9 @@ pub fn target_address() -> usize {
 /// Prepares the system for a transfer. Called before the memory map
 /// is written, after which `transfer` is called.
 #[expect(clippy::unnecessary_wraps)]
-pub unsafe fn prepare_transfer<P: Translator, A: Alloc>(
+pub unsafe fn prepare_transfer<A: Alloc>(
 	mapper: &mut AddressSpaceHandle,
 	alloc: &mut A,
-	pat: &P,
 ) -> crate::Result<()> {
 	debug_assert!(
 		STUBS.len() <= 4096,
@@ -74,7 +73,7 @@ pub unsafe fn prepare_transfer<P: Translator, A: Alloc>(
 	);
 
 	// Map in the recursive entry.
-	AddressSpaceLayout::map_recursive_entry(mapper, pat);
+	AddressSpaceLayout::map_recursive_entry(mapper);
 
 	// Allocate and map in the transfer stubs
 	let stubs_base = target_address();
@@ -82,7 +81,7 @@ pub unsafe fn prepare_transfer<P: Translator, A: Alloc>(
 	let source = &STUBS[0] as *const u8;
 	let dest = stubs_base as *mut u8;
 
-	let current_mapper = AddressSpaceLayout::current_supervisor_space(pat);
+	let current_mapper = AddressSpaceLayout::current_supervisor_space();
 
 	let phys = alloc
 		.allocate()
@@ -90,13 +89,13 @@ pub unsafe fn prepare_transfer<P: Translator, A: Alloc>(
 
 	// Map into the target kernel page tables
 	(&STUBS_SEGMENT_DESCRIPTOR)
-		.map(mapper, alloc, pat, stubs_base, phys)
+		.map(mapper, alloc, stubs_base, phys)
 		.expect("failed to map page for transfer stubs for kernel address space");
 
 	// Attempt to unmap it from the current address space.
 	// If it's not mapped, we can ignore the error.
 	(&STUBS_SEGMENT_DESCRIPTOR)
-		.unmap(&current_mapper, alloc, pat, stubs_base)
+		.unmap(&current_mapper, alloc, stubs_base)
 		.or_else(|e| {
 			if e == UnmapError::NotMapped {
 				Ok(0)
@@ -108,7 +107,7 @@ pub unsafe fn prepare_transfer<P: Translator, A: Alloc>(
 
 	// Now map it into the current mapper so we can access it.
 	(&STUBS_SEGMENT_DESCRIPTOR)
-		.map(&current_mapper, alloc, pat, stubs_base, phys)
+		.map(&current_mapper, alloc, stubs_base, phys)
 		.expect("failed to map page for transfer stubs in current address space");
 
 	dest.copy_from(source, STUBS.len());
@@ -123,7 +122,7 @@ pub unsafe fn transfer(
 	stack_addr: usize,
 	_prepare_data: (),
 ) -> Result<!, MapError> {
-	let page_table_phys: u64 = mapper.base_phys();
+	let page_table_phys: u64 = mapper.base_phys().address_u64();
 	let stubs_addr: usize = target_address();
 
 	// Tell dbgutil we're about to switch

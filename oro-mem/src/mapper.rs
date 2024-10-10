@@ -6,7 +6,7 @@
 //! The kernel will allocate memory into specific regions, leaving the
 //! architecture to properly set up all flags and other necessary controls
 //! for those regions to behave as the kernel expects.
-use crate::{pfa::alloc::Alloc, translate::Translator};
+use crate::pfa::alloc::Alloc;
 
 #[allow(clippy::missing_docs_in_private_items)]
 macro_rules! define_registries {
@@ -67,17 +67,14 @@ pub unsafe trait AddressSpace: 'static {
 	///
 	/// Further, this function _should_ be considered slow, and only called
 	/// when absolutely necessary.
-	unsafe fn current_supervisor_space<P>(translator: &P) -> Self::SupervisorHandle
-	where
-		P: Translator;
+	unsafe fn current_supervisor_space() -> Self::SupervisorHandle;
 
 	/// Creates a new, empty supervisor address space handle.
 	///
 	/// Returns `None` if any allocation(s) fail.
-	fn new_supervisor_space<A, P>(alloc: &mut A, translator: &P) -> Option<Self::SupervisorHandle>
+	fn new_supervisor_space<A>(alloc: &mut A) -> Option<Self::SupervisorHandle>
 	where
-		A: Alloc,
-		P: Translator;
+		A: Alloc;
 
 	/// Creates a new user address space handle based on the given supervisor handle.
 	///
@@ -85,14 +82,9 @@ pub unsafe trait AddressSpace: 'static {
 	/// mappings.
 	///
 	/// Returns None if any allocation(s) fail.
-	fn new_user_space<A, P>(
-		space: &Self::SupervisorHandle,
-		alloc: &mut A,
-		translator: &P,
-	) -> Option<Self::UserHandle>
+	fn new_user_space<A>(space: &Self::SupervisorHandle, alloc: &mut A) -> Option<Self::UserHandle>
 	where
-		A: Alloc,
-		P: Translator;
+		A: Alloc;
 
 	/// Duplicates the given supervisor address space handle.
 	///
@@ -101,14 +93,12 @@ pub unsafe trait AddressSpace: 'static {
 	/// will point to the same physical pages as the original handle.
 	///
 	/// Returns `None` if any allocation(s) fail.
-	fn duplicate_supervisor_space_shallow<A, P>(
+	fn duplicate_supervisor_space_shallow<A>(
 		space: &Self::SupervisorHandle,
 		alloc: &mut A,
-		translator: &P,
 	) -> Option<Self::SupervisorHandle>
 	where
-		A: Alloc,
-		P: Translator;
+		A: Alloc;
 
 	/// Duplicates the given user address space handle.
 	///
@@ -117,23 +107,20 @@ pub unsafe trait AddressSpace: 'static {
 	/// will point to the same physical pages as the original handle.
 	///
 	/// Returns None if any allocation(s) fail.
-	fn duplicate_user_space_shallow<A, P>(
+	fn duplicate_user_space_shallow<A>(
 		space: &Self::UserHandle,
 		alloc: &mut A,
-		translator: &P,
 	) -> Option<Self::UserHandle>
 	where
-		A: Alloc,
-		P: Translator;
+		A: Alloc;
 
 	/// Frees and reclaims the user address space handle.
 	///
 	/// Frees the TOP LEVEL page table, without reclaiming any of the pages
 	/// that the page table points to.
-	fn free_user_space<A, P>(space: Self::UserHandle, alloc: &mut A, translator: &P)
+	fn free_user_space<A>(space: Self::UserHandle, alloc: &mut A)
 	where
-		A: Alloc,
-		P: Translator;
+		A: Alloc;
 
 	/// Returns the layout descriptor for the module thread segment.
 	///
@@ -243,15 +230,9 @@ pub unsafe trait AddressSegment<Handle: Sized>: 'static {
 	/// Makes the segment shared across all address spaces.
 	///
 	/// Returns an error if the segment is not empty.
-	fn provision_as_shared<A, P>(
-		&self,
-		space: &Handle,
-		alloc: &mut A,
-		translator: &P,
-	) -> Result<(), MapError>
+	fn provision_as_shared<A>(&self, space: &Handle, alloc: &mut A) -> Result<(), MapError>
 	where
-		A: Alloc,
-		P: Translator;
+		A: Alloc;
 
 	/// Maps a physical address into the segment at the given virtual address.
 	/// Fails if the virtual address is already mapped.
@@ -259,32 +240,22 @@ pub unsafe trait AddressSegment<Handle: Sized>: 'static {
 	/// If the caller had allocated the page frame for use and this function fails,
 	/// assuming the caller will not retry, it's up to the caller to free the
 	/// page frame in order to avoid a memory leak.
-	fn map<A, P>(
-		&self,
-		space: &Handle,
-		alloc: &mut A,
-		translator: &P,
-		virt: usize,
-		phys: u64,
-	) -> Result<(), MapError>
+	fn map<A>(&self, space: &Handle, alloc: &mut A, virt: usize, phys: u64) -> Result<(), MapError>
 	where
-		A: Alloc,
-		P: Translator;
+		A: Alloc;
 
 	/// Unmaps and reclaims all pages in the segment.
 	///
 	/// # Safety
 	/// Caller must ensure that all reclaimed pages are truly
 	/// freeable and not in use by any other address space handle.
-	unsafe fn unmap_all_and_reclaim<A, P>(
+	unsafe fn unmap_all_and_reclaim<A>(
 		&self,
 		space: &Handle,
 		alloc: &mut A,
-		translator: &P,
 	) -> Result<(), UnmapError>
 	where
-		A: Alloc,
-		P: Translator;
+		A: Alloc;
 
 	/// Maps a physical address into the segment at the given virtual address,
 	/// without performing any frees (even if it means a slightly less
@@ -299,46 +270,35 @@ pub unsafe trait AddressSegment<Handle: Sized>: 'static {
 	/// If the caller had allocated the page frame for use and this function fails,
 	/// assuming the caller will not retry, it's up to the caller to free the
 	/// page frame in order to avoid a memory leak.
-	fn map_nofree<A, P>(
+	fn map_nofree<A>(
 		&self,
 		space: &Handle,
 		alloc: &mut A,
-		translator: &P,
 		virt: usize,
 		phys: u64,
 	) -> Result<(), MapError>
 	where
-		A: Alloc,
-		P: Translator;
+		A: Alloc;
 
 	/// Unmaps a physical address from the segment at the given virtual address.
 	/// Fails if the virtual address is not mapped. Returns the physical address
 	/// that was previously mapped.
-	fn unmap<A, P>(
-		&self,
-		space: &Handle,
-		alloc: &mut A,
-		translator: &P,
-		virt: usize,
-	) -> Result<u64, UnmapError>
+	fn unmap<A>(&self, space: &Handle, alloc: &mut A, virt: usize) -> Result<u64, UnmapError>
 	where
-		A: Alloc,
-		P: Translator;
+		A: Alloc;
 
 	/// Maps the given physical address into the segment at the given virtual address.
 	/// If the virtual address is already mapped, the physical address is remapped and the
 	/// old physical address is returned.
-	fn remap<A, P>(
+	fn remap<A>(
 		&self,
 		space: &Handle,
 		alloc: &mut A,
-		translator: &P,
 		virt: usize,
 		phys: u64,
 	) -> Result<Option<u64>, MapError>
 	where
-		A: Alloc,
-		P: Translator;
+		A: Alloc;
 }
 
 /// Errors returned by mapping functions

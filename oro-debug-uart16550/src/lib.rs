@@ -16,7 +16,6 @@ pub fn init() {
 }
 
 /// Logs a message to the UART.
-#[expect(clippy::missing_panics_doc)]
 pub fn log(message: fmt::Arguments) {
 	writeln!(SERIAL.lock(), "{message}").unwrap();
 }

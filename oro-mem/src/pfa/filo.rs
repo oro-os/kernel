@@ -2,55 +2,47 @@
 //! whereby page frames form a linked list of free pages. See [`FiloPageFrameAllocator`]
 //! for more information.
 
-use crate::{pfa::alloc::Alloc, translate::Translator};
+use crate::{
+	pfa::alloc::Alloc,
+	phys::{Phys, PhysAddr},
+};
 
 /// First in, last out (FILO) page frame allocator.
 ///
 /// The _first in, last out_ (FILO) page frame allocator is the
 /// default page frame allocator used by the kernel and most
-/// bootloaders. Through the use of a [`FiloPageFrameManager`],
-/// page frames are brought in and out of a known virtual address
-/// location via e.g. a memory map, whereby the last freed page
+/// bootloaders. Through the use of the global physical address translator,
+/// page frames are translated to virtual addresses and read/written to,
+/// whereby the last freed page
 /// frame physical address is stored in the first bytes of the
 /// page.
 ///
 /// When a page is requested, the allocator first checks the
 /// current (stored) page frame address. If it is `u64::MAX`, the
 /// allocator is out of memory. If it is not, the physical page
-/// pointed to by the stored last-free address is brought into
-/// virtual memory via the [`FiloPageFrameManager`], the
+/// pointed to by the stored last-free address is ultimately used as the result, the
 /// next-last-freed page frame address is read from the first
 /// bytes of the page, stored in the allocator's last-free
-/// address as the new last-free address, and the page that was
-/// just brought in is returned to the requesting kernel code.
+/// address as the new last-free address, and page's physical address is returned.
 ///
 /// When a page is freed, the inverse occurs - the page is
-/// brought into virtual memory, the current (soon to be
+/// translated into virtual memory, the current (soon to be
 /// previous) last-free value is written to the first few bytes,
 /// and the last-free pointer is updated to point to the
 /// newly-freed page. This creates a FILO stack of freed pages
 /// with no more bookkeeping necessary other than the last-free
 /// physical frame pointer.
-pub struct FiloPageFrameAllocator<M>
-where
-	M: FiloPageFrameManager,
-{
-	/// The manager responsible for bringing in and out
-	/// physical pages from virtual memory.
-	manager:   M,
+pub struct FiloPageFrameAllocator {
 	/// The last-free page frame address.
 	last_free: u64,
 }
 
-impl<M> FiloPageFrameAllocator<M>
-where
-	M: FiloPageFrameManager,
-{
+impl FiloPageFrameAllocator {
 	/// Creates a new FILO page frame allocator.
 	#[inline]
-	pub fn new(manager: M) -> Self {
+	#[must_use]
+	pub fn new() -> Self {
 		Self {
-			manager,
 			last_free: u64::MAX,
 		}
 	}
@@ -58,21 +50,20 @@ where
 	/// Creates a new FILO page frame allocator with the given
 	/// last-free page frame address.
 	#[inline]
-	pub fn with_last_free(manager: M, last_free: u64) -> Self {
-		Self { manager, last_free }
+	#[must_use]
+	pub fn with_last_free(last_free: u64) -> Self {
+		Self { last_free }
 	}
 
 	/// Returns the last-free page frame address.
 	#[inline]
+	#[must_use]
 	pub fn last_free(&self) -> u64 {
 		self.last_free
 	}
 }
 
-unsafe impl<M> Alloc for FiloPageFrameAllocator<M>
-where
-	M: FiloPageFrameManager,
-{
+unsafe impl Alloc for FiloPageFrameAllocator {
 	fn allocate(&mut self) -> Option<u64> {
 		if self.last_free == u64::MAX {
 			// We're out of memory
@@ -80,7 +71,11 @@ where
 		} else {
 			// Bring in the last-free page frame.
 			let page_frame = self.last_free;
-			self.last_free = unsafe { self.manager.read_u64(page_frame) };
+			self.last_free = unsafe {
+				Phys::from_address_unchecked(page_frame)
+					.as_ptr_unchecked::<u64>()
+					.read_volatile()
+			};
 			#[cfg(debug_assertions)]
 			oro_dbgutil::__oro_dbgutil_pfa_alloc(page_frame);
 			Some(page_frame)
@@ -91,71 +86,11 @@ where
 		assert_eq!(frame % 4096, 0, "frame is not page-aligned");
 		#[cfg(debug_assertions)]
 		oro_dbgutil::__oro_dbgutil_pfa_free(frame);
-		self.manager.write_u64(frame, self.last_free);
+		unsafe {
+			Phys::from_address_unchecked(frame)
+				.as_mut_ptr_unchecked::<u64>()
+				.write_volatile(self.last_free);
+		}
 		self.last_free = frame;
-	}
-}
-
-/// First in, last out (FILO) page frame read/write manager.
-///
-/// A page frame manager is responsible for managing the virtual
-/// memory mapping of physical pages as needed by the
-/// [`FiloPageFrameAllocator`]. It is responsible for bringing
-/// physical pages into virtual memory (usually at a known, fixed
-/// address, given that only one page will ever need to be brought
-/// in at a time; or by applying a fixed offset), and for
-/// reading/writing values to the first few bytes of the page to
-/// indicate the next/previous last-free page frame address as
-/// needed by the allocator.
-///
-/// By default, all [`Translator`]s implement this
-/// trait, as they are capable of translating physical addresses
-/// to virtual addresses.
-///
-/// # Safety
-/// Implementors of this trait must ensure that the virtual memory
-/// address used to bring in physical pages is safe to use and will
-/// not cause any undefined behavior when read from or written to,
-/// and that all memory accesses are safe and valid.
-pub unsafe trait FiloPageFrameManager {
-	/// Brings the given physical page frame into memory and reads the `u64` value
-	/// at offset `0`.
-	///
-	/// # Safety
-	/// Implementors of this method must ensure that the virtual memory address used to
-	/// bring in physical pages is safe to use and will not cause any undefined behavior
-	/// when read from or written to, and that all memory accesses are safe and valid.
-	///
-	/// Further, implementors must ensure that reads and writes are atomic and volatile,
-	/// and that any memory barriers and translation caches (e.g. the TLB) are properly
-	/// invalidated and flushed as needed.
-	unsafe fn read_u64(&mut self, page_frame: u64) -> u64;
-
-	/// Brings the given physical page frame into memory and writes the `u64` value
-	/// at offset `0`.
-	///
-	/// # Safety
-	/// Implementors of this method must ensure that the virtual memory address used to
-	/// bring in physical pages is safe to use and will not cause any undefined behavior
-	/// when read from or written to, and that all memory accesses are safe and valid.
-	///
-	/// Further, implementors must ensure that reads and writes are atomic and volatile,
-	/// and that any memory barriers and translation caches (e.g. the TLB) are properly
-	/// invalidated and flushed as needed.
-	unsafe fn write_u64(&mut self, page_frame: u64, value: u64);
-}
-
-unsafe impl<T> FiloPageFrameManager for T
-where
-	T: Translator,
-{
-	#[inline]
-	unsafe fn read_u64(&mut self, page_frame: u64) -> u64 {
-		self.translate::<u64>(page_frame).read_volatile()
-	}
-
-	#[inline]
-	unsafe fn write_u64(&mut self, page_frame: u64, value: u64) {
-		self.translate_mut::<u64>(page_frame).write_volatile(value);
 	}
 }

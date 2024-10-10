@@ -10,7 +10,8 @@ use oro_macro::assert;
 use oro_mem::{
 	mapper::AddressSegment,
 	pfa::{alloc::Alloc, filo::FiloPageFrameAllocator},
-	translate::{OffsetTranslator, Translator},
+	phys::{Phys, PhysAddr},
+	translate::OffsetTranslator,
 };
 
 use crate::mem::{
@@ -29,12 +30,14 @@ const OTF_IDX: usize = 254;
 /// 1MiB of memory.
 const MIB_1: u64 = 1024 * 1024;
 
+/// The global physical address translator for the kernel.
+#[oro_macro::oro_global_translator]
+static mut GLOBAL_PAT: OffsetTranslator = OffsetTranslator::new(0);
+
 /// Result from the [`prepare_memory`] function.
 pub struct PreparedMemory {
 	/// The page frame allocator.
-	pub pfa:      FiloPageFrameAllocator<OffsetTranslator>,
-	/// The physical address translator.
-	pub pat:      OffsetTranslator,
+	pub pfa:      FiloPageFrameAllocator,
 	/// Whether or not physical pages 0x8000 and 0x9000 are available,
 	/// which are required to boot secondary cores.
 	pub has_cs89: bool,
@@ -121,11 +124,11 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	let linear_offset = linear_map_regions(&otf_mapper, &mut mmap_pfa, mmap_iterator)
 		.expect("system ran out of memory during linear map");
 
-	// Now make a new PFA with the linear map offset.
-	let pat = OffsetTranslator::new(
+	GLOBAL_PAT.set_offset(
 		usize::try_from(linear_offset).expect("linear offset doesn't fit into a usize"),
 	);
-	let mut pfa = FiloPageFrameAllocator::new(pat.clone());
+
+	let mut pfa = FiloPageFrameAllocator::new();
 
 	// Consume the MMAP PFA and free all memory that isn't used by the
 	// linear map intermediate page table entries.
@@ -160,7 +163,7 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	}
 
 	// Uninstall the recursive mapping.
-	let l4 = &mut *pat.translate_mut::<PageTable>(crate::asm::cr3());
+	let l4 = Phys::from_address_unchecked(crate::asm::cr3()).as_mut_unchecked::<PageTable>();
 	l4[RIDX].reset();
 
 	// Unmap anything in the lower half.
@@ -178,7 +181,6 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 
 	PreparedMemory {
 		pfa,
-		pat,
 		has_cs89: has_cs8 && has_cs9,
 	}
 }

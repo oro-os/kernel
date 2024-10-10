@@ -57,8 +57,6 @@ pub(crate) struct Registry<T: Sized + 'static, A: Arch> {
 	segment:     SupervisorSegment<A>,
 	/// The mapper for the registry.
 	mapper:      SupervisorHandle<A>,
-	/// The physical address translator (PAT) this registry will use.
-	pat:         A::Pat,
 	/// The architecture trait type
 	_arch:       PhantomData<A>,
 }
@@ -123,24 +121,19 @@ impl<T: Sized + 'static, A: Arch> Registry<T, A> {
 	///
 	/// Typically, this function should be called once
 	/// at boot time.
-	pub fn new(
-		pat: A::Pat,
-		pfa: &mut A::Pfa,
-		segment: SupervisorSegment<A>,
-	) -> Result<Self, MapError> {
+	pub fn new(pfa: &mut A::Pfa, segment: SupervisorSegment<A>) -> Result<Self, MapError> {
 		// SAFETY(qix-): We can more or less guarantee that this registry
 		// SAFETY(qix-): is being constructed in the supervisor space.
 		// SAFETY(qix-): Further, we can't guarantee that the segment is
 		// SAFETY(qix-): going to be accessed separately from other segments
 		// SAFETY(qix-): quite yet, but we'll verify that we have exclusive
 		// SAFETY(qix-): access to the segment directly after this call.
-		let mapper = unsafe { AddrSpace::<A>::current_supervisor_space(&pat) };
-		segment.provision_as_shared(&mapper, pfa, &pat)?;
+		let mapper = unsafe { AddrSpace::<A>::current_supervisor_space() };
+		segment.provision_as_shared(&mapper, pfa)?;
 
 		Ok(Self {
 			base: segment.range().0 as *mut _,
 			bookkeeping: FairMutex::new(RegistryBookkeeping::new()),
-			pat,
 			segment,
 			mapper,
 			_arch: PhantomData,
@@ -182,10 +175,7 @@ impl<T: Sized + 'static, A: Arch> Registry<T, A> {
 
 					// TODO(qix-): If PFAs ever support more than 4K pages, this will need to be updated.
 					let virt = self.segment.range().0 + page_id * 4096;
-					if let Err(err) =
-						self.segment
-							.map(&self.mapper, &mut *pfa, &self.pat, virt, page)
-					{
+					if let Err(err) = self.segment.map(&self.mapper, &mut *pfa, virt, page) {
 						// SAFETY(qix-): We just allocated this page and the mapper didn't use it.
 						unsafe {
 							pfa.free(page);
@@ -683,14 +673,13 @@ impl<T: Sized + 'static, A: Arch> ListRegistry<T, A> {
 	/// in a way that is safe and efficient for the Oro
 	/// kernel.
 	pub fn new(
-		pat: A::Pat,
 		pfa: &mut A::Pfa,
 		list_segment: SupervisorSegment<A>,
 		item_segment: SupervisorSegment<A>,
 	) -> Result<Self, MapError> {
 		Ok(Self {
-			item_registry: Registry::new(pat.clone(), pfa, item_segment)?,
-			list_registry: Registry::new(pat, pfa, list_segment)?,
+			item_registry: Registry::new(pfa, item_segment)?,
+			list_registry: Registry::new(pfa, list_segment)?,
 		})
 	}
 

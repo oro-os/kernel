@@ -6,7 +6,7 @@ use oro_macro::unlikely;
 use oro_mem::{
 	mapper::{AddressSegment as Segment, MapError, UnmapError},
 	pfa::alloc::Alloc,
-	translate::Translator,
+	phys::{Phys, PhysAddr},
 };
 
 use super::{address_space::AddressSpaceHandle, paging::PageTable};
@@ -35,7 +35,7 @@ pub(crate) use sign_extend;
 /// A utility trait for extracting information about a mapper handle.
 pub trait MapperHandle {
 	/// Returns the base physical address of the page table.
-	fn base_phys(&self) -> u64;
+	fn base_phys(&self) -> Phys;
 	/// Returns the paging level of the page table. This is typically
 	/// cached to avoid repeated register lookups.
 	fn paging_level(&self) -> PagingLevel;
@@ -64,16 +64,14 @@ pub struct AddressSegment {
 impl AddressSegment {
 	/// Returns the page table entry for the given virtual address,
 	/// allocating intermediate page tables as necessary.
-	unsafe fn entry<'a, A, P, Handle: MapperHandle>(
+	unsafe fn entry<'a, A, Handle: MapperHandle>(
 		&'a self,
 		space: &'a Handle,
 		alloc: &'a mut A,
-		translator: &'a P,
 		virt: usize,
 	) -> Result<&'a mut PageTableEntry, MapError>
 	where
 		A: Alloc,
-		P: Translator,
 	{
 		if unlikely!(virt & 0xFFF != 0) {
 			return Err(MapError::VirtNotAligned);
@@ -89,20 +87,21 @@ impl AddressSegment {
 			}
 		}
 
-		let mut current_page_table = translator.translate_mut::<PageTable>(space.base_phys());
+		let mut current_page_table = space.base_phys().as_mut_ptr_unchecked::<PageTable>();
 
 		for level in (1..space.paging_level().as_usize()).rev() {
 			let index = (virt >> (12 + level * 9)) & 0x1FF;
 			let entry = &mut (&mut *current_page_table)[index];
 
 			current_page_table = if entry.present() {
-				translator.translate_mut::<PageTable>(entry.address())
+				Phys::from_address_unchecked(entry.address()).as_mut_ptr_unchecked()
 			} else {
 				let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
 
 				// We zero it before placing it into the page table
 				// so as to not thrash the TLB.
-				let frame_virt_addr = translator.translate_mut::<u8>(frame_phys_addr);
+				let frame_phys = Phys::from_address_unchecked(frame_phys_addr);
+				let frame_virt_addr = frame_phys.as_mut_ptr_unchecked::<u8>();
 				frame_virt_addr.write_bytes(0, 4096);
 
 				// SAFETY(qix-): For all intermediates, we use a common-denominator
@@ -135,16 +134,14 @@ impl AddressSegment {
 	///
 	/// If no physical address was previously mapped, returns `None`.
 	// TODO(qix-): consolodate the l4 and l4 unmap functions.
-	unsafe fn try_unmap_l4<A, P, Handle: MapperHandle>(
+	unsafe fn try_unmap_l4<A, Handle: MapperHandle>(
 		&self,
 		space: &Handle,
 		alloc: &mut A,
-		translator: &P,
 		virt: usize,
 	) -> Result<Option<u64>, UnmapError>
 	where
 		A: Alloc,
-		P: Translator,
 	{
 		if unlikely!(virt & 0xFFF != 0) {
 			return Err(UnmapError::VirtNotAligned);
@@ -159,24 +156,24 @@ impl AddressSegment {
 		}
 
 		let l4_phys = space.base_phys();
-		let l4 = &mut *translator.translate_mut::<PageTable>(l4_phys);
+		let l4 = l4_phys.as_mut_unchecked::<PageTable>();
 		let l4_entry = &mut l4[l4_index];
 
 		Ok(if l4_entry.present() {
 			let l3_phys = l4_entry.address();
-			let l3 = &mut *translator.translate_mut::<PageTable>(l3_phys);
+			let l3 = Phys::from_address_unchecked(l3_phys).as_mut_unchecked::<PageTable>();
 			let l3_index = (virt >> 30) & 0x1FF;
 			let l3_entry = &mut l3[l3_index];
 
 			let r = if l3_entry.present() {
 				let l2_phys = l3_entry.address();
-				let l2 = &mut *translator.translate_mut::<PageTable>(l2_phys);
+				let l2 = Phys::from_address_unchecked(l2_phys).as_mut_unchecked::<PageTable>();
 				let l2_index = (virt >> 21) & 0x1FF;
 				let l2_entry = &mut l2[l2_index];
 
 				let r = if l2_entry.present() {
 					let l1_phys = l2_entry.address();
-					let l1 = &mut *translator.translate_mut::<PageTable>(l1_phys);
+					let l1 = Phys::from_address_unchecked(l1_phys).as_mut_unchecked::<PageTable>();
 					let l1_index = (virt >> 12) & 0x1FF;
 					let l1_entry = &mut l1[l1_index];
 
@@ -229,16 +226,14 @@ impl AddressSegment {
 	///
 	/// If no physical address was previously mapped, returns `None`.
 	// TODO(qix-): consolodate the l4 and l4 unmap functions.
-	unsafe fn try_unmap_l5<A, P, Handle: MapperHandle>(
+	unsafe fn try_unmap_l5<A, Handle: MapperHandle>(
 		&self,
 		space: &Handle,
 		alloc: &mut A,
-		translator: &P,
 		virt: usize,
 	) -> Result<Option<u64>, UnmapError>
 	where
 		A: Alloc,
-		P: Translator,
 	{
 		if unlikely!(virt & 0xFFF != 0) {
 			return Err(UnmapError::VirtNotAligned);
@@ -253,30 +248,31 @@ impl AddressSegment {
 		}
 
 		let l5_phys = space.base_phys();
-		let l5 = &mut *translator.translate_mut::<PageTable>(l5_phys);
+		let l5 = l5_phys.as_mut_unchecked::<PageTable>();
 		let l5_entry = &mut l5[l5_index];
 
 		Ok(if l5_entry.present() {
 			let l4_phys = l5_entry.address();
-			let l4 = &mut *translator.translate_mut::<PageTable>(l4_phys);
+			let l4 = Phys::from_address_unchecked(l4_phys).as_mut_unchecked::<PageTable>();
 			let l4_index = (virt >> 39) & 0x1FF;
 			let l4_entry = &mut l4[l4_index];
 
 			let r = if l4_entry.present() {
 				let l3_phys = l4_entry.address();
-				let l3 = &mut *translator.translate_mut::<PageTable>(l3_phys);
+				let l3 = Phys::from_address_unchecked(l3_phys).as_mut_unchecked::<PageTable>();
 				let l3_index = (virt >> 30) & 0x1FF;
 				let l3_entry = &mut l3[l3_index];
 
 				let r = if l3_entry.present() {
 					let l2_phys = l3_entry.address();
-					let l2 = &mut *translator.translate_mut::<PageTable>(l2_phys);
+					let l2 = Phys::from_address_unchecked(l2_phys).as_mut_unchecked::<PageTable>();
 					let l2_index = (virt >> 21) & 0x1FF;
 					let l2_entry = &mut l2[l2_index];
 
 					let r = if l2_entry.present() {
 						let l1_phys = l2_entry.address();
-						let l1 = &mut *translator.translate_mut::<PageTable>(l1_phys);
+						let l1 =
+							Phys::from_address_unchecked(l1_phys).as_mut_unchecked::<PageTable>();
 						let l1_index = (virt >> 12) & 0x1FF;
 						let l1_entry = &mut l1[l1_index];
 
@@ -339,12 +335,8 @@ impl AddressSegment {
 	/// # Safety
 	/// Caller must ensure that pages not being claimed _won't_
 	/// lead to memory leaks.
-	pub unsafe fn unmap_without_reclaim<P: Translator, Handle: MapperHandle>(
-		&self,
-		space: &Handle,
-		pat: &P,
-	) {
-		let top_level = &mut *pat.translate_mut::<PageTable>(space.base_phys());
+	pub unsafe fn unmap_without_reclaim<Handle: MapperHandle>(&self, space: &Handle) {
+		let top_level = space.base_phys().as_mut_unchecked::<PageTable>();
 
 		for idx in self.valid_range.0..=self.valid_range.1 {
 			let entry = &mut top_level[idx];
@@ -365,20 +357,18 @@ impl AddressSegment {
 	/// that the entry itself is reclaimable, and that none of the reclaimed pages
 	/// are still being used.
 	#[expect(clippy::only_used_in_recursion)] // false positive
-	unsafe fn unmap_and_reclaim_entry<A, P>(
+	unsafe fn unmap_and_reclaim_entry<A>(
 		&self,
 		entry: &mut PageTableEntry,
 		alloc: &mut A,
-		translator: &P,
 		level: usize,
 	) where
 		A: Alloc,
-		P: Translator,
 	{
 		if entry.present() {
 			let phys = entry.address();
 			// SAFETY(qix-): We know that the physical address is valid.
-			let pt = unsafe { &mut *translator.translate_mut::<PageTable>(phys) };
+			let pt = unsafe { Phys::from_address_unchecked(phys).as_mut_unchecked::<PageTable>() };
 
 			if level == 1 {
 				for idx in 0..512 {
@@ -389,7 +379,7 @@ impl AddressSegment {
 				}
 			} else {
 				for idx in 0..512 {
-					self.unmap_and_reclaim_entry(&mut pt[idx], alloc, translator, level - 1);
+					self.unmap_and_reclaim_entry(&mut pt[idx], alloc, level - 1);
 				}
 			}
 
@@ -408,14 +398,9 @@ impl AddressSegment {
 	/// # Safety
 	/// Caller must ensure that no overwrites would lead to leaks, and that the mappings
 	/// will not cause issues by being mapped between address spaces.
-	pub unsafe fn mirror_into<P: Translator>(
-		&self,
-		dest: &AddressSpaceHandle,
-		src: &AddressSpaceHandle,
-		pat: &P,
-	) {
-		let dest_pt = &mut *pat.translate_mut::<PageTable>(dest.base_phys());
-		let src_pt = &*pat.translate::<PageTable>(src.base_phys());
+	pub unsafe fn mirror_into(&self, dest: &AddressSpaceHandle, src: &AddressSpaceHandle) {
+		let dest_pt = dest.base_phys().as_mut_unchecked::<PageTable>();
+		let src_pt = src.base_phys().as_ref_unchecked::<PageTable>();
 
 		for idx in self.valid_range.0..=self.valid_range.1 {
 			dest_pt[idx] = src_pt[idx];
@@ -443,23 +428,20 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		}
 	}
 
-	unsafe fn unmap_all_and_reclaim<A, P>(
+	unsafe fn unmap_all_and_reclaim<A>(
 		&self,
 		space: &AddressSpaceHandle,
 		alloc: &mut A,
-		translator: &P,
 	) -> Result<(), UnmapError>
 	where
 		A: Alloc,
-		P: Translator,
 	{
-		let top_level = &mut *translator.translate_mut::<PageTable>(space.base_phys());
+		let top_level = space.base_phys().as_mut_unchecked::<PageTable>();
 
 		for idx in self.valid_range.0..=self.valid_range.1 {
 			self.unmap_and_reclaim_entry(
 				&mut top_level[idx],
 				alloc,
-				translator,
 				space.paging_level.as_usize() - 1,
 			);
 		}
@@ -467,17 +449,15 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		Ok(())
 	}
 
-	fn provision_as_shared<A, P>(
+	fn provision_as_shared<A>(
 		&self,
 		space: &AddressSpaceHandle,
 		alloc: &mut A,
-		translator: &P,
 	) -> Result<(), MapError>
 	where
 		A: Alloc,
-		P: Translator,
 	{
-		let top_level = unsafe { &mut *translator.translate_mut::<PageTable>(space.base_phys()) };
+		let top_level = unsafe { space.base_phys().as_mut_unchecked::<PageTable>() };
 
 		for idx in self.valid_range.0..=self.valid_range.1 {
 			let entry = &mut top_level[idx];
@@ -488,7 +468,9 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 
 			let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
 			unsafe {
-				(*translator.translate_mut::<PageTable>(frame_phys_addr)).reset();
+				Phys::from_address_unchecked(frame_phys_addr)
+					.as_mut_unchecked::<PageTable>()
+					.reset();
 			}
 			*entry = self.entry_template.with_address(frame_phys_addr);
 		}
@@ -496,36 +478,32 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		Ok(())
 	}
 
-	fn map<A, P>(
+	fn map<A>(
 		&self,
 		space: &AddressSpaceHandle,
 		alloc: &mut A,
-		translator: &P,
 		virt: usize,
 		phys: u64,
 	) -> Result<(), MapError>
 	where
 		A: Alloc,
-		P: Translator,
 	{
 		// NOTE(qix-): The current implementation of `entry()` doesn't
 		// NOTE(qix-): actually free anyway, so we just proxy to that method.
-		self.map_nofree(space, alloc, translator, virt, phys)
+		self.map_nofree(space, alloc, virt, phys)
 	}
 
-	fn map_nofree<A, P>(
+	fn map_nofree<A>(
 		&self,
 		space: &AddressSpaceHandle,
 		alloc: &mut A,
-		translator: &P,
 		virt: usize,
 		phys: u64,
 	) -> Result<(), MapError>
 	where
 		A: Alloc,
-		P: Translator,
 	{
-		let entry = unsafe { self.entry(space, alloc, translator, virt)? };
+		let entry = unsafe { self.entry(space, alloc, virt)? };
 		if entry.present() {
 			return Err(MapError::Exists);
 		}
@@ -536,39 +514,35 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		Ok(())
 	}
 
-	fn unmap<A, P>(
+	fn unmap<A>(
 		&self,
 		space: &AddressSpaceHandle,
 		alloc: &mut A,
-		translator: &P,
 		virt: usize,
 	) -> Result<u64, UnmapError>
 	where
 		A: Alloc,
-		P: Translator,
 	{
 		let phys = unsafe {
 			match space.paging_level() {
-				PagingLevel::Level4 => self.try_unmap_l4(space, alloc, translator, virt)?,
-				PagingLevel::Level5 => self.try_unmap_l5(space, alloc, translator, virt)?,
+				PagingLevel::Level4 => self.try_unmap_l4(space, alloc, virt)?,
+				PagingLevel::Level5 => self.try_unmap_l5(space, alloc, virt)?,
 			}
 		};
 		phys.ok_or(UnmapError::NotMapped)
 	}
 
-	fn remap<A, P>(
+	fn remap<A>(
 		&self,
 		space: &AddressSpaceHandle,
 		alloc: &mut A,
-		translator: &P,
 		virt: usize,
 		phys: u64,
 	) -> Result<Option<u64>, MapError>
 	where
 		A: Alloc,
-		P: Translator,
 	{
-		let entry = unsafe { self.entry(space, alloc, translator, virt)? };
+		let entry = unsafe { self.entry(space, alloc, virt)? };
 		let old_phys = if entry.present() {
 			Some(entry.address())
 		} else {

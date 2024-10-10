@@ -16,34 +16,7 @@ pub unsafe trait Translate {
 	fn translate(&self, physical_addr: u64) -> usize;
 }
 
-/// Translates a page frame to a virtual address, used in the pre-boot stage
-/// to write kernel configuration structures.
-///
-/// # Safety
-/// Implementors must be aware that physical addresses
-/// **may not** be page aligned.
-#[deprecated(note = "use `Translate` instead, or the global translator.")]
-pub unsafe trait Translator: Clone + Sized + 'static {
-	/// Translates a physical frame address to a virtual address
-	/// returning an immutable pointer to the data.
-	///
-	/// # Panics
-	/// Panics if the given physical address cannot fit into the
-	/// target pointer type.
-	#[must_use]
-	fn translate<T>(&self, physical_addr: impl TryInto<usize>) -> *const T;
-
-	/// Translates a physical frame address to a virtual address
-	/// returning a mutable pointer to the data.
-	///
-	/// # Panics
-	/// Panics if the given physical address cannot fit into the
-	/// target pointer type.
-	#[must_use]
-	fn translate_mut<T>(&self, physical_addr: impl TryInto<usize>) -> *mut T;
-}
-
-/// An offset-based [`Translator`] that applies an offset
+/// An offset-based [`Translate`] that applies an offset
 /// to physical frames resulting in a valid virtual address. Used in cases
 /// where all memory regions have been direct-mapped.
 #[derive(Clone)]
@@ -80,28 +53,6 @@ impl OffsetTranslator {
 	/// the offset at runtime.
 	pub unsafe fn set_offset(&mut self, offset: usize) {
 		self.offset = offset;
-	}
-}
-
-unsafe impl Translator for OffsetTranslator {
-	#[inline(always)]
-	fn translate<T>(&self, physical_addr: impl TryInto<usize>) -> *const T {
-		unsafe {
-			let Ok(paddr) = physical_addr.try_into() else {
-				panic!("physical address is too large to fit into a pointer")
-			};
-			(self.offset as *const u8).add(paddr).cast()
-		}
-	}
-
-	#[inline(always)]
-	fn translate_mut<T>(&self, physical_addr: impl TryInto<usize>) -> *mut T {
-		unsafe {
-			let Ok(paddr) = physical_addr.try_into() else {
-				panic!("physical address is too large to fit into a pointer")
-			};
-			(self.offset as *mut u8).add(paddr).cast()
-		}
 	}
 }
 

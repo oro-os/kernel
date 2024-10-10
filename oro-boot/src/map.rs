@@ -3,7 +3,10 @@
 
 use oro_debug::dbg;
 use oro_elf::{Elf, ElfSegment, ElfSegmentType};
-use oro_mem::mapper::{AddressSegment, AddressSpace, MapError, UnmapError};
+use oro_mem::{
+	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
+	phys::{Phys, PhysAddr},
+};
 
 use crate::target::{AddressSpace as TargetAddressSpace, ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
 
@@ -15,10 +18,8 @@ use crate::target::{AddressSpace as TargetAddressSpace, ELF_CLASS, ELF_ENDIANNES
 pub fn map_kernel_to_supervisor_space<
 	M: Into<oro_boot_protocol::MemoryMapEntry> + Clone,
 	I: Iterator<Item = M> + Clone,
-	Pat: oro_mem::translate::Translator,
 >(
 	pfa: &mut crate::pfa::PrebootPfa<M, I>,
-	pat: &Pat,
 	supervisor_space: &<crate::target::AddressSpace as AddressSpace>::SupervisorHandle,
 	kernel_module: oro_boot_protocol::Module,
 ) -> crate::Result<(usize, oro_boot_protocol::util::RequestScanner)> {
@@ -27,7 +28,7 @@ pub fn map_kernel_to_supervisor_space<
 	// SAFETY(qix-): been loaded by the bootloader.
 	let kernel_elf = unsafe {
 		Elf::parse(
-			pat.translate(kernel_module.base),
+			Phys::from_address_unchecked(kernel_module.base).as_ptr_unchecked(),
 			usize::try_from(kernel_module.length).unwrap(),
 			ELF_ENDIANNESS,
 			ELF_CLASS,
@@ -74,7 +75,7 @@ pub fn map_kernel_to_supervisor_space<
 				// SAFETY(qix-): been loaded by the bootloader.
 				kernel_request_scanner = Some(unsafe {
 					oro_boot_protocol::util::RequestScanner::new(
-						pat.translate_mut::<u8>(phys_addr),
+						Phys::from_address_unchecked(phys_addr).as_mut_ptr_unchecked(),
 						segment.target_size(),
 					)
 				});
@@ -87,7 +88,8 @@ pub fn map_kernel_to_supervisor_space<
 			let load_virt = segment.load_address() + byte_offset;
 			let target_virt = segment.target_address() + byte_offset;
 
-			let local_page_virt = pat.translate_mut::<u8>(phys_addr);
+			let local_page_virt =
+				unsafe { Phys::from_address_unchecked(phys_addr).as_mut_ptr_unchecked::<u8>() };
 
 			// SAFETY(qix-): We can assume the kernel module is valid given that it's
 			// SAFETY(qix-): been loaded by the bootloader.
@@ -108,7 +110,7 @@ pub fn map_kernel_to_supervisor_space<
 			}
 
 			if let Err(err) =
-				mapper_segment.map_nofree(supervisor_space, pfa, pat, target_virt, phys_addr)
+				mapper_segment.map_nofree(supervisor_space, pfa, target_virt, phys_addr)
 			{
 				panic!(
 					"failed to map kernel segment: {err:?}: ls={load_size} p={page} po={page:X?} \
@@ -140,10 +142,8 @@ pub fn map_kernel_to_supervisor_space<
 pub fn map_kernel_stack<
 	M: Into<oro_boot_protocol::MemoryMapEntry> + Clone,
 	I: Iterator<Item = M> + Clone,
-	Pat: oro_mem::translate::Translator,
 >(
 	pfa: &mut crate::pfa::PrebootPfa<M, I>,
-	pat: &Pat,
 	supervisor_space: &<crate::target::AddressSpace as AddressSpace>::SupervisorHandle,
 	stack_pages: usize,
 ) -> crate::Result<usize> {
@@ -157,7 +157,7 @@ pub fn map_kernel_stack<
 		.1 & !0xFFF;
 
 	// make sure top guard page is unmapped
-	match kernel_stack_segment.unmap(supervisor_space, pfa, pat, last_stack_page_virt) {
+	match kernel_stack_segment.unmap(supervisor_space, pfa, last_stack_page_virt) {
 		// NOTE(qix-): The Ok() case would never hit here since the PFA doesn't support
 		// NOTE(qix-): freeing pages.
 		Ok(_) => unreachable!(),
@@ -175,18 +175,12 @@ pub fn map_kernel_stack<
 			.ok_or(crate::Error::MapError(MapError::OutOfMemory))?;
 
 		kernel_stack_segment
-			.remap(
-				supervisor_space,
-				pfa,
-				pat,
-				bottom_stack_page_virt,
-				stack_phys,
-			)
+			.remap(supervisor_space, pfa, bottom_stack_page_virt, stack_phys)
 			.map_err(crate::Error::MapError)?;
 	}
 
 	// Make sure that the bottom guard page is unmapped
-	match kernel_stack_segment.unmap(supervisor_space, pfa, pat, bottom_stack_page_virt - 4096) {
+	match kernel_stack_segment.unmap(supervisor_space, pfa, bottom_stack_page_virt - 4096) {
 		// NOTE(qix-): The Ok() case would never hit here since the PFA doesn't support
 		// NOTE(qix-): freeing pages.
 		Ok(_) => unreachable!(),
