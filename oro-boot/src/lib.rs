@@ -37,8 +37,8 @@ use oro_boot_protocol::{
 };
 use oro_debug::{dbg, dbg_warn};
 use oro_elf::ElfSegmentType;
+use oro_mem::mapper::AddressSpace;
 pub use oro_mem::mapper::MapError;
-use oro_mem::{mapper::AddressSpace, translate::OffsetTranslator};
 
 /// The bootstrapper error type.
 #[derive(Debug, Clone, Copy)]
@@ -70,8 +70,6 @@ pub struct OroBootstrapper<
 	M: Into<oro_boot_protocol::MemoryMapEntry> + Clone,
 	I: Iterator<Item = M> + Clone,
 > {
-	/// The physical address translator that is used by this bootstrapper.
-	pat: OffsetTranslator,
 	/// The PFA used to write variable length bootloader protocol structures to memory.
 	pfa: pfa::PrebootPfa<M, I>,
 	/// The supervisor space
@@ -130,25 +128,17 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 		iter: I,
 		kernel_module: oro_boot_protocol::Module,
 	) -> Result<Self> {
-		let pat =
-			OffsetTranslator::new(usize::try_from(linear_offset).expect("linear offset too large"));
 		let mut pfa = pfa::PrebootPfa::new(iter, linear_offset);
-		let supervisor_space = target::AddressSpace::new_supervisor_space(&mut pfa, &pat)
+		let supervisor_space = target::AddressSpace::new_supervisor_space(&mut pfa)
 			.ok_or(Error::MapError(MapError::OutOfMemory))?;
 
-		let (kernel_entry, scanner) = self::map::map_kernel_to_supervisor_space(
-			&mut pfa,
-			&pat,
-			&supervisor_space,
-			kernel_module,
-		)?;
+		let (kernel_entry, scanner) =
+			self::map::map_kernel_to_supervisor_space(&mut pfa, &supervisor_space, kernel_module)?;
 
 		// Map in a stack
-		let stack_addr =
-			self::map::map_kernel_stack(&mut pfa, &pat, &supervisor_space, stack_pages)?;
+		let stack_addr = self::map::map_kernel_stack(&mut pfa, &supervisor_space, stack_pages)?;
 
 		Ok(Self {
-			pat,
 			pfa,
 			supervisor_space,
 			scanner,
@@ -230,9 +220,8 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 		// SAFETY(qix-): There's nothing we can really do to make this 'safe' by marking it as such;
 		// SAFETY(qix-): the bootstrap class removes most of the danger associated with this method.
 		#[allow(clippy::let_unit_value, clippy::semicolon_if_nothing_returned)]
-		let transfer_data = unsafe {
-			self::target::prepare_transfer(&mut self.supervisor_space, &mut self.pfa, &self.pat)?
-		};
+		let transfer_data =
+			unsafe { self::target::prepare_transfer(&mut self.supervisor_space, &mut self.pfa)? };
 
 		// Consume the PFA and write out the memory map.
 		let first_entry = self

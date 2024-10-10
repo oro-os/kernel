@@ -1,6 +1,6 @@
 //! Implements the global resource macros - namely the `#[oro_global_*]` attribute
 //! and the `oro_global_getter!` macro.
-#![expect(clippy::missing_docs_in_private_items)]
+#![expect(clippy::missing_docs_in_private_items, clippy::needless_pass_by_value)]
 
 struct GlobalResourceGetters {
 	punctuated: syn::punctuated::Punctuated<GlobalResourceGetter, syn::token::Comma>,
@@ -36,7 +36,7 @@ pub fn global_getter(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
 	let mut tokens = proc_macro2::TokenStream::new();
 
-	for getter in getters.punctuated.iter() {
+	for getter in &getters.punctuated {
 		let ident = &getter.ident;
 		let extern_ident = syn::Ident::new(&format!("__oro_global_getter_{ident}"), ident.span());
 		let ty = &getter.ty;

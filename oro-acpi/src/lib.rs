@@ -6,28 +6,24 @@
 // https://github.com/rust-lang/rust/issues/48214
 #![feature(trivial_bounds)]
 
-use core::{alloc::Layout, ptr::from_ref};
+use core::ptr::from_ref;
 
 pub use ::oro_acpica_sys as sys;
 use oro_macro::assert;
-use oro_mem::translate::Translator;
+use oro_mem::phys::{Phys, PhysAddr};
 
 pub mod madt;
 
 /// RSDP structure.
-pub struct Rsdp<P: Translator> {
+pub struct Rsdp {
 	/// The pointer to the RSDP structure.
 	/// SAFETY(qix-): Revision must be checked before accessing bytes beyond the first 20.
 	ptr: &'static sys::acpi_table_rsdp,
-	/// The physical address translator to use when
-	/// translating physical addresses to virtual addresses.
-	pat: P,
 }
 
-impl<P: Translator> Rsdp<P> {
+impl Rsdp {
 	/// Gets and validates the RSDP structure from
-	/// the given physical address and
-	/// [`Translator`].
+	/// the given physical address.
 	///
 	/// Returns `None` if the RSDP structure is invalid / not-aligned.
 	///
@@ -35,17 +31,10 @@ impl<P: Translator> Rsdp<P> {
 	/// Caller must ensure that the physical address is valid and points
 	/// to a valid RSDP structure. This typically means making the assumption
 	/// the bootloader has done so, but we still must mark this as unsafe.
-	pub unsafe fn get(physical_address: u64, pat: P) -> Option<Self> {
-		#[doc(hidden)]
-		const LAYOUT: Layout = Layout::new::<sys::acpi_table_rsdp>();
-
-		if physical_address == 0
-			|| (physical_address as *const u8).align_offset(LAYOUT.align()) != 0
-		{
-			return None;
-		}
-
-		let ptr = &*pat.translate::<sys::acpi_table_rsdp>(physical_address);
+	#[must_use]
+	pub unsafe fn get(physical_address: u64) -> Option<Self> {
+		let ptr =
+			Phys::from_address_unchecked(physical_address).as_ref::<sys::acpi_table_rsdp>()?;
 
 		if ptr.Signature != *core::ptr::from_ref(sys::ACPI_SIG_RSDP).cast::<[i8; 8]>() {
 			return None;
@@ -72,10 +61,11 @@ impl<P: Translator> Rsdp<P> {
 			}
 		}
 
-		Some(Self { ptr, pat })
+		Some(Self { ptr })
 	}
 
 	/// Gets the revision.
+	#[must_use]
 	pub fn revision(&self) -> u8 {
 		self.ptr.Revision.read()
 	}
@@ -83,19 +73,17 @@ impl<P: Translator> Rsdp<P> {
 	/// Gets the (X)SDT.
 	///
 	/// Returns `None` if the validation of the table fails.
-	pub fn sdt(&self) -> Option<RootSdt<P>> {
+	#[must_use]
+	pub fn sdt(&self) -> Option<RootSdt> {
 		if self.revision() == 0 {
 			// SAFETY(qix-): We've made sure we're casting to the right type.
 			Some(RootSdt::Rsdt(unsafe {
-				Rsdt::new(
-					u64::from(self.ptr.RsdtPhysicalAddress.read()),
-					self.pat.clone(),
-				)?
+				Rsdt::new(u64::from(self.ptr.RsdtPhysicalAddress.read()))?
 			}))
 		} else {
 			// SAFETY(qix-): We've made sure we're casting to the right type.
 			Some(RootSdt::Xsdt(unsafe {
-				Xsdt::new(self.ptr.XsdtPhysicalAddress.read(), self.pat.clone())?
+				Xsdt::new(self.ptr.XsdtPhysicalAddress.read())?
 			}))
 		}
 	}
@@ -103,7 +91,7 @@ impl<P: Translator> Rsdp<P> {
 
 // SAFETY(qix-): Uses unstable feature `trivial_bounds`.
 #[expect(trivial_bounds)]
-impl<P: Translator> core::fmt::Debug for Rsdp<P>
+impl core::fmt::Debug for Rsdp
 where
 	sys::acpi_table_rsdp: core::fmt::Debug,
 {
@@ -113,33 +101,33 @@ where
 }
 
 /// Either the revision 0 SDT or the the eXtended SDT.
-pub enum RootSdt<P: Translator> {
+pub enum RootSdt {
 	/// The revision 0 SDT.
-	Rsdt(Rsdt<P>),
+	Rsdt(Rsdt),
 	/// The eXtended SDT.
-	Xsdt(Xsdt<P>),
+	Xsdt(Xsdt),
 }
 
 /// X/RSDT table search trait, allowing for searching for a table by signature.
-pub trait RootSdtSearch<P: Translator, const PTR_SIZE: usize>: AcpiTable<P>
+pub trait RootSdtSearch<const PTR_SIZE: usize>: AcpiTable
 where
 	[u8; PTR_SIZE]: FromLe64<PTR_SIZE>,
 {
 	/// Searches for a table by signature.
 	///
 	/// Returns `None` if the table is not found or is not valid.
-	fn find<T: AcpiTable<P>>(&self) -> Option<T> {
+	fn find<T: AcpiTable>(&self) -> Option<T> {
 		// SAFETY(qix-): We know that the data is valid since we've validated the table.
 		unsafe {
-			<Self as AcpiTable<P>>::data(self)
+			<Self as AcpiTable>::data(self)
 				.as_window_slice::<{ PTR_SIZE }>()
 				.iter()
 				.find_map(|&chunk| {
 					let phys = chunk.from_le_64();
-					let sig = &*self.pat().translate::<[i8; 4]>(phys);
+					let sig = Phys::from_address_unchecked(phys).as_ref_unchecked::<[i8; 4]>();
 					if sig == T::SIGNATURE {
 						// SAFETY(qix-): We've ensured that we're really iterating over physical addresses.
-						Some(T::new(phys, self.pat().clone()))
+						Some(T::new(phys))
 					} else {
 						None
 					}
@@ -148,14 +136,15 @@ where
 	}
 }
 
-impl<P: Translator> RootSdtSearch<P, 4> for Rsdt<P> {}
-impl<P: Translator> RootSdtSearch<P, 8> for Xsdt<P> {}
+impl RootSdtSearch<4> for Rsdt {}
+impl RootSdtSearch<8> for Xsdt {}
 
-impl<P: Translator> RootSdt<P> {
+impl RootSdt {
 	/// Searches for a table by signature. Automatically
 	/// selects the correct table to search based on the
 	/// revision of the RSDP.
-	pub fn find<T: AcpiTable<P>>(&self) -> Option<T> {
+	#[must_use]
+	pub fn find<T: AcpiTable>(&self) -> Option<T> {
 		match self {
 			Self::Rsdt(rsdt) => rsdt.find(),
 			Self::Xsdt(xsdt) => xsdt.find(),
@@ -165,7 +154,7 @@ impl<P: Translator> RootSdt<P> {
 
 /// Base ACPI table trait. All ACPI tables (except for the `RSDP`)
 /// implement this trait.
-pub trait AcpiTable<P: Translator>: Sized {
+pub trait AcpiTable: Sized {
 	/// The signature of the ACPI table.
 	const SIGNATURE: &'static [i8; 4];
 
@@ -173,21 +162,15 @@ pub trait AcpiTable<P: Translator>: Sized {
 	type SysTable: Sized + 'static;
 
 	/// Creates a new instance of the ACPI table
-	/// from the given physical address and
-	/// [`Translator`].
+	/// from the given physical address.
 	///
 	/// Returns `None` if the ACPI table is invalid.
 	///
 	/// # Safety
 	/// Caller must ensure the physical address is readable.
-	unsafe fn new(physical_address: u64, pat: P) -> Option<Self> {
-		let ptr = pat.translate::<Self::SysTable>(physical_address);
-		if !ptr.is_aligned() {
-			return None;
-		}
-
-		let ptr = &*ptr;
-
+	#[must_use]
+	unsafe fn new(physical_address: u64) -> Option<Self> {
+		let ptr = Phys::from_address_unchecked(physical_address).as_ref::<Self::SysTable>()?;
 		let header = Self::header_ref(ptr);
 
 		if &header.Signature != Self::SIGNATURE {
@@ -204,12 +187,11 @@ pub trait AcpiTable<P: Translator>: Sized {
 			return None;
 		}
 
-		Some(Self::new_unchecked(ptr, pat))
+		Some(Self::new_unchecked(ptr))
 	}
 
 	/// Creates a new instance of the ACPI table
-	/// from the given physical address and
-	/// [`Translator`].
+	/// from the given physical address.
 	///
 	/// Does NOT perform any validation. **Do not use this method.
 	/// Use [`Self::new`] instead.**
@@ -217,7 +199,7 @@ pub trait AcpiTable<P: Translator>: Sized {
 	/// # Safety
 	/// Caller must ensure the physical address is readable and that
 	/// the ACPI table is valid.
-	unsafe fn new_unchecked(ptr: &'static Self::SysTable, pat: P) -> Self;
+	unsafe fn new_unchecked(ptr: &'static Self::SysTable) -> Self;
 
 	/// Returns a reference to the header of a given ref.
 	///
@@ -262,10 +244,6 @@ pub trait AcpiTable<P: Translator>: Sized {
 		// SAFETY(qix-): The header reference always marks the start of the table.
 		unsafe { &*::core::ptr::from_ref(self.header()).cast::<Self::SysTable>() }
 	}
-
-	/// Gets the [`Translator`]
-	/// used to translate physical addresses to virtual addresses as a reference.
-	fn pat(&self) -> &P;
 }
 
 /// Generation macro that creates wrapper structs around the lower level
@@ -287,12 +265,11 @@ macro_rules! impl_tables {
 	(@inner $ident:ident => ($systbl_ident:ty, $sig_ident:path, ( & [ u8; 5 ] ), $(#[doc = $doc:literal]),*)) => {
 		#[allow(missing_docs, rustdoc::bare_urls)]
 		$(#[doc = $doc])*
-		pub struct $ident<P: Translator> {
+		pub struct $ident {
 			ptr: &'static $systbl_ident,
-			pat: P,
 		}
 
-		impl<P: Translator> AcpiTable<P> for $ident<P> {
+		impl AcpiTable for $ident {
 			// SAFETY(qix-): We can guarantee that the signature is the right size.
 			const SIGNATURE: &'static [i8; 4] = unsafe {
 				&*from_ref($sig_ident).cast::<[i8; 4]>()
@@ -300,8 +277,8 @@ macro_rules! impl_tables {
 
 			type SysTable = $systbl_ident;
 
-			unsafe fn new_unchecked(ptr: &'static Self::SysTable, pat: P) -> Self {
-				Self { ptr, pat }
+			unsafe fn new_unchecked(ptr: &'static Self::SysTable) -> Self {
+				Self { ptr }
 			}
 
 			unsafe fn header_ref(sys_table: &Self::SysTable) -> &sys::acpi_table_header {
@@ -311,15 +288,11 @@ macro_rules! impl_tables {
 			unsafe fn header(&self) -> &sys::acpi_table_header {
 				&self.ptr.Header
 			}
-
-			fn pat(&self) -> &P {
-				&self.pat
-			}
 		}
 
 		// SAFETY(qix-): Uses unstable feature `trivial_bounds`.
 		#[expect(trivial_bounds)]
-		impl<P: Translator> core::fmt::Debug for $ident<P> where $systbl_ident: core::fmt::Debug {
+		impl core::fmt::Debug for $ident where $systbl_ident: core::fmt::Debug {
 			fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 				self.ptr.fmt(f)
 			}

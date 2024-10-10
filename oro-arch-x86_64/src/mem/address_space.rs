@@ -2,7 +2,11 @@
 //!
 //! This code describes the overall address space layout used by the kernel and userspace processes.
 
-use oro_mem::{mapper::AddressSpace, pfa::alloc::Alloc, translate::Translator};
+use oro_mem::{
+	mapper::AddressSpace,
+	pfa::alloc::Alloc,
+	phys::{Phys, PhysAddr},
+};
 
 use super::{paging::PageTable, paging_level::PagingLevel, segment::MapperHandle};
 use crate::{
@@ -23,8 +27,8 @@ pub struct AddressSpaceHandle {
 }
 
 impl MapperHandle for AddressSpaceHandle {
-	fn base_phys(&self) -> u64 {
-		self.base_phys
+	fn base_phys(&self) -> Phys {
+		unsafe { Phys::from_address_unchecked(self.base_phys) }
 	}
 
 	fn paging_level(&self) -> PagingLevel {
@@ -116,17 +120,17 @@ const MODULE_EXE_INTERMEDIATE_ENTRY: PageTableEntry = PageTableEntry::new()
 
 impl AddressSpaceLayout {
 	/// Adds the recursive mapping to the provided page table.
-	pub fn map_recursive_entry<P: Translator>(handle: &AddressSpaceHandle, pat: &P) {
+	pub fn map_recursive_entry(handle: &AddressSpaceHandle) {
 		// SAFETY(qix-): We can reasonably assuming that the `AddressSpaceHandle`
 		// SAFETY(qix-): is valid if it's been constructed by us.
 		unsafe {
-			(&mut *pat.translate_mut::<PageTable>(handle.base_phys))[Self::RECURSIVE_IDX] =
-				PageTableEntry::new()
-					.with_present()
-					.with_writable()
-					.with_no_exec()
-					.with_global()
-					.with_address(handle.base_phys);
+			Phys::from_address_unchecked(handle.base_phys).as_mut_unchecked::<PageTable>()
+				[Self::RECURSIVE_IDX] = PageTableEntry::new()
+				.with_present()
+				.with_writable()
+				.with_no_exec()
+				.with_global()
+				.with_address(handle.base_phys);
 		}
 	}
 
@@ -153,10 +157,13 @@ impl AddressSpaceLayout {
 
 	/// Shallow-duplicates the current address space into a new one
 	/// at the given physical address.
-	pub fn copy_shallow_into<P: Translator>(handle: &AddressSpaceHandle, into_phys: u64, pat: &P) {
+	pub fn copy_shallow_into(handle: &AddressSpaceHandle, into_phys: u64) {
 		unsafe {
-			(*pat.translate_mut::<PageTable>(into_phys))
-				.shallow_copy_from(&*pat.translate::<PageTable>(handle.base_phys));
+			Phys::from_address_unchecked(into_phys)
+				.as_mut_unchecked::<PageTable>()
+				.shallow_copy_from(
+					Phys::from_address_unchecked(handle.base_phys).as_ref_unchecked::<PageTable>(),
+				);
 		}
 	}
 
@@ -325,25 +332,23 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		kernel_module_list_registry => KERNEL_MODULE_LIST_REGISTRY_IDX,
 	}
 
-	unsafe fn current_supervisor_space<P>(_translator: &P) -> Self::SupervisorHandle
-	where
-		P: Translator,
-	{
+	unsafe fn current_supervisor_space() -> Self::SupervisorHandle {
 		Self::SupervisorHandle {
 			base_phys:    cr3(),
 			paging_level: PagingLevel::current_from_cpu(),
 		}
 	}
 
-	fn new_supervisor_space<A, P>(alloc: &mut A, translator: &P) -> Option<Self::SupervisorHandle>
+	fn new_supervisor_space<A>(alloc: &mut A) -> Option<Self::SupervisorHandle>
 	where
 		A: Alloc,
-		P: Translator,
 	{
 		let base_phys = alloc.allocate()?;
 
 		unsafe {
-			(*translator.translate_mut::<PageTable>(base_phys)).reset();
+			Phys::from_address_unchecked(base_phys)
+				.as_mut_unchecked::<PageTable>()
+				.reset();
 		}
 
 		Some(Self::SupervisorHandle {
@@ -352,22 +357,17 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		})
 	}
 
-	fn new_user_space<A, P>(
-		space: &Self::SupervisorHandle,
-		alloc: &mut A,
-		translator: &P,
-	) -> Option<Self::UserHandle>
+	fn new_user_space<A>(space: &Self::SupervisorHandle, alloc: &mut A) -> Option<Self::UserHandle>
 	where
 		A: Alloc,
-		P: Translator,
 	{
-		let duplicated = Self::duplicate_supervisor_space_shallow(space, alloc, translator)?;
+		let duplicated = Self::duplicate_supervisor_space_shallow(space, alloc)?;
 
 		// Unmap core-local segments.
 		for segment in [Self::kernel_core_local(), Self::kernel_stack()] {
 			// SAFETY(qix-): We're purposefully not reclaiming the memory here.
 			unsafe {
-				segment.unmap_without_reclaim(&duplicated, translator);
+				segment.unmap_without_reclaim(&duplicated);
 			}
 		}
 
@@ -375,16 +375,18 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		Some(duplicated)
 	}
 
-	fn duplicate_supervisor_space_shallow<A: Alloc, P: Translator>(
+	fn duplicate_supervisor_space_shallow<A: Alloc>(
 		space: &Self::SupervisorHandle,
 		alloc: &mut A,
-		translator: &P,
 	) -> Option<Self::SupervisorHandle> {
 		let base_phys = alloc.allocate()?;
 
 		unsafe {
-			(*translator.translate_mut::<PageTable>(base_phys))
-				.shallow_copy_from(&*translator.translate::<PageTable>(space.base_phys));
+			Phys::from_address_unchecked(base_phys)
+				.as_mut_unchecked::<PageTable>()
+				.shallow_copy_from(
+					Phys::from_address_unchecked(space.base_phys).as_ref_unchecked::<PageTable>(),
+				);
 		}
 
 		Some(Self::SupervisorHandle {
@@ -393,23 +395,20 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		})
 	}
 
-	fn duplicate_user_space_shallow<A, P>(
+	fn duplicate_user_space_shallow<A>(
 		space: &Self::UserHandle,
 		alloc: &mut A,
-		translator: &P,
 	) -> Option<Self::UserHandle>
 	where
 		A: Alloc,
-		P: Translator,
 	{
 		// Supervisor and userspace handles are the same on x86_64.
-		Self::duplicate_supervisor_space_shallow(space, alloc, translator)
+		Self::duplicate_supervisor_space_shallow(space, alloc)
 	}
 
-	fn free_user_space<A, P>(space: Self::UserHandle, alloc: &mut A, _translator: &P)
+	fn free_user_space<A>(space: Self::UserHandle, alloc: &mut A)
 	where
 		A: Alloc,
-		P: Translator,
 	{
 		// SAFETY(qix-): We can guarantee that if we have a valid handle,
 		// SAFETY(qix-): we own this physical page and can free it.

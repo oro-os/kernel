@@ -11,8 +11,7 @@ use oro_boot_protocol::acpi::AcpiKind;
 use oro_debug::{dbg, dbg_warn};
 use oro_mem::{
 	mapper::AddressSpace,
-	phys::PhysAddr,
-	translate::{OffsetTranslator, Translator as _},
+	phys::{Phys, PhysAddr},
 };
 
 use crate::mem::address_space::AddressSpaceLayout;
@@ -20,10 +19,6 @@ use crate::mem::address_space::AddressSpaceLayout;
 /// Temporary value for the number of stack pages to allocate for secondary cores.
 // TODO(qix-): Discover the stack size of the primary core and use that instead.
 const SECONDARY_STACK_PAGES: usize = 16;
-
-/// The global physical address translator for the kernel.
-#[oro_macro::oro_global_translator]
-static mut GLOBAL_PAT: OffsetTranslator = OffsetTranslator::new(0);
 
 /// Boots the primary core (boostrap processor) of the system.
 ///
@@ -41,15 +36,12 @@ pub unsafe fn boot_primary() -> ! {
 	#[cfg(debug_assertions)]
 	oro_debug::init();
 
-	let memory::PreparedMemory { pat, has_cs89, pfa } = memory::prepare_memory();
-
-	// Initialize the global physical address translator, used throughout the kernel.
-	GLOBAL_PAT.set_offset(pat.offset());
+	let memory::PreparedMemory { has_cs89, pfa } = memory::prepare_memory();
 
 	// We now have a valid physical map; let's re-init
 	// any MMIO loggers with that offset.
 	#[cfg(debug_assertions)]
-	oro_debug::init_with_offset(pat.offset());
+	oro_debug::init_with_offset(Phys::from_address_unchecked(0).virt());
 
 	crate::reg::Cr0::new()
 		.with_monitor_coprocessor()
@@ -73,8 +65,7 @@ pub unsafe fn boot_primary() -> ! {
 	let rsdp_phys = core::ptr::read_volatile(&rsdp_response.assume_init_ref().rsdp);
 	dbg!("ACPI response OK: RSDP at {rsdp_phys:016?}");
 
-	let rsdp = oro_acpi::Rsdp::get(rsdp_phys, pat.clone())
-		.expect("RSDP failed to validate; check RSDP pointer");
+	let rsdp = oro_acpi::Rsdp::get(rsdp_phys).expect("RSDP failed to validate; check RSDP pointer");
 	dbg!("RSDP revision: {}", rsdp.revision());
 
 	let sdt = rsdp
@@ -82,7 +73,7 @@ pub unsafe fn boot_primary() -> ! {
 		.expect("ACPI tables are missing either the RSDT or XSDT table");
 
 	let fadt = sdt
-		.find::<oro_acpi::Fadt<_>>()
+		.find::<oro_acpi::Fadt>()
 		.expect("FADT table not found in ACPI tables");
 	let fadt = fadt.inner_ref();
 
@@ -112,7 +103,7 @@ pub unsafe fn boot_primary() -> ! {
 	}
 
 	let madt = sdt
-		.find::<oro_acpi::Madt<_>>()
+		.find::<oro_acpi::Madt>()
 		.expect("MADT table not found in ACPI tables");
 
 	if madt.has_8259() {
@@ -120,12 +111,14 @@ pub unsafe fn boot_primary() -> ! {
 		crate::asm::disable_8259();
 	}
 
-	let lapic = crate::lapic::Lapic::new(pat.translate_mut::<u8>(madt.lapic_phys()));
+	let lapic = crate::lapic::Lapic::new(
+		Phys::from_address_unchecked(madt.lapic_phys()).as_mut_ptr_unchecked::<u8>(),
+	);
 	dbg!("local APIC version: {:?}", lapic.version());
 	let lapic_id = lapic.id();
 	dbg!("local APIC ID: {lapic_id}");
 
-	crate::init::initialize_primary(pat.clone(), pfa);
+	crate::init::initialize_primary(pfa);
 
 	{
 		let mut pfa = crate::init::KERNEL_STATE.assume_init_ref().pfa().lock();
@@ -134,7 +127,7 @@ pub unsafe fn boot_primary() -> ! {
 			dbg!("physical pages 0x8000/0x9000 are valid; attempting to boot secondary cores");
 
 			// Get the current supervisor address space.
-			let mapper = AddressSpaceLayout::current_supervisor_space(&pat);
+			let mapper = AddressSpaceLayout::current_supervisor_space();
 
 			// Boot the secondary cores.
 			let mut num_cores = 1; // start at one for the bsp
@@ -148,7 +141,6 @@ pub unsafe fn boot_primary() -> ! {
 							match secondary::boot_secondary(
 								&mapper,
 								&mut *pfa,
-								&pat,
 								&lapic,
 								apic.id(),
 								SECONDARY_STACK_PAGES,

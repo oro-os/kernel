@@ -9,7 +9,7 @@ use oro_macro::{asm_buffer, assert};
 use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::alloc::Alloc,
-	translate::{OffsetTranslator, Translator},
+	phys::{Phys, PhysAddr},
 };
 
 use crate::{
@@ -46,30 +46,29 @@ pub enum BootError {
 /// Uses the page at physical address 0x8000 as the secondary core's entry point,
 /// and the page at physical address 0x9000 as the secondary core's L4 page table.
 ///
-/// Caller must ensure these pages are mapped (via the PAT) and accessible.
+/// Caller must ensure these pages are mapped and accessible.
 #[expect(clippy::missing_docs_in_private_items)]
 pub unsafe fn boot_secondary<A: Alloc>(
 	primary_handle: &AddressSpaceHandle,
 	pfa: &mut A,
-	pat: &OffsetTranslator,
 	lapic: &Lapic,
 	secondary_lapic_id: u8,
 	stack_pages: usize,
 ) -> Result<(), BootError> {
 	// Some of these values aren't exact, but we want to align things nicely.
-	const LAPIC_ID_SIZE: usize = 8; // Really 1
-	const PRIMARY_FLAG_SIZE: usize = 8;
-	const SECONDARY_FLAG_SIZE: usize = 8;
-	const LINEAR_OFFSET_SIZE: usize = 8;
-	const ACTUAL_STACK_PTR_SIZE: usize = 8;
-	const ACTUAL_CR3_PTR_SIZE: usize = 8;
-	const ACTUAL_CR4_VALUE_SIZE: usize = 8;
-	const ACTUAL_CR0_VALUE_SIZE: usize = 8;
-	const ENTRY_POINT_SIZE: usize = 8;
-	const NULLIDT_SIZE: usize = 8; // Really 6
-	const CR4BITS_SIZE: usize = 8; // Really 4
-	const GDTR_SIZE: usize = 8; // Really 6
-	const TOP_RESERVE: usize = LAPIC_ID_SIZE
+	const LAPIC_ID_SIZE: u64 = 8; // Really 1
+	const PRIMARY_FLAG_SIZE: u64 = 8;
+	const SECONDARY_FLAG_SIZE: u64 = 8;
+	const LINEAR_OFFSET_SIZE: u64 = 8;
+	const ACTUAL_STACK_PTR_SIZE: u64 = 8;
+	const ACTUAL_CR3_PTR_SIZE: u64 = 8;
+	const ACTUAL_CR4_VALUE_SIZE: u64 = 8;
+	const ACTUAL_CR0_VALUE_SIZE: u64 = 8;
+	const ENTRY_POINT_SIZE: u64 = 8;
+	const NULLIDT_SIZE: u64 = 8; // Really 6
+	const CR4BITS_SIZE: u64 = 8; // Really 4
+	const GDTR_SIZE: u64 = 8; // Really 6
+	const TOP_RESERVE: u64 = LAPIC_ID_SIZE
 		+ SECONDARY_FLAG_SIZE
 		+ PRIMARY_FLAG_SIZE
 		+ LINEAR_OFFSET_SIZE
@@ -88,16 +87,16 @@ pub unsafe fn boot_secondary<A: Alloc>(
 
 	// ... and that the GDT fits in the second part (minus TOP_RESERVE bytes).
 	let gdt_slice = crate::gdt::GDT.as_bytes();
-	debug_assert!(gdt_slice.len() <= (0x800 - TOP_RESERVE));
+	debug_assert!(gdt_slice.len() <= (0x800 - TOP_RESERVE) as usize);
 
 	// Create a new supervisor address space based on the current address space.
-	let mapper = AddressSpaceLayout::duplicate_supervisor_space_shallow(primary_handle, pfa, pat)
+	let mapper = AddressSpaceLayout::duplicate_supervisor_space_shallow(primary_handle, pfa)
 		.ok_or(BootError::OutOfMemory)?;
 
 	// Direct-map the code segment into the secondary core's address space.
 	// This allows the code to still execute after switching to paging mode.
 	AddressSpaceLayout::secondary_boot_stub_code()
-		.map(&mapper, pfa, pat, 0x8000, 0x8000)
+		.map(&mapper, pfa, 0x8000, 0x8000)
 		.map_err(BootError::MapError)?;
 
 	// Create a stack and map it into the secondary core's address space.
@@ -111,10 +110,10 @@ pub unsafe fn boot_secondary<A: Alloc>(
 	// is for the very, very top level page table. All of the L4/5 entries
 	// still point to the primary core's page tables, so resetting them
 	// before we remap them is sufficient enough.
-	kernel_stack_segment.unmap_without_reclaim(&mapper, pat);
+	kernel_stack_segment.unmap_without_reclaim(&mapper);
 
 	// make sure top guard page is unmapped
-	match kernel_stack_segment.unmap(&mapper, pfa, pat, last_stack_page_virt) {
+	match kernel_stack_segment.unmap(&mapper, pfa, last_stack_page_virt) {
 		// NOTE(qix-): The Ok() case would never hit here since we explicitly unmapped the entire segment.
 		Ok(_) => unreachable!(),
 		Err(UnmapError::NotMapped) => {}
@@ -137,18 +136,18 @@ pub unsafe fn boot_secondary<A: Alloc>(
 		// rely on ESP (a 32-bit register) until the long mode trampoline
 		// is hit.
 		kernel_stack_segment
-			.remap(&mapper, pfa, pat, bottom_stack_page_virt, stack_phys)
+			.remap(&mapper, pfa, bottom_stack_page_virt, stack_phys)
 			.map_err(BootError::MapError)?;
 
 		if stack_page_idx == 0 {
 			AddressSpaceLayout::secondary_boot_stub_stack()
-				.remap(&mapper, pfa, pat, 0x20000, stack_phys)
+				.remap(&mapper, pfa, 0x20000, stack_phys)
 				.map_err(BootError::MapError)?;
 		}
 	}
 
 	// Make sure that the bottom guard page is unmapped
-	match kernel_stack_segment.unmap(&mapper, pfa, pat, bottom_stack_page_virt - 4096) {
+	match kernel_stack_segment.unmap(&mapper, pfa, bottom_stack_page_virt - 4096) {
 		// NOTE(qix-): The Ok() case would never hit here isnce we explicitly unmapped the entire segment.
 		Ok(_) => unreachable!(),
 		Err(UnmapError::NotMapped) => {}
@@ -162,46 +161,52 @@ pub unsafe fn boot_secondary<A: Alloc>(
 	let stack_ptr = last_stack_page_virt;
 
 	// Copy the mapper into a well-known page (0x9000).
-	AddressSpaceLayout::copy_shallow_into(&mapper, 0x9000, pat);
+	AddressSpaceLayout::copy_shallow_into(&mapper, 0x9000);
 
 	// Write the stubs into the first half of the page.
 	// They live at 0x8000 (CS:IP = 0x0800:0x0000) and
 	// 0x8000 + 0x400 (CS:IP = 0x0800:0x0400) for the
 	// 16-bit and 64-bit stubs, respectively.
-	let stub_slice =
-		core::slice::from_raw_parts_mut(pat.translate_mut::<u8>(0x8000), SECONDARY_BOOT_STUB.len());
+	let stub_slice = core::slice::from_raw_parts_mut(
+		Phys::from_address_unchecked(0x8000).as_mut_ptr_unchecked::<u8>(),
+		SECONDARY_BOOT_STUB.len(),
+	);
 	stub_slice.copy_from_slice(SECONDARY_BOOT_STUB);
 
 	let long_mode_stub_slice = core::slice::from_raw_parts_mut(
-		pat.translate_mut::<u8>(0x8000 + 0x400),
+		Phys::from_address_unchecked(0x8000 + 0x400).as_mut_ptr_unchecked::<u8>(),
 		SECONDARY_BOOT_LONG_MODE_STUB.len(),
 	);
 	long_mode_stub_slice.copy_from_slice(SECONDARY_BOOT_LONG_MODE_STUB);
 
 	// Write the GDT to the second half of the page.
 	// It lives at 0x8000 + 0x800 (CS:IP = 0x0800:0x0800).
-	let secondary_gdt =
-		core::slice::from_raw_parts_mut(pat.translate_mut::<u8>(0x8000 + 0x800), gdt_slice.len());
+	let secondary_gdt = core::slice::from_raw_parts_mut(
+		Phys::from_address_unchecked(0x8000 + 0x800).as_mut_ptr_unchecked::<u8>(),
+		gdt_slice.len(),
+	);
 	secondary_gdt.copy_from_slice(gdt_slice);
 
 	let mut meta_ptr = 0x9000 - TOP_RESERVE;
 
 	// Write the LAPIC ID.
 	debug_assert_eq!(meta_ptr, 0x8FA0);
-	pat.translate_mut::<u8>(meta_ptr).write(secondary_lapic_id);
+	Phys::from_address_unchecked(meta_ptr)
+		.as_mut_ptr_unchecked::<u8>()
+		.write_volatile(secondary_lapic_id);
 	meta_ptr += LAPIC_ID_SIZE;
 
 	// Write the linear offset.
 	debug_assert_eq!(meta_ptr, 0x8FA8);
-	pat.translate_mut::<u64>(meta_ptr)
-		.write(u64::try_from(pat.offset()).unwrap());
+	// TODO(qix-): No longer used.
 	meta_ptr += LINEAR_OFFSET_SIZE;
 
 	// Zero the primary flag.
 	debug_assert_eq!(meta_ptr, 0x8FB0);
 	let primary_flag = {
 		assert::size_of::<AtomicU64, 8>();
-		let flag_ptr = pat.translate_mut::<MaybeUninit<AtomicU64>>(meta_ptr);
+		let flag_ptr =
+			Phys::from_address_unchecked(meta_ptr).as_mut_ptr_unchecked::<MaybeUninit<AtomicU64>>();
 		(*flag_ptr).write(AtomicU64::new(0));
 		&*flag_ptr.cast::<AtomicU64>().cast_const()
 	};
@@ -211,7 +216,8 @@ pub unsafe fn boot_secondary<A: Alloc>(
 	debug_assert_eq!(meta_ptr, 0x8FB8);
 	let secondary_flag = {
 		assert::size_of::<AtomicU64, 8>();
-		let flag_ptr = pat.translate_mut::<MaybeUninit<AtomicU64>>(meta_ptr);
+		let flag_ptr =
+			Phys::from_address_unchecked(meta_ptr).as_mut_ptr_unchecked::<MaybeUninit<AtomicU64>>();
 		(*flag_ptr).write(AtomicU64::new(0));
 		&*flag_ptr.cast::<AtomicU64>().cast_const()
 	};
@@ -220,49 +226,62 @@ pub unsafe fn boot_secondary<A: Alloc>(
 	// Write the absolute entry point address of the Rust stub.
 	debug_assert_eq!(meta_ptr, 0x8FC0);
 	let entry_point_ptr = oro_kernel_x86_64_rust_secondary_core_entry as *const u8 as u64;
-	pat.translate_mut::<u64>(meta_ptr).write(entry_point_ptr);
+	Phys::from_address_unchecked(meta_ptr)
+		.as_mut_ptr_unchecked::<u64>()
+		.write_volatile(entry_point_ptr);
 	meta_ptr += ENTRY_POINT_SIZE;
 
 	// Write the actual CR0 value so that the long mode stub can install it.
 	debug_assert_eq!(meta_ptr, 0x8FC8);
 	let cr0_value: u64 = crate::reg::Cr0::read().into();
-	pat.translate_mut::<u64>(meta_ptr).write(cr0_value);
+	Phys::from_address_unchecked(meta_ptr)
+		.as_mut_ptr_unchecked::<u64>()
+		.write_volatile(cr0_value);
 	meta_ptr += ACTUAL_CR0_VALUE_SIZE;
 
 	// Write the actual CR4 value so that the long mode stub can install it.
 	debug_assert_eq!(meta_ptr, 0x8FD0);
 	let cr4_value = crate::asm::cr4();
-	pat.translate_mut::<u64>(meta_ptr).write(cr4_value);
+	Phys::from_address_unchecked(meta_ptr)
+		.as_mut_ptr_unchecked::<u64>()
+		.write_volatile(cr4_value);
 	meta_ptr += ACTUAL_CR4_VALUE_SIZE;
 
 	// Write the actual CR3 value so that the long mode stub can switch to it.
 	debug_assert_eq!(meta_ptr, 0x8FD8);
 	let cr3_phys = mapper.base_phys();
-	pat.translate_mut::<u64>(meta_ptr).write(cr3_phys);
+	Phys::from_address_unchecked(meta_ptr)
+		.as_mut_ptr_unchecked::<u64>()
+		.write_volatile(cr3_phys.address_u64());
 	meta_ptr += ACTUAL_CR3_PTR_SIZE;
 
 	// Write the real stack pointer so that the long mode stub can switch to it.
 	debug_assert_eq!(meta_ptr, 0x8FE0);
-	pat.translate_mut::<u64>(meta_ptr).write(stack_ptr as u64);
+	Phys::from_address_unchecked(meta_ptr)
+		.as_mut_ptr_unchecked::<u64>()
+		.write_volatile(stack_ptr as u64);
 	meta_ptr += ACTUAL_STACK_PTR_SIZE;
 
 	// Zero the last 8 bytes of the page for the null IDT.
 	debug_assert_eq!(meta_ptr, 0x8FE8);
-	pat.translate_mut::<u8>(meta_ptr)
-		.write_bytes(0, NULLIDT_SIZE);
+	Phys::from_address_unchecked(meta_ptr)
+		.as_mut_ptr_unchecked::<u8>()
+		.write_bytes(0, NULLIDT_SIZE as usize);
 	meta_ptr += NULLIDT_SIZE;
 
 	// Extract out the interesting bits of CR4 for the secondary core.
 	// We only support extracting the LA57 bit for now.
 	debug_assert_eq!(meta_ptr, 0x8FF0);
 	let cr4_bits = (crate::asm::cr4() as u32) & CR4_LA57;
-	pat.translate_mut::<u32>(meta_ptr).write(cr4_bits);
+	Phys::from_address_unchecked(meta_ptr)
+		.as_mut_ptr_unchecked::<u32>()
+		.write_volatile(cr4_bits);
 	meta_ptr += CR4BITS_SIZE;
 
 	// Write the GDT pointer into the last 6 bytes of the page.
 	debug_assert_eq!(meta_ptr, 0x8FF8);
 	let gdt_base: u32 = 0x8000 + 0x800;
-	let gdt_ptr = pat.translate_mut::<u16>(meta_ptr);
+	let gdt_ptr = Phys::from_address_unchecked(meta_ptr).as_mut_ptr_unchecked::<u16>();
 	gdt_ptr.write(
 		u16::try_from(gdt_slice.len() - 1).expect("GDT is too large for the GDTR limit value"),
 	);
@@ -426,10 +445,6 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	let primary_flag = &*(0x8FB0 as *const AtomicU64);
 	let secondary_flag = &*(0x8FB8 as *const AtomicU64);
 
-	// Get the linear offset
-	let linear_offset = *(0x8FA8 as *const u64);
-	let pat = OffsetTranslator::new(linear_offset as usize);
-
 	// Pull the RSDP from the boot protocol
 	// SAFETY(qix-): We can just unwrap these values as they're guaranteed to be OK
 	// SAFETY(qix-): since the primary core has already validated them to even boot
@@ -437,12 +452,10 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	let AcpiKind::V0(acpi) = super::protocol::ACPI_REQUEST.response().unwrap() else {
 		unreachable!();
 	};
-	let Some(sdt) = Rsdp::get(
-		core::ptr::read_volatile(&acpi.assume_init_ref().rsdp),
-		pat.clone(),
-	)
-	.as_ref()
-	.and_then(Rsdp::sdt) else {
+	let Some(sdt) = Rsdp::get(core::ptr::read_volatile(&acpi.assume_init_ref().rsdp))
+		.as_ref()
+		.and_then(Rsdp::sdt)
+	else {
 		// Tell the primary we failed.
 		dbg_err!("failed to get RSDT from ACPI tables");
 		secondary_flag.store(0xFFFF_FFFF_FFFF_FFFE, core::sync::atomic::Ordering::Release);
@@ -450,10 +463,10 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	};
 
 	let Some(lapic) = sdt
-		.find::<Madt<_>>()
+		.find::<Madt>()
 		.as_ref()
 		.map(Madt::lapic_phys)
-		.map(|phys| pat.translate_mut::<u8>(phys))
+		.map(|phys| Phys::from_address_unchecked(phys).as_mut_ptr_unchecked::<u8>())
 		.map(|lapic_virt| Lapic::new(lapic_virt))
 	else {
 		// Tell the primary we failed.
@@ -509,11 +522,11 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	// We don't reclaim the pages since they're "static" and will
 	// be shared again for any other secondary cores. We simply 'forget'
 	// them.
-	let mapper = AddressSpaceLayout::current_supervisor_space(&pat);
+	let mapper = AddressSpaceLayout::current_supervisor_space();
 	// SAFETY(qix-): We're sure that unmapping without reclaiming won't lead to a memory leak.
 	unsafe {
-		AddressSpaceLayout::secondary_boot_stub_code().unmap_without_reclaim(&mapper, &pat);
-		AddressSpaceLayout::secondary_boot_stub_stack().unmap_without_reclaim(&mapper, &pat);
+		AddressSpaceLayout::secondary_boot_stub_code().unmap_without_reclaim(&mapper);
+		AddressSpaceLayout::secondary_boot_stub_stack().unmap_without_reclaim(&mapper);
 	}
 
 	crate::init::boot(lapic);

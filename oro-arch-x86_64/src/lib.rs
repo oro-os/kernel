@@ -13,15 +13,8 @@
 //!
 //! ### Direct Maps
 //! The Oro x86_64 architecture assumes a direct map of all physical memory
-//! is direct mapped into the the address space. The implementation of a
-//! [`oro_mem::translate::Translator`] is required
-//! to map physical addresses to virtual addresses in a deterministic fashion.
-//!
-//! While the memory regions do not technically need to be offset-based, it's
-//! highly recommended to do so for ease of implementation. The common library
-//! provides an [`oro_mem::translate::OffsetTranslator`]
-//! that can be used if a simple offset needs to be applied to the physical
-//! address to form a virtual address.
+//! is direct mapped into the the address space. The direct map must be a
+//! linear offset map.
 //!
 //! ### Higher-Half Mapping
 //! The Oro x86_64 architecture assumes the lower half of the
@@ -89,7 +82,7 @@ use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 use oro_mem::{
 	mapper::{AddressSegment, MapError, UnmapError},
 	pfa::{alloc::Alloc, filo::FiloPageFrameAllocator},
-	translate::{OffsetTranslator, Translator},
+	phys::{Phys, PhysAddr},
 };
 
 /// The ELF class of the x86_64 architecture.
@@ -101,7 +94,7 @@ pub const ELF_MACHINE: ElfMachine = ElfMachine::X86_64;
 
 /// Type alias for the PFA (page frame allocator) implementation used
 /// by the architecture.
-pub(crate) type Pfa = FiloPageFrameAllocator<OffsetTranslator>;
+pub(crate) type Pfa = FiloPageFrameAllocator;
 
 /// Zero-sized type for specifying the architecture-specific types
 /// used throughout the `oro-kernel` crate.
@@ -110,7 +103,6 @@ pub(crate) struct Arch;
 impl oro_kernel::Arch for Arch {
 	type AddrSpace = crate::mem::address_space::AddressSpaceLayout;
 	type CoreState = CoreState;
-	type Pat = OffsetTranslator;
 	type Pfa = Pfa;
 	type ThreadState = ThreadState;
 
@@ -118,7 +110,6 @@ impl oro_kernel::Arch for Arch {
 		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
 		thread_state: &mut Self::ThreadState,
 		pfa: &mut Self::Pfa,
-		pat: &Self::Pat,
 	) -> Result<(), oro_mem::mapper::MapError> {
 		// Map only a page, with a stack guard.
 		// Must match below, in `ThreadState::default`.
@@ -135,7 +126,7 @@ impl oro_kernel::Arch for Arch {
 		// with a bug-free implementation.
 		#[cfg(debug_assertions)]
 		{
-			match irq_stack_segment.unmap(thread, pfa, pat, stack_high_guard) {
+			match irq_stack_segment.unmap(thread, pfa, stack_high_guard) {
 				Ok(phys) => panic!("interrupt stack high guard was already mapped at {phys:016X}"),
 				Err(UnmapError::NotMapped) => {}
 				Err(err) => {
@@ -143,7 +134,7 @@ impl oro_kernel::Arch for Arch {
 				}
 			}
 
-			match irq_stack_segment.unmap(thread, pfa, pat, stack_low_guard) {
+			match irq_stack_segment.unmap(thread, pfa, stack_low_guard) {
 				Ok(phys) => panic!("interrupt stack low guard was already mapped at {phys:016X}"),
 				Err(UnmapError::NotMapped) => {}
 				Err(err) => {
@@ -154,13 +145,15 @@ impl oro_kernel::Arch for Arch {
 
 		// Map the stack page.
 		let phys = pfa.allocate().ok_or(MapError::OutOfMemory)?;
-		irq_stack_segment.map(thread, pfa, pat, stack_start, phys)?;
+		irq_stack_segment.map(thread, pfa, stack_start, phys)?;
 
 		// Now write the initial `iretq` information to the frame.
 		// SAFETY(qix-): We know that these are valid addresses.
 		unsafe {
-			let page_slice =
-				core::slice::from_raw_parts_mut(pat.translate_mut::<u64>(phys), 4096 >> 3);
+			let page_slice = core::slice::from_raw_parts_mut(
+				Phys::from_address_unchecked(phys).as_mut_ptr_unchecked(),
+				4096 >> 3,
+			);
 			let written =
 				crate::task::initialize_user_irq_stack(page_slice, thread_state.entry_point);
 			thread_state.irq_stack_ptr -= written;
@@ -173,12 +166,9 @@ impl oro_kernel::Arch for Arch {
 		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
 		_thread_state: &mut Self::ThreadState,
 		pfa: &mut Self::Pfa,
-		pat: &Self::Pat,
 	) -> Result<(), UnmapError> {
 		// SAFETY(qix-): The module interrupt stack space is fully reclaimable and never shared.
-		unsafe {
-			AddressSpaceLayout::module_interrupt_stack().unmap_all_and_reclaim(thread, pfa, pat)
-		}
+		unsafe { AddressSpaceLayout::module_interrupt_stack().unmap_all_and_reclaim(thread, pfa) }
 	}
 }
 

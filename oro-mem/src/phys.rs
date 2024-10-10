@@ -1,5 +1,6 @@
 //! Provides functionality for wrapping physical addresses
 //! to be translated into virtual addresses.
+#![expect(clippy::inline_always)]
 
 use core::mem::MaybeUninit;
 
@@ -45,6 +46,10 @@ pub trait PhysAddr: Sized {
 
 	/// Returns a virtual pointer to the physical address
 	/// as the given type. Does not check alignment.
+	///
+	/// # Safety
+	/// The caller **must** ensure the pointer is properly aligned
+	/// before dereferencing it.
 	#[inline(always)]
 	unsafe fn as_ptr_unchecked<T>(&self) -> *const T {
 		crate::translator().translate(self.address_u64()) as *const T
@@ -67,20 +72,28 @@ pub trait PhysAddr: Sized {
 
 	/// Returns a virtual pointer to the physical address as the given type.
 	///
-	/// Returns `None` if the pointer would not be properly aligned.
+	/// Returns `None` if the pointer is null or would not be properly aligned.
 	#[inline(always)]
 	fn as_ptr<T>(&self) -> Option<*const T> {
 		let ptr = unsafe { self.as_ptr_unchecked::<T>() };
-		if ptr.is_aligned() { Some(ptr) } else { None }
+		if !ptr.is_null() && ptr.is_aligned() {
+			Some(ptr)
+		} else {
+			None
+		}
 	}
 
 	/// Returns a mutable virtual pointer to the physical address as the given type.
 	///
-	/// Returns `None` if the pointer would not be properly aligned.
+	/// Returns `None` if the pointer is null or would not be properly aligned.
 	#[inline(always)]
 	fn as_mut_ptr<T>(&self) -> Option<*mut T> {
 		let ptr = unsafe { self.as_mut_ptr_unchecked::<T>() };
-		if ptr.is_aligned() { Some(ptr) } else { None }
+		if !ptr.is_null() && ptr.is_aligned() {
+			Some(ptr)
+		} else {
+			None
+		}
 	}
 
 	/// Returns a [`MaybeUninit`] reference to the physical address.
@@ -90,7 +103,7 @@ pub trait PhysAddr: Sized {
 	/// the pointer is properly aligned before dereferencing it.
 	#[inline(always)]
 	unsafe fn as_maybe_uninit_unchecked<T>(&self) -> &MaybeUninit<T> {
-		&*(self.as_ptr_unchecked::<T>() as *const MaybeUninit<T>)
+		&*(self.as_ptr_unchecked::<T>().cast())
 	}
 
 	/// Returns a mutable [`MaybeUninit`] reference to the physical address.
@@ -103,8 +116,9 @@ pub trait PhysAddr: Sized {
 	/// are not created to the same data in a way that would violate
 	/// Rust's aliasing rules.
 	#[inline(always)]
+	#[expect(clippy::mut_from_ref)]
 	unsafe fn as_maybe_uninit_mut_unchecked<T>(&self) -> &mut MaybeUninit<T> {
-		&mut *(self.as_mut_ptr_unchecked::<T>() as *mut MaybeUninit<T>)
+		&mut *(self.as_mut_ptr_unchecked::<T>().cast())
 	}
 
 	/// Returns a reference to the given type.

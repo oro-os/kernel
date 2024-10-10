@@ -47,6 +47,7 @@ pub unsafe trait GlobalPfa {
 	fn allocate(&self) -> Option<u64>;
 
 	/// See [`Alloc::free`].
+	#[expect(clippy::missing_safety_doc)]
 	unsafe fn free(&self, frame: u64);
 }
 
@@ -56,6 +57,6 @@ unsafe impl<T: GlobalPfa> Alloc for T {
 	}
 
 	unsafe fn free(&mut self, frame: u64) {
-		GlobalPfa::free(self, frame)
+		GlobalPfa::free(self, frame);
 	}
 }

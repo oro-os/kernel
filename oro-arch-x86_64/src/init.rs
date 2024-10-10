@@ -9,7 +9,7 @@ use oro_kernel::KernelState;
 use oro_mem::{
 	mapper::AddressSegment,
 	pfa::alloc::Alloc,
-	translate::{OffsetTranslator, Translator},
+	phys::{Phys, PhysAddr},
 };
 use spin::mutex::fair::FairMutex;
 
@@ -34,8 +34,7 @@ pub static mut KERNEL_STATE: MaybeUninit<KernelState<crate::Arch>> = MaybeUninit
 /// Must be called exactly once for the lifetime of the system,
 /// only by the boot processor at boot time (_not_ at any
 /// subsequent bringup).
-#[expect(clippy::needless_pass_by_value)]
-pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
+pub unsafe fn initialize_primary(pfa: crate::Pfa) {
 	#[cfg(debug_assertions)]
 	{
 		use core::sync::atomic::{AtomicBool, Ordering};
@@ -53,7 +52,7 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 
 	// SAFETY(qix-): We know what we're doing here.
 	#[expect(static_mut_refs)]
-	KernelState::init(&mut KERNEL_STATE, pat.clone(), FairMutex::new(pfa))
+	KernelState::init(&mut KERNEL_STATE, FairMutex::new(pfa))
 		.expect("failed to create global kernel state");
 
 	let state = KERNEL_STATE.assume_init_ref();
@@ -69,7 +68,16 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 		let root_ring = state.root_ring();
 
 		'module: while next != 0 {
-			let module = &*pat.translate::<oro_boot_protocol::Module>(next);
+			let Some(module) =
+				Phys::from_address_unchecked(next).as_ref::<oro_boot_protocol::Module>()
+			else {
+				dbg_err!(
+					"failed to load module; invalid address (either null after translation, or \
+					 unaligned): {next:016X}"
+				);
+				continue;
+			};
+
 			next = core::ptr::read_volatile(&module.next);
 
 			let id = oro_id::AnyId::from_high_low(module.id_high, module.id_low);
@@ -102,7 +110,7 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 
 				let mapper = module_lock.mapper();
 
-				let elf_base = pat.translate::<u8>(module.base);
+				let elf_base = Phys::from_address_unchecked(module.base).as_ptr_unchecked::<u8>();
 				let elf = oro_elf::Elf::parse(
 					elf_base,
 					usize::try_from(module.length).unwrap(),
@@ -158,7 +166,8 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 						let load_virt = segment.load_address() + byte_offset;
 						let target_virt = segment.target_address() + byte_offset;
 
-						let local_page_virt = pat.translate_mut::<u8>(phys_addr);
+						let local_page_virt =
+							Phys::from_address_unchecked(phys_addr).as_mut_ptr_unchecked::<u8>();
 
 						// SAFETY(qix-): We can assume the kernel module is valid given that it's
 						// SAFETY(qix-): been loaded by the bootloader.
@@ -179,7 +188,7 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 						}
 
 						mapper_segment
-							.map_nofree(mapper, &mut *pfa, &pat, target_virt, phys_addr)
+							.map_nofree(mapper, &mut *pfa, target_virt, phys_addr)
 							.expect("failed to map segment");
 					}
 				}
