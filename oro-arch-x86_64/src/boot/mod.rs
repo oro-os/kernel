@@ -9,13 +9,21 @@ use oro_acpi::{
 };
 use oro_boot_protocol::acpi::AcpiKind;
 use oro_debug::{dbg, dbg_warn};
-use oro_mem::{mapper::AddressSpace, translate::Translator as _};
+use oro_mem::{
+	mapper::AddressSpace,
+	phys::PhysAddr,
+	translate::{OffsetTranslator, Translator as _},
+};
 
 use crate::mem::address_space::AddressSpaceLayout;
 
 /// Temporary value for the number of stack pages to allocate for secondary cores.
 // TODO(qix-): Discover the stack size of the primary core and use that instead.
 const SECONDARY_STACK_PAGES: usize = 16;
+
+/// The global physical address translator for the kernel.
+#[oro_macro::oro_global_translator]
+static mut GLOBAL_PAT: OffsetTranslator = OffsetTranslator::new(0);
 
 /// Boots the primary core (boostrap processor) of the system.
 ///
@@ -34,6 +42,9 @@ pub unsafe fn boot_primary() -> ! {
 	oro_debug::init();
 
 	let memory::PreparedMemory { pat, has_cs89, pfa } = memory::prepare_memory();
+
+	// Initialize the global physical address translator, used throughout the kernel.
+	GLOBAL_PAT.set_offset(pat.offset());
 
 	// We now have a valid physical map; let's re-init
 	// any MMIO loggers with that offset.

@@ -85,10 +85,13 @@ pub fn mark_global_resource(
 	);
 
 	quote::quote! {
+		#input
+
 		const _: () = {
 			#[no_mangle]
 			extern "C" fn #extern_ident() -> &'static dyn #ty {
-				&#ident
+				#[allow(static_mut_refs)]
+				unsafe { &#ident }
 			}
 
 			// Make sure it adheres to the expected type.
