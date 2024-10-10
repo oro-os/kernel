@@ -4,11 +4,6 @@
 //! several memory facilities usable by the kernel (e.g. a page frame
 //! allocator, linear map translator, etc.).
 
-use crate::mem::{
-	address_space::AddressSpaceLayout,
-	paging::{PageTable, PageTableEntry},
-	paging_level::PagingLevel,
-};
 use oro_boot_protocol::{memory_map::MemoryMapKind, MemoryMapEntry, MemoryMapEntryType};
 use oro_debug::{dbg, dbg_warn};
 use oro_macro::assert;
@@ -16,6 +11,12 @@ use oro_mem::{
 	mapper::AddressSegment,
 	pfa::{alloc::Alloc, filo::FiloPageFrameAllocator},
 	translate::{OffsetTranslator, Translator},
+};
+
+use crate::mem::{
+	address_space::AddressSpaceLayout,
+	paging::{PageTable, PageTableEntry},
+	paging_level::PagingLevel,
 };
 
 /// The index of the page table entry at the highest (4/5) level

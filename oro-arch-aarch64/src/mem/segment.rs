@@ -8,6 +8,15 @@
 //! It also assumes a 48-bit virtual address space (where `T0SZ`/`T1SZ` of `TCR_EL1`
 //! is set to 16).
 
+use core::panic;
+
+use oro_macro::unlikely;
+use oro_mem::{
+	mapper::{AddressSegment, MapError, UnmapError},
+	pfa::alloc::Alloc,
+	translate::Translator,
+};
+
 use super::{
 	address_space::TtbrHandle,
 	paging::{PageTableEntryType, PageTableEntryTypeMut},
@@ -15,13 +24,6 @@ use super::{
 use crate::mem::paging::{
 	L0PageTableDescriptor, L1PageTableDescriptor, L2PageTableDescriptor,
 	L3PageTableBlockDescriptor, PageTable, PageTableEntry,
-};
-use core::panic;
-use oro_macro::unlikely;
-use oro_mem::{
-	mapper::{AddressSegment, MapError, UnmapError},
-	pfa::alloc::Alloc,
-	translate::Translator,
 };
 
 /// A singular address space segment within which allocations are made.

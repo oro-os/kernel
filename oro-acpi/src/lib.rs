@@ -6,8 +6,9 @@
 // https://github.com/rust-lang/rust/issues/48214
 #![feature(trivial_bounds)]
 
-pub use ::oro_acpica_sys as sys;
 use core::{alloc::Layout, ptr::from_ref};
+
+pub use ::oro_acpica_sys as sys;
 use oro_macro::assert;
 use oro_mem::translate::Translator;
 

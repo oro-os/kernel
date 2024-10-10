@@ -1,7 +1,8 @@
 //! Implementation of [`oro_kernel::scheduler::Handler`] for the x86_64 architecture.
 
-use crate::mem::address_space::AddressSpaceLayout;
 use oro_mem::mapper::AddressSpace;
+
+use crate::mem::address_space::AddressSpaceLayout;
 
 /// x86_64 [`oro_kernel::scheduler::Handler`] implementation
 /// for the Oro kernel scheduler.

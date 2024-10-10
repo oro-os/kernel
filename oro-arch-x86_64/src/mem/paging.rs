@@ -7,6 +7,7 @@ use core::{
 	fmt,
 	ops::{Index, IndexMut},
 };
+
 use oro_macro::assert;
 
 /// A page table for the x86_64 architecture.

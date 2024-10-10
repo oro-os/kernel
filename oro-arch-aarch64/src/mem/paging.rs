@@ -57,6 +57,7 @@ use core::{
 	fmt,
 	ops::{Index, IndexMut},
 };
+
 use oro_macro::assert;
 
 /// A single page table entry.

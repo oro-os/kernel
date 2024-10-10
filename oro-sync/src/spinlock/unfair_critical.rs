@@ -4,12 +4,13 @@
 
 #![expect(clippy::module_name_repetitions)]
 
-use super::unfair::UnfairSpinlockGuard;
 use core::{
 	cell::UnsafeCell,
 	marker::PhantomData,
 	sync::atomic::{AtomicBool, Ordering},
 };
+
+use super::unfair::UnfairSpinlockGuard;
 
 /// Allows for an architecture-specific means of disabling and re-enabling
 /// interrupts.

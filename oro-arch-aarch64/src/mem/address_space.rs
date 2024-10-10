@@ -1,5 +1,7 @@
 //! Implements the Oro-specific address space layout for the Aarch64 architecture.
 
+use oro_mem::{mapper::AddressSpace, pfa::alloc::Alloc, translate::Translator};
+
 use crate::{
 	mair::MairEntry,
 	mem::{
@@ -12,7 +14,6 @@ use crate::{
 	},
 	reg::tcr_el1::TcrEl1,
 };
-use oro_mem::{mapper::AddressSpace, pfa::alloc::Alloc, translate::Translator};
 
 /// A lightweight handle to a TTBR1 address space.
 pub struct Ttbr1Handle {

@@ -3,7 +3,6 @@ mod memory;
 pub(crate) mod protocol;
 mod secondary;
 
-use crate::mem::address_space::AddressSpaceLayout;
 use oro_acpi::{
 	madt::{LocalApicEx as _, MadtEntry},
 	sys as acpi_sys, AcpiTable,
@@ -11,6 +10,8 @@ use oro_acpi::{
 use oro_boot_protocol::acpi::AcpiKind;
 use oro_debug::{dbg, dbg_warn};
 use oro_mem::{mapper::AddressSpace, translate::Translator as _};
+
+use crate::mem::address_space::AddressSpaceLayout;
 
 /// Temporary value for the number of stack pages to allocate for secondary cores.
 // TODO(qix-): Discover the stack size of the primary core and use that instead.

@@ -1,8 +1,9 @@
 //! Provides a macro for producing a buffer of assembly instructions
 //! using the `asm!` macro.
 
-use quote::quote;
 use std::io::Read;
+
+use quote::quote;
 
 #[expect(clippy::missing_docs_in_private_items)]
 pub fn asm_buffer(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {

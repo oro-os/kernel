@@ -3,6 +3,7 @@
 //! structures to memory.
 
 use core::mem::MaybeUninit;
+
 use oro_boot_protocol::{MemoryMapEntry as OroMemRe, MemoryMapEntryType as OroMemTy};
 
 /// A simple, allocate-only page frame allocator for use in the

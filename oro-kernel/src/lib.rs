@@ -20,11 +20,8 @@ pub mod ring;
 pub mod scheduler;
 pub mod thread;
 
-use self::{
-	registry::{Handle, List, ListRegistry, Registry},
-	scheduler::Scheduler,
-};
 use core::mem::MaybeUninit;
+
 use oro_debug::dbg_err;
 use oro_id::{Id, IdType};
 use oro_macro::assert;
@@ -36,6 +33,11 @@ use oro_mem::{
 use oro_sync::spinlock::{
 	unfair::UnfairSpinlock,
 	unfair_critical::{InterruptController, UnfairCriticalSpinlock},
+};
+
+use self::{
+	registry::{Handle, List, ListRegistry, Registry},
+	scheduler::Scheduler,
 };
 
 /// Core-local instance of the Oro kernel.

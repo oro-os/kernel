@@ -1,7 +1,8 @@
 //! Thread management types and functions.
 
-use crate::{instance::Instance, registry::Handle, Arch, UserHandle};
 use core::mem::MaybeUninit;
+
+use crate::{instance::Instance, registry::Handle, Arch, UserHandle};
 
 /// A singular system thread.
 ///

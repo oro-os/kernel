@@ -1,8 +1,10 @@
 //! Provides definitions for the Translation Control Register (`TCR_EL1`).
 
-use crate::reg::field::field;
 use core::arch::asm;
+
 use oro_macro::AsU64;
+
+use crate::reg::field::field;
 
 /// The `TCR_EL1` register.
 #[derive(Clone, Copy)]

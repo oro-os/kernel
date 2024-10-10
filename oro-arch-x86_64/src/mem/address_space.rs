@@ -2,12 +2,13 @@
 //!
 //! This code describes the overall address space layout used by the kernel and userspace processes.
 
+use oro_mem::{mapper::AddressSpace, pfa::alloc::Alloc, translate::Translator};
+
 use super::{paging::PageTable, paging_level::PagingLevel, segment::MapperHandle};
 use crate::{
 	asm::cr3,
 	mem::{paging::PageTableEntry, segment::AddressSegment},
 };
-use oro_mem::{mapper::AddressSpace, pfa::alloc::Alloc, translate::Translator};
 
 /// A handle to an address space for the x86_64 architecture.
 ///

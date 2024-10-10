@@ -1,12 +1,14 @@
 //! Interrupt handling for x86_64 architecture.
 
+use core::arch::asm;
+
+use oro_mem::mapper::AddressSegment;
+
 use crate::{
 	isr_store_user_task_and_jmp,
 	lapic::{ApicSvr, ApicTimerConfig, ApicTimerMode},
 	mem::address_space::AddressSpaceLayout,
 };
-use core::arch::asm;
-use oro_mem::mapper::AddressSegment;
 
 /// A single IDT (Interrupt Descriptor Table) entry.
 #[derive(Debug, Clone, Copy, Default)]
