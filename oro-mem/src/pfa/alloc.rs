@@ -36,3 +36,26 @@ pub unsafe trait Alloc {
 	/// 3. Callers **must** ensure the frame is page-aligned.
 	unsafe fn free(&mut self, frame: u64);
 }
+
+/// A global page frame allocator. Identical to [`Alloc`]
+/// except that methods are not mutable.
+///
+/// # Safety
+/// See [`Alloc`] for safety requirements.
+pub unsafe trait GlobalPfa {
+	/// See [`Alloc::allocate`].
+	fn allocate(&self) -> Option<u64>;
+
+	/// See [`Alloc::free`].
+	unsafe fn free(&self, frame: u64);
+}
+
+unsafe impl<T: GlobalPfa> Alloc for T {
+	fn allocate(&mut self) -> Option<u64> {
+		GlobalPfa::allocate(self)
+	}
+
+	unsafe fn free(&mut self, frame: u64) {
+		GlobalPfa::free(self, frame)
+	}
+}

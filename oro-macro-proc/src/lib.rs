@@ -194,7 +194,7 @@ pub fn oro_global_translator(
 		args,
 		input,
 		"translator",
-		syn::parse_quote!(::oro_mem::translate::Translator),
+		syn::parse_quote!(::oro_mem::translate::Translate),
 	)
 }
 
