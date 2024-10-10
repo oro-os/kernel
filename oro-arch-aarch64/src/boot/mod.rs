@@ -37,10 +37,7 @@ pub unsafe fn boot_primary() -> ! {
 	crate::init::initialize_primary(pat.clone(), pfa);
 
 	{
-		let mut pfa = crate::init::KERNEL_STATE
-			.assume_init_ref()
-			.pfa()
-			.lock::<crate::sync::InterruptController>();
+		let mut pfa = crate::init::KERNEL_STATE.assume_init_ref().pfa().lock();
 
 		// Boot secondaries.
 		let num_cores = secondary::boot_secondaries(&mut *pfa, &pat, SECONDARY_STACK_PAGES);

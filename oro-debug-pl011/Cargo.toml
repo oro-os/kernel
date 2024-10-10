@@ -12,8 +12,8 @@ repository = "https://github.com/oro-os/kernel"
 license = "MPL-2.0"
 
 [dependencies]
-oro-sync.workspace = true
 volatile-register.workspace = true
+spin.workspace = true
 
 [lints]
 workspace = true

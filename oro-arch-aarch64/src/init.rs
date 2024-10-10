@@ -5,7 +5,7 @@ use core::mem::MaybeUninit;
 
 use oro_kernel::KernelState;
 use oro_mem::translate::OffsetTranslator;
-use oro_sync::spinlock::unfair_critical::UnfairCriticalSpinlock;
+use spin::mutex::fair::FairMutex;
 
 /// The global kernel state. Initialized once during boot
 /// and re-used across all cores.
@@ -35,7 +35,7 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 
 	// SAFETY(qix-): We know what we're doing here.
 	#[expect(static_mut_refs)]
-	KernelState::init(&mut KERNEL_STATE, pat, UnfairCriticalSpinlock::new(pfa))
+	KernelState::init(&mut KERNEL_STATE, pat, FairMutex::new(pfa))
 		.expect("failed to create global kernel state");
 }
 

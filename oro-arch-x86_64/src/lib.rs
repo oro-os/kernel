@@ -77,7 +77,6 @@ pub mod interrupt;
 pub mod lapic;
 pub mod mem;
 pub mod reg;
-pub mod sync;
 pub mod task;
 pub mod tss;
 
@@ -111,7 +110,6 @@ pub(crate) struct Arch;
 impl oro_kernel::Arch for Arch {
 	type AddrSpace = crate::mem::address_space::AddressSpaceLayout;
 	type CoreState = CoreState;
-	type IntCtrl = crate::sync::InterruptController;
 	type Pat = OffsetTranslator;
 	type Pfa = Pfa;
 	type ThreadState = ThreadState;

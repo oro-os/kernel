@@ -28,11 +28,12 @@ oro-boot-protocol.workspace = true
 oro-mem.workspace = true
 oro-macro.workspace = true
 oro-elf.workspace = true
-oro-sync.workspace = true
 oro-debug.workspace = true
 oro-dbgutil.workspace = true
 oro-acpi.workspace = true
 oro-id.workspace = true
+
+spin.workspace = true
 
 [lints]
 workspace = true

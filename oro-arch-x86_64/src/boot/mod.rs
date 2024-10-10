@@ -117,10 +117,7 @@ pub unsafe fn boot_primary() -> ! {
 	crate::init::initialize_primary(pat.clone(), pfa);
 
 	{
-		let mut pfa = crate::init::KERNEL_STATE
-			.assume_init_ref()
-			.pfa()
-			.lock::<crate::sync::InterruptController>();
+		let mut pfa = crate::init::KERNEL_STATE.assume_init_ref().pfa().lock();
 
 		let num_cores = if has_cs89 {
 			dbg!("physical pages 0x8000/0x9000 are valid; attempting to boot secondary cores");

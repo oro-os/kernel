@@ -98,10 +98,7 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 		// If this is `None`, then the kernel is currently running.
 		// Otherwise it's a userspace task that we just jumped from.
 		if let Some(user_task) = scheduler_lock.current_thread().as_ref() {
-			user_task
-				.lock_noncritical()
-				.thread_state_mut()
-				.irq_stack_ptr = irq_stack_ptr;
+			user_task.lock().thread_state_mut().irq_stack_ptr = irq_stack_ptr;
 
 			coming_from_user = true;
 		} else {
@@ -126,7 +123,7 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 
 	if let Some(user_ctx) = maybe_user_context {
 		let (thread_cr3_phys, thread_rsp) = unsafe {
-			let ctx_lock = user_ctx.lock_noncritical();
+			let ctx_lock = user_ctx.lock();
 			let cr3 = ctx_lock.mapper().base_phys;
 			let rsp = ctx_lock.thread_state().irq_stack_ptr;
 			(*handler.kernel().core().tss.get())

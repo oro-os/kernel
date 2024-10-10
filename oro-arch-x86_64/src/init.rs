@@ -11,7 +11,7 @@ use oro_mem::{
 	pfa::alloc::Alloc,
 	translate::{OffsetTranslator, Translator},
 };
-use oro_sync::spinlock::unfair_critical::UnfairCriticalSpinlock;
+use spin::mutex::fair::FairMutex;
 
 use crate::{
 	gdt::{Gdt, SysEntry},
@@ -53,12 +53,8 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 
 	// SAFETY(qix-): We know what we're doing here.
 	#[expect(static_mut_refs)]
-	KernelState::init(
-		&mut KERNEL_STATE,
-		pat.clone(),
-		UnfairCriticalSpinlock::new(pfa),
-	)
-	.expect("failed to create global kernel state");
+	KernelState::init(&mut KERNEL_STATE, pat.clone(), FairMutex::new(pfa))
+		.expect("failed to create global kernel state");
 
 	let state = KERNEL_STATE.assume_init_ref();
 
@@ -102,9 +98,7 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 				.expect("failed to create root ring module");
 
 			let entry_point = {
-				let module_lock = module_handle
-					.try_lock::<crate::sync::InterruptController>()
-					.expect("failed to lock module");
+				let module_lock = module_handle.try_lock().expect("failed to lock module");
 
 				let mapper = module_lock.mapper();
 
@@ -146,10 +140,7 @@ pub unsafe fn initialize_primary(pat: OffsetTranslator, pfa: crate::Pfa) {
 						segment.target_size()
 					);
 
-					let mut pfa = state
-						.pfa()
-						.try_lock::<crate::sync::InterruptController>()
-						.expect("failed to lock pfa");
+					let mut pfa = state.pfa().try_lock().expect("failed to lock pfa");
 
 					// NOTE(qix-): This will almost definitely be improved in the future.
 					// NOTE(qix-): At the very least, hugepages will change this.
@@ -265,7 +256,7 @@ pub unsafe fn boot(lapic: Lapic) -> ! {
 
 		if let Some(user_ctx) = maybe_ctx {
 			let (thread_cr3_phys, thread_rsp, kernel_rsp, kernel_irq_rsp) = unsafe {
-				let ctx_lock = user_ctx.lock_noncritical();
+				let ctx_lock = user_ctx.lock();
 				let cr3 = ctx_lock.mapper().base_phys;
 				let rsp = ctx_lock.thread_state().irq_stack_ptr;
 				let kernel_rsp_ptr = kernel.core().kernel_stack.get() as u64;

@@ -87,7 +87,7 @@ impl<A: Arch> Scheduler<A> {
 	pub unsafe fn current_thread(&self) -> Option<Handle<Thread<A>>> {
 		self.current_thread
 			.as_ref()
-			.map(|item| item.lock_noncritical().handle().clone())
+			.map(|item| item.lock().handle().clone())
 	}
 
 	/// Selects a new thread to run.
@@ -111,7 +111,7 @@ impl<A: Arch> Scheduler<A> {
 		loop {
 			let selected_thread_item = if let Some(current_thread) = self.current_thread.take() {
 				let next_thread = {
-					let current_thread_lock = current_thread.lock_noncritical();
+					let current_thread_lock = current_thread.lock();
 					let next = if current_thread_lock.in_list() {
 						current_thread_lock.next()
 					} else {
@@ -128,13 +128,13 @@ impl<A: Arch> Scheduler<A> {
 				// If we've reached the end of the list, force breaking back into the kernel.
 				Some(next_thread?)
 			} else {
-				self.kernel.state().threads().lock_noncritical().first()
+				self.kernel.state().threads().lock().first()
 			}?;
 
 			self.current_thread = Some(selected_thread_item.clone());
 
-			let selected_thread_item_lock = selected_thread_item.lock_noncritical();
-			let mut selected_thread_lock = selected_thread_item_lock.lock_noncritical();
+			let selected_thread_item_lock = selected_thread_item.lock();
+			let mut selected_thread_lock = selected_thread_item_lock.lock();
 
 			let this_kernel_id = self.kernel.id();
 
