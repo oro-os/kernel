@@ -7,7 +7,8 @@ use oro_debug::{dbg, dbg_warn};
 use oro_macro::assert;
 use oro_mem::{
 	pfa::{alloc::Alloc, filo::FiloPageFrameAllocator},
-	translate::{OffsetTranslator, Translator},
+	phys::{Phys, PhysAddr},
+	translate::OffsetTranslator,
 };
 
 use crate::{
@@ -22,14 +23,15 @@ use crate::{
 	},
 };
 
+/// The global physical address translator for the kernel.
+#[oro_macro::oro_global_translator]
+static mut GLOBAL_PAT: OffsetTranslator = OffsetTranslator::new(0);
+
 /// Prepared memory items configured after preparing the memory
 /// space for the kernel at boot time.
 pub struct PreparedMemory {
-	/// A physical address translator usable with the
-	/// prepared memory.
-	pub pat: OffsetTranslator,
 	/// A page frame allocator usable with the prepared memory.
-	pub pfa: FiloPageFrameAllocator<OffsetTranslator>,
+	pub pfa: FiloPageFrameAllocator,
 }
 
 /// Prepares the kernel memory after transfer from the boot stage
@@ -79,11 +81,10 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	let linear_offset = linear_map_regions(&otf, &mut pfa_iter, mmap_iter)
 		.expect("ran out of memory while linear mapping regions");
 
-	// Now make a new PFA with the linear map offset.
-	let pat = OffsetTranslator::new(
+	GLOBAL_PAT.set_offset(
 		usize::try_from(linear_offset).expect("linear offset doesn't fit into a usize"),
 	);
-	let mut pfa = FiloPageFrameAllocator::new(pat.clone());
+	let mut pfa = FiloPageFrameAllocator::new();
 
 	// Consume the MMAP PFA and free all memory that isn't used by the
 	// linear map intermediate page table entries.
@@ -95,14 +96,9 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 			continue;
 		}
 
-		let base = region.base + region.used;
-
-		// NOTE(qix-): Technically the saturating sub isn't necessary here
-		// NOTE(qix-): assuming the bootloader has done its job correctly.
-		// NOTE(qix-): However it's good to keep the spaceship flying.
-		let length = region.length.saturating_sub(region.used);
+		let base = region.base;
 		let aligned_base = (base + 4095) & !4095;
-		let length = length.saturating_sub(aligned_base - base);
+		let length = region.length.saturating_sub(aligned_base - base);
 
 		debug_assert_eq!(aligned_base % 4096, 0);
 		debug_assert_eq!(length % 4096, 0);
@@ -122,7 +118,8 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	}
 
 	// Now unmap the recursive entry.
-	let page_table = pat.translate_mut::<PageTable>(crate::asm::load_ttbr1());
+	let page_table =
+		Phys::from_address_unchecked(crate::asm::load_ttbr1()).as_mut_unchecked::<PageTable>();
 	(*page_table)[RIDX].reset();
 	(*page_table)[RIDX + 1].reset();
 	(*page_table)[RIDX + 2].reset();
@@ -131,7 +128,7 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	// Flush everything and finish.
 	crate::asm::invalid_tlb_el1_all();
 
-	PreparedMemory { pat, pfa }
+	PreparedMemory { pfa }
 }
 
 /// Maps all regions to a linear map in the current virtual address space.
