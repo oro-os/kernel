@@ -14,7 +14,7 @@ use oro_macro::unlikely;
 use oro_mem::{
 	mapper::{AddressSegment, MapError, UnmapError},
 	pfa::alloc::Alloc,
-	translate::Translator,
+	phys::{Phys, PhysAddr},
 };
 
 use super::{
@@ -54,16 +54,14 @@ impl Segment {
 	/// Always returns a valid reference to an L3 page table entry (or an error
 	/// if mapping intermediate table entries failed).
 	// XXX DEBUG(qix-): Set this back to private
-	pub(crate) fn entry<'a, A, P, Handle>(
+	pub(crate) fn entry<'a, A, Handle>(
 		&'a self,
 		space: &'a Handle,
 		alloc: &'a mut A,
-		translator: &'a P,
 		virt: usize,
 	) -> Result<&'a mut PageTableEntry, MapError>
 	where
 		A: Alloc,
-		P: Translator,
 		Handle: TtbrHandle,
 	{
 		if unlikely!((virt & Handle::VIRT_START) != Handle::VIRT_START) {
@@ -87,7 +85,7 @@ impl Segment {
 		let l3_idx = (virt >> 12) & 0x1FF;
 
 		// SAFETY(qix-): We have reasonable guarantees that AddressSpaceHandle's are valid.
-		let l0 = unsafe { &mut *translator.translate_mut::<PageTable>(space.base_phys()) };
+		let l0 = unsafe { space.base_phys().as_mut_unchecked::<PageTable>() };
 		let l0_entry = &mut l0[l0_idx];
 
 		let l1: &mut PageTable = if l0_entry.valid() {
@@ -98,10 +96,12 @@ impl Segment {
 			};
 
 			// SAFETY(qix-): We can guarantee this is a valid page table entry.
-			unsafe { &mut *translator.translate_mut(l0_entry.address()) }
+			unsafe { Phys::from_address_unchecked(l0_entry.address()).as_mut_unchecked() }
 		} else {
 			let l1_phys = alloc.allocate().ok_or(MapError::OutOfMemory)?;
-			let l1_virt = translator.translate_mut::<PageTable>(l1_phys);
+			let l1_virt = unsafe {
+				Phys::from_address_unchecked(l1_phys).as_mut_ptr_unchecked::<PageTable>()
+			};
 
 			unsafe {
 				// SAFETY(qix-): We can guarantee this is a valid page table address.
@@ -124,10 +124,12 @@ impl Segment {
 			};
 
 			// SAFETY(qix-): We can guarantee this is a valid page table entry.
-			unsafe { &mut *translator.translate_mut(l1_entry.address()) }
+			unsafe { Phys::from_address_unchecked(l1_entry.address()).as_mut_unchecked() }
 		} else {
 			let l2_phys = alloc.allocate().ok_or(MapError::OutOfMemory)?;
-			let l2_virt = translator.translate_mut::<PageTable>(l2_phys);
+			let l2_virt = unsafe {
+				Phys::from_address_unchecked(l2_phys).as_mut_ptr_unchecked::<PageTable>()
+			};
 
 			unsafe {
 				// SAFETY(qix-): We can guarantee this is a valid page table address.
@@ -151,11 +153,12 @@ impl Segment {
 			};
 
 			// SAFETY(qix-): We can guarantee this is a valid page table entry.
-			unsafe { &mut *translator.translate_mut(l2_entry.address()) }
+			unsafe { Phys::from_address_unchecked(l2_entry.address()).as_mut_unchecked() }
 		} else {
 			let l3_phys = alloc.allocate().ok_or(MapError::OutOfMemory)?;
-
-			let l3_virt = translator.translate_mut::<PageTable>(l3_phys);
+			let l3_virt = unsafe {
+				Phys::from_address_unchecked(l3_phys).as_mut_ptr_unchecked::<PageTable>()
+			};
 
 			unsafe {
 				// SAFETY(qix-): We can guarantee this is a valid page table address.
@@ -179,16 +182,14 @@ impl Segment {
 	/// physical address that was previously mapped.
 	///
 	/// If no physical address was previously mapped, returns `None`.
-	unsafe fn try_unmap<A, P, Handle>(
+	unsafe fn try_unmap<A, Handle>(
 		&self,
 		space: &Handle,
 		alloc: &mut A,
-		translator: &P,
 		virt: usize,
 	) -> Result<Option<u64>, UnmapError>
 	where
 		A: Alloc,
-		P: Translator,
 		Handle: TtbrHandle,
 	{
 		if unlikely!((virt & Handle::VIRT_START) != Handle::VIRT_START) {
@@ -210,14 +211,14 @@ impl Segment {
 		}
 
 		let l0_phys = space.base_phys();
-		let l0 = &mut *translator.translate_mut::<PageTable>(l0_phys);
+		let l0 = l0_phys.as_mut_unchecked::<PageTable>();
 		let l0_entry = &mut l0[l0_index];
 
 		Ok(match l0_entry.entry_type_mut(0) {
 			PageTableEntryTypeMut::Invalid(_) => return Ok(None),
 			PageTableEntryTypeMut::L0Descriptor(l0_entry) => {
 				let l1_phys = l0_entry.address();
-				let l1 = &mut *translator.translate_mut::<PageTable>(l1_phys);
+				let l1 = Phys::from_address_unchecked(l1_phys).as_mut_unchecked::<PageTable>();
 				let l1_index = (virt >> 30) & 0x1FF;
 				let l1_entry = &mut l1[l1_index];
 
@@ -225,7 +226,8 @@ impl Segment {
 					PageTableEntryTypeMut::Invalid(_) => None,
 					PageTableEntryTypeMut::L1Descriptor(l1_entry) => {
 						let l2_phys = l1_entry.address();
-						let l2 = &mut *translator.translate_mut::<PageTable>(l2_phys);
+						let l2 =
+							Phys::from_address_unchecked(l2_phys).as_mut_unchecked::<PageTable>();
 						let l2_index = (virt >> 21) & 0x1FF;
 						let l2_entry = &mut l2[l2_index];
 
@@ -233,7 +235,8 @@ impl Segment {
 							PageTableEntryTypeMut::Invalid(_) => None,
 							PageTableEntryTypeMut::L2Descriptor(l2_entry) => {
 								let l3_phys = l2_entry.address();
-								let l3 = &mut *translator.translate_mut::<PageTable>(l3_phys);
+								let l3 = Phys::from_address_unchecked(l3_phys)
+									.as_mut_unchecked::<PageTable>();
 								let l3_index = (virt >> 12) & 0x1FF;
 								let l3_entry = &mut l3[l3_index];
 
@@ -284,12 +287,8 @@ impl Segment {
 	/// # Safety
 	/// Caller must ensure that pages not being claimed _won't_
 	/// lead to memory leaks.
-	pub unsafe fn unmap_without_reclaim<P: Translator, Handle: TtbrHandle>(
-		&self,
-		space: &Handle,
-		pat: &P,
-	) {
-		let top_level = &mut *pat.translate_mut::<PageTable>(space.base_phys());
+	pub unsafe fn unmap_without_reclaim<Handle: TtbrHandle>(&self, space: &Handle) {
+		let top_level = space.base_phys().as_mut_unchecked::<PageTable>();
 
 		for idx in self.valid_range.0..=self.valid_range.1 {
 			let entry = &mut top_level[idx];
@@ -301,6 +300,17 @@ impl Segment {
 }
 
 unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
+	unsafe fn unmap_all_and_reclaim<A>(
+		&self,
+		_space: &Handle,
+		_alloc: &mut A,
+	) -> Result<(), UnmapError>
+	where
+		A: Alloc,
+	{
+		todo!();
+	}
+
 	fn range(&self) -> (usize, usize) {
 		let start = (self.valid_range.0 << 39) | Handle::VIRT_START;
 		// TODO(qix-): Assumes a 48-bit virtual address space for each TT; will need
@@ -309,17 +319,11 @@ unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
 		(start, end)
 	}
 
-	fn provision_as_shared<A, P>(
-		&self,
-		space: &Handle,
-		alloc: &mut A,
-		translator: &P,
-	) -> Result<(), MapError>
+	fn provision_as_shared<A>(&self, space: &Handle, alloc: &mut A) -> Result<(), MapError>
 	where
 		A: Alloc,
-		P: Translator,
 	{
-		let top_level = unsafe { &mut *translator.translate_mut::<PageTable>(space.base_phys()) };
+		let top_level = unsafe { space.base_phys().as_mut_unchecked::<PageTable>() };
 
 		for idx in self.valid_range.0..=self.valid_range.1 {
 			let entry = &mut top_level[idx];
@@ -330,7 +334,9 @@ unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
 
 			let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
 			unsafe {
-				(*translator.translate_mut::<PageTable>(frame_phys_addr)).reset();
+				Phys::from_address_unchecked(frame_phys_addr)
+					.as_mut_unchecked::<PageTable>()
+					.reset();
 			}
 			*entry = self.l0_template.with_address(frame_phys_addr).into();
 		}
@@ -338,36 +344,27 @@ unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
 		Ok(())
 	}
 
-	fn map<A, P>(
-		&self,
-		space: &Handle,
-		alloc: &mut A,
-		translator: &P,
-		virt: usize,
-		phys: u64,
-	) -> Result<(), MapError>
+	fn map<A>(&self, space: &Handle, alloc: &mut A, virt: usize, phys: u64) -> Result<(), MapError>
 	where
 		A: Alloc,
-		P: Translator,
 	{
 		// NOTE(qix-): The mapper doesn't actually free anything,
 		// NOTE(qix-): so we can just call the nofree variant.
-		self.map_nofree(space, alloc, translator, virt, phys)
+		self.map_nofree(space, alloc, virt, phys)
 	}
 
-	fn map_nofree<A, P>(
+	fn map_nofree<A>(
 		&self,
 		space: &Handle,
 		alloc: &mut A,
-		translator: &P,
+
 		virt: usize,
 		phys: u64,
 	) -> Result<(), MapError>
 	where
 		A: Alloc,
-		P: Translator,
 	{
-		let l3_entry = self.entry(space, alloc, translator, virt)?;
+		let l3_entry = self.entry(space, alloc, virt)?;
 		if l3_entry.valid() {
 			return Err(MapError::Exists);
 		}
@@ -390,35 +387,27 @@ unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
 		Ok(())
 	}
 
-	fn unmap<A, P>(
-		&self,
-		space: &Handle,
-		alloc: &mut A,
-		translator: &P,
-		virt: usize,
-	) -> Result<u64, UnmapError>
+	fn unmap<A>(&self, space: &Handle, alloc: &mut A, virt: usize) -> Result<u64, UnmapError>
 	where
 		A: Alloc,
-		P: Translator,
 	{
-		let phys = unsafe { self.try_unmap(space, alloc, translator, virt)? };
+		let phys = unsafe { self.try_unmap(space, alloc, virt)? };
 
 		phys.ok_or(UnmapError::NotMapped)
 	}
 
-	fn remap<A, P>(
+	fn remap<A>(
 		&self,
 		space: &Handle,
 		alloc: &mut A,
-		translator: &P,
+
 		virt: usize,
 		phys: u64,
 	) -> Result<Option<u64>, MapError>
 	where
 		A: Alloc,
-		P: Translator,
 	{
-		let l3_entry = self.entry(space, alloc, translator, virt)?;
+		let l3_entry = self.entry(space, alloc, virt)?;
 
 		let old_phys = if l3_entry.valid() {
 			let PageTableEntryType::L3Block(l3_entry) = (unsafe { l3_entry.entry_type(3) }) else {

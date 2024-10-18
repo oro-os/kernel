@@ -141,7 +141,6 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 		}
 
 		let base = region.base;
-
 		let aligned_base = (base + 4095) & !4095;
 		let length = region.length.saturating_sub(aligned_base - base);
 

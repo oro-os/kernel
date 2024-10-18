@@ -18,7 +18,7 @@ use oro_macro::asm_buffer;
 use oro_mem::{
 	mapper::{AddressSegment, MapError},
 	pfa::alloc::Alloc,
-	translate::Translator,
+	phys::{Phys, PhysAddr},
 };
 
 #[expect(clippy::missing_docs_in_private_items)]
@@ -72,10 +72,9 @@ const STUBS: &[u8] = &asm_buffer! {
 
 /// Prepares the system for a transfer. Called before the memory map
 /// is written, after which `transfer` is called.
-pub unsafe fn prepare_transfer<P: Translator, A: Alloc>(
+pub unsafe fn prepare_transfer<A: Alloc>(
 	mapper: &mut Ttbr1Handle,
 	alloc: &mut A,
-	pat: &P,
 ) -> crate::Result<TransferData> {
 	debug_assert!(
 		STUBS.len() <= 4096,
@@ -88,31 +87,37 @@ pub unsafe fn prepare_transfer<P: Translator, A: Alloc>(
 		"transfer stubs must have a length greater than 0"
 	);
 
-	AddressSpaceLayout::map_recursive_entry(mapper, pat);
+	AddressSpaceLayout::map_recursive_entry(mapper);
 
 	let stubs_phys = alloc
 		.allocate()
+		.map(|addr| unsafe { Phys::from_address_unchecked(addr) })
 		.ok_or(crate::Error::MapError(MapError::OutOfMemory))?;
 
 	// Copy the stubs into the new page
-	let stubs_dest = &mut *pat.translate_mut::<[u8; 4096]>(stubs_phys);
+	let stubs_dest = stubs_phys.as_mut_unchecked::<[u8; 4096]>();
 	stubs_dest[..STUBS.len()].copy_from_slice(STUBS.as_ref());
 
 	// Map the stubs into the new page table using an identity mapping.
 	// SAFETY(qix-): We specify that TTBR0 must be 4KiB upon transferring to the kernel,
 	// SAFETY(qix-): and that TTBR0_EL1 is left undefined (for our usage).
-	let page_table = AddressSpaceLayout::new_supervisor_space_ttbr0(alloc, pat)
+	let page_table = AddressSpaceLayout::new_supervisor_space_ttbr0(alloc)
 		.ok_or(crate::Error::MapError(MapError::OutOfMemory))?;
 
 	// Direct map it.
 	#[expect(clippy::cast_possible_truncation)]
 	AddressSpaceLayout::stubs()
-		.map(&page_table, alloc, pat, stubs_phys as usize, stubs_phys)
+		.map(
+			&page_table,
+			alloc,
+			stubs_phys.address_u64().try_into().unwrap(),
+			stubs_phys.address_u64(),
+		)
 		.map_err(crate::Error::MapError)?;
 
 	Ok(TransferData {
-		stubs_addr: stubs_phys,
-		tt0_phys:   page_table.base_phys,
+		stubs_addr: stubs_phys.address_u64(),
+		tt0_phys:   page_table.base_phys.address_u64(),
 	})
 }
 
@@ -124,7 +129,7 @@ pub unsafe fn transfer(
 	stack_addr: usize,
 	prepare_data: TransferData,
 ) -> Result<!, MapError> {
-	let page_table_phys: u64 = mapper.base_phys;
+	let page_table_phys: u64 = mapper.base_phys.address_u64();
 	let mair_value: u64 = MairEntry::build_mair().into();
 	let stubs_addr: u64 = prepare_data.stubs_addr;
 	let stubs_page_table_phys: u64 = prepare_data.tt0_phys;

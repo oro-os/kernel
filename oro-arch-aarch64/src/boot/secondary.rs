@@ -13,7 +13,7 @@ use oro_macro::{asm_buffer, assert};
 use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError},
 	pfa::alloc::Alloc,
-	translate::{OffsetTranslator, Translator},
+	phys::{Phys, PhysAddr},
 };
 use oro_type::Be;
 
@@ -33,11 +33,7 @@ use crate::{
 /// # Safety
 /// This function is inherently unsafe and must only be called
 /// once at kernel boot by the bootstrap processor (primary core).
-pub unsafe fn boot_secondaries(
-	pfa: &mut impl Alloc,
-	pat: &OffsetTranslator,
-	stack_pages: usize,
-) -> usize {
+pub unsafe fn boot_secondaries(pfa: &mut impl Alloc, stack_pages: usize) -> usize {
 	// Get the devicetree blob.
 	let DeviceTreeKind::V0(dtb) = super::protocol::DTB_REQUEST
 		.response()
@@ -49,7 +45,11 @@ pub unsafe fn boot_secondaries(
 	let DeviceTreeDataV0 { base, length } = dtb.assume_init_ref();
 	dbg!("got DeviceTree blob of {} bytes", length);
 
-	let dtb = FdtHeader::from(pat.translate::<u8>(*base), Some(*length)).expect("dtb is invalid");
+	let dtb = FdtHeader::from(
+		Phys::from_address_unchecked(*base).as_ptr().unwrap(),
+		Some(*length),
+	)
+	.expect("dtb is invalid");
 	let boot_cpuid = dtb.phys_id();
 	dbg!("dtb is valid; primary core id is {boot_cpuid}");
 
@@ -188,7 +188,7 @@ pub unsafe fn boot_secondaries(
 					continue;
 				}
 
-				if let Err(err) = boot_secondary(pfa, pat, psci, cpu_id, reg_val, stack_pages) {
+				if let Err(err) = boot_secondary(pfa, psci, cpu_id, reg_val, stack_pages) {
 					dbg_err!("failed to boot cpu {cpu_id} ({reg_val}): {err:?}");
 				}
 
@@ -326,35 +326,34 @@ const SECONDARY_BOOT_STUB: &[u8] = &asm_buffer! {
 /// Attempts to boot a single secondary core.
 unsafe fn boot_secondary(
 	pfa: &mut impl Alloc,
-	pat: &OffsetTranslator,
 	psci: PsciMethod,
 	cpu_id: u64,
 	reg_val: u64,
 	stack_pages: usize,
 ) -> Result<(), SecondaryBootError> {
 	// Get the primary handle.
-	let primary_mapper = AddressSpaceLayout::current_supervisor_space(pat);
+	let primary_mapper = AddressSpaceLayout::current_supervisor_space();
 
 	// Create a new supervisor address space based on the current address space.
-	let mapper = AddressSpaceLayout::duplicate_supervisor_space_shallow(&primary_mapper, pfa, pat)
+	let mapper = AddressSpaceLayout::duplicate_supervisor_space_shallow(&primary_mapper, pfa)
 		.ok_or(SecondaryBootError::OutOfMemory)?;
 
 	// Also create an empty mapper for the TTBR0_EL1 space.
-	let lower_mapper = AddressSpaceLayout::new_supervisor_space_ttbr0(pfa, pat)
+	let lower_mapper = AddressSpaceLayout::new_supervisor_space_ttbr0(pfa)
 		.ok_or(SecondaryBootError::OutOfMemory)?;
 
 	// Allocate the boot stubs (maximum 4096 bytes).
 	let boot_phys = pfa.allocate().ok_or(SecondaryBootError::OutOfMemory)?;
-	let boot_virt = pat.translate_mut::<[u8; 4096]>(boot_phys);
+	let boot_virt = Phys::from_address_unchecked(boot_phys).as_mut_ptr_unchecked::<[u8; 4096]>();
 	(&mut *boot_virt)[..SECONDARY_BOOT_STUB.len()].copy_from_slice(SECONDARY_BOOT_STUB);
 
 	// Direct map the boot stubs into the lower page table.
 	AddressSpaceLayout::stubs()
-		.map(&lower_mapper, pfa, pat, boot_phys as usize, boot_phys)
+		.map(&lower_mapper, pfa, boot_phys as usize, boot_phys)
 		.map_err(SecondaryBootError::MapError)?;
 
 	// Forget the stack in the upper address space.
-	AddressSpaceLayout::kernel_stack().unmap_without_reclaim(&mapper, pat);
+	AddressSpaceLayout::kernel_stack().unmap_without_reclaim(&mapper);
 
 	// Allocate a new stack for it...
 	let stack_segment = AddressSpaceLayout::kernel_stack();
@@ -363,7 +362,7 @@ unsafe fn boot_secondary(
 	for stack_virt in (stack_end - stack_pages * 4096..stack_end).step_by(4096) {
 		let page = pfa.allocate().ok_or(SecondaryBootError::OutOfMemory)?;
 		stack_segment
-			.map(&mapper, pfa, pat, stack_virt, page)
+			.map(&mapper, pfa, stack_virt, page)
 			.map_err(SecondaryBootError::MapError)?;
 	}
 
@@ -374,17 +373,18 @@ unsafe fn boot_secondary(
 	// Write the boot init block.
 	assert::fits::<BootInitBlock, 4096>();
 	let init_block_phys = pfa.allocate().ok_or(SecondaryBootError::OutOfMemory)?;
-	let init_block_ptr = pat.translate_mut::<BootInitBlock>(init_block_phys);
+	let init_block_ptr =
+		Phys::from_address_unchecked(init_block_phys).as_mut_ptr_unchecked::<BootInitBlock>();
 	debug_assert!(init_block_ptr.is_aligned());
 	init_block_ptr.write(BootInitBlock {
 		core_id:        cpu_id,
-		ttbr0_el1:      lower_mapper.base_phys,
-		ttbr1_el1:      mapper.base_phys,
+		ttbr0_el1:      lower_mapper.base_phys.address_u64(),
+		ttbr1_el1:      mapper.base_phys.address_u64(),
 		tcr_el1:        tcr,
 		stack_pointer:  stack_end as u64,
 		mair:           mair_val,
 		entry_point:    boot_secondary_entry as *const u8 as u64,
-		linear_offset:  pat.offset() as u64,
+		linear_offset:  Phys::from_address_unchecked(0).virt() as u64,
 		primary_flag:   AtomicBool::new(false),
 		secondary_flag: AtomicBool::new(false),
 	});
@@ -401,7 +401,7 @@ unsafe fn boot_secondary(
 		core::hint::spin_loop();
 	}
 
-	// Unmap the
+	// XXX(qix-): Do we need to unmap something here?
 
 	Ok(())
 }

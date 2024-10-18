@@ -41,7 +41,7 @@ pub mod reg;
 pub(crate) mod init;
 
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
-use oro_mem::{pfa::filo::FiloPageFrameAllocator, translate::OffsetTranslator};
+use oro_mem::pfa::filo::FiloPageFrameAllocator;
 
 /// The ELF class for the AArch64 architecture.
 pub const ELF_CLASS: ElfClass = ElfClass::Class64;
@@ -54,7 +54,7 @@ pub const ELF_MACHINE: ElfMachine = ElfMachine::Aarch64;
 
 /// Type alias for the PFA (page frame allocator) implementation used
 /// by the architecture.
-pub(crate) type Pfa = FiloPageFrameAllocator<OffsetTranslator>;
+pub(crate) type Pfa = FiloPageFrameAllocator;
 
 /// Zero-sized type for specifying the architecture-specific types
 /// used throughout the `oro-kernel` crate.
@@ -62,7 +62,6 @@ pub(crate) struct Arch;
 
 impl oro_kernel::Arch for Arch {
 	type AddrSpace = crate::mem::address_space::AddressSpaceLayout;
-	type Pat = OffsetTranslator;
 	type Pfa = Pfa;
 }
 
@@ -70,9 +69,9 @@ impl oro_kernel::Arch for Arch {
 pub(crate) type Kernel = oro_kernel::Kernel<Arch>;
 
 /// Architecture-specific core-local state.
+#[expect(dead_code)] // XXX DEBUG
 pub(crate) struct CoreState {
 	// XXX DEBUG
 	#[doc(hidden)]
-	#[expect(dead_code)]
 	pub unused: u64,
 }

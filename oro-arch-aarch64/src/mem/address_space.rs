@@ -1,6 +1,10 @@
 //! Implements the Oro-specific address space layout for the Aarch64 architecture.
 
-use oro_mem::{mapper::AddressSpace, pfa::alloc::Alloc, translate::Translator};
+use oro_mem::{
+	mapper::AddressSpace,
+	pfa::alloc::Alloc,
+	phys::{Phys, PhysAddr},
+};
 
 use crate::{
 	mair::MairEntry,
@@ -19,14 +23,14 @@ use crate::{
 pub struct Ttbr1Handle {
 	/// The base physical address of the root of the page tables
 	/// associated with an address space.
-	pub base_phys: u64,
+	pub base_phys: Phys,
 }
 
 /// A lightweight handle to a TTBR0 address space.
 pub struct Ttbr0Handle {
 	/// The base physical address of the root of the page tables
 	/// associated with an address space.
-	pub base_phys: u64,
+	pub base_phys: Phys,
 }
 
 /// Defines differentiating information and functions for each of the
@@ -43,13 +47,13 @@ pub trait TtbrHandle {
 	/// Returns the base physical address of the root of the page tables
 	/// associated with this address space.
 	#[must_use]
-	fn base_phys(&self) -> u64;
+	fn base_phys(&self) -> Phys;
 }
 
 impl TtbrHandle for Ttbr1Handle {
 	const VIRT_START: usize = 0xFFFF_0000_0000_0000;
 
-	fn base_phys(&self) -> u64 {
+	fn base_phys(&self) -> Phys {
 		self.base_phys
 	}
 }
@@ -57,7 +61,7 @@ impl TtbrHandle for Ttbr1Handle {
 impl TtbrHandle for Ttbr0Handle {
 	const VIRT_START: usize = 0;
 
-	fn base_phys(&self) -> u64 {
+	fn base_phys(&self) -> Phys {
 		self.base_phys
 	}
 }
@@ -133,34 +137,34 @@ impl AddressSpaceLayout {
 
 impl AddressSpaceLayout {
 	/// Installs the recursive page table entry.
-	pub fn map_recursive_entry(mapper: &mut Ttbr1Handle, pat: &impl Translator) {
+	pub fn map_recursive_entry(mapper: &mut Ttbr1Handle) {
 		unsafe {
-			let pt = &mut *pat.translate_mut::<PageTable>(mapper.base_phys);
+			let pt = mapper.base_phys.as_mut_unchecked::<PageTable>();
 
 			pt[Self::RECURSIVE_ENTRY_IDX.0] = L0PageTableDescriptor::new()
 				.with_valid()
-				.with_address(mapper.base_phys)
+				.with_address(mapper.base_phys.address_u64())
 				.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
 				.with_user_no_exec()
 				.with_kernel_no_exec()
 				.into();
 			pt[Self::RECURSIVE_ENTRY_IDX.0 + 1] = L1PageTableDescriptor::new()
 				.with_valid()
-				.with_address(mapper.base_phys)
+				.with_address(mapper.base_phys.address_u64())
 				.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
 				.with_user_no_exec()
 				.with_kernel_no_exec()
 				.into();
 			pt[Self::RECURSIVE_ENTRY_IDX.0 + 2] = L2PageTableDescriptor::new()
 				.with_valid()
-				.with_address(mapper.base_phys)
+				.with_address(mapper.base_phys.address_u64())
 				.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
 				.with_user_no_exec()
 				.with_kernel_no_exec()
 				.into();
 			pt[Self::RECURSIVE_ENTRY_IDX.0 + 3] = L3PageTableBlockDescriptor::new()
 				.with_valid()
-				.with_address(mapper.base_phys)
+				.with_address(mapper.base_phys.address_u64())
 				.with_block_access_permissions(PageTableEntryBlockAccessPerm::KernelRWUserNoAccess)
 				.with_user_no_exec()
 				.with_kernel_no_exec()
@@ -247,10 +251,9 @@ impl AddressSpaceLayout {
 	///
 	/// This probably isn't used by the kernel, but instead by the
 	/// preboot environment to map stubs.
-	pub fn new_supervisor_space_ttbr0<A, P>(alloc: &mut A, translator: &P) -> Option<Ttbr0Handle>
+	pub fn new_supervisor_space_ttbr0<A>(alloc: &mut A) -> Option<Ttbr0Handle>
 	where
 		A: Alloc,
-		P: Translator,
 	{
 		// NOTE(qix-): This is just a temporary sanity check to make sure
 		// NOTE(qix-): we aren't going to blow up later on if we change
@@ -260,10 +263,12 @@ impl AddressSpaceLayout {
 			(0x0000_0000_0000_0000, 0x0000_FFFF_FFFF_FFFF)
 		);
 
-		let base_phys = alloc.allocate()?;
+		let base_phys = alloc
+			.allocate()
+			.map(|addr| unsafe { Phys::from_address_unchecked(addr) })?;
 
 		unsafe {
-			(*translator.translate_mut::<PageTable>(base_phys)).reset();
+			base_phys.as_mut_unchecked::<PageTable>().reset();
 		}
 
 		Some(Ttbr0Handle { base_phys })
@@ -367,19 +372,15 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		kernel_module_list_registry => KERNEL_MODULE_LIST_REGISTRY_IDX,
 	}
 
-	unsafe fn current_supervisor_space<P>(_translator: &P) -> Self::SupervisorHandle
-	where
-		P: Translator,
-	{
+	unsafe fn current_supervisor_space() -> Self::SupervisorHandle {
 		Self::SupervisorHandle {
-			base_phys: crate::asm::load_ttbr1(),
+			base_phys: Phys::from_address_unchecked(crate::asm::load_ttbr1()),
 		}
 	}
 
-	fn new_supervisor_space<A, P>(alloc: &mut A, translator: &P) -> Option<Self::SupervisorHandle>
+	fn new_supervisor_space<A>(alloc: &mut A) -> Option<Self::SupervisorHandle>
 	where
 		A: Alloc,
-		P: Translator,
 	{
 		// NOTE(qix-): This is just a temporary sanity check to make sure
 		// NOTE(qix-): we aren't going to blow up later on if we change
@@ -389,68 +390,74 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 			(0xFFFF_0000_0000_0000, 0xFFFF_FFFF_FFFF_FFFF)
 		);
 
-		let base_phys = alloc.allocate()?;
+		let base_phys = alloc
+			.allocate()
+			.map(|addr| unsafe { Phys::from_address_unchecked(addr) })?;
 
 		unsafe {
-			(*translator.translate_mut::<PageTable>(base_phys)).reset();
+			base_phys.as_mut_unchecked::<PageTable>().reset();
 		}
 
 		Some(Ttbr1Handle { base_phys })
 	}
 
-	fn new_user_space<A, P>(
-		_space: &Self::SupervisorHandle,
-		alloc: &mut A,
-		translator: &P,
-	) -> Option<Self::UserHandle>
+	fn new_user_space<A>(_space: &Self::SupervisorHandle, alloc: &mut A) -> Option<Self::UserHandle>
 	where
 		A: Alloc,
-		P: Translator,
 	{
-		let base_phys = alloc.allocate()?;
+		let base_phys = alloc
+			.allocate()
+			.map(|addr| unsafe { Phys::from_address_unchecked(addr) })?;
 
 		unsafe {
-			(*translator.translate_mut::<PageTable>(base_phys)).reset();
+			base_phys.as_mut_unchecked::<PageTable>().reset();
 		}
 
 		Some(Ttbr0Handle { base_phys })
 	}
 
-	fn duplicate_supervisor_space_shallow<A, P>(
+	fn free_user_space<A>(_space: Self::UserHandle, _alloc: &mut A)
+	where
+		A: Alloc,
+	{
+		todo!();
+	}
+
+	fn duplicate_supervisor_space_shallow<A>(
 		space: &Self::SupervisorHandle,
 		alloc: &mut A,
-		translator: &P,
 	) -> Option<Self::SupervisorHandle>
 	where
 		A: Alloc,
-		P: Translator,
 	{
-		let base_phys = alloc.allocate()?;
+		let base_phys = alloc
+			.allocate()
+			.map(|addr| unsafe { Phys::from_address_unchecked(addr) })?;
 
 		unsafe {
-			let pt = &mut *translator.translate_mut::<PageTable>(base_phys);
+			let pt = base_phys.as_mut_unchecked::<PageTable>();
 			pt.reset();
-			pt.shallow_copy_from(&*translator.translate(space.base_phys));
+			pt.shallow_copy_from(space.base_phys.as_ref_unchecked());
 		}
 
 		Some(Self::SupervisorHandle { base_phys })
 	}
 
-	fn duplicate_user_space_shallow<A, P>(
+	fn duplicate_user_space_shallow<A>(
 		space: &Self::UserHandle,
 		alloc: &mut A,
-		translator: &P,
 	) -> Option<Self::UserHandle>
 	where
 		A: Alloc,
-		P: Translator,
 	{
-		let base_phys = alloc.allocate()?;
+		let base_phys = alloc
+			.allocate()
+			.map(|addr| unsafe { Phys::from_address_unchecked(addr) })?;
 
 		unsafe {
-			let pt = &mut *translator.translate_mut::<PageTable>(base_phys);
+			let pt = base_phys.as_mut_unchecked::<PageTable>();
 			pt.reset();
-			pt.shallow_copy_from(&*translator.translate(space.base_phys));
+			pt.shallow_copy_from(space.base_phys.as_ref_unchecked());
 		}
 
 		Some(Self::UserHandle { base_phys })
@@ -595,5 +602,9 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		};
 
 		&DESCRIPTOR
+	}
+
+	fn module_thread_stack() -> Self::UserSegment {
+		todo!();
 	}
 }
