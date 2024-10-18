@@ -19,3 +19,5 @@ syn.workspace = true
 
 # NOTE(qix-): This crate is not subject to the typical linting rules
 # NOTE(qix-): of the workspace as there's no feasible way to make it work.
+[lints.clippy]
+useless_transmute = "allow"
