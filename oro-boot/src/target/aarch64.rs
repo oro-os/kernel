@@ -105,7 +105,6 @@ pub unsafe fn prepare_transfer<A: Alloc>(
 		.ok_or(crate::Error::MapError(MapError::OutOfMemory))?;
 
 	// Direct map it.
-	#[expect(clippy::cast_possible_truncation)]
 	AddressSpaceLayout::stubs()
 		.map(
 			&page_table,
