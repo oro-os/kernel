@@ -35,8 +35,9 @@ pub extern "C" fn __oro_dbgutil_kernel_will_transfer() {
 #[no_mangle]
 #[naked]
 pub extern "C" fn __oro_dbgutil_ATS1E1R() -> ! {
+	use core::arch::naked_asm;
 	unsafe {
-		asm!("AT S1E1R, x0", "nop", options(noreturn));
+		naked_asm!("AT S1E1R, x0", "nop");
 	}
 }
 

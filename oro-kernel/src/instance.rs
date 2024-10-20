@@ -1,12 +1,12 @@
 //! Module instance types and functionality.
 
 use crate::{
+	Arch, UserHandle,
 	module::Module,
 	port::Port,
 	registry::{Handle, List},
 	ring::Ring,
 	thread::Thread,
-	Arch, UserHandle,
 };
 
 /// A singular module instance.

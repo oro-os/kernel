@@ -2,7 +2,7 @@
 
 use core::arch::asm;
 
-use oro_boot_protocol::{memory_map::MemoryMapKind, MemoryMapEntry, MemoryMapEntryType};
+use oro_boot_protocol::{MemoryMapEntry, MemoryMapEntryType, memory_map::MemoryMapKind};
 use oro_debug::{dbg, dbg_warn};
 use oro_macro::assert;
 use oro_mem::{
@@ -81,6 +81,7 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	let linear_offset = linear_map_regions(&otf, &mut pfa_iter, mmap_iter)
 		.expect("ran out of memory while linear mapping regions");
 
+	#[expect(static_mut_refs)]
 	GLOBAL_PAT.set_offset(
 		usize::try_from(linear_offset).expect("linear offset doesn't fit into a usize"),
 	);
@@ -420,7 +421,7 @@ impl<'a> MemoryMapPfa<'a> {
 	}
 }
 
-impl<'a> Iterator for MemoryMapPfa<'a> {
+impl Iterator for MemoryMapPfa<'_> {
 	type Item = u64;
 
 	fn next(&mut self) -> Option<Self::Item> {
@@ -496,7 +497,7 @@ impl<'a> MemoryMapIterator<'a> {
 	}
 }
 
-impl<'a> Iterator for MemoryMapIterator<'a> {
+impl Iterator for MemoryMapIterator<'_> {
 	type Item = MemoryMapEntry;
 
 	fn next(&mut self) -> Option<Self::Item> {

@@ -1,9 +1,9 @@
 //! Implements Oro rings in the kernel.
 
 use crate::{
+	Arch,
 	instance::Instance,
 	registry::{Handle, List},
-	Arch,
 };
 
 /// A singular ring.

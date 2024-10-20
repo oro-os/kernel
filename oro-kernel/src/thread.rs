@@ -2,7 +2,7 @@
 
 use core::mem::MaybeUninit;
 
-use crate::{instance::Instance, registry::Handle, Arch, UserHandle};
+use crate::{Arch, UserHandle, instance::Instance, registry::Handle};
 
 /// A singular system thread.
 ///

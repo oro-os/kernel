@@ -1,6 +1,6 @@
 //! Task (context) switching routines.
 
-use core::arch::asm;
+use core::arch::naked_asm;
 
 use oro_mem::mapper::{AddressSegment, AddressSpace};
 
@@ -87,7 +87,7 @@ pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64) -> u6
 pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 	// Push all general purpose registers
 	// and then store the stack state.
-	asm!(
+	naked_asm!(
 		"mov [r10], rsp",
 		"push rax",
 		"push rbx",
@@ -133,7 +133,6 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 		"sti",
 		"iretq",
 		const (crate::gdt::USER_DS | 3),
-		options(noreturn)
 	);
 }
 
@@ -169,7 +168,7 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 pub unsafe extern "C" fn oro_x86_64_user_to_user() {
 	// Push all general purpose registers
 	// and then store the stack state.
-	asm!(
+	naked_asm!(
 		"mov cr3, rax",
 		"mov rsp, rdx",
 		"mov ax, {}",
@@ -196,7 +195,6 @@ pub unsafe extern "C" fn oro_x86_64_user_to_user() {
 		"sti",
 		"iretq",
 		const (crate::gdt::USER_DS | 3),
-		options(noreturn)
 	);
 }
 
@@ -220,7 +218,7 @@ pub unsafe extern "C" fn oro_x86_64_user_to_user() {
 #[macro_export]
 macro_rules! isr_store_user_task_and_jmp {
 	($jmp_to:ident) => {
-		asm!(
+		naked_asm!(
 			"cli",
 			"push rax",
 			"push rbx",
@@ -241,7 +239,6 @@ macro_rules! isr_store_user_task_and_jmp {
 			"mov rcx, rsp",
 			concat!("jmp ", stringify!($jmp_to)),
 			"ud2",
-			options(noreturn)
 		);
 	};
 }
@@ -271,7 +268,7 @@ macro_rules! isr_store_user_task_and_jmp {
 #[no_mangle]
 #[naked]
 pub unsafe extern "C" fn oro_x86_64_return_to_kernel() {
-	asm!(
+	naked_asm!(
 		"popfq",
 		"pop r15",
 		"pop r14",
@@ -290,7 +287,6 @@ pub unsafe extern "C" fn oro_x86_64_return_to_kernel() {
 		"pop rax",
 		"mov rsp, r9",
 		"ret",
-		options(noreturn)
 	);
 }
 
@@ -319,12 +315,5 @@ pub unsafe extern "C" fn oro_x86_64_return_to_kernel() {
 #[no_mangle]
 #[naked]
 pub unsafe extern "C" fn oro_x86_64_kernel_to_idle() {
-	asm!(
-		"mov [r9], rsp",
-		"sti",
-		"4: hlt",
-		"jmp 4b",
-		"ud2",
-		options(noreturn)
-	);
+	naked_asm!("mov [r9], rsp", "sti", "4: hlt", "jmp 4b", "ud2",);
 }

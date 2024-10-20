@@ -477,7 +477,7 @@ impl From<PageTableEntry> for u64 {
 /// A struct for manipulating the available fields of a page table entry.
 pub struct AvailableFields<'a>(&'a mut u64);
 
-impl<'a> AvailableFields<'a> {
+impl AvailableFields<'_> {
 	/// Gets the first block of available bits as a u8.
 	#[inline]
 	#[must_use]

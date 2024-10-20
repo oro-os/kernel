@@ -12,10 +12,10 @@ use core::{ffi::CStr, str::FromStr};
 #[cfg(debug_assertions)]
 use limine::request::StackSizeRequest;
 use limine::{
+	BaseRevision,
 	memory_map::EntryType,
 	modules::{InternalModule, ModuleFlags},
 	request::{BootTimeRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, RsdpRequest},
-	BaseRevision,
 };
 use oro_debug::{dbg, dbg_err};
 

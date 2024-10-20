@@ -46,6 +46,7 @@ pub unsafe fn initialize_primary(pfa: crate::Pfa) {
 /// (i.e. boot, or powerdown/subsequent bringup).
 pub unsafe fn boot() -> ! {
 	// SAFETY(qix-): THIS MUST ABSOLUTELY BE FIRST.
+	#[expect(static_mut_refs)]
 	let _kernel = crate::Kernel::initialize_for_core(
 		0, // TODO(qix-): pass in the core ID
 		KERNEL_STATE.assume_init_ref(),

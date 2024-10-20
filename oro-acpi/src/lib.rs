@@ -232,7 +232,7 @@ pub trait AcpiTable: Sized {
 			let len =
 				header.Length.read() as usize - core::mem::size_of::<sys::acpi_table_header>();
 			let data_base = core::ptr::from_ref(header).add(1).cast::<u8>();
-			return core::slice::from_raw_parts(data_base, len);
+			core::slice::from_raw_parts(data_base, len)
 		}
 	}
 

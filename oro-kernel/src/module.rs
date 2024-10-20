@@ -3,9 +3,9 @@
 use oro_id::{Id, IdType};
 
 use crate::{
+	Arch, UserHandle,
 	instance::Instance,
 	registry::{Handle, List},
-	Arch, UserHandle,
 };
 
 /// Module metadata.

@@ -2,7 +2,7 @@
 
 use proc_macro2::Span;
 use quote::quote;
-use syn::{punctuated::Punctuated, Error, Ident, Lit, Token};
+use syn::{Error, Ident, Lit, Token, punctuated::Punctuated};
 
 #[expect(clippy::missing_docs_in_private_items)]
 pub fn gdb_autoload_inline(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

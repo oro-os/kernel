@@ -42,7 +42,7 @@ pub fn asm_buffer(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
 		#[naked]
 		pub extern "C" fn _inline_asm() {
 			unsafe {
-				::core::arch::asm!(
+				::core::arch::naked_asm!(
 					".byte 0xDE", ".byte 0xAD", ".byte 0xBE" , ".byte 0xEF",
 					".byte 0xDE", ".byte 0xAD", ".byte 0xBE" , ".byte 0xEF",
 					".byte 0xDE", ".byte 0xAD", ".byte 0xBE" , ".byte 0xEF",
@@ -50,7 +50,6 @@ pub fn asm_buffer(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
 					".byte 0xDE", ".byte 0xAD", ".byte 0xBE" , ".byte 0xEF",
 					".byte 0xDE", ".byte 0xAD", ".byte 0xBE" , ".byte 0xEF",
 					".byte 0xDE", ".byte 0xAD", ".byte 0xBE" , ".byte 0xEF",
-					options(noreturn)
 				);
 			}
 		}
