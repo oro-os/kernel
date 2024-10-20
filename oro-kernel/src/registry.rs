@@ -22,7 +22,7 @@
 
 use core::{
 	marker::PhantomData,
-	mem::{size_of, ManuallyDrop, MaybeUninit},
+	mem::{ManuallyDrop, MaybeUninit, size_of},
 	ops::Deref,
 	sync::atomic::{AtomicUsize, Ordering},
 };

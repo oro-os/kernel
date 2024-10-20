@@ -4,8 +4,9 @@ pub(crate) mod protocol;
 mod secondary;
 
 use oro_acpi::{
+	AcpiTable,
 	madt::{LocalApicEx as _, MadtEntry},
-	sys as acpi_sys, AcpiTable,
+	sys as acpi_sys,
 };
 use oro_boot_protocol::acpi::AcpiKind;
 use oro_debug::{dbg, dbg_warn};
@@ -121,6 +122,7 @@ pub unsafe fn boot_primary() -> ! {
 	crate::init::initialize_primary(pfa);
 
 	{
+		#[expect(static_mut_refs)]
 		let mut pfa = crate::init::KERNEL_STATE.assume_init_ref().pfa().lock();
 
 		let num_cores = if has_cs89 {

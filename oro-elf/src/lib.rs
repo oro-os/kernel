@@ -10,7 +10,7 @@
 
 use core::{
 	fmt,
-	mem::{transmute, ManuallyDrop},
+	mem::{ManuallyDrop, transmute},
 	ptr::from_ref,
 };
 
@@ -390,7 +390,7 @@ pub trait ElfSegment {
 	fn target_size(&self) -> usize;
 }
 
-impl<'a> fmt::Debug for ElfSegmentHeader<'a> {
+impl fmt::Debug for ElfSegmentHeader<'_> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("ElfSegment")
 			.field("ty", &self.ty())
@@ -402,7 +402,7 @@ impl<'a> fmt::Debug for ElfSegmentHeader<'a> {
 	}
 }
 
-impl<'a> ElfSegment for ElfSegmentHeader<'a> {
+impl ElfSegment for ElfSegmentHeader<'_> {
 	fn ty(&self) -> ElfSegmentType {
 		let (flags, ptype) = match self {
 			ElfSegmentHeader::Elf32(_, hdr) => (hdr.flags, hdr.ty),

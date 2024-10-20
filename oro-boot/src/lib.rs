@@ -32,8 +32,8 @@ mod pfa;
 mod target;
 
 use oro_boot_protocol::{
-	util::{RequestData, RequestScanner, TrySendError},
 	DataRevision, RequestTag,
+	util::{RequestData, RequestScanner, TrySendError},
 };
 use oro_debug::{dbg, dbg_warn};
 use oro_elf::ElfSegmentType;

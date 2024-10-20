@@ -9,6 +9,7 @@ mod protocol;
 mod secondary;
 
 use oro_debug::dbg;
+#[cfg(debug_assertions)]
 use oro_mem::phys::{Phys, PhysAddr};
 
 /// The number of pages to allocate for the secondary core stacks.
@@ -38,6 +39,7 @@ pub unsafe fn boot_primary() -> ! {
 	crate::init::initialize_primary(pfa);
 
 	{
+		#[expect(static_mut_refs)]
 		let mut pfa = crate::init::KERNEL_STATE.assume_init_ref().pfa().lock();
 
 		// Boot secondaries.

@@ -55,6 +55,7 @@ pub unsafe fn initialize_primary(pfa: crate::Pfa) {
 	KernelState::init(&mut KERNEL_STATE, FairMutex::new(pfa))
 		.expect("failed to create global kernel state");
 
+	#[expect(static_mut_refs)]
 	let state = KERNEL_STATE.assume_init_ref();
 
 	// TODO(qix-): Not sure that I like that this is ELF-aware. This may get
@@ -223,6 +224,7 @@ pub unsafe fn initialize_primary(pfa: crate::Pfa) {
 /// **Interrupts must be disabled upon entering this function.**
 pub unsafe fn boot(lapic: Lapic) -> ! {
 	// SAFETY(qix-): THIS MUST ABSOLUTELY BE FIRST.
+	#[expect(static_mut_refs)]
 	let kernel = crate::Kernel::initialize_for_core(
 		lapic.id().into(),
 		KERNEL_STATE.assume_init_ref(),

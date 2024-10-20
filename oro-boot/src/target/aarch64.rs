@@ -3,6 +3,7 @@
 
 use core::arch::asm;
 
+pub use oro_arch_aarch64::{ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
 use oro_arch_aarch64::{
 	mair::MairEntry,
 	mem::address_space::{AddressSpaceLayout, Ttbr1Handle},
@@ -13,7 +14,6 @@ use oro_arch_aarch64::{
 		},
 	},
 };
-pub use oro_arch_aarch64::{ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
 use oro_macro::asm_buffer;
 use oro_mem::{
 	mapper::{AddressSegment, MapError},

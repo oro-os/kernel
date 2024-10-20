@@ -1,6 +1,6 @@
 //! Interrupt handling for x86_64 architecture.
 
-use core::arch::asm;
+use core::arch::{asm, naked_asm};
 
 use oro_mem::mapper::AddressSegment;
 
@@ -181,7 +181,7 @@ unsafe extern "C" fn isr_apic_svr_rust() {
 /// The ISR (Interrupt Service Routine) trampoline stub for the APIC spurious interrupt.
 #[naked]
 unsafe extern "C" fn isr_apic_svr() -> ! {
-	asm!("cli", "jmp isr_apic_svr_rust", options(noreturn));
+	naked_asm!("cli", "jmp isr_apic_svr_rust");
 }
 
 /// Aligns a `T` value to 16 bytes.

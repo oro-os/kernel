@@ -1,9 +1,9 @@
 //! Houses types, traits and functionality for the Oro kernel scheduler.
 
 use crate::{
+	Arch, Kernel,
 	registry::{Handle, Item},
 	thread::Thread,
-	Arch, Kernel,
 };
 
 /// Architecture-specific handler for scheduler related
