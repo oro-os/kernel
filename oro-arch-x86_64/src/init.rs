@@ -11,7 +11,7 @@ use oro_mem::{
 	pfa::alloc::Alloc,
 	phys::{Phys, PhysAddr},
 };
-use spin::mutex::fair::FairMutex;
+use oro_sync::{Lock, TicketMutex};
 
 use crate::{
 	gdt::{Gdt, SysEntry},
@@ -52,7 +52,7 @@ pub unsafe fn initialize_primary(pfa: crate::Pfa) {
 
 	// SAFETY(qix-): We know what we're doing here.
 	#[expect(static_mut_refs)]
-	KernelState::init(&mut KERNEL_STATE, FairMutex::new(pfa))
+	KernelState::init(&mut KERNEL_STATE, TicketMutex::new(pfa))
 		.expect("failed to create global kernel state");
 
 	#[expect(static_mut_refs)]
@@ -107,7 +107,7 @@ pub unsafe fn initialize_primary(pfa: crate::Pfa) {
 				.expect("failed to create root ring module");
 
 			let entry_point = {
-				let module_lock = module_handle.try_lock().expect("failed to lock module");
+				let module_lock = module_handle.lock();
 
 				let mapper = module_lock.mapper();
 
@@ -149,7 +149,7 @@ pub unsafe fn initialize_primary(pfa: crate::Pfa) {
 						segment.target_size()
 					);
 
-					let mut pfa = state.pfa().try_lock().expect("failed to lock pfa");
+					let mut pfa = state.pfa().lock();
 
 					// NOTE(qix-): This will almost definitely be improved in the future.
 					// NOTE(qix-): At the very least, hugepages will change this.

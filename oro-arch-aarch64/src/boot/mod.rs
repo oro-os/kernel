@@ -11,6 +11,7 @@ mod secondary;
 use oro_debug::dbg;
 #[cfg(debug_assertions)]
 use oro_mem::phys::{Phys, PhysAddr};
+use oro_sync::Lock;
 
 /// The number of pages to allocate for the secondary core stacks.
 // TODO(qix-): Make this configurable.

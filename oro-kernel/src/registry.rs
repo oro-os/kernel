@@ -32,7 +32,7 @@ use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError},
 	pfa::alloc::Alloc,
 };
-use spin::mutex::fair::FairMutex;
+use oro_sync::{Lock, TicketMutex};
 
 use crate::{AddrSpace, Arch, SupervisorHandle, SupervisorSegment};
 
@@ -45,14 +45,14 @@ use crate::{AddrSpace, Arch, SupervisorHandle, SupervisorSegment};
 ///
 /// Registry allocations return [`Handle`]s, which can be cloned
 /// and will free the slot when the final user drops it.
-pub(crate) struct Registry<T: Sized + 'static, A: Arch> {
+pub(crate) struct Registry<T: Send + Sized + 'static, A: Arch> {
 	/// The base address of the registry.
 	// TODO(qix-): Remove this field once const trait functions are stabilized,
 	// TODO(qix-): replacing it with `segment.range().0 as *mut _` and saving
 	// TODO(qix-): a few bytes.
 	base: *mut MaybeUninit<ItemFrame<T>>,
 	/// Bookkeeping counters used in the registry.
-	bookkeeping: FairMutex<RegistryBookkeeping>,
+	bookkeeping: TicketMutex<RegistryBookkeeping>,
 	/// The segment this registry is in.
 	segment:     SupervisorSegment<A>,
 	/// The mapper for the registry.
@@ -62,7 +62,7 @@ pub(crate) struct Registry<T: Sized + 'static, A: Arch> {
 }
 
 /// Registry-level bookkeeping fields, protected
-/// behind a [`FairMutex`].
+/// behind a [`TicketMutex`].
 struct RegistryBookkeeping {
 	/// The last free ID in the registry.
 	///
@@ -89,7 +89,7 @@ impl RegistryBookkeeping {
 ///
 /// Wraps an item `T` with metadata about the slot itself,
 /// used for bookkeeping purposes.
-struct ItemFrame<T: Sized + 'static> {
+struct ItemFrame<T: Send + Sized + 'static> {
 	/// A union of the item or the next free index.
 	maybe_item: MaybeItem<T>,
 	/// Count of users of this item.
@@ -100,14 +100,14 @@ struct ItemFrame<T: Sized + 'static> {
 
 /// A union of either an occupied item slot, or the index of the
 /// next free slot.
-union MaybeItem<T: Sized + 'static> {
+union MaybeItem<T: Send + Sized + 'static> {
 	/// The item itself.
-	item:      ManuallyDrop<FairMutex<T>>,
+	item:      ManuallyDrop<TicketMutex<T>>,
 	/// The next free index.
 	next_free: usize,
 }
 
-impl<T: Sized + 'static, A: Arch> Registry<T, A> {
+impl<T: Send + Sized + 'static, A: Arch> Registry<T, A> {
 	/// Creates a new, empty registry in the given
 	/// segment.
 	///
@@ -133,7 +133,7 @@ impl<T: Sized + 'static, A: Arch> Registry<T, A> {
 
 		Ok(Self {
 			base: segment.range().0 as *mut _,
-			bookkeeping: FairMutex::new(RegistryBookkeeping::new()),
+			bookkeeping: TicketMutex::new(RegistryBookkeeping::new()),
 			segment,
 			mapper,
 			_arch: PhantomData,
@@ -148,7 +148,7 @@ impl<T: Sized + 'static, A: Arch> Registry<T, A> {
 	/// locking the PFA.
 	pub fn insert(
 		&'static self,
-		pfa: &FairMutex<A::Pfa>,
+		pfa: &TicketMutex<A::Pfa>,
 		item: impl Into<T>,
 	) -> Result<Handle<T>, MapError> {
 		let item = item.into();
@@ -195,7 +195,7 @@ impl<T: Sized + 'static, A: Arch> Registry<T, A> {
 			let slot = unsafe { &mut *self.base.add(id) };
 			slot.write(ItemFrame {
 				maybe_item: MaybeItem {
-					item: ManuallyDrop::new(FairMutex::new(item)),
+					item: ManuallyDrop::new(TicketMutex::new(item)),
 				},
 				user_count: AtomicUsize::new(1),
 			});
@@ -207,7 +207,7 @@ impl<T: Sized + 'static, A: Arch> Registry<T, A> {
 			bk.last_free_id = unsafe { slot.maybe_item.next_free };
 			let last_user_count = slot.user_count.fetch_add(1, Ordering::Relaxed);
 			debug_assert_eq!(last_user_count, 0);
-			slot.maybe_item.item = ManuallyDrop::new(FairMutex::new(item));
+			slot.maybe_item.item = ManuallyDrop::new(TicketMutex::new(item));
 
 			id
 		};
@@ -258,7 +258,7 @@ impl<T: Sized + 'static, A: Arch> Registry<T, A> {
 }
 
 /// Handles item access and dropping in the registry.
-trait RegistryAccess<T: Sized + 'static> {
+trait RegistryAccess<T: Send + Sized + 'static> {
 	/// Gets the item frame at the given ID.
 	///
 	/// # Safety
@@ -266,7 +266,7 @@ trait RegistryAccess<T: Sized + 'static> {
 	/// This function performs no bounds checks,
 	/// and assumes if an ID is passed in, it is
 	/// valid.
-	unsafe fn get(&self, id: usize) -> &FairMutex<T>;
+	unsafe fn get(&self, id: usize) -> &TicketMutex<T>;
 
 	/// Increments the user count of the item at the given ID.
 	///
@@ -296,8 +296,8 @@ trait RegistryAccess<T: Sized + 'static> {
 	unsafe fn forget_item_at(&self, id: usize);
 }
 
-impl<T: Sized + 'static, A: Arch> RegistryAccess<T> for Registry<T, A> {
-	unsafe fn get(&self, id: usize) -> &FairMutex<T> {
+impl<T: Send + Sized + 'static, A: Arch> RegistryAccess<T> for Registry<T, A> {
+	unsafe fn get(&self, id: usize) -> &TicketMutex<T> {
 		&(*self.base.add(id)).assume_init_ref().maybe_item.item
 	}
 
@@ -338,14 +338,14 @@ impl<T: Sized + 'static, A: Arch> RegistryAccess<T> for Registry<T, A> {
 /// A lightweight handle to an item in a registry.
 ///
 /// The handle is a reference-counted item in the registry,
-/// and is a thin wrapper around an [`FairMutex`]
+/// and is a thin wrapper around an [`TicketMutex`]
 /// to the item itself.
 ///
 /// Handles can be safely `clone()`d. When the last handle
 /// is dropped, the item is freed from the registry, where
 /// the backing memory is reused for future allocations.
 #[must_use]
-pub struct Handle<T: Sized + 'static> {
+pub struct Handle<T: Send + Sized + 'static> {
 	/// The ID of the item in the registry.
 	///
 	/// This is the offset into the registry's base address.
@@ -356,7 +356,12 @@ pub struct Handle<T: Sized + 'static> {
 	registry: &'static dyn RegistryAccess<T>,
 }
 
-impl<T: Sized + 'static> Handle<T> {
+// XXX(qix-): Temporary workaround to make things compile
+// XXX(qix-): prior to switching to the heap allocators.
+unsafe impl<T: Send + Sized + 'static> Send for Handle<T> {}
+unsafe impl<T: Send + Sized + 'static> Sync for Handle<T> {}
+
+impl<T: Send + Sized + 'static> Handle<T> {
 	/// Returns the ID of the item in the registry.
 	///
 	/// **DO NOT USE THIS ID FOR ANYTHING SECURITY-SENSITIVE.**
@@ -375,8 +380,8 @@ impl<T: Sized + 'static> Handle<T> {
 	}
 }
 
-impl<T: Sized + 'static> Deref for Handle<T> {
-	type Target = FairMutex<T>;
+impl<T: Send + Sized + 'static> Deref for Handle<T> {
+	type Target = TicketMutex<T>;
 
 	fn deref(&self) -> &Self::Target {
 		// SAFETY(qix-): We can assume that, given this handle
@@ -386,7 +391,7 @@ impl<T: Sized + 'static> Deref for Handle<T> {
 	}
 }
 
-impl<T: Sized + 'static> PartialEq for Handle<T> {
+impl<T: Send + Sized + 'static> PartialEq for Handle<T> {
 	fn eq(&self, other: &Self) -> bool {
 		self.id == other.id
 			&& core::ptr::addr_eq(
@@ -396,7 +401,7 @@ impl<T: Sized + 'static> PartialEq for Handle<T> {
 	}
 }
 
-impl<T: Sized + 'static> core::fmt::Debug for Handle<T> {
+impl<T: Send + Sized + 'static> core::fmt::Debug for Handle<T> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		f.debug_struct("Handle")
 			.field("id", &self.id)
@@ -404,7 +409,7 @@ impl<T: Sized + 'static> core::fmt::Debug for Handle<T> {
 	}
 }
 
-impl<T: Sized + 'static> Clone for Handle<T> {
+impl<T: Send + Sized + 'static> Clone for Handle<T> {
 	fn clone(&self) -> Self {
 		// SAFETY(qix-): We can assume that, given this handle
 		// SAFETY(qix-): is even created (and cannot be created
@@ -420,7 +425,7 @@ impl<T: Sized + 'static> Clone for Handle<T> {
 	}
 }
 
-impl<T: Sized + 'static> Drop for Handle<T> {
+impl<T: Send + Sized + 'static> Drop for Handle<T> {
 	fn drop(&mut self) {
 		// SAFETY(qix-): We can assume that, given this handle
 		// SAFETY(qix-): is even created (and cannot be created
@@ -474,7 +479,7 @@ impl<T: Sized + 'static> Drop for Handle<T> {
 /// For this reason, almost all methods that work on
 /// `Handle<Item<T>>` will mutate the underlying registry
 /// in some way.
-pub struct Item<T: Sized + 'static, A: Arch> {
+pub struct Item<T: Send + Sized + 'static, A: Arch> {
 	/// The list that owns this item.
 	///
 	/// `None` if the item does not belong to a list.
@@ -487,7 +492,7 @@ pub struct Item<T: Sized + 'static, A: Arch> {
 	handle: Handle<T>,
 }
 
-impl<T: Sized + 'static, A: Arch> Item<T, A> {
+impl<T: Send + Sized + 'static, A: Arch> Item<T, A> {
 	/// Creates a new item with the given handle.
 	///
 	/// The item is not linked to any other items.
@@ -525,15 +530,15 @@ impl<T: Sized + 'static, A: Arch> Item<T, A> {
 	}
 }
 
-impl<T: Sized + 'static, A: Arch> Deref for Item<T, A> {
-	type Target = FairMutex<T>;
+impl<T: Send + Sized + 'static, A: Arch> Deref for Item<T, A> {
+	type Target = TicketMutex<T>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.handle
 	}
 }
 
-impl<T: Sized + 'static, A: Arch> Handle<Item<T, A>> {
+impl<T: Send + Sized + 'static, A: Arch> Handle<Item<T, A>> {
 	/// Removes the item from the list.
 	///
 	/// Note that the underlying handle is still kept, including
@@ -593,7 +598,7 @@ impl<T: Sized + 'static, A: Arch> Handle<Item<T, A>> {
 /// A single list in a registry.
 ///
 /// Holds [`Item`]s in a doubly linked list.
-pub struct List<T: Sized + 'static, A: Arch> {
+pub struct List<T: Send + Sized + 'static, A: Arch> {
 	/// Holds a static reference to the underlying list item registry.
 	item_registry: &'static Registry<Item<T, A>, A>,
 	/// The first item in the list, or `None` if the list is empty.
@@ -604,11 +609,16 @@ pub struct List<T: Sized + 'static, A: Arch> {
 	count:         usize,
 }
 
-impl<T: Sized + 'static, A: Arch> Handle<List<T, A>> {
+// XXX(qix-): Temporary workaround to make things compile
+// XXX(qix-): prior to switching to the heap allocators.
+unsafe impl<T: Send + Sized + 'static, A: Arch> Send for List<T, A> {}
+unsafe impl<T: Send + Sized + 'static, A: Arch> Sync for List<T, A> {}
+
+impl<T: Send + Sized + 'static, A: Arch> Handle<List<T, A>> {
 	/// Inserts an item to the end of the list.
 	pub fn append(
 		&self,
-		pfa: &FairMutex<A::Pfa>,
+		pfa: &TicketMutex<A::Pfa>,
 		item: Handle<T>,
 	) -> Result<Handle<Item<T, A>>, MapError> {
 		let mut list_lock = self.lock();
@@ -633,7 +643,7 @@ impl<T: Sized + 'static, A: Arch> Handle<List<T, A>> {
 	}
 }
 
-impl<T: Sized + 'static, A: Arch> List<T, A> {
+impl<T: Send + Sized + 'static, A: Arch> List<T, A> {
 	/// Creates a new, empty list
 	fn new(item_registry: &'static Registry<Item<T, A>, A>) -> Self {
 		Self {
@@ -652,7 +662,7 @@ impl<T: Sized + 'static, A: Arch> List<T, A> {
 }
 
 /// A wrapper around two registries to create lists and list items.
-pub(crate) struct ListRegistry<T: Sized + 'static, A: Arch> {
+pub(crate) struct ListRegistry<T: Send + Sized + 'static, A: Arch> {
 	/// The item registry.
 	item_registry: Registry<Item<T, A>, A>,
 	/// The list registry.
@@ -661,7 +671,7 @@ pub(crate) struct ListRegistry<T: Sized + 'static, A: Arch> {
 	list_registry: Registry<List<T, A>, A>,
 }
 
-impl<T: Sized + 'static, A: Arch> ListRegistry<T, A> {
+impl<T: Send + Sized + 'static, A: Arch> ListRegistry<T, A> {
 	/// Creates a new list registry.
 	///
 	/// The list registry is a pair of registries, one for
@@ -688,7 +698,7 @@ impl<T: Sized + 'static, A: Arch> ListRegistry<T, A> {
 	/// The list is empty when created.
 	pub fn create_list(
 		&'static self,
-		pfa: &FairMutex<A::Pfa>,
+		pfa: &TicketMutex<A::Pfa>,
 	) -> Result<Handle<List<T, A>>, MapError> {
 		self.list_registry
 			.insert(pfa, List::new(&self.item_registry))

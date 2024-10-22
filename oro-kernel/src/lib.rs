@@ -29,7 +29,7 @@ use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::alloc::Alloc,
 };
-use spin::mutex::fair::FairMutex;
+use oro_sync::{Lock, TicketMutex};
 
 use self::{
 	registry::{Handle, List, ListRegistry, Registry},
@@ -54,7 +54,7 @@ pub struct Kernel<A: Arch> {
 	/// The kernel scheduler.
 	///
 	/// Guaranteed valid after a successful call to `initialize_for_core`.
-	scheduler:  MaybeUninit<FairMutex<Scheduler<A>>>,
+	scheduler:  MaybeUninit<TicketMutex<Scheduler<A>>>,
 	/// Cached mapper handle for the kernel.
 	mapper:     SupervisorHandle<A>,
 }
@@ -109,7 +109,7 @@ impl<A: Arch> Kernel<A> {
 
 		(*kernel_ptr)
 			.scheduler
-			.write(FairMutex::new(Scheduler::new(&*kernel_ptr)));
+			.write(TicketMutex::new(Scheduler::new(&*kernel_ptr)));
 
 		Ok(&*kernel_ptr)
 	}
@@ -163,7 +163,7 @@ impl<A: Arch> Kernel<A> {
 	/// interrupts are disabled; the spinlock is _not_ a critical
 	/// spinlock and thus does not disable interrupts.
 	#[must_use]
-	pub unsafe fn scheduler(&self) -> &FairMutex<Scheduler<A>> {
+	pub unsafe fn scheduler(&self) -> &TicketMutex<Scheduler<A>> {
 		self.scheduler.assume_init_ref()
 	}
 }
@@ -173,7 +173,7 @@ impl<A: Arch> Kernel<A> {
 pub struct KernelState<A: Arch> {
 	/// The shared, spinlocked page frame allocator (PFA) for the
 	/// entire system.
-	pfa: FairMutex<A::Pfa>,
+	pfa: TicketMutex<A::Pfa>,
 
 	/// The base userspace address space mapper.
 	///
@@ -250,7 +250,7 @@ impl<A: Arch> KernelState<A> {
 	#[allow(clippy::missing_panics_doc)]
 	pub unsafe fn init(
 		this: &'static mut MaybeUninit<Self>,
-		pfa: FairMutex<A::Pfa>,
+		pfa: TicketMutex<A::Pfa>,
 	) -> Result<(), MapError> {
 		#[expect(clippy::missing_docs_in_private_items)]
 		macro_rules! init_registries {
@@ -348,7 +348,7 @@ impl<A: Arch> KernelState<A> {
 	}
 
 	/// Returns the underlying PFA belonging to the kernel state.
-	pub fn pfa(&'static self) -> &'static FairMutex<A::Pfa> {
+	pub fn pfa(&'static self) -> &'static TicketMutex<A::Pfa> {
 		&self.pfa
 	}
 
@@ -614,14 +614,14 @@ impl<A: Arch> KernelState<A> {
 pub trait Arch: 'static {
 	/// The type of page frame allocator (PFA) the architecture
 	/// uses.
-	type Pfa: Alloc;
+	type Pfa: Alloc + Send;
 	/// The address space layout the architecture uses.
 	type AddrSpace: AddressSpace;
 	/// Architecture-specific thread state to be stored alongside
 	/// each thread.
-	type ThreadState: Sized = ();
+	type ThreadState: Sized + Send = ();
 	/// The core-local state type.
-	type CoreState: Sized + 'static = ();
+	type CoreState: Sized + Send + Sync + 'static = ();
 
 	/// Allows the architecture to further initialize an instance
 	/// thread's mappings when threads are created.

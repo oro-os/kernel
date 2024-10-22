@@ -1,5 +1,7 @@
 //! Houses types, traits and functionality for the Oro kernel scheduler.
 
+use oro_sync::Lock;
+
 use crate::{
 	Arch, Kernel,
 	registry::{Handle, Item},
@@ -64,6 +66,11 @@ pub struct Scheduler<A: Arch> {
 	/// `None` if no thread is currently running.
 	current_thread: Option<Handle<Item<Thread<A>, A>>>,
 }
+
+// XXX(qix-): Temporary workaround to make things compile
+// XXX(qix-): prior to heap allocation and scheduler refactor.
+unsafe impl<A: Arch> Send for Scheduler<A> {}
+unsafe impl<A: Arch> Sync for Scheduler<A> {}
 
 impl<A: Arch> Scheduler<A> {
 	/// Creates a new scheduler instance.
