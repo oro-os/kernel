@@ -4,7 +4,7 @@
 use core::mem::MaybeUninit;
 
 use oro_kernel::KernelState;
-use spin::mutex::fair::FairMutex;
+use oro_sync::TicketMutex;
 
 /// The global kernel state. Initialized once during boot
 /// and re-used across all cores.
@@ -34,7 +34,7 @@ pub unsafe fn initialize_primary(pfa: crate::Pfa) {
 
 	// SAFETY(qix-): We know what we're doing here.
 	#[expect(static_mut_refs)]
-	KernelState::init(&mut KERNEL_STATE, FairMutex::new(pfa))
+	KernelState::init(&mut KERNEL_STATE, TicketMutex::new(pfa))
 		.expect("failed to create global kernel state");
 }
 

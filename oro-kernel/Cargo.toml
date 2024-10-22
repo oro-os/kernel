@@ -16,8 +16,7 @@ oro-mem.workspace = true
 oro-macro.workspace = true
 oro-id.workspace = true
 oro-debug.workspace = true
-
-spin.workspace = true
+oro-sync.workspace = true
 
 [lints]
 workspace = true

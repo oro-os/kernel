@@ -10,12 +10,12 @@ mod driver;
 
 use core::fmt::{self, Write};
 
-use spin::mutex::fair::FairMutex;
+use oro_sync::{Lock, TicketMutex};
 
 /// The shared serial port for the system.
 // NOTE(qix-): This is a temporary solution until pre-boot module loading
 // NOTE(qix-): is implemented.
-static SERIAL: FairMutex<Option<driver::PL011>> = FairMutex::new(None);
+static SERIAL: TicketMutex<Option<driver::PL011>> = TicketMutex::new(None);
 
 /// Initializes the PL011.
 pub fn init(offset: usize) {

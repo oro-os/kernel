@@ -14,6 +14,7 @@ use oro_mem::{
 	mapper::AddressSpace,
 	phys::{Phys, PhysAddr},
 };
+use oro_sync::Lock;
 
 use crate::mem::address_space::AddressSpaceLayout;
 

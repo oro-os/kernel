@@ -13,6 +13,11 @@ pub struct Lapic {
 	base: *mut u8,
 }
 
+// SAFETY: The pointer is valid across all cores and is thus sendable.
+// SAFETY: We can guarantee that the register blocks are mapped into all
+// SAFETY: cores and reside at the same location across each.
+unsafe impl Send for Lapic {}
+
 impl Lapic {
 	/// Creates a new LAPIC controller.
 	///

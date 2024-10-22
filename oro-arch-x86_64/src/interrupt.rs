@@ -3,6 +3,7 @@
 use core::arch::{asm, naked_asm};
 
 use oro_mem::mapper::AddressSegment;
+use oro_sync::Lock;
 
 use crate::{
 	isr_store_user_task_and_jmp,

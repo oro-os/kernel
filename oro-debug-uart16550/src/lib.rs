@@ -4,11 +4,11 @@
 
 use core::fmt::{self, Write};
 
-use spin::mutex::fair::FairMutex;
+use oro_sync::{Lock, TicketMutex};
 use uart_16550::SerialPort;
 
 /// The shared serial port for the system.
-static SERIAL: FairMutex<SerialPort> = FairMutex::new(unsafe { SerialPort::new(0x3F8) });
+static SERIAL: TicketMutex<SerialPort> = TicketMutex::new(unsafe { SerialPort::new(0x3F8) });
 
 /// Initializes the UART.
 pub fn init() {

@@ -199,6 +199,13 @@ pub(crate) struct CoreState {
 	pub kernel_irq_stack: UnsafeCell<u64>,
 }
 
+// XXX(qix-): This is temporary. The core state is not currently used
+// XXX(qix-): across core boundaries, so we can manually mark it as `Sync`.
+// XXX(qix-): I want to fix up how the kernel guards this value so as to drop
+// XXX(qix-): the `Sync` requirement altogether, but for now this is sufficient,
+// XXX(qix-): if not a little fragile.
+unsafe impl Sync for CoreState {}
+
 /// x86_64-specific thread state.
 pub(crate) struct ThreadState {
 	/// The thread's interrupt stack pointer.

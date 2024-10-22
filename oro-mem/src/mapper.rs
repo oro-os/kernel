@@ -43,9 +43,9 @@ macro_rules! define_registries {
 // TODO(qix-): Turn this into a const trait whenever const traits are stabilized.
 pub unsafe trait AddressSpace: 'static {
 	/// The type of supervisor address space handle that this address space works with.
-	type SupervisorHandle: Sized + 'static;
+	type SupervisorHandle: Send + Sized + 'static;
 	/// The type of user address space handle that this address space works with.
-	type UserHandle: Sized + 'static;
+	type UserHandle: Send + Sized + 'static;
 
 	/// The type of [`AddressSegment`] that this address space
 	/// returns for supervisor handle mappings.
@@ -221,7 +221,7 @@ pub unsafe trait AddressSpace: 'static {
 /// references.
 ///
 /// Implementations **MUST NOT PANIC** under any circumstance.
-pub unsafe trait AddressSegment<Handle: Sized>: 'static {
+pub unsafe trait AddressSegment<Handle: Sized>: Send + 'static {
 	/// Returns the range of virtual addresses that this segment covers.
 	///
 	/// The range is inclusive of the start and end addresses.

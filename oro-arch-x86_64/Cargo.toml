@@ -32,8 +32,7 @@ oro-debug.workspace = true
 oro-dbgutil.workspace = true
 oro-acpi.workspace = true
 oro-id.workspace = true
-
-spin.workspace = true
+oro-sync.workspace = true
 
 [lints]
 workspace = true
