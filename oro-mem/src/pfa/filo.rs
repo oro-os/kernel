@@ -41,7 +41,7 @@ impl FiloPageFrameAllocator {
 	/// Creates a new FILO page frame allocator.
 	#[inline]
 	#[must_use]
-	pub fn new() -> Self {
+	pub const fn new() -> Self {
 		Self {
 			last_free: u64::MAX,
 		}
