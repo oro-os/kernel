@@ -14,9 +14,12 @@ use core::{
 const TICKET_MUTEX_TIMEOUT: usize = 1000;
 
 /// Standardized lock interface implemented for all lock types.
-pub trait Lock<T: Send + 'static> {
+pub trait Lock {
+	/// The target type of value being guarded.
+	type Target: Send + 'static;
+
 	/// The lock guard type used by the lock implementation.
-	type Guard<'a>: Drop + Deref + DerefMut
+	type Guard<'a>: Drop + Deref<Target = Self::Target> + DerefMut
 	where
 		Self: 'a;
 
@@ -46,8 +49,9 @@ impl<T: Send + 'static> Mutex<T> {
 	}
 }
 
-impl<T: Send + 'static> Lock<T> for Mutex<T> {
+impl<T: Send + 'static> Lock for Mutex<T> {
 	type Guard<'a> = MutexGuard<'a, T>;
+	type Target = T;
 
 	fn lock(&self) -> Self::Guard<'_> {
 		loop {
@@ -122,8 +126,9 @@ impl<T: Send + 'static> TicketMutex<T> {
 	}
 }
 
-impl<T: Send + 'static> Lock<T> for TicketMutex<T> {
+impl<T: Send + 'static> Lock for TicketMutex<T> {
 	type Guard<'a> = TicketMutexGuard<'a, T>;
+	type Target = T;
 
 	fn lock(&self) -> Self::Guard<'_> {
 		'new_ticket: loop {
