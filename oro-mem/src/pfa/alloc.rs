@@ -1,5 +1,7 @@
 //! Provides allocate/free traits for all allocators.
 
+use oro_sync::Lock;
+
 /// A page frame allocator allocates physical memory in units of "page frames".
 /// A page frame is a contiguous block of physical memory that is a multiple of
 /// the requested page size (e.g. 4 KiB).
@@ -51,12 +53,21 @@ pub unsafe trait GlobalPfa {
 	unsafe fn free(&self, frame: u64);
 }
 
-unsafe impl<T: GlobalPfa> Alloc for T {
-	fn allocate(&mut self) -> Option<u64> {
-		GlobalPfa::allocate(self)
+unsafe impl<L> GlobalPfa for L
+where
+	L: Lock,
+	<L as Lock>::Target: Alloc,
+{
+	fn allocate(&self) -> Option<u64> {
+		let mut lock = self.lock();
+		let r = lock.allocate();
+		drop(lock);
+		r
 	}
 
-	unsafe fn free(&mut self, frame: u64) {
-		GlobalPfa::free(self, frame);
+	unsafe fn free(&self, frame: u64) {
+		let mut lock = self.lock();
+		lock.free(frame);
+		drop(lock);
 	}
 }

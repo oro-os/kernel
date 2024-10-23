@@ -328,6 +328,7 @@ dependencies = [
  "oro-debug",
  "oro-elf",
  "oro-macro",
+ "oro-sync",
 ]
 
 [[package]]
