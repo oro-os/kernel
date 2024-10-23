@@ -52,6 +52,8 @@ impl<T: Send + 'static> Lock<T> for Mutex<T> {
 	fn lock(&self) -> Self::Guard<'_> {
 		loop {
 			if !self.locked.swap(true, Acquire) {
+				#[cfg(debug_assertions)]
+				::oro_dbgutil::__oro_dbgutil_lock_acquire(self.value.get() as usize);
 				return MutexGuard { lock: self };
 			}
 
@@ -71,6 +73,8 @@ where
 
 impl<T: Send + 'static> Drop for MutexGuard<'_, T> {
 	fn drop(&mut self) {
+		#[cfg(debug_assertions)]
+		::oro_dbgutil::__oro_dbgutil_lock_release(self.lock.value.get() as usize);
 		self.lock.locked.store(false, Release);
 	}
 }
@@ -141,8 +145,10 @@ impl<T: Send + 'static> Lock<T> for TicketMutex<T> {
 				#[expect(clippy::cast_possible_wrap)]
 				let position = ticket.wrapping_sub(now_serving) as isize;
 
-				if position == 0 && !self.locked.swap(true, Release) {
-					return TicketMutexGuard { lock: self };
+				if position == 0 && !self.locked.swap(true, AcqRel) {
+					#[cfg(debug_assertions)]
+					::oro_dbgutil::__oro_dbgutil_lock_acquire(self.value.get() as usize);
+					return TicketMutexGuard { lock: self, ticket };
 				}
 
 				if position < 0 {
@@ -189,12 +195,21 @@ where
 	Self: 'a,
 {
 	/// The lock we are guarding.
-	lock: &'a TicketMutex<T>,
+	lock:   &'a TicketMutex<T>,
+	/// Our ticket
+	ticket: usize,
 }
 
 impl<T: Send + 'static> Drop for TicketMutexGuard<'_, T> {
 	fn drop(&mut self) {
-		self.lock.now_serving.fetch_add(1, Release);
+		#[cfg(debug_assertions)]
+		::oro_dbgutil::__oro_dbgutil_lock_release(self.lock.value.get() as usize);
+		let _ = self.lock.now_serving.compare_exchange(
+			self.ticket,
+			self.ticket.wrapping_add(1),
+			Release,
+			Relaxed,
+		);
 		self.lock.locked.store(false, Release);
 	}
 }
