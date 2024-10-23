@@ -10,6 +10,7 @@ use oro_mem::{
 	phys::{Phys, PhysAddr},
 	translate::OffsetTranslator,
 };
+use oro_sync::TicketMutex;
 
 use crate::{
 	mair::MairEntry,
@@ -26,6 +27,11 @@ use crate::{
 /// The global physical address translator for the kernel.
 #[oro_macro::oro_global_translator]
 static mut GLOBAL_PAT: OffsetTranslator = OffsetTranslator::new(0);
+
+/// The global page frame allocator (PFA) for the kernel.
+#[oro_macro::oro_global_pfa]
+static mut GLOBAL_PFA: TicketMutex<FiloPageFrameAllocator> =
+	TicketMutex::new(FiloPageFrameAllocator::new());
 
 /// Prepared memory items configured after preparing the memory
 /// space for the kernel at boot time.
