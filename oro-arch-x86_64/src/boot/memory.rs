@@ -13,6 +13,7 @@ use oro_mem::{
 	phys::{Phys, PhysAddr},
 	translate::OffsetTranslator,
 };
+use oro_sync::TicketMutex;
 
 use crate::mem::{
 	address_space::AddressSpaceLayout,
@@ -33,6 +34,11 @@ const MIB_1: u64 = 1024 * 1024;
 /// The global physical address translator for the kernel.
 #[oro_macro::oro_global_translator]
 static mut GLOBAL_PAT: OffsetTranslator = OffsetTranslator::new(0);
+
+/// The global page frame allocator (PFA) for the kernel.
+#[oro_macro::oro_global_pfa]
+static mut GLOBAL_PFA: TicketMutex<FiloPageFrameAllocator> =
+	TicketMutex::new(FiloPageFrameAllocator::new());
 
 /// Result from the [`prepare_memory`] function.
 pub struct PreparedMemory {
