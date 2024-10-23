@@ -30,7 +30,7 @@ static mut GLOBAL_PAT: OffsetTranslator = OffsetTranslator::new(0);
 
 /// The global page frame allocator (PFA) for the kernel.
 #[oro_macro::oro_global_pfa]
-static mut GLOBAL_PFA: TicketMutex<FiloPageFrameAllocator> =
+static GLOBAL_PFA: TicketMutex<FiloPageFrameAllocator> =
 	TicketMutex::new(FiloPageFrameAllocator::new());
 
 /// Prepared memory items configured after preparing the memory
