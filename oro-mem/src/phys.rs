@@ -41,7 +41,7 @@ pub trait PhysAddr: Sized {
 	/// Returns the translated virtual address as a `usize`.
 	#[inline(always)]
 	fn virt(&self) -> usize {
-		crate::translator().translate(self.address_u64())
+		crate::translate::to_virtual(self.address_u64())
 	}
 
 	/// Returns a virtual pointer to the physical address
@@ -52,7 +52,7 @@ pub trait PhysAddr: Sized {
 	/// before dereferencing it.
 	#[inline(always)]
 	unsafe fn as_ptr_unchecked<T>(&self) -> *const T {
-		crate::translator().translate(self.address_u64()) as *const T
+		crate::translate::to_virtual(self.address_u64()) as *const T
 	}
 
 	/// Returns a mutable virtual pointer to the physical address
@@ -67,7 +67,7 @@ pub trait PhysAddr: Sized {
 	/// data in a way that would violate Rust's aliasing rules.
 	#[inline(always)]
 	unsafe fn as_mut_ptr_unchecked<T>(&self) -> *mut T {
-		crate::translator().translate(self.address_u64()) as *mut T
+		crate::translate::to_virtual(self.address_u64()) as *mut T
 	}
 
 	/// Returns a virtual pointer to the physical address as the given type.
