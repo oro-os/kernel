@@ -8,9 +8,7 @@ use oro_macro::assert;
 use oro_mem::{
 	pfa::{Alloc, FiloPageFrameAllocator},
 	phys::{Phys, PhysAddr},
-	translate::OffsetTranslator,
 };
-use oro_sync::TicketMutex;
 
 use crate::{
 	mair::MairEntry,
@@ -23,15 +21,6 @@ use crate::{
 		},
 	},
 };
-
-/// The global physical address translator for the kernel.
-#[oro_macro::oro_global_translator]
-static mut GLOBAL_PAT: OffsetTranslator = OffsetTranslator::new(0);
-
-/// The global page frame allocator (PFA) for the kernel.
-#[oro_macro::oro_global_pfa]
-static GLOBAL_PFA: TicketMutex<FiloPageFrameAllocator> =
-	TicketMutex::new(FiloPageFrameAllocator::new());
 
 /// Prepared memory items configured after preparing the memory
 /// space for the kernel at boot time.
@@ -87,10 +76,7 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	let linear_offset = linear_map_regions(&otf, &mut pfa_iter, mmap_iter)
 		.expect("ran out of memory while linear mapping regions");
 
-	#[expect(static_mut_refs)]
-	GLOBAL_PAT.set_offset(
-		usize::try_from(linear_offset).expect("linear offset doesn't fit into a usize"),
-	);
+	oro_mem::translate::set_global_map_offset(linear_offset);
 	let mut pfa = FiloPageFrameAllocator::new();
 
 	// Consume the MMAP PFA and free all memory that isn't used by the
@@ -140,8 +126,7 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 
 /// Maps all regions to a linear map in the current virtual address space.
 ///
-/// Returns the computed base offset of the page frame allocator, usable
-/// with an [`OffsetTranslator`].
+/// Returns the computed base offset of the page frame allocator.
 ///
 /// Returns None if the system ran out of memory while mapping the regions.
 unsafe fn linear_map_regions<'a>(

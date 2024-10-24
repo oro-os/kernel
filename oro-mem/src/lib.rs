@@ -8,8 +8,3 @@ pub mod mapper;
 pub mod pfa;
 pub mod phys;
 pub mod translate;
-
-oro_macro::oro_global_getter! {
-	pub(crate) pfa -> crate::pfa::GlobalPfa,
-	pub(crate) translator -> crate::translate::Translate,
-}
