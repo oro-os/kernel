@@ -8,7 +8,7 @@ use oro_elf::{ElfSegment, ElfSegmentType};
 use oro_kernel::KernelState;
 use oro_mem::{
 	mapper::AddressSegment,
-	pfa::alloc::Alloc,
+	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
 use oro_sync::{Lock, TicketMutex};

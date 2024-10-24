@@ -12,7 +12,7 @@ use oro_dtb::{FdtHeader, FdtPathFilter, FdtToken};
 use oro_macro::{asm_buffer, assert};
 use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError},
-	pfa::alloc::Alloc,
+	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
 use oro_type::Be;

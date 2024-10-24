@@ -5,7 +5,7 @@
 use oro_macro::unlikely;
 use oro_mem::{
 	mapper::{AddressSegment as Segment, MapError, UnmapError},
-	pfa::alloc::Alloc,
+	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
 

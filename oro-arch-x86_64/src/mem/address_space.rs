@@ -4,7 +4,7 @@
 
 use oro_mem::{
 	mapper::AddressSpace,
-	pfa::alloc::Alloc,
+	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
 

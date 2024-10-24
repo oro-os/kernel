@@ -213,6 +213,6 @@ pub fn oro_global_pfa(
 		args,
 		input,
 		"pfa",
-		syn::parse_quote!(::oro_mem::pfa::alloc::GlobalPfa),
+		syn::parse_quote!(::oro_mem::pfa::GlobalPfa),
 	)
 }

@@ -9,7 +9,7 @@ use oro_debug::{dbg, dbg_warn};
 use oro_macro::assert;
 use oro_mem::{
 	mapper::AddressSegment,
-	pfa::{alloc::Alloc, filo::FiloPageFrameAllocator},
+	pfa::{Alloc, FiloPageFrameAllocator},
 	phys::{Phys, PhysAddr},
 	translate::OffsetTranslator,
 };

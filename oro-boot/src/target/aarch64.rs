@@ -17,7 +17,7 @@ use oro_arch_aarch64::{
 use oro_macro::asm_buffer;
 use oro_mem::{
 	mapper::{AddressSegment, MapError},
-	pfa::alloc::Alloc,
+	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
 

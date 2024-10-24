@@ -41,7 +41,7 @@ pub mod reg;
 pub(crate) mod init;
 
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
-use oro_mem::pfa::filo::FiloPageFrameAllocator;
+use oro_mem::pfa::FiloPageFrameAllocator;
 
 /// The ELF class for the AArch64 architecture.
 pub const ELF_CLASS: ElfClass = ElfClass::Class64;

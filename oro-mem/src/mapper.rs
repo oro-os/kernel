@@ -6,7 +6,7 @@
 //! The kernel will allocate memory into specific regions, leaving the
 //! architecture to properly set up all flags and other necessary controls
 //! for those regions to behave as the kernel expects.
-use crate::pfa::alloc::Alloc;
+use crate::pfa::Alloc;
 
 #[allow(clippy::missing_docs_in_private_items)]
 macro_rules! define_registries {
