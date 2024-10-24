@@ -81,7 +81,7 @@ use mem::address_space::AddressSpaceLayout;
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 use oro_mem::{
 	mapper::{AddressSegment, MapError, UnmapError},
-	pfa::{alloc::Alloc, filo::FiloPageFrameAllocator},
+	pfa::{Alloc, FiloPageFrameAllocator},
 	phys::{Phys, PhysAddr},
 };
 

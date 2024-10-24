@@ -13,7 +13,7 @@ pub use oro_arch_x86_64::{ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
 use oro_macro::asm_buffer;
 use oro_mem::{
 	mapper::{AddressSegment as _, AddressSpace as _, MapError, UnmapError},
-	pfa::alloc::Alloc,
+	pfa::Alloc,
 	phys::PhysAddr,
 };
 

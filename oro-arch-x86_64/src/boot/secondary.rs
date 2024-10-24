@@ -8,7 +8,7 @@ use oro_debug::{dbg, dbg_err};
 use oro_macro::{asm_buffer, assert};
 use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
-	pfa::alloc::Alloc,
+	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
 

@@ -202,7 +202,7 @@ impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> PrebootPfa<M, I> 
 	}
 }
 
-unsafe impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> oro_mem::pfa::alloc::Alloc
+unsafe impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> oro_mem::pfa::Alloc
 	for PrebootPfa<M, I>
 {
 	fn allocate(&mut self) -> Option<u64> {

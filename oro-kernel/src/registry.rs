@@ -30,7 +30,7 @@ use core::{
 use oro_macro::unlikely;
 use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError},
-	pfa::alloc::Alloc,
+	pfa::Alloc,
 };
 use oro_sync::{Lock, TicketMutex};
 

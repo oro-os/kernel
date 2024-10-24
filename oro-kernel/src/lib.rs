@@ -27,7 +27,7 @@ use oro_id::{Id, IdType};
 use oro_macro::assert;
 use oro_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
-	pfa::alloc::Alloc,
+	pfa::Alloc,
 };
 use oro_sync::{Lock, TicketMutex};
 
