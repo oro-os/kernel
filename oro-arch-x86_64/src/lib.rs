@@ -80,8 +80,9 @@ use core::{cell::UnsafeCell, mem::MaybeUninit};
 use mem::address_space::AddressSpaceLayout;
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 use oro_mem::{
+	alloc::GlobalPfa,
 	mapper::{AddressSegment, MapError, UnmapError},
-	pfa::{Alloc, FiloPageFrameAllocator},
+	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
 
@@ -92,10 +93,6 @@ pub const ELF_ENDIANNESS: ElfEndianness = ElfEndianness::Little;
 /// The ELF machine of the x86_64 architecture.
 pub const ELF_MACHINE: ElfMachine = ElfMachine::X86_64;
 
-/// Type alias for the PFA (page frame allocator) implementation used
-/// by the architecture.
-pub(crate) type Pfa = FiloPageFrameAllocator;
-
 /// Zero-sized type for specifying the architecture-specific types
 /// used throughout the `oro-kernel` crate.
 pub(crate) struct Arch;
@@ -103,13 +100,11 @@ pub(crate) struct Arch;
 impl oro_kernel::Arch for Arch {
 	type AddrSpace = crate::mem::address_space::AddressSpaceLayout;
 	type CoreState = CoreState;
-	type Pfa = Pfa;
 	type ThreadState = ThreadState;
 
 	fn initialize_thread_mappings(
 		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
 		thread_state: &mut Self::ThreadState,
-		pfa: &mut Self::Pfa,
 	) -> Result<(), oro_mem::mapper::MapError> {
 		// Map only a page, with a stack guard.
 		// Must match below, in `ThreadState::default`.
@@ -126,7 +121,7 @@ impl oro_kernel::Arch for Arch {
 		// with a bug-free implementation.
 		#[cfg(debug_assertions)]
 		{
-			match irq_stack_segment.unmap(thread, pfa, stack_high_guard) {
+			match irq_stack_segment.unmap(thread, stack_high_guard) {
 				Ok(phys) => panic!("interrupt stack high guard was already mapped at {phys:016X}"),
 				Err(UnmapError::NotMapped) => {}
 				Err(err) => {
@@ -134,7 +129,7 @@ impl oro_kernel::Arch for Arch {
 				}
 			}
 
-			match irq_stack_segment.unmap(thread, pfa, stack_low_guard) {
+			match irq_stack_segment.unmap(thread, stack_low_guard) {
 				Ok(phys) => panic!("interrupt stack low guard was already mapped at {phys:016X}"),
 				Err(UnmapError::NotMapped) => {}
 				Err(err) => {
@@ -144,8 +139,8 @@ impl oro_kernel::Arch for Arch {
 		}
 
 		// Map the stack page.
-		let phys = pfa.allocate().ok_or(MapError::OutOfMemory)?;
-		irq_stack_segment.map(thread, pfa, stack_start, phys)?;
+		let phys = GlobalPfa.allocate().ok_or(MapError::OutOfMemory)?;
+		irq_stack_segment.map(thread, stack_start, phys)?;
 
 		// Now write the initial `iretq` information to the frame.
 		// SAFETY(qix-): We know that these are valid addresses.
@@ -165,10 +160,9 @@ impl oro_kernel::Arch for Arch {
 	fn reclaim_thread_mappings(
 		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
 		_thread_state: &mut Self::ThreadState,
-		pfa: &mut Self::Pfa,
 	) -> Result<(), UnmapError> {
 		// SAFETY(qix-): The module interrupt stack space is fully reclaimable and never shared.
-		unsafe { AddressSpaceLayout::module_interrupt_stack().unmap_all_and_reclaim(thread, pfa) }
+		unsafe { AddressSpaceLayout::module_interrupt_stack().unmap_all_and_reclaim(thread) }
 	}
 }
 

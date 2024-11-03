@@ -7,11 +7,12 @@ use oro_debug::{dbg, dbg_err, dbg_warn};
 use oro_elf::{ElfSegment, ElfSegmentType};
 use oro_kernel::KernelState;
 use oro_mem::{
+	alloc::GlobalPfa,
 	mapper::AddressSegment,
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
-use oro_sync::{Lock, TicketMutex};
+use oro_sync::Lock;
 
 use crate::{
 	gdt::{Gdt, SysEntry},
@@ -34,7 +35,7 @@ pub static mut KERNEL_STATE: MaybeUninit<KernelState<crate::Arch>> = MaybeUninit
 /// Must be called exactly once for the lifetime of the system,
 /// only by the boot processor at boot time (_not_ at any
 /// subsequent bringup).
-pub unsafe fn initialize_primary(pfa: crate::Pfa) {
+pub unsafe fn initialize_primary() {
 	#[cfg(debug_assertions)]
 	{
 		use core::sync::atomic::{AtomicBool, Ordering};
@@ -52,8 +53,7 @@ pub unsafe fn initialize_primary(pfa: crate::Pfa) {
 
 	// SAFETY(qix-): We know what we're doing here.
 	#[expect(static_mut_refs)]
-	KernelState::init(&mut KERNEL_STATE, TicketMutex::new(pfa))
-		.expect("failed to create global kernel state");
+	KernelState::init(&mut KERNEL_STATE).expect("failed to create global kernel state");
 
 	#[expect(static_mut_refs)]
 	let state = KERNEL_STATE.assume_init_ref();
@@ -149,14 +149,12 @@ pub unsafe fn initialize_primary(pfa: crate::Pfa) {
 						segment.target_size()
 					);
 
-					let mut pfa = state.pfa().lock();
-
 					// NOTE(qix-): This will almost definitely be improved in the future.
 					// NOTE(qix-): At the very least, hugepages will change this.
 					// NOTE(qix-): There will probably be some better machinery for
 					// NOTE(qix-): mapping ranges of memory in the future.
 					for page in 0..(segment.target_size().saturating_add(0xFFF) >> 12) {
-						let phys_addr = pfa
+						let phys_addr = GlobalPfa
 							.allocate()
 							.expect("failed to map root ring module; out of memory");
 
@@ -189,7 +187,7 @@ pub unsafe fn initialize_primary(pfa: crate::Pfa) {
 						}
 
 						mapper_segment
-							.map_nofree(mapper, &mut *pfa, target_virt, phys_addr)
+							.map_nofree(mapper, target_virt, phys_addr)
 							.expect("failed to map segment");
 					}
 				}

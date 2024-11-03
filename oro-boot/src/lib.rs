@@ -137,7 +137,7 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 		unsafe { oro_mem::translate::set_global_map_offset(linear_offset) };
 
 		let mut pfa = pfa::PrebootPfa::new(iter, linear_offset);
-		let supervisor_space = target::AddressSpace::new_supervisor_space(&mut pfa)
+		let supervisor_space = target::AddressSpace::new_supervisor_space_in(&mut pfa)
 			.ok_or(Error::MapError(MapError::OutOfMemory))?;
 
 		let (kernel_entry, scanner) =

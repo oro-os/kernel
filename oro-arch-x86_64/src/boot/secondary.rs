@@ -7,6 +7,7 @@ use oro_boot_protocol::acpi::AcpiKind;
 use oro_debug::{dbg, dbg_err};
 use oro_macro::{asm_buffer, assert};
 use oro_mem::{
+	alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},
@@ -48,9 +49,8 @@ pub enum BootError {
 ///
 /// Caller must ensure these pages are mapped and accessible.
 #[expect(clippy::missing_docs_in_private_items)]
-pub unsafe fn boot_secondary<A: Alloc>(
+pub unsafe fn boot_secondary(
 	primary_handle: &AddressSpaceHandle,
-	pfa: &mut A,
 	lapic: &Lapic,
 	secondary_lapic_id: u8,
 	stack_pages: usize,
@@ -90,13 +90,13 @@ pub unsafe fn boot_secondary<A: Alloc>(
 	debug_assert!(gdt_slice.len() <= (0x800 - TOP_RESERVE) as usize);
 
 	// Create a new supervisor address space based on the current address space.
-	let mapper = AddressSpaceLayout::duplicate_supervisor_space_shallow(primary_handle, pfa)
+	let mapper = AddressSpaceLayout::duplicate_supervisor_space_shallow(primary_handle)
 		.ok_or(BootError::OutOfMemory)?;
 
 	// Direct-map the code segment into the secondary core's address space.
 	// This allows the code to still execute after switching to paging mode.
 	AddressSpaceLayout::secondary_boot_stub_code()
-		.map(&mapper, pfa, 0x8000, 0x8000)
+		.map(&mapper, 0x8000, 0x8000)
 		.map_err(BootError::MapError)?;
 
 	// Create a stack and map it into the secondary core's address space.
@@ -113,7 +113,7 @@ pub unsafe fn boot_secondary<A: Alloc>(
 	kernel_stack_segment.unmap_without_reclaim(&mapper);
 
 	// make sure top guard page is unmapped
-	match kernel_stack_segment.unmap(&mapper, pfa, last_stack_page_virt) {
+	match kernel_stack_segment.unmap(&mapper, last_stack_page_virt) {
 		// NOTE(qix-): The Ok() case would never hit here since we explicitly unmapped the entire segment.
 		Ok(_) => unreachable!(),
 		Err(UnmapError::NotMapped) => {}
@@ -125,7 +125,7 @@ pub unsafe fn boot_secondary<A: Alloc>(
 	for stack_page_idx in 0..stack_pages {
 		bottom_stack_page_virt -= 4096;
 
-		let stack_phys = pfa
+		let stack_phys = GlobalPfa
 			.allocate()
 			.ok_or(BootError::MapError(MapError::OutOfMemory))?;
 
@@ -136,18 +136,18 @@ pub unsafe fn boot_secondary<A: Alloc>(
 		// rely on ESP (a 32-bit register) until the long mode trampoline
 		// is hit.
 		kernel_stack_segment
-			.remap(&mapper, pfa, bottom_stack_page_virt, stack_phys)
+			.remap(&mapper, bottom_stack_page_virt, stack_phys)
 			.map_err(BootError::MapError)?;
 
 		if stack_page_idx == 0 {
 			AddressSpaceLayout::secondary_boot_stub_stack()
-				.remap(&mapper, pfa, 0x20000, stack_phys)
+				.remap(&mapper, 0x20000, stack_phys)
 				.map_err(BootError::MapError)?;
 		}
 	}
 
 	// Make sure that the bottom guard page is unmapped
-	match kernel_stack_segment.unmap(&mapper, pfa, bottom_stack_page_virt - 4096) {
+	match kernel_stack_segment.unmap(&mapper, bottom_stack_page_virt - 4096) {
 		// NOTE(qix-): The Ok() case would never hit here isnce we explicitly unmapped the entire segment.
 		Ok(_) => unreachable!(),
 		Err(UnmapError::NotMapped) => {}

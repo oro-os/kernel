@@ -29,9 +29,9 @@ oro-mem.workspace = true
 oro-macro.workspace = true
 oro-elf.workspace = true
 oro-debug.workspace = true
+oro-dbgutil.workspace = true
 oro-dtb.workspace = true
 oro-type.workspace = true
-oro-dbgutil.workspace = true
 oro-sync.workspace = true
 
 # Work around non-composability of `test` profile and global allocator conflicts in unit test runner.

@@ -41,7 +41,6 @@ pub mod reg;
 pub(crate) mod init;
 
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
-use oro_mem::pfa::FiloPageFrameAllocator;
 
 /// The ELF class for the AArch64 architecture.
 pub const ELF_CLASS: ElfClass = ElfClass::Class64;
@@ -52,17 +51,12 @@ pub const ELF_ENDIANNESS: ElfEndianness = ElfEndianness::Little;
 /// The ELF machine type for the AArch64 architecture.
 pub const ELF_MACHINE: ElfMachine = ElfMachine::Aarch64;
 
-/// Type alias for the PFA (page frame allocator) implementation used
-/// by the architecture.
-pub(crate) type Pfa = FiloPageFrameAllocator;
-
 /// Zero-sized type for specifying the architecture-specific types
 /// used throughout the `oro-kernel` crate.
 pub(crate) struct Arch;
 
 impl oro_kernel::Arch for Arch {
 	type AddrSpace = crate::mem::address_space::AddressSpaceLayout;
-	type Pfa = Pfa;
 }
 
 /// Type alias for the Oro kernel core-local instance type.

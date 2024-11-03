@@ -30,7 +30,7 @@ type Heap = buddy_system_allocator::Heap<64>;
 static mut PFA: FiloPageFrameAllocator = FiloPageFrameAllocator::new();
 
 /// The global heap allocator for the Oro kernel.
-#[global_allocator]
+#[cfg_attr(all(not(feature = "std-alloc"), not(test)), global_allocator)]
 static ALLOCATOR: GlobalLockedHeap<TicketMutex<Heap>> =
 	GlobalLockedHeap(TicketMutex::new(Heap::empty()));
 

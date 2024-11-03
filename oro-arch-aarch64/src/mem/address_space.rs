@@ -247,11 +247,22 @@ impl AddressSpaceLayout {
 	}
 
 	/// Creates a new supervisor (EL1) address space that addresses
-	/// the TT0 address range (i.e. for use with `TTBR0_EL1`).
+	/// the TT0 address range (i.e. for use with `TTBR0_EL1`). Uses
+	/// the global allocator.
 	///
 	/// This probably isn't used by the kernel, but instead by the
 	/// preboot environment to map stubs.
-	pub fn new_supervisor_space_ttbr0<A>(alloc: &mut A) -> Option<Ttbr0Handle>
+	pub fn new_supervisor_space_ttbr0() -> Option<Ttbr0Handle> {
+		Self::new_supervisor_space_ttbr0_in(&mut oro_mem::alloc::GlobalPfa)
+	}
+
+	/// Creates a new supervisor (EL1) address space that addresses
+	/// the TT0 address range (i.e. for use with `TTBR0_EL1`). Uses
+	/// the given allocator.
+	///
+	/// This probably isn't used by the kernel, but instead by the
+	/// preboot environment to map stubs.
+	pub fn new_supervisor_space_ttbr0_in<A>(alloc: &mut A) -> Option<Ttbr0Handle>
 	where
 		A: Alloc,
 	{
@@ -378,7 +389,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		}
 	}
 
-	fn new_supervisor_space<A>(alloc: &mut A) -> Option<Self::SupervisorHandle>
+	fn new_supervisor_space_in<A>(alloc: &mut A) -> Option<Self::SupervisorHandle>
 	where
 		A: Alloc,
 	{
@@ -401,7 +412,10 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		Some(Ttbr1Handle { base_phys })
 	}
 
-	fn new_user_space<A>(_space: &Self::SupervisorHandle, alloc: &mut A) -> Option<Self::UserHandle>
+	fn new_user_space_in<A>(
+		_space: &Self::SupervisorHandle,
+		alloc: &mut A,
+	) -> Option<Self::UserHandle>
 	where
 		A: Alloc,
 	{
@@ -416,14 +430,14 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		Some(Ttbr0Handle { base_phys })
 	}
 
-	fn free_user_space<A>(_space: Self::UserHandle, _alloc: &mut A)
+	fn free_user_space_in<A>(_space: Self::UserHandle, _alloc: &mut A)
 	where
 		A: Alloc,
 	{
 		todo!();
 	}
 
-	fn duplicate_supervisor_space_shallow<A>(
+	fn duplicate_supervisor_space_shallow_in<A>(
 		space: &Self::SupervisorHandle,
 		alloc: &mut A,
 	) -> Option<Self::SupervisorHandle>
@@ -443,7 +457,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		Some(Self::SupervisorHandle { base_phys })
 	}
 
-	fn duplicate_user_space_shallow<A>(
+	fn duplicate_user_space_shallow_in<A>(
 		space: &Self::UserHandle,
 		alloc: &mut A,
 	) -> Option<Self::UserHandle>

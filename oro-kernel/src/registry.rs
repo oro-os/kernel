@@ -29,6 +29,7 @@ use core::{
 
 use oro_macro::unlikely;
 use oro_mem::{
+	alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace, MapError},
 	pfa::Alloc,
 };
@@ -121,7 +122,7 @@ impl<T: Send + Sized + 'static, A: Arch> Registry<T, A> {
 	///
 	/// Typically, this function should be called once
 	/// at boot time.
-	pub fn new(pfa: &mut A::Pfa, segment: SupervisorSegment<A>) -> Result<Self, MapError> {
+	pub fn new(segment: SupervisorSegment<A>) -> Result<Self, MapError> {
 		// SAFETY(qix-): We can more or less guarantee that this registry
 		// SAFETY(qix-): is being constructed in the supervisor space.
 		// SAFETY(qix-): Further, we can't guarantee that the segment is
@@ -129,7 +130,7 @@ impl<T: Send + Sized + 'static, A: Arch> Registry<T, A> {
 		// SAFETY(qix-): quite yet, but we'll verify that we have exclusive
 		// SAFETY(qix-): access to the segment directly after this call.
 		let mapper = unsafe { AddrSpace::<A>::current_supervisor_space() };
-		segment.provision_as_shared(&mapper, pfa)?;
+		segment.provision_as_shared(&mapper)?;
 
 		Ok(Self {
 			base: segment.range().0 as *mut _,
@@ -146,11 +147,7 @@ impl<T: Send + Sized + 'static, A: Arch> Registry<T, A> {
 	///
 	/// Takes a reference to the spinlock itself, since not all allocations require
 	/// locking the PFA.
-	pub fn insert(
-		&'static self,
-		pfa: &TicketMutex<A::Pfa>,
-		item: impl Into<T>,
-	) -> Result<Handle<T>, MapError> {
+	pub fn insert(&'static self, item: impl Into<T>) -> Result<Handle<T>, MapError> {
 		let item = item.into();
 
 		let mut bk = self.bookkeeping.lock();
@@ -168,17 +165,15 @@ impl<T: Send + Sized + 'static, A: Arch> Registry<T, A> {
 			let new_page_count = new_page_end + 1;
 
 			if new_page_count > bk.total_page_count {
-				let mut pfa = pfa.lock();
-
 				for page_id in bk.total_page_count..new_page_count {
-					let page = pfa.allocate().ok_or(MapError::OutOfMemory)?;
+					let page = GlobalPfa.allocate().ok_or(MapError::OutOfMemory)?;
 
 					// TODO(qix-): If PFAs ever support more than 4K pages, this will need to be updated.
 					let virt = self.segment.range().0 + page_id * 4096;
-					if let Err(err) = self.segment.map(&self.mapper, &mut *pfa, virt, page) {
+					if let Err(err) = self.segment.map(&self.mapper, virt, page) {
 						// SAFETY(qix-): We just allocated this page and the mapper didn't use it.
 						unsafe {
-							pfa.free(page);
+							GlobalPfa.free(page);
 						}
 						return Err(err);
 					}
@@ -616,14 +611,10 @@ unsafe impl<T: Send + Sized + 'static, A: Arch> Sync for List<T, A> {}
 
 impl<T: Send + Sized + 'static, A: Arch> Handle<List<T, A>> {
 	/// Inserts an item to the end of the list.
-	pub fn append(
-		&self,
-		pfa: &TicketMutex<A::Pfa>,
-		item: Handle<T>,
-	) -> Result<Handle<Item<T, A>>, MapError> {
+	pub fn append(&self, item: Handle<T>) -> Result<Handle<Item<T, A>>, MapError> {
 		let mut list_lock = self.lock();
 
-		let item = list_lock.item_registry.insert(pfa, Item::new(item))?;
+		let item = list_lock.item_registry.insert(Item::new(item))?;
 
 		{
 			let last = list_lock.last.replace(item.clone());
@@ -683,24 +674,19 @@ impl<T: Send + Sized + 'static, A: Arch> ListRegistry<T, A> {
 	/// in a way that is safe and efficient for the Oro
 	/// kernel.
 	pub fn new(
-		pfa: &mut A::Pfa,
 		list_segment: SupervisorSegment<A>,
 		item_segment: SupervisorSegment<A>,
 	) -> Result<Self, MapError> {
 		Ok(Self {
-			item_registry: Registry::new(pfa, item_segment)?,
-			list_registry: Registry::new(pfa, list_segment)?,
+			item_registry: Registry::new(item_segment)?,
+			list_registry: Registry::new(list_segment)?,
 		})
 	}
 
 	/// Creates a new list in the list registry.
 	///
 	/// The list is empty when created.
-	pub fn create_list(
-		&'static self,
-		pfa: &TicketMutex<A::Pfa>,
-	) -> Result<Handle<List<T, A>>, MapError> {
-		self.list_registry
-			.insert(pfa, List::new(&self.item_registry))
+	pub fn create_list(&'static self) -> Result<Handle<List<T, A>>, MapError> {
+		self.list_registry.insert(List::new(&self.item_registry))
 	}
 }

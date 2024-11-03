@@ -339,7 +339,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		}
 	}
 
-	fn new_supervisor_space<A>(alloc: &mut A) -> Option<Self::SupervisorHandle>
+	fn new_supervisor_space_in<A>(alloc: &mut A) -> Option<Self::SupervisorHandle>
 	where
 		A: Alloc,
 	{
@@ -357,11 +357,14 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		})
 	}
 
-	fn new_user_space<A>(space: &Self::SupervisorHandle, alloc: &mut A) -> Option<Self::UserHandle>
+	fn new_user_space_in<A>(
+		space: &Self::SupervisorHandle,
+		alloc: &mut A,
+	) -> Option<Self::UserHandle>
 	where
 		A: Alloc,
 	{
-		let duplicated = Self::duplicate_supervisor_space_shallow(space, alloc)?;
+		let duplicated = Self::duplicate_supervisor_space_shallow_in(space, alloc)?;
 
 		// Unmap core-local segments.
 		for segment in [Self::kernel_core_local(), Self::kernel_stack()] {
@@ -375,7 +378,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		Some(duplicated)
 	}
 
-	fn duplicate_supervisor_space_shallow<A: Alloc>(
+	fn duplicate_supervisor_space_shallow_in<A: Alloc>(
 		space: &Self::SupervisorHandle,
 		alloc: &mut A,
 	) -> Option<Self::SupervisorHandle> {
@@ -395,7 +398,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		})
 	}
 
-	fn duplicate_user_space_shallow<A>(
+	fn duplicate_user_space_shallow_in<A>(
 		space: &Self::UserHandle,
 		alloc: &mut A,
 	) -> Option<Self::UserHandle>
@@ -403,10 +406,10 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		A: Alloc,
 	{
 		// Supervisor and userspace handles are the same on x86_64.
-		Self::duplicate_supervisor_space_shallow(space, alloc)
+		Self::duplicate_supervisor_space_shallow_in(space, alloc)
 	}
 
-	fn free_user_space<A>(space: Self::UserHandle, alloc: &mut A)
+	fn free_user_space_in<A>(space: Self::UserHandle, alloc: &mut A)
 	where
 		A: Alloc,
 	{

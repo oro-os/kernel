@@ -26,6 +26,7 @@ use oro_debug::dbg_err;
 use oro_id::{Id, IdType};
 use oro_macro::assert;
 use oro_mem::{
+	alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::Alloc,
 };
@@ -93,9 +94,8 @@ impl<A: Arch> Kernel<A> {
 		debug_assert!((kernel_base as *mut Self).is_aligned());
 
 		{
-			let mut pfa = global_state.pfa.lock();
-			let phys = pfa.allocate().ok_or(MapError::OutOfMemory)?;
-			core_local_segment.map(&mapper, &mut *pfa, kernel_base, phys)?;
+			let phys = GlobalPfa.allocate().ok_or(MapError::OutOfMemory)?;
+			core_local_segment.map(&mapper, kernel_base, phys)?;
 		}
 
 		let kernel_ptr = kernel_base as *mut Self;
@@ -171,10 +171,6 @@ impl<A: Arch> Kernel<A> {
 /// Global state shared by all [`Kernel`] instances across
 /// core boot/powerdown/bringup cycles.
 pub struct KernelState<A: Arch> {
-	/// The shared, spinlocked page frame allocator (PFA) for the
-	/// entire system.
-	pfa: TicketMutex<A::Pfa>,
-
 	/// The base userspace address space mapper.
 	///
 	/// This is a clone of the supervisor space mapper handle
@@ -248,35 +244,26 @@ impl<A: Arch> KernelState<A> {
 	/// state (this struct) prior to booting _any other cores_
 	/// or else registry accesses will page fault.
 	#[allow(clippy::missing_panics_doc)]
-	pub unsafe fn init(
-		this: &'static mut MaybeUninit<Self>,
-		pfa: TicketMutex<A::Pfa>,
-	) -> Result<(), MapError> {
+	pub unsafe fn init(this: &'static mut MaybeUninit<Self>) -> Result<(), MapError> {
 		#[expect(clippy::missing_docs_in_private_items)]
 		macro_rules! init_registries {
 			($($id:ident => $(($listregfn:ident, $itemregfn:ident))? $($regfn:ident)?),* $(,)?) => {
 				$(
 					let $id = {
-						let mut pfa_lock = pfa.lock();
-						let reg = init_registries!(@inner pfa_lock, $(($listregfn, $itemregfn))? $($regfn)?);
-						let _ = pfa_lock;
-
-						reg
+						init_registries!(@inner $(($listregfn, $itemregfn))? $($regfn)?)
 					};
 				)*
 			};
 
-			(@inner $pfa_lock:expr, ( $listregfn:ident , $itemregfn:ident )) => {
+			(@inner ( $listregfn:ident , $itemregfn:ident )) => {
 				ListRegistry::new(
-					&mut *$pfa_lock,
 					A::AddrSpace::$listregfn(),
 					A::AddrSpace::$itemregfn(),
 				)?
 			};
 
-			(@inner $pfa_lock:expr, $regfn:ident) => {
+			(@inner $regfn:ident) => {
 				Registry::new(
-					&mut *$pfa_lock,
 					A::AddrSpace::$regfn(),
 				)?
 			};
@@ -296,11 +283,10 @@ impl<A: Arch> KernelState<A> {
 		}
 
 		let supervisor_space = AddrSpace::<A>::current_supervisor_space();
-		let user_mapper = AddrSpace::<A>::new_user_space(&supervisor_space, &mut *pfa.lock())
-			.ok_or(MapError::OutOfMemory)?;
+		let user_mapper =
+			AddrSpace::<A>::new_user_space(&supervisor_space).ok_or(MapError::OutOfMemory)?;
 
 		this.write(Self {
-			pfa,
 			user_mapper,
 			root_ring: None,
 			modules: None,
@@ -321,22 +307,19 @@ impl<A: Arch> KernelState<A> {
 
 		let this = this.assume_init_mut();
 
-		let root_ring = this.ring_registry.insert(
-			&this.pfa,
-			ring::Ring {
-				id:        0,
-				parent:    None,
-				instances: this.instance_list_registry.create_list(&this.pfa)?,
-			},
-		)?;
+		let root_ring = this.ring_registry.insert(ring::Ring {
+			id:        0,
+			parent:    None,
+			instances: this.instance_list_registry.create_list()?,
+		})?;
 		assert_eq!(root_ring.id(), 0, "root ring ID must be 0");
 
-		let modules = this.module_list_registry.create_list(&this.pfa)?;
-		let rings = this.ring_list_registry.create_list(&this.pfa)?;
-		let instances = this.instance_list_registry.create_list(&this.pfa)?;
-		let threads = this.thread_list_registry.create_list(&this.pfa)?;
+		let modules = this.module_list_registry.create_list()?;
+		let rings = this.ring_list_registry.create_list()?;
+		let instances = this.instance_list_registry.create_list()?;
+		let threads = this.thread_list_registry.create_list()?;
 
-		let _ = rings.append(&this.pfa, root_ring.clone())?;
+		let _ = rings.append(root_ring.clone())?;
 
 		this.root_ring = Some(root_ring);
 		this.rings = Some(rings);
@@ -345,11 +328,6 @@ impl<A: Arch> KernelState<A> {
 		this.threads = Some(threads);
 
 		Ok(())
-	}
-
-	/// Returns the underlying PFA belonging to the kernel state.
-	pub fn pfa(&'static self) -> &'static TicketMutex<A::Pfa> {
-		&self.pfa
 	}
 
 	/// Returns a [`Handle`] to the root ring.
@@ -372,14 +350,11 @@ impl<A: Arch> KernelState<A> {
 		&'static self,
 		parent: Handle<ring::Ring<A>>,
 	) -> Result<Handle<ring::Ring<A>>, MapError> {
-		let ring = self.ring_registry.insert(
-			&self.pfa,
-			ring::Ring::<A> {
-				id:        usize::MAX, // placeholder
-				parent:    Some(parent),
-				instances: self.instance_list_registry.create_list(&self.pfa)?,
-			},
-		)?;
+		let ring = self.ring_registry.insert(ring::Ring::<A> {
+			id:        usize::MAX, // placeholder
+			parent:    Some(parent),
+			instances: self.instance_list_registry.create_list()?,
+		})?;
 
 		{
 			ring.lock().id = ring.id();
@@ -387,7 +362,7 @@ impl<A: Arch> KernelState<A> {
 
 		// SAFETY(qix-): As long as the kernel state has been initialized,
 		// SAFETY(qix-): this won't panic.
-		let _ = self.rings.as_ref().unwrap().append(&self.pfa, ring.clone());
+		let _ = self.rings.as_ref().unwrap().append(ring.clone());
 
 		Ok(ring)
 	}
@@ -398,23 +373,19 @@ impl<A: Arch> KernelState<A> {
 		&'static self,
 		id: Id<{ IdType::Module }>,
 	) -> Result<Handle<module::Module<A>>, MapError> {
-		let instance_list = self.instance_list_registry.create_list(&self.pfa)?;
+		let instance_list = self.instance_list_registry.create_list()?;
 
 		let mapper = {
-			let mut pfa = self.pfa.lock();
-			AddrSpace::<A>::duplicate_user_space_shallow(&self.user_mapper, &mut *pfa)
+			AddrSpace::<A>::duplicate_user_space_shallow(&self.user_mapper)
 				.ok_or(MapError::OutOfMemory)?
 		};
 
-		let module = self.module_registry.insert(
-			&self.pfa,
-			module::Module::<A> {
-				id: 0,
-				module_id: id,
-				instances: instance_list,
-				mapper,
-			},
-		)?;
+		let module = self.module_registry.insert(module::Module::<A> {
+			id: 0,
+			module_id: id,
+			instances: instance_list,
+			mapper,
+		})?;
 
 		{
 			module.lock().id = module.id();
@@ -422,11 +393,7 @@ impl<A: Arch> KernelState<A> {
 
 		// SAFETY(qix-): As long as the kernel state has been initialized,
 		// SAFETY(qix-): this won't panic.
-		let _ = self
-			.modules
-			.as_ref()
-			.unwrap()
-			.append(&self.pfa, module.clone());
+		let _ = self.modules.as_ref().unwrap().append(module.clone());
 
 		Ok(module)
 	}
@@ -438,35 +405,31 @@ impl<A: Arch> KernelState<A> {
 		module: Handle<module::Module<A>>,
 		ring: Handle<ring::Ring<A>>,
 	) -> Result<Handle<instance::Instance<A>>, MapError> {
-		let thread_list = self.thread_list_registry.create_list(&self.pfa)?;
-		let port_list = self.port_list_registry.create_list(&self.pfa)?;
+		let thread_list = self.thread_list_registry.create_list()?;
+		let port_list = self.port_list_registry.create_list()?;
 
 		let mapper = {
 			let module_lock = module.lock();
-			let mut pfa = self.pfa.lock();
-			AddrSpace::<A>::duplicate_user_space_shallow(module_lock.mapper(), &mut *pfa)
+			AddrSpace::<A>::duplicate_user_space_shallow(module_lock.mapper())
 				.ok_or(MapError::OutOfMemory)?
 		};
 
-		let instance = self.instance_registry.insert(
-			&self.pfa,
-			instance::Instance {
-				id: 0,
-				module: module.clone(),
-				ring: ring.clone(),
-				threads: thread_list,
-				ports: port_list,
-				mapper,
-			},
-		)?;
+		let instance = self.instance_registry.insert(instance::Instance {
+			id: 0,
+			module: module.clone(),
+			ring: ring.clone(),
+			threads: thread_list,
+			ports: port_list,
+			mapper,
+		})?;
 
 		{
 			instance.lock().id = instance.id();
 
 			// SAFETY(qix-): As long as the kernel state has been initialized,
 			// SAFETY(qix-): this won't panic.
-			let _ = module.lock().instances.append(&self.pfa, instance.clone());
-			let _ = ring.lock().instances.append(&self.pfa, instance.clone());
+			let _ = module.lock().instances.append(instance.clone());
+			let _ = ring.lock().instances.append(instance.clone());
 		}
 
 		Ok(instance)
@@ -484,8 +447,7 @@ impl<A: Arch> KernelState<A> {
 	) -> Result<Handle<thread::Thread<A>>, MapError> {
 		let mapper = {
 			let instance_lock = instance.lock();
-			let mut pfa = self.pfa.lock();
-			AddrSpace::<A>::duplicate_user_space_shallow(instance_lock.mapper(), &mut *pfa)
+			AddrSpace::<A>::duplicate_user_space_shallow(instance_lock.mapper())
 				.ok_or(MapError::OutOfMemory)?
 		};
 
@@ -502,11 +464,9 @@ impl<A: Arch> KernelState<A> {
 			let stack_low_guard = stack_first_page - 0x1000;
 
 			let map_result = {
-				let mut pfa = self.pfa.lock();
-
 				for virt in (stack_first_page..stack_high_guard).step_by(0x1000) {
-					let phys = pfa.allocate().ok_or(MapError::OutOfMemory)?;
-					stack_segment.map(&mapper, &mut *pfa, virt, phys)?;
+					let phys = GlobalPfa.allocate().ok_or(MapError::OutOfMemory)?;
+					stack_segment.map(&mapper, virt, phys)?;
 				}
 
 				// Make sure the guard pages are unmapped.
@@ -515,7 +475,7 @@ impl<A: Arch> KernelState<A> {
 				// case outside of bugs.
 				#[cfg(debug_assertions)]
 				{
-					match stack_segment.unmap(&mapper, &mut *pfa, stack_low_guard) {
+					match stack_segment.unmap(&mapper, stack_low_guard) {
 						Ok(phys) => {
 							panic!("a module's thread stack low guard page was mapped: {phys:016X}")
 						}
@@ -525,7 +485,7 @@ impl<A: Arch> KernelState<A> {
 						}
 					}
 
-					match stack_segment.unmap(&mapper, &mut *pfa, stack_high_guard) {
+					match stack_segment.unmap(&mapper, stack_high_guard) {
 						Ok(phys) => {
 							panic!(
 								"a module's thread stack high guard page was mapped: {phys:016X}"
@@ -539,36 +499,24 @@ impl<A: Arch> KernelState<A> {
 				}
 
 				// Let the architecture do any additional stack setup.
-				A::initialize_thread_mappings(&mapper, &mut thread_state, &mut *pfa)?;
+				A::initialize_thread_mappings(&mapper, &mut thread_state)?;
 
-				// Kill the PFA lock so that we can safely pass the reference
-				// to the lock itself to the `.insert()`/`.append()` functions
-				// without deadlocking.
-				drop(pfa);
-
-				let thread = self.thread_registry.insert(
-					&self.pfa,
-					thread::Thread::<A> {
-						id: 0,
-						instance: instance.clone(),
-						// We set it in a moment.
-						mapper: MaybeUninit::uninit(),
-						// We set it in a moment.
-						thread_state: MaybeUninit::uninit(),
-						run_on_id: None,
-						running_on_id: None,
-					},
-				)?;
+				let thread = self.thread_registry.insert(thread::Thread::<A> {
+					id: 0,
+					instance: instance.clone(),
+					// We set it in a moment.
+					mapper: MaybeUninit::uninit(),
+					// We set it in a moment.
+					thread_state: MaybeUninit::uninit(),
+					run_on_id: None,
+					running_on_id: None,
+				})?;
 
 				thread.lock().id = thread.id();
 
-				let _ = instance.lock().threads.append(&self.pfa, thread.clone())?;
+				let _ = instance.lock().threads.append(thread.clone())?;
 
-				let _ = self
-					.threads
-					.as_ref()
-					.unwrap()
-					.append(&self.pfa, thread.clone())?;
+				let _ = self.threads.as_ref().unwrap().append(thread.clone())?;
 
 				Ok(thread)
 			};
@@ -576,22 +524,18 @@ impl<A: Arch> KernelState<A> {
 			// Try to reclaim the memory we just allocated, if any.
 			match map_result {
 				Err(err) => {
-					let mut pfa = self.pfa.lock();
-
-					if let Err(err) =
-						A::reclaim_thread_mappings(&mapper, &mut thread_state, &mut *pfa)
-					{
+					if let Err(err) = A::reclaim_thread_mappings(&mapper, &mut thread_state) {
 						dbg_err!(
 							"failed to reclaim architecture thread mappings - MEMORY MAY LEAK: \
 							 {err:?}"
 						);
 					}
 
-					if let Err(err) = stack_segment.unmap_all_and_reclaim(&mapper, &mut *pfa) {
+					if let Err(err) = stack_segment.unmap_all_and_reclaim(&mapper) {
 						dbg_err!("failed to reclaim thread stack - MEMORY MAY LEAK: {err:?}");
 					}
 
-					AddrSpace::<A>::free_user_space(mapper, &mut *pfa);
+					AddrSpace::<A>::free_user_space(mapper);
 
 					return Err(err);
 				}
@@ -612,9 +556,6 @@ impl<A: Arch> KernelState<A> {
 /// A trait for architectures to list commonly used types
 /// to be passed around the kernel.
 pub trait Arch: 'static {
-	/// The type of page frame allocator (PFA) the architecture
-	/// uses.
-	type Pfa: Alloc + Send;
 	/// The address space layout the architecture uses.
 	type AddrSpace: AddressSpace;
 	/// Architecture-specific thread state to be stored alongside
@@ -632,7 +573,6 @@ pub trait Arch: 'static {
 	fn initialize_thread_mappings(
 		_thread: &<Self::AddrSpace as AddressSpace>::UserHandle,
 		_thread_state: &mut Self::ThreadState,
-		_pfa: &mut Self::Pfa,
 	) -> Result<(), MapError> {
 		Ok(())
 	}
@@ -649,7 +589,6 @@ pub trait Arch: 'static {
 	fn reclaim_thread_mappings(
 		_thread: &<Self::AddrSpace as AddressSpace>::UserHandle,
 		_thread_state: &mut Self::ThreadState,
-		_pfa: &mut Self::Pfa,
 	) -> Result<(), UnmapError> {
 		Ok(())
 	}

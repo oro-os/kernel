@@ -101,12 +101,12 @@ pub unsafe fn prepare_transfer<A: Alloc>(
 	// Map the stubs into the new page table using an identity mapping.
 	// SAFETY(qix-): We specify that TTBR0 must be 4KiB upon transferring to the kernel,
 	// SAFETY(qix-): and that TTBR0_EL1 is left undefined (for our usage).
-	let page_table = AddressSpaceLayout::new_supervisor_space_ttbr0(alloc)
+	let page_table = AddressSpaceLayout::new_supervisor_space_ttbr0_in(alloc)
 		.ok_or(crate::Error::MapError(MapError::OutOfMemory))?;
 
 	// Direct map it.
 	AddressSpaceLayout::stubs()
-		.map(
+		.map_in(
 			&page_table,
 			alloc,
 			stubs_phys.address_u64().try_into().unwrap(),

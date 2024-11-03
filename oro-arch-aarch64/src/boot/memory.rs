@@ -6,7 +6,7 @@ use oro_boot_protocol::{MemoryMapEntry, MemoryMapEntryType, memory_map::MemoryMa
 use oro_debug::{dbg, dbg_warn};
 use oro_macro::assert;
 use oro_mem::{
-	pfa::{Alloc, FiloPageFrameAllocator},
+	alloc::GlobalPfa,
 	phys::{Phys, PhysAddr},
 };
 
@@ -22,20 +22,13 @@ use crate::{
 	},
 };
 
-/// Prepared memory items configured after preparing the memory
-/// space for the kernel at boot time.
-pub struct PreparedMemory {
-	/// A page frame allocator usable with the prepared memory.
-	pub pfa: FiloPageFrameAllocator,
-}
-
 /// Prepares the kernel memory after transfer from the boot stage
 /// on AArch64.
 ///
 /// # Safety
 /// This function is inherently unsafe. It must only be called
 /// once during boot.
-pub unsafe fn prepare_memory() -> PreparedMemory {
+pub unsafe fn prepare_memory() {
 	// First, let's make sure the recurisive page table is set up correctly.
 	#[expect(clippy::missing_docs_in_private_items)]
 	const RIDX: usize = AddressSpaceLayout::RECURSIVE_ENTRY_IDX.0;
@@ -77,7 +70,6 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 		.expect("ran out of memory while linear mapping regions");
 
 	oro_mem::translate::set_global_map_offset(linear_offset);
-	let mut pfa = FiloPageFrameAllocator::new();
 
 	// Consume the MMAP PFA and free all memory that isn't used by the
 	// linear map intermediate page table entries.
@@ -85,29 +77,9 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	let pfa_iter = [pfa_last_region].into_iter().chain(pfa_iter);
 
 	for region in pfa_iter {
-		if region.ty != MemoryMapEntryType::Usable {
-			continue;
+		if region.ty == MemoryMapEntryType::Usable {
+			GlobalPfa::expose_phys_range(region.base, region.length);
 		}
-
-		let base = region.base;
-		let aligned_base = (base + 4095) & !4095;
-		let length = region.length.saturating_sub(aligned_base - base);
-
-		debug_assert_eq!(aligned_base % 4096, 0);
-		debug_assert_eq!(length % 4096, 0);
-
-		#[cfg(debug_assertions)]
-		{
-			oro_dbgutil::__oro_dbgutil_pfa_will_mass_free(1);
-			oro_dbgutil::__oro_dbgutil_pfa_mass_free(aligned_base, aligned_base + length);
-		}
-
-		for page in (aligned_base..(aligned_base + length)).step_by(4096) {
-			pfa.free(page);
-		}
-
-		#[cfg(debug_assertions)]
-		oro_dbgutil::__oro_dbgutil_pfa_finished_mass_free();
 	}
 
 	// Now unmap the recursive entry.
@@ -120,8 +92,6 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 
 	// Flush everything and finish.
 	crate::asm::invalid_tlb_el1_all();
-
-	PreparedMemory { pfa }
 }
 
 /// Maps all regions to a linear map in the current virtual address space.

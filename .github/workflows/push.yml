@@ -60,65 +60,49 @@ jobs:
     strategy:
       matrix:
         profile: ["dev", "release"]
-        flags: [
-          "--all-features",
-          "--no-default-features"
-        ]
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Build
-        run: cargo kernel-x86_64 --profile ${{ matrix.profile }} ${{ matrix.flags }}
+        run: cargo kernel-x86_64 --profile ${{ matrix.profile }}
   build-limine-x86_64:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         profile: ["dev", "release"]
-        flags: [
-          "--all-features",
-          "--no-default-features"
-        ]
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Build
-        run: cargo limine-x86_64 --profile ${{ matrix.profile }} ${{ matrix.flags }}
+        run: cargo limine-x86_64 --profile ${{ matrix.profile }}
   build-kernel-aarch64:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         profile: ["dev", "release"]
-        flags: [
-          "--all-features",
-          "--no-default-features"
-        ]
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Build
-        run: cargo kernel-aarch64 --profile ${{ matrix.profile }} ${{ matrix.flags }}
+        run: cargo kernel-aarch64 --profile ${{ matrix.profile }}
   build-limine-aarch64:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         profile: ["dev", "release"]
-        flags: [
-          "--all-features",
-          "--no-default-features"
-        ]
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Build
-        run: cargo limine-aarch64 --profile ${{ matrix.profile }} ${{ matrix.flags }}
+        run: cargo limine-aarch64 --profile ${{ matrix.profile }}
   unit-test:
     runs-on: ubuntu-latest
     steps:

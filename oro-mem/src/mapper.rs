@@ -69,56 +69,110 @@ pub unsafe trait AddressSpace: 'static {
 	/// when absolutely necessary.
 	unsafe fn current_supervisor_space() -> Self::SupervisorHandle;
 
-	/// Creates a new, empty supervisor address space handle.
+	/// Creates a new, empty supervisor address space handle. Uses the global allocator.
 	///
 	/// Returns `None` if any allocation(s) fail.
-	fn new_supervisor_space<A>(alloc: &mut A) -> Option<Self::SupervisorHandle>
+	fn new_supervisor_space() -> Option<Self::SupervisorHandle> {
+		Self::new_supervisor_space_in(&mut crate::alloc::GlobalPfa)
+	}
+
+	/// Creates a new, empty supervisor address space handle. Uses the given allocator.
+	///
+	/// Returns `None` if any allocation(s) fail.
+	fn new_supervisor_space_in<A>(alloc: &mut A) -> Option<Self::SupervisorHandle>
 	where
 		A: Alloc;
 
 	/// Creates a new user address space handle based on the given supervisor handle.
+	/// Uses the global allocator.
 	///
 	/// The resulting userspace handle should _not_ have any core-local
 	/// mappings.
 	///
 	/// Returns None if any allocation(s) fail.
-	fn new_user_space<A>(space: &Self::SupervisorHandle, alloc: &mut A) -> Option<Self::UserHandle>
+	fn new_user_space(space: &Self::SupervisorHandle) -> Option<Self::UserHandle> {
+		Self::new_user_space_in(space, &mut crate::alloc::GlobalPfa)
+	}
+
+	/// Creates a new user address space handle based on the given supervisor handle.
+	/// Uses the given allocator.
+	///
+	/// The resulting userspace handle should _not_ have any core-local
+	/// mappings.
+	///
+	/// Returns None if any allocation(s) fail.
+	fn new_user_space_in<A>(
+		space: &Self::SupervisorHandle,
+		alloc: &mut A,
+	) -> Option<Self::UserHandle>
 	where
 		A: Alloc;
 
-	/// Duplicates the given supervisor address space handle.
+	/// Duplicates the given supervisor address space handle. Uses the global allocator.
 	///
 	/// The duplication is performed shallowly, meaning that the new handle
 	/// will have its own root page table physical address, but the root mappings
 	/// will point to the same physical pages as the original handle.
 	///
 	/// Returns `None` if any allocation(s) fail.
-	fn duplicate_supervisor_space_shallow<A>(
+	fn duplicate_supervisor_space_shallow(
+		space: &Self::SupervisorHandle,
+	) -> Option<Self::SupervisorHandle> {
+		Self::duplicate_supervisor_space_shallow_in(space, &mut crate::alloc::GlobalPfa)
+	}
+
+	/// Duplicates the given supervisor address space handle. Uses the given allocator.
+	///
+	/// The duplication is performed shallowly, meaning that the new handle
+	/// will have its own root page table physical address, but the root mappings
+	/// will point to the same physical pages as the original handle.
+	///
+	/// Returns `None` if any allocation(s) fail.
+	fn duplicate_supervisor_space_shallow_in<A>(
 		space: &Self::SupervisorHandle,
 		alloc: &mut A,
 	) -> Option<Self::SupervisorHandle>
 	where
 		A: Alloc;
 
-	/// Duplicates the given user address space handle.
+	/// Duplicates the given user address space handle. Uses the global allocator.
 	///
 	/// The duplication is performed shallowly, meaning that the new handle
 	/// will have its own root page table physical address, but the root mappings
 	/// will point to the same physical pages as the original handle.
 	///
 	/// Returns None if any allocation(s) fail.
-	fn duplicate_user_space_shallow<A>(
+	fn duplicate_user_space_shallow(space: &Self::UserHandle) -> Option<Self::UserHandle> {
+		Self::duplicate_user_space_shallow_in(space, &mut crate::alloc::GlobalPfa)
+	}
+
+	/// Duplicates the given user address space handle. Uses the given allocator.
+	///
+	/// The duplication is performed shallowly, meaning that the new handle
+	/// will have its own root page table physical address, but the root mappings
+	/// will point to the same physical pages as the original handle.
+	///
+	/// Returns None if any allocation(s) fail.
+	fn duplicate_user_space_shallow_in<A>(
 		space: &Self::UserHandle,
 		alloc: &mut A,
 	) -> Option<Self::UserHandle>
 	where
 		A: Alloc;
 
-	/// Frees and reclaims the user address space handle.
+	/// Frees and reclaims the user address space handle. Uses the global allocator.
 	///
 	/// Frees the TOP LEVEL page table, without reclaiming any of the pages
 	/// that the page table points to.
-	fn free_user_space<A>(space: Self::UserHandle, alloc: &mut A)
+	fn free_user_space(space: Self::UserHandle) {
+		Self::free_user_space_in(space, &mut crate::alloc::GlobalPfa);
+	}
+
+	/// Frees and reclaims the user address space handle. Uses the given allocator.
+	///
+	/// Frees the TOP LEVEL page table, without reclaiming any of the pages
+	/// that the page table points to.
+	fn free_user_space_in<A>(space: Self::UserHandle, alloc: &mut A)
 	where
 		A: Alloc;
 
@@ -227,29 +281,61 @@ pub unsafe trait AddressSegment<Handle: Sized>: Send + 'static {
 	/// The range is inclusive of the start and end addresses.
 	fn range(&self) -> (usize, usize);
 
-	/// Makes the segment shared across all address spaces.
+	/// Makes the segment shared across all address spaces. Uses the global allocator
 	///
 	/// Returns an error if the segment is not empty.
-	fn provision_as_shared<A>(&self, space: &Handle, alloc: &mut A) -> Result<(), MapError>
+	fn provision_as_shared(&self, space: &Handle) -> Result<(), MapError> {
+		self.provision_as_shared_in(space, &mut crate::alloc::GlobalPfa)
+	}
+
+	/// Makes the segment shared across all address spaces. Uses the given allocator.
+	///
+	/// Returns an error if the segment is not empty.
+	fn provision_as_shared_in<A>(&self, space: &Handle, alloc: &mut A) -> Result<(), MapError>
 	where
 		A: Alloc;
 
 	/// Maps a physical address into the segment at the given virtual address.
-	/// Fails if the virtual address is already mapped.
+	/// Fails if the virtual address is already mapped. Uses the global allocator.
 	///
 	/// If the caller had allocated the page frame for use and this function fails,
 	/// assuming the caller will not retry, it's up to the caller to free the
 	/// page frame in order to avoid a memory leak.
-	fn map<A>(&self, space: &Handle, alloc: &mut A, virt: usize, phys: u64) -> Result<(), MapError>
+	fn map(&self, space: &Handle, virt: usize, phys: u64) -> Result<(), MapError> {
+		self.map_in(space, &mut crate::alloc::GlobalPfa, virt, phys)
+	}
+
+	/// Maps a physical address into the segment at the given virtual address.
+	/// Fails if the virtual address is already mapped. Uses the given allocator.
+	///
+	/// If the caller had allocated the page frame for use and this function fails,
+	/// assuming the caller will not retry, it's up to the caller to free the
+	/// page frame in order to avoid a memory leak.
+	fn map_in<A>(
+		&self,
+		space: &Handle,
+		alloc: &mut A,
+		virt: usize,
+		phys: u64,
+	) -> Result<(), MapError>
 	where
 		A: Alloc;
 
-	/// Unmaps and reclaims all pages in the segment.
+	/// Unmaps and reclaims all pages in the segment. Uses the global allocator.
 	///
 	/// # Safety
 	/// Caller must ensure that all reclaimed pages are truly
 	/// freeable and not in use by any other address space handle.
-	unsafe fn unmap_all_and_reclaim<A>(
+	unsafe fn unmap_all_and_reclaim(&self, space: &Handle) -> Result<(), UnmapError> {
+		self.unmap_all_and_reclaim_in(space, &mut crate::alloc::GlobalPfa)
+	}
+
+	/// Unmaps and reclaims all pages in the segment. Uses the given allocator.
+	///
+	/// # Safety
+	/// Caller must ensure that all reclaimed pages are truly
+	/// freeable and not in use by any other address space handle.
+	unsafe fn unmap_all_and_reclaim_in<A>(
 		&self,
 		space: &Handle,
 		alloc: &mut A,
@@ -259,7 +345,16 @@ pub unsafe trait AddressSegment<Handle: Sized>: Send + 'static {
 
 	/// Maps a physical address into the segment at the given virtual address,
 	/// without performing any frees (even if it means a slightly less
-	/// efficient implementation).
+	/// efficient implementation). Uses the global allocator.
+	///
+	/// See [`AddressSegment::map_nofree_in`] for more information.
+	fn map_nofree(&self, space: &Handle, virt: usize, phys: u64) -> Result<(), MapError> {
+		self.map_nofree_in(space, &mut crate::alloc::GlobalPfa, virt, phys)
+	}
+
+	/// Maps a physical address into the segment at the given virtual address,
+	/// without performing any frees (even if it means a slightly less
+	/// efficient implementation). Uses the given allocator.
 	///
 	/// Note that "nofree" **also means "no-unmap"**. It's unfortunately
 	/// not possible to encode that into the type system any better than this.
@@ -270,7 +365,7 @@ pub unsafe trait AddressSegment<Handle: Sized>: Send + 'static {
 	/// If the caller had allocated the page frame for use and this function fails,
 	/// assuming the caller will not retry, it's up to the caller to free the
 	/// page frame in order to avoid a memory leak.
-	fn map_nofree<A>(
+	fn map_nofree_in<A>(
 		&self,
 		space: &Handle,
 		alloc: &mut A,
@@ -281,16 +376,38 @@ pub unsafe trait AddressSegment<Handle: Sized>: Send + 'static {
 		A: Alloc;
 
 	/// Unmaps a physical address from the segment at the given virtual address.
+	/// Uses the global allocator.
+	///
 	/// Fails if the virtual address is not mapped. Returns the physical address
 	/// that was previously mapped.
-	fn unmap<A>(&self, space: &Handle, alloc: &mut A, virt: usize) -> Result<u64, UnmapError>
+	fn unmap(&self, space: &Handle, virt: usize) -> Result<u64, UnmapError> {
+		self.unmap_in(space, &mut crate::alloc::GlobalPfa, virt)
+	}
+
+	/// Unmaps a physical address from the segment at the given virtual address.
+	/// Uses the given allocator.
+	///
+	/// Fails if the virtual address is not mapped. Returns the physical address
+	/// that was previously mapped.
+	fn unmap_in<A>(&self, space: &Handle, alloc: &mut A, virt: usize) -> Result<u64, UnmapError>
 	where
 		A: Alloc;
 
 	/// Maps the given physical address into the segment at the given virtual address.
+	/// Uses the global allocator.
+	///
 	/// If the virtual address is already mapped, the physical address is remapped and the
 	/// old physical address is returned.
-	fn remap<A>(
+	fn remap(&self, space: &Handle, virt: usize, phys: u64) -> Result<Option<u64>, MapError> {
+		self.remap_in(space, &mut crate::alloc::GlobalPfa, virt, phys)
+	}
+
+	/// Maps the given physical address into the segment at the given virtual address.
+	/// Uses the given allocator.
+	///
+	/// If the virtual address is already mapped, the physical address is remapped and the
+	/// old physical address is returned.
+	fn remap_in<A>(
 		&self,
 		space: &Handle,
 		alloc: &mut A,

@@ -300,7 +300,7 @@ impl Segment {
 }
 
 unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
-	unsafe fn unmap_all_and_reclaim<A>(
+	unsafe fn unmap_all_and_reclaim_in<A>(
 		&self,
 		_space: &Handle,
 		_alloc: &mut A,
@@ -319,7 +319,7 @@ unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
 		(start, end)
 	}
 
-	fn provision_as_shared<A>(&self, space: &Handle, alloc: &mut A) -> Result<(), MapError>
+	fn provision_as_shared_in<A>(&self, space: &Handle, alloc: &mut A) -> Result<(), MapError>
 	where
 		A: Alloc,
 	{
@@ -344,16 +344,22 @@ unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
 		Ok(())
 	}
 
-	fn map<A>(&self, space: &Handle, alloc: &mut A, virt: usize, phys: u64) -> Result<(), MapError>
+	fn map_in<A>(
+		&self,
+		space: &Handle,
+		alloc: &mut A,
+		virt: usize,
+		phys: u64,
+	) -> Result<(), MapError>
 	where
 		A: Alloc,
 	{
 		// NOTE(qix-): The mapper doesn't actually free anything,
 		// NOTE(qix-): so we can just call the nofree variant.
-		self.map_nofree(space, alloc, virt, phys)
+		self.map_nofree_in(space, alloc, virt, phys)
 	}
 
-	fn map_nofree<A>(
+	fn map_nofree_in<A>(
 		&self,
 		space: &Handle,
 		alloc: &mut A,
@@ -387,7 +393,7 @@ unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
 		Ok(())
 	}
 
-	fn unmap<A>(&self, space: &Handle, alloc: &mut A, virt: usize) -> Result<u64, UnmapError>
+	fn unmap_in<A>(&self, space: &Handle, alloc: &mut A, virt: usize) -> Result<u64, UnmapError>
 	where
 		A: Alloc,
 	{
@@ -396,11 +402,10 @@ unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
 		phys.ok_or(UnmapError::NotMapped)
 	}
 
-	fn remap<A>(
+	fn remap_in<A>(
 		&self,
 		space: &Handle,
 		alloc: &mut A,
-
 		virt: usize,
 		phys: u64,
 	) -> Result<Option<u64>, MapError>

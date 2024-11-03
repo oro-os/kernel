@@ -89,13 +89,13 @@ pub unsafe fn prepare_transfer<A: Alloc>(
 
 	// Map into the target kernel page tables
 	(&STUBS_SEGMENT_DESCRIPTOR)
-		.map(mapper, alloc, stubs_base, phys)
+		.map_in(mapper, alloc, stubs_base, phys)
 		.expect("failed to map page for transfer stubs for kernel address space");
 
 	// Attempt to unmap it from the current address space.
 	// If it's not mapped, we can ignore the error.
 	(&STUBS_SEGMENT_DESCRIPTOR)
-		.unmap(&current_mapper, alloc, stubs_base)
+		.unmap_in(&current_mapper, alloc, stubs_base)
 		.or_else(|e| {
 			if e == UnmapError::NotMapped {
 				Ok(0)
@@ -107,7 +107,7 @@ pub unsafe fn prepare_transfer<A: Alloc>(
 
 	// Now map it into the current mapper so we can access it.
 	(&STUBS_SEGMENT_DESCRIPTOR)
-		.map(&current_mapper, alloc, stubs_base, phys)
+		.map_in(&current_mapper, alloc, stubs_base, phys)
 		.expect("failed to map page for transfer stubs in current address space");
 
 	dest.copy_from(source, STUBS.len());

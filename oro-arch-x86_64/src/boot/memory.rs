@@ -8,8 +8,8 @@ use oro_boot_protocol::{MemoryMapEntry, MemoryMapEntryType, memory_map::MemoryMa
 use oro_debug::{dbg, dbg_warn};
 use oro_macro::assert;
 use oro_mem::{
+	alloc::GlobalPfa,
 	mapper::AddressSegment,
-	pfa::{Alloc, FiloPageFrameAllocator},
 	phys::{Phys, PhysAddr},
 };
 
@@ -31,8 +31,6 @@ const MIB_1: u64 = 1024 * 1024;
 
 /// Result from the [`prepare_memory`] function.
 pub struct PreparedMemory {
-	/// The page frame allocator.
-	pub pfa:      FiloPageFrameAllocator,
 	/// Whether or not physical pages 0x8000 and 0x9000 are available,
 	/// which are required to boot secondary cores.
 	pub has_cs89: bool,
@@ -121,37 +119,15 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 
 	oro_mem::translate::set_global_map_offset(linear_offset);
 
-	let mut pfa = FiloPageFrameAllocator::new();
-
 	// Consume the MMAP PFA and free all memory that isn't used by the
 	// linear map intermediate page table entries.
 	let (pfa_last_region, pfa_iter) = mmap_pfa.into_inner();
 	let pfa_iter = [pfa_last_region].into_iter().chain(pfa_iter);
 
 	for region in pfa_iter {
-		if region.ty != MemoryMapEntryType::Usable {
-			continue;
+		if region.ty == MemoryMapEntryType::Usable {
+			GlobalPfa::expose_phys_range(region.base, region.length);
 		}
-
-		let base = region.base;
-		let aligned_base = (base + 4095) & !4095;
-		let length = region.length.saturating_sub(aligned_base - base);
-
-		debug_assert_eq!(aligned_base % 4096, 0);
-		debug_assert_eq!(length % 4096, 0);
-
-		#[cfg(debug_assertions)]
-		{
-			oro_dbgutil::__oro_dbgutil_pfa_will_mass_free(1);
-			oro_dbgutil::__oro_dbgutil_pfa_mass_free(aligned_base, aligned_base + length);
-		}
-
-		for page in (aligned_base..(aligned_base + length)).step_by(4096) {
-			pfa.free(page);
-		}
-
-		#[cfg(debug_assertions)]
-		oro_dbgutil::__oro_dbgutil_pfa_finished_mass_free();
 	}
 
 	// Uninstall the recursive mapping.
@@ -172,7 +148,6 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	crate::asm::flush_tlb();
 
 	PreparedMemory {
-		pfa,
 		has_cs89: has_cs8 && has_cs9,
 	}
 }

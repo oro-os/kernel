@@ -428,7 +428,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		}
 	}
 
-	unsafe fn unmap_all_and_reclaim<A>(
+	unsafe fn unmap_all_and_reclaim_in<A>(
 		&self,
 		space: &AddressSpaceHandle,
 		alloc: &mut A,
@@ -449,7 +449,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		Ok(())
 	}
 
-	fn provision_as_shared<A>(
+	fn provision_as_shared_in<A>(
 		&self,
 		space: &AddressSpaceHandle,
 		alloc: &mut A,
@@ -478,7 +478,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		Ok(())
 	}
 
-	fn map<A>(
+	fn map_in<A>(
 		&self,
 		space: &AddressSpaceHandle,
 		alloc: &mut A,
@@ -490,10 +490,10 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 	{
 		// NOTE(qix-): The current implementation of `entry()` doesn't
 		// NOTE(qix-): actually free anyway, so we just proxy to that method.
-		self.map_nofree(space, alloc, virt, phys)
+		self.map_nofree_in(space, alloc, virt, phys)
 	}
 
-	fn map_nofree<A>(
+	fn map_nofree_in<A>(
 		&self,
 		space: &AddressSpaceHandle,
 		alloc: &mut A,
@@ -514,7 +514,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		Ok(())
 	}
 
-	fn unmap<A>(
+	fn unmap_in<A>(
 		&self,
 		space: &AddressSpaceHandle,
 		alloc: &mut A,
@@ -532,7 +532,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		phys.ok_or(UnmapError::NotMapped)
 	}
 
-	fn remap<A>(
+	fn remap_in<A>(
 		&self,
 		space: &AddressSpaceHandle,
 		alloc: &mut A,

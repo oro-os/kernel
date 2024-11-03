@@ -11,6 +11,7 @@ use oro_debug::{dbg, dbg_err, dbg_warn};
 use oro_dtb::{FdtHeader, FdtPathFilter, FdtToken};
 use oro_macro::{asm_buffer, assert};
 use oro_mem::{
+	alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace, MapError},
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},
@@ -33,7 +34,7 @@ use crate::{
 /// # Safety
 /// This function is inherently unsafe and must only be called
 /// once at kernel boot by the bootstrap processor (primary core).
-pub unsafe fn boot_secondaries(pfa: &mut impl Alloc, stack_pages: usize) -> usize {
+pub unsafe fn boot_secondaries(stack_pages: usize) -> usize {
 	// Get the devicetree blob.
 	let DeviceTreeKind::V0(dtb) = super::protocol::DTB_REQUEST
 		.response()
@@ -188,7 +189,7 @@ pub unsafe fn boot_secondaries(pfa: &mut impl Alloc, stack_pages: usize) -> usiz
 					continue;
 				}
 
-				if let Err(err) = boot_secondary(pfa, psci, cpu_id, reg_val, stack_pages) {
+				if let Err(err) = boot_secondary(psci, cpu_id, reg_val, stack_pages) {
 					dbg_err!("failed to boot cpu {cpu_id} ({reg_val}): {err:?}");
 				}
 
@@ -325,7 +326,6 @@ const SECONDARY_BOOT_STUB: &[u8] = &asm_buffer! {
 
 /// Attempts to boot a single secondary core.
 unsafe fn boot_secondary(
-	pfa: &mut impl Alloc,
 	psci: PsciMethod,
 	cpu_id: u64,
 	reg_val: u64,
@@ -335,21 +335,23 @@ unsafe fn boot_secondary(
 	let primary_mapper = AddressSpaceLayout::current_supervisor_space();
 
 	// Create a new supervisor address space based on the current address space.
-	let mapper = AddressSpaceLayout::duplicate_supervisor_space_shallow(&primary_mapper, pfa)
+	let mapper = AddressSpaceLayout::duplicate_supervisor_space_shallow(&primary_mapper)
 		.ok_or(SecondaryBootError::OutOfMemory)?;
 
 	// Also create an empty mapper for the TTBR0_EL1 space.
-	let lower_mapper = AddressSpaceLayout::new_supervisor_space_ttbr0(pfa)
-		.ok_or(SecondaryBootError::OutOfMemory)?;
+	let lower_mapper =
+		AddressSpaceLayout::new_supervisor_space_ttbr0().ok_or(SecondaryBootError::OutOfMemory)?;
 
 	// Allocate the boot stubs (maximum 4096 bytes).
-	let boot_phys = pfa.allocate().ok_or(SecondaryBootError::OutOfMemory)?;
+	let boot_phys = GlobalPfa
+		.allocate()
+		.ok_or(SecondaryBootError::OutOfMemory)?;
 	let boot_virt = Phys::from_address_unchecked(boot_phys).as_mut_ptr_unchecked::<[u8; 4096]>();
 	(&mut *boot_virt)[..SECONDARY_BOOT_STUB.len()].copy_from_slice(SECONDARY_BOOT_STUB);
 
 	// Direct map the boot stubs into the lower page table.
 	AddressSpaceLayout::stubs()
-		.map(&lower_mapper, pfa, boot_phys as usize, boot_phys)
+		.map(&lower_mapper, boot_phys as usize, boot_phys)
 		.map_err(SecondaryBootError::MapError)?;
 
 	// Forget the stack in the upper address space.
@@ -360,9 +362,11 @@ unsafe fn boot_secondary(
 	let stack_end = <&Segment as AddressSegment<Ttbr1Handle>>::range(&stack_segment).1 & !0xFFF;
 
 	for stack_virt in (stack_end - stack_pages * 4096..stack_end).step_by(4096) {
-		let page = pfa.allocate().ok_or(SecondaryBootError::OutOfMemory)?;
+		let page = GlobalPfa
+			.allocate()
+			.ok_or(SecondaryBootError::OutOfMemory)?;
 		stack_segment
-			.map(&mapper, pfa, stack_virt, page)
+			.map(&mapper, stack_virt, page)
 			.map_err(SecondaryBootError::MapError)?;
 	}
 
@@ -372,7 +376,9 @@ unsafe fn boot_secondary(
 
 	// Write the boot init block.
 	assert::fits::<BootInitBlock, 4096>();
-	let init_block_phys = pfa.allocate().ok_or(SecondaryBootError::OutOfMemory)?;
+	let init_block_phys = GlobalPfa
+		.allocate()
+		.ok_or(SecondaryBootError::OutOfMemory)?;
 	let init_block_ptr =
 		Phys::from_address_unchecked(init_block_phys).as_mut_ptr_unchecked::<BootInitBlock>();
 	debug_assert!(init_block_ptr.is_aligned());

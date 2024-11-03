@@ -1,7 +1,5 @@
 //! Page frame allocator traits and implementations.
 
-use oro_sync::Lock;
-
 use crate::phys::{Phys, PhysAddr};
 
 /// A page frame allocator allocates physical memory in units of "page frames".
@@ -39,39 +37,6 @@ pub unsafe trait Alloc {
 	///
 	/// 3. Callers **must** ensure the frame is page-aligned.
 	unsafe fn free(&mut self, frame: u64);
-}
-
-/// A global page frame allocator. Identical to [`Alloc`]
-/// except that methods are not mutable.
-///
-/// # Safety
-/// See [`Alloc`] for safety requirements.
-pub unsafe trait GlobalPfa {
-	/// See [`Alloc::allocate`].
-	fn allocate(&self) -> Option<u64>;
-
-	/// See [`Alloc::free`].
-	#[expect(clippy::missing_safety_doc)]
-	unsafe fn free(&self, frame: u64);
-}
-
-unsafe impl<L> GlobalPfa for L
-where
-	L: Lock,
-	<L as Lock>::Target: Alloc,
-{
-	fn allocate(&self) -> Option<u64> {
-		let mut lock = self.lock();
-		let r = lock.allocate();
-		drop(lock);
-		r
-	}
-
-	unsafe fn free(&self, frame: u64) {
-		let mut lock = self.lock();
-		lock.free(frame);
-		drop(lock);
-	}
 }
 
 /// First in, last out (FILO) page frame allocator.
