@@ -7,7 +7,7 @@ use oro_debug::{dbg, dbg_err, dbg_warn};
 use oro_elf::{ElfSegment, ElfSegmentType};
 use oro_kernel::KernelState;
 use oro_mem::{
-	alloc::GlobalPfa,
+	global_alloc::GlobalPfa,
 	mapper::AddressSegment,
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},

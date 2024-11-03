@@ -253,7 +253,7 @@ impl AddressSpaceLayout {
 	/// This probably isn't used by the kernel, but instead by the
 	/// preboot environment to map stubs.
 	pub fn new_supervisor_space_ttbr0() -> Option<Ttbr0Handle> {
-		Self::new_supervisor_space_ttbr0_in(&mut oro_mem::alloc::GlobalPfa)
+		Self::new_supervisor_space_ttbr0_in(&mut oro_mem::global_alloc::GlobalPfa)
 	}
 
 	/// Creates a new supervisor (EL1) address space that addresses

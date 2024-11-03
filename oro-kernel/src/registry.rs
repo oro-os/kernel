@@ -29,7 +29,7 @@ use core::{
 
 use oro_macro::unlikely;
 use oro_mem::{
-	alloc::GlobalPfa,
+	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace, MapError},
 	pfa::Alloc,
 };

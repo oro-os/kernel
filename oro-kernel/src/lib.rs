@@ -26,7 +26,7 @@ use oro_debug::dbg_err;
 use oro_id::{Id, IdType};
 use oro_macro::assert;
 use oro_mem::{
-	alloc::GlobalPfa,
+	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::Alloc,
 };

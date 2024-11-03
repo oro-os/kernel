@@ -8,7 +8,7 @@ use oro_boot_protocol::{MemoryMapEntry, MemoryMapEntryType, memory_map::MemoryMa
 use oro_debug::{dbg, dbg_warn};
 use oro_macro::assert;
 use oro_mem::{
-	alloc::GlobalPfa,
+	global_alloc::GlobalPfa,
 	mapper::AddressSegment,
 	phys::{Phys, PhysAddr},
 };

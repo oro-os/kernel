@@ -80,7 +80,7 @@ use core::{cell::UnsafeCell, mem::MaybeUninit};
 use mem::address_space::AddressSpaceLayout;
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 use oro_mem::{
-	alloc::GlobalPfa,
+	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, MapError, UnmapError},
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},

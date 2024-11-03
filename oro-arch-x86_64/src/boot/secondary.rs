@@ -7,7 +7,7 @@ use oro_boot_protocol::acpi::AcpiKind;
 use oro_debug::{dbg, dbg_err};
 use oro_macro::{asm_buffer, assert};
 use oro_mem::{
-	alloc::GlobalPfa,
+	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},

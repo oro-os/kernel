@@ -11,7 +11,7 @@ use oro_debug::{dbg, dbg_err, dbg_warn};
 use oro_dtb::{FdtHeader, FdtPathFilter, FdtToken};
 use oro_macro::{asm_buffer, assert};
 use oro_mem::{
-	alloc::GlobalPfa,
+	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace, MapError},
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},

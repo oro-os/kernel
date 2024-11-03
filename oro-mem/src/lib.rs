@@ -4,11 +4,11 @@
 #![feature(core_intrinsics, never_type)]
 #![cfg_attr(debug_assertions, feature(naked_functions))]
 
-extern crate alloc as _;
+pub extern crate alloc;
 
 pub mod mapper;
 pub mod pfa;
 pub mod phys;
 pub mod translate;
 
-pub mod alloc;
+pub mod global_alloc;

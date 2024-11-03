@@ -88,7 +88,7 @@ where
 	};
 
 	// SAFETY: We just allocated this page, so it's safe to use.
-	let phys = unsafe { Phys::from_address_unchecked(page) }.virt();
+	let virt = unsafe { Phys::from_address_unchecked(page) }.virt();
 
 	// SAFETY: It's not documented but under the hood the pointer must be
 	// SAFETY: correctly aligned for a `usize` (I don't mean that what
@@ -97,7 +97,7 @@ where
 	// SAFETY: but we do an assertion just to 'keep the spaceship flying'.
 	oro_macro::assert::aligns_to::<usize, 4096>();
 	unsafe {
-		heap.add_to_heap(phys, phys + 4096);
+		heap.add_to_heap(virt, virt + 4096);
 	}
 }
 
