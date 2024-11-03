@@ -54,6 +54,7 @@ oro-sync.path = "oro-sync"
 limine = "0.2.0"
 uart_16550 = "0.3.0"
 volatile-register = "0.2.2"
+buddy_system_allocator = "0.11.0"
 
 bindgen = { git = "https://github.com/oro-os/dep.rust-bindgen.git" }
 syn = { version = "2.0.60", features = ["full", "printing"] }

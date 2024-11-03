@@ -34,5 +34,9 @@ oro-acpi.workspace = true
 oro-id.workspace = true
 oro-sync.workspace = true
 
+# Work around non-composability of `test` profile and global allocator conflicts in unit test runner.
+[dev-dependencies]
+oro-mem = { workspace = true, features = ["std-alloc"] }
+
 [lints]
 workspace = true
