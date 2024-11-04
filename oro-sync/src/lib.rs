@@ -66,6 +66,12 @@ impl<T: Send + 'static> Lock for Mutex<T> {
 	}
 }
 
+impl<T: Default + Send + 'static> Default for Mutex<T> {
+	fn default() -> Self {
+		Self::new(T::default())
+	}
+}
+
 /// A mutex guard for the simple [`Mutex`] type.
 pub struct MutexGuard<'a, T: Send + 'static>
 where
@@ -191,6 +197,12 @@ impl<T: Send + 'static> Lock for TicketMutex<T> {
 				::core::hint::spin_loop();
 			}
 		}
+	}
+}
+
+impl<T: Default + Send + 'static> Default for TicketMutex<T> {
+	fn default() -> Self {
+		Self::new(T::default())
 	}
 }
 
