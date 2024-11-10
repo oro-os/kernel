@@ -8,26 +8,6 @@
 //! for those regions to behave as the kernel expects.
 use crate::pfa::Alloc;
 
-#[allow(clippy::missing_docs_in_private_items)]
-macro_rules! define_registries {
-	($($(#[doc = $doc:literal])* $name:ident);* ;) => {
-		$(
-			$(#[doc = $doc])*
-			///
-			/// This must be read-write, non-user accessible, and is
-			/// **not** executable.
-			///
-			/// Must **not** overlap with any other segment.
-			///
-			/// Must NOT span more than 2^63 bytes (on 64-bit architectures)
-			/// or 2^31 bytes (on 32-bit architectures).
-			///
-			/// Must NOT border the beginning or end of an address space.
-			fn $name() -> Self::SupervisorSegment;
-		)*
-	};
-}
-
 /// A trait that provides descriptors for the layout of an address space
 /// for the underlying architecture.
 ///
@@ -219,39 +199,6 @@ pub unsafe trait AddressSpace: 'static {
 	///
 	/// It **must not** overlap with any other segment.
 	fn kernel_core_local() -> Self::SupervisorSegment;
-
-	define_registries! {
-		/// Returns the layout descriptor for the kernel's Ring registry.
-		kernel_ring_registry;
-		/// Returns the layout descriptor for the kernel's Ring item registry.
-		kernel_ring_item_registry;
-		/// Returns the layout descriptor for the kernel's Ring list registry.
-		kernel_ring_list_registry;
-		/// Returns the layout descriptor for the kernel's Port registry.
-		kernel_port_registry;
-		/// Returns the layout descriptor for the kernel's Port item registry.
-		kernel_port_item_registry;
-		/// Returns the layout descriptor for the kernel's Port list registry.
-		kernel_port_list_registry;
-		/// Returns the layout descriptor for the kernel's Thread registry.
-		kernel_thread_registry;
-		/// Returns the layout descriptor for the kernel's Thread item registry.
-		kernel_thread_item_registry;
-		/// Returns the layout descriptor for the kernel's Thread list registry.
-		kernel_thread_list_registry;
-		/// Returns the layout descriptor for the kernel's Module Instance registry.
-		kernel_instance_registry;
-		/// Returns the layout descriptor for the kernel's Module Instance item registry.
-		kernel_instance_item_registry;
-		/// Returns the layout descriptor for the kernel's Module Instance list registry.
-		kernel_instance_list_registry;
-		/// Returns the layout descriptor for the kernel's Module registry.
-		kernel_module_registry;
-		/// Returns the layout descriptor for the kernel's Module item registry.
-		kernel_module_item_registry;
-		/// Returns the layout descriptor for the kernel's Module list registry.
-		kernel_module_list_registry;
-	}
 }
 
 /// An address space segment descriptor.

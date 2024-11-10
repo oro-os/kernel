@@ -94,41 +94,6 @@ impl AddressSpaceLayout {
 	/// The segment for the kernel core-local data.
 	pub const KERNEL_CORE_LOCAL_IDX: usize = 375;
 
-	/// The segment for the ring registry
-	pub const KERNEL_RING_REGISTRY_IDX: usize = 400;
-	/// The segment for the ring item registry
-	pub const KERNEL_RING_ITEM_REGISTRY_IDX: usize = 401;
-	/// The segment for the ring list registry
-	pub const KERNEL_RING_LIST_REGISTRY_IDX: usize = 402;
-
-	/// The segment for the module instance registry
-	pub const KERNEL_INSTANCE_REGISTRY_IDX: usize = 403;
-	/// The segment for the module instance item registry
-	pub const KERNEL_INSTANCE_ITEM_REGISTRY_IDX: usize = 404;
-	/// The segment for the module instance list registry
-	pub const KERNEL_INSTANCE_LIST_REGISTRY_IDX: usize = 405;
-
-	/// The segment for the thread registry
-	pub const KERNEL_THREAD_REGISTRY_IDX: usize = 406;
-	/// The segment for the thread item registry
-	pub const KERNEL_THREAD_ITEM_REGISTRY_IDX: usize = 407;
-	/// The segment for the thread list registry
-	pub const KERNEL_THREAD_LIST_REGISTRY_IDX: usize = 408;
-
-	/// The segment for the module registry
-	pub const KERNEL_MODULE_REGISTRY_IDX: usize = 409;
-	/// The segment for the module item registry
-	pub const KERNEL_MODULE_ITEM_REGISTRY_IDX: usize = 410;
-	/// The segment for the module list registry
-	pub const KERNEL_MODULE_LIST_REGISTRY_IDX: usize = 411;
-
-	/// The segment for the port registry
-	pub const KERNEL_PORT_REGISTRY_IDX: usize = 412;
-	/// The segment for the port item registry
-	pub const KERNEL_PORT_ITEM_REGISTRY_IDX: usize = 413;
-	/// The segment for the port list registry
-	pub const KERNEL_PORT_LIST_REGISTRY_IDX: usize = 414;
-
 	/// The kernel executable range, shared by the RX, RO, and RW segments.
 	///
 	/// MUST BE 511.
@@ -286,48 +251,6 @@ impl AddressSpaceLayout {
 	}
 }
 
-#[expect(clippy::missing_docs_in_private_items)]
-macro_rules! registries {
-	($($name:ident => $idx:ident),* $(,)?) => {
-		$(fn $name() -> Self::SupervisorSegment {
-			static DESCRIPTOR: Segment = unsafe {
-				Segment {
-					valid_range:       (
-						AddressSpaceLayout::$idx,
-						AddressSpaceLayout::$idx,
-					),
-					l0_template:       L0PageTableDescriptor::new()
-						.with_valid()
-						.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-						.with_user_no_exec()
-						.with_kernel_no_exec(),
-					l1_table_template: L1PageTableDescriptor::new()
-						.with_valid()
-						.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-						.with_user_no_exec()
-						.with_kernel_no_exec(),
-					l2_table_template: L2PageTableDescriptor::new()
-						.with_valid()
-						.with_table_access_permissions(PageTableEntryTableAccessPerm::KernelOnly)
-						.with_user_no_exec()
-						.with_kernel_no_exec(),
-					l3_template:       L3PageTableBlockDescriptor::new()
-						.with_valid()
-						.with_block_access_permissions(
-							PageTableEntryBlockAccessPerm::KernelRWUserNoAccess,
-						)
-						.with_user_no_exec()
-						.with_kernel_no_exec()
-						.with_not_secure()
-						.with_mair_index(MairEntry::NormalMemory.index() as u64),
-				}
-			};
-
-			&DESCRIPTOR
-		})*
-	}
-}
-
 /// L0 intermediate PTE for the kernel executable segment.
 ///
 /// Defined here as a constant since it's used within overlapping
@@ -364,24 +287,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	type SupervisorSegment = &'static Segment;
 	type UserHandle = Ttbr0Handle;
 	type UserSegment = &'static Segment;
-
-	registries! {
-		kernel_ring_registry => KERNEL_RING_REGISTRY_IDX,
-		kernel_ring_item_registry => KERNEL_RING_ITEM_REGISTRY_IDX,
-		kernel_ring_list_registry => KERNEL_RING_LIST_REGISTRY_IDX,
-		kernel_instance_registry => KERNEL_INSTANCE_REGISTRY_IDX,
-		kernel_instance_item_registry => KERNEL_INSTANCE_ITEM_REGISTRY_IDX,
-		kernel_instance_list_registry => KERNEL_INSTANCE_LIST_REGISTRY_IDX,
-		kernel_port_registry => KERNEL_PORT_REGISTRY_IDX,
-		kernel_port_item_registry => KERNEL_PORT_ITEM_REGISTRY_IDX,
-		kernel_port_list_registry => KERNEL_PORT_LIST_REGISTRY_IDX,
-		kernel_thread_registry => KERNEL_THREAD_REGISTRY_IDX,
-		kernel_thread_item_registry => KERNEL_THREAD_ITEM_REGISTRY_IDX,
-		kernel_thread_list_registry => KERNEL_THREAD_LIST_REGISTRY_IDX,
-		kernel_module_registry => KERNEL_MODULE_REGISTRY_IDX,
-		kernel_module_item_registry => KERNEL_MODULE_ITEM_REGISTRY_IDX,
-		kernel_module_list_registry => KERNEL_MODULE_LIST_REGISTRY_IDX,
-	}
 
 	unsafe fn current_supervisor_space() -> Self::SupervisorHandle {
 		Self::SupervisorHandle {

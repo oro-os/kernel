@@ -1,12 +1,10 @@
 //! Implements Oro module instances in the kernel.
 
 use oro_id::{Id, IdType};
+use oro_mem::alloc::{sync::Arc, vec::Vec};
+use oro_sync::Mutex;
 
-use crate::{
-	Arch, UserHandle,
-	instance::Instance,
-	registry::{Handle, List},
-};
+use crate::{Arch, UserHandle, instance::Instance};
 
 /// Module metadata.
 pub struct Module<A: Arch> {
@@ -21,7 +19,7 @@ pub struct Module<A: Arch> {
 	/// to refer to the module during module loading.
 	pub(crate) module_id: Id<{ IdType::Module }>,
 	/// The list of instances spawned from this module.
-	pub(crate) instances: Handle<List<Instance<A>, A>>,
+	pub(crate) instances: Vec<Arc<Mutex<Instance<A>>>>,
 	/// The module's address space mapper handle.
 	///
 	/// Instance and thread address space handles are typically
@@ -31,16 +29,8 @@ pub struct Module<A: Arch> {
 
 impl<A: Arch> Module<A> {
 	/// Returns the instance ID.
-	///
-	/// # Safety
-	/// **DO NOT USE THIS ID FOR ANYTHING SECURITY RELATED.**
-	///
-	/// IDs are re-used by registries when items are dropped, so
-	/// functions that take numeric IDs to return [`crate::registry::Handle`]s
-	/// may return a new item unexpectedly if the old one was dropped
-	/// and the slot was re-used.
 	#[must_use]
-	pub unsafe fn id(&self) -> usize {
+	pub fn id(&self) -> usize {
 		self.id
 	}
 
@@ -51,8 +41,8 @@ impl<A: Arch> Module<A> {
 	}
 
 	/// Returns the list of instances spawned from this module.
-	pub fn instances(&self) -> Handle<List<Instance<A>, A>> {
-		self.instances.clone()
+	pub fn instances(&self) -> &[Arc<Mutex<Instance<A>>>] {
+		&self.instances
 	}
 
 	/// Returns the module's user address space mapper handle.

@@ -95,18 +95,8 @@ pub struct Port {
 
 impl Port {
 	/// Returns the port's ID.
-	///
-	/// # Safety
-	/// **DO NOT USE THIS FUNCTION FOR ANYTHING SECURITY RELATED.**
-	///
-	/// IDs are re-used by registries when items are dropped, so
-	/// multiple calls to an ID lookup function may return handles to
-	/// different port items as the IDs get recycled.
-	///
-	/// Only use this function for debugging or logging purposes, or
-	/// for handing IDs to the user.
 	#[must_use]
-	pub unsafe fn id(&self) -> usize {
+	pub fn id(&self) -> usize {
 		self.id
 	}
 

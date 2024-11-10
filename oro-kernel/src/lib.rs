@@ -15,27 +15,31 @@
 pub mod instance;
 pub mod module;
 pub mod port;
-pub mod registry;
 pub mod ring;
 pub mod scheduler;
 pub mod thread;
 
-use core::mem::MaybeUninit;
+use core::{
+	mem::MaybeUninit,
+	sync::atomic::{AtomicUsize, Ordering::Relaxed},
+};
 
 use oro_debug::dbg_err;
 use oro_id::{Id, IdType};
 use oro_macro::assert;
 use oro_mem::{
+	alloc::{
+		sync::{Arc, Weak},
+		vec,
+		vec::Vec,
+	},
 	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::Alloc,
 };
-use oro_sync::{Lock, TicketMutex};
+use oro_sync::{Lock, Mutex, TicketMutex};
 
-use self::{
-	registry::{Handle, List, ListRegistry, Registry},
-	scheduler::Scheduler,
-};
+use self::scheduler::Scheduler;
 
 /// Core-local instance of the Oro kernel.
 ///
@@ -181,53 +185,19 @@ pub struct KernelState<A: Arch> {
 	user_mapper: UserHandle<A>,
 
 	/// List of all modules.
-	///
-	/// Always `Some` after a valid initialization.
-	/// Can be safely `.unwrap()`'d in most situations.
-	modules:   Option<Handle<List<module::Module<A>, A>>>,
+	modules:   TicketMutex<Vec<Weak<Mutex<module::Module<A>>>>>,
 	/// List of all rings.
-	///
-	/// Always `Some` after a valid initialization.
-	/// Can be safely `.unwrap()`'d in most situations.
-	rings:     Option<Handle<List<ring::Ring<A>, A>>>,
+	rings:     TicketMutex<Vec<Weak<Mutex<ring::Ring<A>>>>>,
 	/// List of all instances.
-	///
-	/// Always `Some` after a valid initialization.
-	/// Can be safely `.unwrap()`'d in most situations.
-	instances: Option<Handle<List<instance::Instance<A>, A>>>,
+	instances: TicketMutex<Vec<Weak<Mutex<instance::Instance<A>>>>>,
 	/// List of all threads.
-	///
-	/// Always `Some` after a valid initialization.
-	/// Can be safely `.unwrap()`'d in most situations.
-	threads:   Option<Handle<List<thread::Thread<A>, A>>>,
+	threads:   TicketMutex<Vec<Weak<Mutex<thread::Thread<A>>>>>,
 
 	/// The root ring.
-	///
-	/// Always `Some` after a valid initialization.
-	/// Can be safely `.unwrap()`'d in most situations.
-	root_ring: Option<Handle<ring::Ring<A>>>,
+	root_ring: Arc<Mutex<ring::Ring<A>>>,
 
-	/// Ring registry.
-	ring_registry:          Registry<ring::Ring<A>, A>,
-	/// Ring list registry.
-	ring_list_registry:     ListRegistry<ring::Ring<A>, A>,
-	/// Module registry.
-	module_registry:        Registry<module::Module<A>, A>,
-	/// Module list registry.
-	module_list_registry:   ListRegistry<module::Module<A>, A>,
-	/// Instance registry.
-	instance_registry:      Registry<instance::Instance<A>, A>,
-	/// Instance list registry.
-	instance_list_registry: ListRegistry<instance::Instance<A>, A>,
-	/// Thread registry.
-	thread_registry:        Registry<thread::Thread<A>, A>,
-	/// Thread list registry.
-	thread_list_registry:   ListRegistry<thread::Thread<A>, A>,
-	/// Port registry.
-	#[expect(dead_code)]
-	port_registry:          Registry<port::Port, A>,
-	/// Port list registry.
-	port_list_registry:     ListRegistry<port::Port, A>,
+	/// The ID counter for resource allocation.
+	id_counter: AtomicUsize,
 }
 
 impl<A: Arch> KernelState<A> {
@@ -245,126 +215,68 @@ impl<A: Arch> KernelState<A> {
 	/// or else registry accesses will page fault.
 	#[allow(clippy::missing_panics_doc)]
 	pub unsafe fn init(this: &'static mut MaybeUninit<Self>) -> Result<(), MapError> {
-		#[expect(clippy::missing_docs_in_private_items)]
-		macro_rules! init_registries {
-			($($id:ident => $(($listregfn:ident, $itemregfn:ident))? $($regfn:ident)?),* $(,)?) => {
-				$(
-					let $id = {
-						init_registries!(@inner $(($listregfn, $itemregfn))? $($regfn)?)
-					};
-				)*
-			};
-
-			(@inner ( $listregfn:ident , $itemregfn:ident )) => {
-				ListRegistry::new(
-					A::AddrSpace::$listregfn(),
-					A::AddrSpace::$itemregfn(),
-				)?
-			};
-
-			(@inner $regfn:ident) => {
-				Registry::new(
-					A::AddrSpace::$regfn(),
-				)?
-			};
-		}
-
-		init_registries! {
-			ring_registry => kernel_ring_registry,
-			ring_list_registry => (kernel_ring_list_registry, kernel_ring_item_registry),
-			module_registry => kernel_module_registry,
-			module_list_registry => (kernel_module_list_registry, kernel_module_item_registry),
-			instance_registry => kernel_instance_registry,
-			instance_list_registry => (kernel_instance_list_registry, kernel_instance_item_registry),
-			thread_registry => kernel_thread_registry,
-			thread_list_registry => (kernel_thread_list_registry, kernel_thread_item_registry),
-			port_registry => kernel_port_registry,
-			port_list_registry => (kernel_port_list_registry, kernel_port_item_registry),
-		}
-
 		let supervisor_space = AddrSpace::<A>::current_supervisor_space();
 		let user_mapper =
 			AddrSpace::<A>::new_user_space(&supervisor_space).ok_or(MapError::OutOfMemory)?;
 
+		let root_ring = Arc::new(Mutex::new(ring::Ring::<A> {
+			id:        0,
+			parent:    None,
+			instances: Vec::new(),
+		}));
+
 		this.write(Self {
 			user_mapper,
-			root_ring: None,
-			modules: None,
-			rings: None,
-			instances: None,
-			threads: None,
-			ring_registry,
-			ring_list_registry,
-			module_registry,
-			module_list_registry,
-			instance_registry,
-			instance_list_registry,
-			thread_registry,
-			thread_list_registry,
-			port_registry,
-			port_list_registry,
+			root_ring: root_ring.clone(),
+			modules: Default::default(),
+			rings: TicketMutex::new(vec![Arc::downgrade(&root_ring)]),
+			instances: Default::default(),
+			threads: Default::default(),
+			id_counter: AtomicUsize::new(0),
 		});
 
 		let this = this.assume_init_mut();
 
-		let root_ring = this.ring_registry.insert(ring::Ring {
-			id:        0,
-			parent:    None,
-			instances: this.instance_list_registry.create_list()?,
-		})?;
-		assert_eq!(root_ring.id(), 0, "root ring ID must be 0");
-
-		let modules = this.module_list_registry.create_list()?;
-		let rings = this.ring_list_registry.create_list()?;
-		let instances = this.instance_list_registry.create_list()?;
-		let threads = this.thread_list_registry.create_list()?;
-
-		let _ = rings.append(root_ring.clone())?;
-
-		this.root_ring = Some(root_ring);
-		this.rings = Some(rings);
-		this.modules = Some(modules);
-		this.instances = Some(instances);
-		this.threads = Some(threads);
+		// Sanity check
+		debug_assert_eq!(this.root_ring.lock().id(), 0, "root ring ID must be 0");
+		debug_assert_eq!(this.allocate_id(), 0, "first allocated ID must be 0");
 
 		Ok(())
 	}
 
-	/// Returns a [`Handle`] to the root ring.
-	#[expect(clippy::missing_panics_doc)]
-	pub fn root_ring(&'static self) -> Handle<ring::Ring<A>> {
-		// SAFETY(qix-): We always assume the root ring is initialized.
-		self.root_ring.clone().unwrap()
+	/// Returns a handle to the root ring.
+	pub fn root_ring(&'static self) -> Arc<Mutex<ring::Ring<A>>> {
+		self.root_ring.clone()
 	}
 
-	/// Returns a [`Handle`] to the list of all threads.
-	#[expect(clippy::missing_panics_doc)]
-	pub fn threads(&'static self) -> Handle<List<thread::Thread<A>, A>> {
-		// SAFETY(qix-): We always assume the threads list is initialized.
-		self.threads.clone().unwrap()
+	/// Returns a reference to the mutex-guarded list of threads.
+	pub fn threads(
+		&'static self,
+	) -> &'static impl Lock<Target = Vec<Weak<Mutex<thread::Thread<A>>>>> {
+		&self.threads
 	}
 
-	/// Creates a new ring and returns a [`Handle`] to it.
-	#[expect(clippy::missing_panics_doc)]
+	/// Allocates a new resource ID.
+	fn allocate_id(&self) -> usize {
+		self.id_counter.fetch_add(1, Relaxed)
+	}
+
+	/// Creates a new ring and returns a handle to it.
 	pub fn create_ring(
 		&'static self,
-		parent: Handle<ring::Ring<A>>,
-	) -> Result<Handle<ring::Ring<A>>, MapError> {
-		let ring = self.ring_registry.insert(ring::Ring::<A> {
-			id:        usize::MAX, // placeholder
+		parent: Arc<Mutex<ring::Ring<A>>>,
+	) -> Arc<Mutex<ring::Ring<A>>> {
+		let ring = Arc::new(Mutex::new(ring::Ring::<A> {
+			id:        self.allocate_id(),
 			parent:    Some(parent),
-			instances: self.instance_list_registry.create_list()?,
-		})?;
+			instances: Vec::new(),
+		}));
 
-		{
-			ring.lock().id = ring.id();
-		}
+		debug_assert_ne!(ring.lock().id(), 0, "ring ID must not be 0");
 
-		// SAFETY(qix-): As long as the kernel state has been initialized,
-		// SAFETY(qix-): this won't panic.
-		let _ = self.rings.as_ref().unwrap().append(ring.clone());
+		self.rings.lock().push(Arc::downgrade(&ring));
 
-		Ok(ring)
+		ring
 	}
 
 	/// Creates a new module and returns a [`Handle`] to it.
@@ -372,28 +284,22 @@ impl<A: Arch> KernelState<A> {
 	pub fn create_module(
 		&'static self,
 		id: Id<{ IdType::Module }>,
-	) -> Result<Handle<module::Module<A>>, MapError> {
-		let instance_list = self.instance_list_registry.create_list()?;
-
+	) -> Result<Arc<Mutex<module::Module<A>>>, MapError> {
 		let mapper = {
 			AddrSpace::<A>::duplicate_user_space_shallow(&self.user_mapper)
 				.ok_or(MapError::OutOfMemory)?
 		};
 
-		let module = self.module_registry.insert(module::Module::<A> {
-			id: 0,
+		let module = Arc::new(Mutex::new(module::Module::<A> {
+			id: self.allocate_id(),
 			module_id: id,
-			instances: instance_list,
+			instances: Vec::new(),
 			mapper,
-		})?;
+		}));
 
-		{
-			module.lock().id = module.id();
-		}
+		debug_assert_ne!(module.lock().id(), 0, "module ID must not be 0");
 
-		// SAFETY(qix-): As long as the kernel state has been initialized,
-		// SAFETY(qix-): this won't panic.
-		let _ = self.modules.as_ref().unwrap().append(module.clone());
+		let _ = self.modules.lock().push(Arc::downgrade(&module));
 
 		Ok(module)
 	}
@@ -402,35 +308,28 @@ impl<A: Arch> KernelState<A> {
 	#[expect(clippy::needless_pass_by_value)]
 	pub fn create_instance(
 		&'static self,
-		module: Handle<module::Module<A>>,
-		ring: Handle<ring::Ring<A>>,
-	) -> Result<Handle<instance::Instance<A>>, MapError> {
-		let thread_list = self.thread_list_registry.create_list()?;
-		let port_list = self.port_list_registry.create_list()?;
-
+		module: Arc<Mutex<module::Module<A>>>,
+		ring: Arc<Mutex<ring::Ring<A>>>,
+	) -> Result<Arc<Mutex<instance::Instance<A>>>, MapError> {
 		let mapper = {
 			let module_lock = module.lock();
 			AddrSpace::<A>::duplicate_user_space_shallow(module_lock.mapper())
 				.ok_or(MapError::OutOfMemory)?
 		};
 
-		let instance = self.instance_registry.insert(instance::Instance {
-			id: 0,
+		let instance = Arc::new(Mutex::new(instance::Instance {
+			id: self.allocate_id(),
 			module: module.clone(),
 			ring: ring.clone(),
-			threads: thread_list,
-			ports: port_list,
+			threads: Vec::new(),
+			ports: Vec::new(),
 			mapper,
-		})?;
+		}));
 
-		{
-			instance.lock().id = instance.id();
+		debug_assert_ne!(instance.lock().id(), 0, "instance ID must not be 0");
 
-			// SAFETY(qix-): As long as the kernel state has been initialized,
-			// SAFETY(qix-): this won't panic.
-			let _ = module.lock().instances.append(instance.clone());
-			let _ = ring.lock().instances.append(instance.clone());
-		}
+		module.lock().instances.push(instance.clone());
+		ring.lock().instances.push(instance.clone());
 
 		Ok(instance)
 	}
@@ -441,10 +340,10 @@ impl<A: Arch> KernelState<A> {
 	#[expect(clippy::missing_panics_doc, clippy::needless_pass_by_value)]
 	pub fn create_thread(
 		&'static self,
-		instance: Handle<instance::Instance<A>>,
+		instance: Arc<Mutex<instance::Instance<A>>>,
 		stack_size: usize,
 		mut thread_state: A::ThreadState,
-	) -> Result<Handle<thread::Thread<A>>, MapError> {
+	) -> Result<Arc<Mutex<thread::Thread<A>>>, MapError> {
 		let mapper = {
 			let instance_lock = instance.lock();
 			AddrSpace::<A>::duplicate_user_space_shallow(instance_lock.mapper())
@@ -501,8 +400,8 @@ impl<A: Arch> KernelState<A> {
 				// Let the architecture do any additional stack setup.
 				A::initialize_thread_mappings(&mapper, &mut thread_state)?;
 
-				let thread = self.thread_registry.insert(thread::Thread::<A> {
-					id: 0,
+				let thread = Arc::new(Mutex::new(thread::Thread::<A> {
+					id: self.allocate_id(),
 					instance: instance.clone(),
 					// We set it in a moment.
 					mapper: MaybeUninit::uninit(),
@@ -510,13 +409,12 @@ impl<A: Arch> KernelState<A> {
 					thread_state: MaybeUninit::uninit(),
 					run_on_id: None,
 					running_on_id: None,
-				})?;
+				}));
 
-				thread.lock().id = thread.id();
+				debug_assert_ne!(thread.lock().id(), 0, "thread ID must not be 0");
 
-				let _ = instance.lock().threads.append(thread.clone())?;
-
-				let _ = self.threads.as_ref().unwrap().append(thread.clone())?;
+				instance.lock().threads.push(thread.clone());
+				self.threads.lock().push(Arc::downgrade(&thread));
 
 				Ok(thread)
 			};
@@ -596,8 +494,6 @@ pub trait Arch: 'static {
 
 /// Helper trait association type for `Arch::AddrSpace`.
 pub(crate) type AddrSpace<A> = <A as Arch>::AddrSpace;
-/// Helper trait association type for `Arch::AddrSpace::SupervisorSegment`.
-pub(crate) type SupervisorSegment<A> = <AddrSpace<A> as AddressSpace>::SupervisorSegment;
 /// Helper trait association type for `Arch::AddrSpace::SupervisorHandle`.
 pub(crate) type SupervisorHandle<A> = <AddrSpace<A> as AddressSpace>::SupervisorHandle;
 /// Helper trait association type for `Arch::AddrSpace::UserHandle`.

@@ -1,10 +1,9 @@
 //! Implements Oro rings in the kernel.
 
-use crate::{
-	Arch,
-	instance::Instance,
-	registry::{Handle, List},
-};
+use oro_mem::alloc::{sync::Arc, vec::Vec};
+use oro_sync::Mutex;
+
+use crate::{Arch, instance::Instance};
 
 /// A singular ring.
 ///
@@ -33,25 +32,15 @@ pub struct Ring<A: Arch> {
 	/// It is the offset of the arena slot into the arena pool.
 	pub(crate) id:        usize,
 	/// The parent ring [`Handle`]. `None` if this is the root ring.
-	pub(crate) parent:    Option<Handle<Ring<A>>>,
+	pub(crate) parent:    Option<Arc<Mutex<Ring<A>>>>,
 	/// The module [`Instance`]s on the ring.
-	pub(crate) instances: Handle<List<Instance<A>, A>>,
+	pub(crate) instances: Vec<Arc<Mutex<Instance<A>>>>,
 }
 
 impl<A: Arch> Ring<A> {
 	/// Returns the ring's ID.
-	///
-	/// # Safety
-	/// **DO NOT USE THIS FUNCTION FOR ANYTHING SECURITY RELATED.**
-	///
-	/// IDs are re-used by registries when items are dropped, so
-	/// multiple calls to an ID lookup function may return handles to
-	/// different ring items as the IDs get recycled.
-	///
-	/// Only use this function for debugging or logging purposes, or
-	/// for handing IDs to the user.
 	#[must_use]
-	pub unsafe fn id(&self) -> usize {
+	pub fn id(&self) -> usize {
 		self.id
 	}
 
@@ -59,12 +48,12 @@ impl<A: Arch> Ring<A> {
 	///
 	/// If the ring is the root ring, this function will return `None`.
 	#[must_use]
-	pub fn parent(&self) -> Option<Handle<Ring<A>>> {
+	pub fn parent(&self) -> Option<Arc<Mutex<Ring<A>>>> {
 		self.parent.clone()
 	}
 
 	/// Returns a handle to the list of instances on the ring.
-	pub fn instances(&self) -> Handle<List<Instance<A>, A>> {
-		self.instances.clone()
+	pub fn instances(&self) -> &[Arc<Mutex<Instance<A>>>] {
+		&self.instances
 	}
 }

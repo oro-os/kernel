@@ -1,12 +1,9 @@
 //! Houses types, traits and functionality for the Oro kernel scheduler.
 
-use oro_sync::Lock;
+use oro_mem::alloc::sync::Arc;
+use oro_sync::Mutex;
 
-use crate::{
-	Arch, Kernel,
-	registry::{Handle, Item},
-	thread::Thread,
-};
+use crate::{Arch, Kernel, thread::Thread};
 
 /// Architecture-specific handler for scheduler related
 /// commands.
@@ -60,11 +57,7 @@ pub trait Handler<A: Arch> {
 /// itself.
 pub struct Scheduler<A: Arch> {
 	/// A reference to the kernel instance.
-	kernel:         &'static Kernel<A>,
-	/// The current thread being run, as a list item.
-	///
-	/// `None` if no thread is currently running.
-	current_thread: Option<Handle<Item<Thread<A>, A>>>,
+	kernel: &'static Kernel<A>,
 }
 
 // XXX(qix-): Temporary workaround to make things compile
@@ -75,26 +68,12 @@ unsafe impl<A: Arch> Sync for Scheduler<A> {}
 impl<A: Arch> Scheduler<A> {
 	/// Creates a new scheduler instance.
 	pub(crate) fn new(kernel: &'static Kernel<A>) -> Self {
-		Self {
-			kernel,
-			current_thread: None,
-		}
+		Self { kernel }
 	}
 
-	/// Returns a [`Handle`] of the currently
-	/// running thread, if any.
-	///
-	/// This must always return `Some` if a user task
-	/// has been scheduled.
-	///
-	/// # Safety
-	/// **Interrupts or any other asynchronous events must be
-	/// disabled before calling this function.**
-	#[must_use]
-	pub unsafe fn current_thread(&self) -> Option<Handle<Thread<A>>> {
-		self.current_thread
-			.as_ref()
-			.map(|item| item.lock().handle().clone())
+	/// Returns a handle to the currently processing thread.
+	pub fn current_thread(&self) -> Option<Arc<Mutex<Thread<A>>>> {
+		todo!("current_thread()");
 	}
 
 	/// Selects a new thread to run.
@@ -114,59 +93,8 @@ impl<A: Arch> Scheduler<A> {
 	/// # Safety
 	/// Interrupts MUST be disabled before calling this function.
 	#[must_use]
-	unsafe fn pick_user_thread<H: Handler<A>>(&mut self) -> Option<Handle<Thread<A>>> {
-		loop {
-			let selected_thread_item = if let Some(current_thread) = self.current_thread.take() {
-				let next_thread = {
-					let current_thread_lock = current_thread.lock();
-					let next = if current_thread_lock.in_list() {
-						current_thread_lock.next()
-					} else {
-						// The current thread was removed from the threads list
-						// (probably pending removal), so we start from the beginning.
-						// This shouldn't happen often, as it's a recoverable "race condition".
-						// Not ideal but it's not a critical issue.
-						None
-					};
-					drop(current_thread_lock);
-					next
-				};
-
-				// If we've reached the end of the list, force breaking back into the kernel.
-				Some(next_thread?)
-			} else {
-				self.kernel.state().threads().lock().first()
-			}?;
-
-			self.current_thread = Some(selected_thread_item.clone());
-
-			let selected_thread_item_lock = selected_thread_item.lock();
-			let mut selected_thread_lock = selected_thread_item_lock.lock();
-
-			let this_kernel_id = self.kernel.id();
-
-			// Try to claim any orphan threads.
-			if *selected_thread_lock.run_on_id.get_or_insert(this_kernel_id) == this_kernel_id {
-				let needs_migration = selected_thread_lock
-					.running_on_id
-					.map_or_else(|| true, |id| id != this_kernel_id);
-
-				if needs_migration {
-					H::migrate_thread(self.kernel, &mut *selected_thread_lock);
-					selected_thread_lock.running_on_id = Some(this_kernel_id);
-				}
-
-				let result = selected_thread_item_lock.handle().clone();
-
-				drop(selected_thread_lock);
-				drop(selected_thread_item_lock);
-
-				return Some(result);
-			}
-
-			drop(selected_thread_lock);
-			drop(selected_thread_item_lock);
-		}
+	unsafe fn pick_user_thread<H: Handler<A>>(&mut self) -> Option<Arc<Mutex<Thread<A>>>> {
+		todo!("pick_user_thread()");
 	}
 
 	/// Called whenever the architecture has reached a codepath
@@ -190,7 +118,10 @@ impl<A: Arch> Scheduler<A> {
 	/// can other scheduler methods be invoked while this function
 	/// is running.
 	#[must_use]
-	pub unsafe fn event_idle<H: Handler<A>>(&mut self, handler: &H) -> Option<Handle<Thread<A>>> {
+	pub unsafe fn event_idle<H: Handler<A>>(
+		&mut self,
+		handler: &H,
+	) -> Option<Arc<Mutex<Thread<A>>>> {
 		let result = self.pick_user_thread::<H>();
 		handler.schedule_timer(1000);
 		result
@@ -223,7 +154,7 @@ impl<A: Arch> Scheduler<A> {
 	pub unsafe fn event_timer_expired<H: Handler<A>>(
 		&mut self,
 		handler: &H,
-	) -> Option<Handle<Thread<A>>> {
+	) -> Option<Arc<Mutex<Thread<A>>>> {
 		let result = self.pick_user_thread::<H>();
 		handler.schedule_timer(1000);
 		result

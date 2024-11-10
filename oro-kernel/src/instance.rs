@@ -1,13 +1,9 @@
 //! Module instance types and functionality.
 
-use crate::{
-	Arch, UserHandle,
-	module::Module,
-	port::Port,
-	registry::{Handle, List},
-	ring::Ring,
-	thread::Thread,
-};
+use oro_mem::alloc::{sync::Arc, vec::Vec};
+use oro_sync::Mutex;
+
+use crate::{Arch, UserHandle, module::Module, port::Port, ring::Ring, thread::Thread};
 
 /// A singular module instance.
 ///
@@ -42,13 +38,13 @@ pub struct Instance<A: Arch> {
 	/// The module instance ID.
 	pub(crate) id:      usize,
 	/// The module from which this instance was spawned.
-	pub(crate) module:  Handle<Module<A>>,
+	pub(crate) module:  Arc<Mutex<Module<A>>>,
 	/// The ring on which this instance resides.
-	pub(crate) ring:    Handle<Ring<A>>,
+	pub(crate) ring:    Arc<Mutex<Ring<A>>>,
 	/// The thread list for the instance.
-	pub(crate) threads: Handle<List<Thread<A>, A>>,
+	pub(crate) threads: Vec<Arc<Mutex<Thread<A>>>>,
 	/// The port list for the instance.
-	pub(crate) ports:   Handle<List<Port, A>>,
+	pub(crate) ports:   Vec<Arc<Mutex<Port>>>,
 	/// The instance's address space mapper handle.
 	///
 	/// This is typically cloned from the module's user
@@ -58,37 +54,29 @@ pub struct Instance<A: Arch> {
 
 impl<A: Arch> Instance<A> {
 	/// Returns the instance ID.
-	///
-	/// # Safety
-	/// **DO NOT USE THIS ID FOR ANYTHING SECURITY RELATED.**
-	///
-	/// IDs are recycled when instances are dropped from the registry,
-	/// meaning functions that accept numeric IDs might return or work
-	/// with [`Handle`]s that refer to unintended instances that have
-	/// been inserted into the same slot.
 	#[must_use]
-	pub unsafe fn id(&self) -> usize {
+	pub fn id(&self) -> usize {
 		self.id
 	}
 
 	/// The [`Handle`] to the module from which this instance was spawned.
-	pub fn module(&self) -> Handle<Module<A>> {
+	pub fn module(&self) -> Arc<Mutex<Module<A>>> {
 		self.module.clone()
 	}
 
 	/// The [`Handle`] to the ring on which this instance resides.
-	pub fn ring(&self) -> Handle<Ring<A>> {
+	pub fn ring(&self) -> Arc<Mutex<Ring<A>>> {
 		self.ring.clone()
 	}
 
 	/// Gets a handle to the list of threads for this instance.
-	pub fn threads(&self) -> Handle<List<Thread<A>, A>> {
-		self.threads.clone()
+	pub fn threads(&self) -> &[Arc<Mutex<Thread<A>>>] {
+		&self.threads
 	}
 
 	/// Gets a handle to the list of ports for this instance.
-	pub fn ports(&self) -> Handle<List<Port, A>> {
-		self.ports.clone()
+	pub fn ports(&self) -> &[Arc<Mutex<Port>>] {
+		&self.ports
 	}
 
 	/// Returns the instance's address space handle.

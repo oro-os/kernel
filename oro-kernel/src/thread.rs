@@ -2,7 +2,10 @@
 
 use core::mem::MaybeUninit;
 
-use crate::{Arch, UserHandle, instance::Instance, registry::Handle};
+use oro_mem::alloc::sync::Arc;
+use oro_sync::Mutex;
+
+use crate::{Arch, UserHandle, instance::Instance};
 
 /// A singular system thread.
 ///
@@ -18,7 +21,7 @@ pub struct Thread<A: Arch> {
 	/// The thread's ID.
 	pub(crate) id: usize,
 	/// The module instance to which this thread belongs.
-	pub(crate) instance: Handle<Instance<A>>,
+	pub(crate) instance: Arc<Mutex<Instance<A>>>,
 	/// The thread's address space handle.
 	///
 	/// This is typically cloned from the instance's
@@ -48,23 +51,13 @@ pub struct Thread<A: Arch> {
 
 impl<A: Arch> Thread<A> {
 	/// Returns the thread's ID.
-	///
-	/// # Safety
-	/// **DO NOT USE THIS FUNCTION FOR ANYTHING SECURITY RELATED.**
-	///
-	/// IDs are re-used by registries when items are dropped, so
-	/// multiple calls to an ID lookup function may return handles to
-	/// different thread items as the IDs get recycled.
-	///
-	/// Only use this function for debugging or logging purposes, or
-	/// for handing IDs to the user.
 	#[must_use]
-	pub unsafe fn id(&self) -> usize {
+	pub fn id(&self) -> usize {
 		self.id
 	}
 
 	/// Returns module instance [`Handle`] to which this thread belongs.
-	pub fn instance(&self) -> Handle<Instance<A>> {
+	pub fn instance(&self) -> Arc<Mutex<Instance<A>>> {
 		self.instance.clone()
 	}
 
