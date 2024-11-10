@@ -11,6 +11,8 @@ homepage = "https://oro.sh"
 repository = "https://github.com/oro-os/kernel"
 license = "MPL-2.0"
 
+build = "build.rs"
+
 [lib]
 proc-macro = true
 doctest = false

@@ -1,7 +1,7 @@
 //! Provides a macro for producing a buffer of assembly instructions
 //! using the `asm!` macro.
 
-use std::io::Read;
+use std::{env, io::Read, path::PathBuf};
 
 use quote::quote;
 
@@ -56,7 +56,8 @@ pub fn asm_buffer(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	}
 	.to_string();
 
-	let tmp_path = std::env::temp_dir().join("oro_asm_buffer");
+	let out_dir = PathBuf::from(env!("OUT_DIR"));
+	let tmp_path = out_dir.join("oro_asm_buffer");
 	std::fs::create_dir(&tmp_path)
 		.or_else(|e| {
 			match e.kind() {
