@@ -228,10 +228,10 @@ impl<A: Arch> KernelState<A> {
 		this.write(Self {
 			user_mapper,
 			root_ring: root_ring.clone(),
-			modules: Default::default(),
+			modules: TicketMutex::default(),
 			rings: TicketMutex::new(vec![Arc::downgrade(&root_ring)]),
-			instances: Default::default(),
-			threads: Default::default(),
+			instances: TicketMutex::default(),
+			threads: TicketMutex::default(),
 			id_counter: AtomicUsize::new(0),
 		});
 
@@ -280,7 +280,6 @@ impl<A: Arch> KernelState<A> {
 	}
 
 	/// Creates a new module and returns a [`Handle`] to it.
-	#[expect(clippy::missing_panics_doc)]
 	pub fn create_module(
 		&'static self,
 		id: Id<{ IdType::Module }>,
@@ -299,7 +298,7 @@ impl<A: Arch> KernelState<A> {
 
 		debug_assert_ne!(module.lock().id(), 0, "module ID must not be 0");
 
-		let _ = self.modules.lock().push(Arc::downgrade(&module));
+		self.modules.lock().push(Arc::downgrade(&module));
 
 		Ok(module)
 	}
@@ -328,6 +327,7 @@ impl<A: Arch> KernelState<A> {
 
 		debug_assert_ne!(instance.lock().id(), 0, "instance ID must not be 0");
 
+		self.instances.lock().push(Arc::downgrade(&instance));
 		module.lock().instances.push(instance.clone());
 		ring.lock().instances.push(instance.clone());
 

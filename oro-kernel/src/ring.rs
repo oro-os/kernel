@@ -53,6 +53,7 @@ impl<A: Arch> Ring<A> {
 	}
 
 	/// Returns a handle to the list of instances on the ring.
+	#[must_use]
 	pub fn instances(&self) -> &[Arc<Mutex<Instance<A>>>] {
 		&self.instances
 	}

@@ -1,7 +1,7 @@
 //! Houses types, traits and functionality for the Oro kernel scheduler.
 
 use oro_mem::alloc::sync::Arc;
-use oro_sync::Mutex;
+use oro_sync::{Lock, Mutex};
 
 use crate::{Arch, Kernel, thread::Thread};
 
@@ -57,7 +57,11 @@ pub trait Handler<A: Arch> {
 /// itself.
 pub struct Scheduler<A: Arch> {
 	/// A reference to the kernel instance.
-	kernel: &'static Kernel<A>,
+	kernel:     &'static Kernel<A>,
+	/// The current thread, if there is one being executed.
+	current:    Option<Arc<Mutex<Thread<A>>>>,
+	/// The index of the next thread to execute.
+	next_index: usize,
 }
 
 // XXX(qix-): Temporary workaround to make things compile
@@ -68,12 +72,17 @@ unsafe impl<A: Arch> Sync for Scheduler<A> {}
 impl<A: Arch> Scheduler<A> {
 	/// Creates a new scheduler instance.
 	pub(crate) fn new(kernel: &'static Kernel<A>) -> Self {
-		Self { kernel }
+		Self {
+			kernel,
+			current: None,
+			next_index: 0,
+		}
 	}
 
 	/// Returns a handle to the currently processing thread.
+	#[must_use]
 	pub fn current_thread(&self) -> Option<Arc<Mutex<Thread<A>>>> {
-		todo!("current_thread()");
+		self.current.clone()
 	}
 
 	/// Selects a new thread to run.
@@ -94,7 +103,63 @@ impl<A: Arch> Scheduler<A> {
 	/// Interrupts MUST be disabled before calling this function.
 	#[must_use]
 	unsafe fn pick_user_thread<H: Handler<A>>(&mut self) -> Option<Arc<Mutex<Thread<A>>>> {
-		todo!("pick_user_thread()");
+		if let Some(thread) = self.current.take() {
+			thread.lock().running_on_id = None;
+		}
+
+		// XXX(qix-): This is a terrible design but gets the job done for now.
+		// XXX(qix-): Every single core will be competing for a list of the same threads
+		// XXX(qix-): until a thread migration system is implemented.
+		let thread_list = self.kernel.state().threads().lock();
+
+		while self.next_index < thread_list.len() {
+			let thread = &thread_list[self.next_index];
+			self.next_index += 1;
+
+			if let Some(thread) = thread.upgrade() {
+				let mut t = thread.lock();
+
+				match (t.run_on_id, t.running_on_id) {
+					(Some(run_on), _) if run_on != self.kernel.id() => {
+						// Not scheduled to run on this core.
+						continue;
+					}
+					(_, Some(running_on)) => {
+						// Thread is currently running; skip it.
+						if running_on == self.kernel.id() {
+							// Something isn't right; it's not running here.
+							// Clear it and continue so it can be tried again later.
+							t.running_on_id = None;
+						}
+						continue;
+					}
+					(None, _) => {
+						// Thread is not assigned to any core.
+						// Migrate it to this core.
+						t.run_on_id = Some(self.kernel.id());
+						H::migrate_thread(self.kernel, &mut t);
+
+						// Select it for execution.
+						drop(t);
+						return Some(thread);
+					}
+					(Some(run_on), None) if run_on == self.kernel.id() => {
+						// Select it for execution.
+						drop(t);
+						return Some(thread.clone());
+					}
+					_ => {
+						// Not pertinent to this core.
+						continue;
+					}
+				}
+			}
+		}
+
+		drop(thread_list);
+
+		self.next_index = 0;
+		None
 	}
 
 	/// Called whenever the architecture has reached a codepath
