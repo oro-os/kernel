@@ -153,7 +153,7 @@ impl Lapic {
 		self.wait_for_ipi_ack();
 
 		// TODO(qix-): Wait 10ms.
-		for _ in 0..1_000_000 {
+		for _ in 0..100_000 {
 			core::hint::spin_loop();
 		}
 
