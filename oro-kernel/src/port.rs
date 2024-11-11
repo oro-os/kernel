@@ -82,11 +82,8 @@ use oro_id::{Id, IdType};
 /// Ownership of a port may be transferred to another thread, however
 /// this is a somewhat expensive operation and should be done sparingly.
 pub struct Port {
-	/// The ID of the port.
-	///
-	/// This is unique for each port, but can be re-used if ports are destroyed.
-	/// It is the offset of the arena slot into the arena pool.
-	id:        usize,
+	/// The resource ID.
+	id:        u64,
 	/// The type ID of the port.
 	type_id:   Id<{ IdType::PortType }>,
 	/// Gets the length of the port's message.
@@ -96,7 +93,7 @@ pub struct Port {
 impl Port {
 	/// Returns the port's ID.
 	#[must_use]
-	pub fn id(&self) -> usize {
+	pub fn id(&self) -> u64 {
 		self.id
 	}
 

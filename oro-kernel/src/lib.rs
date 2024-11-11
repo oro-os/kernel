@@ -21,12 +21,13 @@ pub mod thread;
 
 use core::{
 	mem::MaybeUninit,
-	sync::atomic::{AtomicUsize, Ordering::Relaxed},
+	sync::atomic::{AtomicU64, Ordering::Relaxed},
 };
 
-use oro_debug::dbg_err;
-use oro_id::{Id, IdType};
 use oro_macro::assert;
+// NOTE(qix-): Bug in Rustfmt where it keeps treating `vec![]` and the `mod vec`
+// NOTE(qix-): as the same, rearranging imports and breaking code. Super annoying.
+#[rustfmt::skip]
 use oro_mem::{
 	alloc::{
 		sync::{Arc, Weak},
@@ -34,7 +35,7 @@ use oro_mem::{
 		vec::Vec,
 	},
 	global_alloc::GlobalPfa,
-	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
+	mapper::{AddressSegment, AddressSpace, MapError},
 	pfa::Alloc,
 };
 use oro_sync::{Lock, Mutex, TicketMutex};
@@ -175,15 +176,6 @@ impl<A: Arch> Kernel<A> {
 /// Global state shared by all [`Kernel`] instances across
 /// core boot/powerdown/bringup cycles.
 pub struct KernelState<A: Arch> {
-	/// The base userspace address space mapper.
-	///
-	/// This is a clone of the supervisor space mapper handle
-	/// devoid of any userspace mappings, as well as all kernel-local
-	/// mappings removed.
-	///
-	/// It serves as the base for all userspace mappers.
-	user_mapper: UserHandle<A>,
-
 	/// List of all modules.
 	modules:   TicketMutex<Vec<Weak<Mutex<module::Module<A>>>>>,
 	/// List of all rings.
@@ -197,7 +189,7 @@ pub struct KernelState<A: Arch> {
 	root_ring: Arc<Mutex<ring::Ring<A>>>,
 
 	/// The ID counter for resource allocation.
-	id_counter: AtomicUsize,
+	id_counter: AtomicU64,
 }
 
 impl<A: Arch> KernelState<A> {
@@ -215,24 +207,15 @@ impl<A: Arch> KernelState<A> {
 	/// or else registry accesses will page fault.
 	#[allow(clippy::missing_panics_doc)]
 	pub unsafe fn init(this: &'static mut MaybeUninit<Self>) -> Result<(), MapError> {
-		let supervisor_space = AddrSpace::<A>::current_supervisor_space();
-		let user_mapper =
-			AddrSpace::<A>::new_user_space(&supervisor_space).ok_or(MapError::OutOfMemory)?;
-
-		let root_ring = Arc::new(Mutex::new(ring::Ring::<A> {
-			id:        0,
-			parent:    None,
-			instances: Vec::new(),
-		}));
+		let root_ring = ring::Ring::<A>::new_root()?;
 
 		this.write(Self {
-			user_mapper,
-			root_ring: root_ring.clone(),
-			modules: TicketMutex::default(),
-			rings: TicketMutex::new(vec![Arc::downgrade(&root_ring)]),
-			instances: TicketMutex::default(),
-			threads: TicketMutex::default(),
-			id_counter: AtomicUsize::new(0),
+			root_ring:  root_ring.clone(),
+			modules:    TicketMutex::default(),
+			rings:      TicketMutex::new(vec![Arc::downgrade(&root_ring)]),
+			instances:  TicketMutex::default(),
+			threads:    TicketMutex::default(),
+			id_counter: AtomicU64::new(0),
 		});
 
 		let this = this.assume_init_mut();
@@ -257,197 +240,11 @@ impl<A: Arch> KernelState<A> {
 	}
 
 	/// Allocates a new resource ID.
-	fn allocate_id(&self) -> usize {
-		self.id_counter.fetch_add(1, Relaxed)
-	}
-
-	/// Creates a new ring and returns a handle to it.
-	pub fn create_ring(
-		&'static self,
-		parent: Arc<Mutex<ring::Ring<A>>>,
-	) -> Arc<Mutex<ring::Ring<A>>> {
-		let ring = Arc::new(Mutex::new(ring::Ring::<A> {
-			id:        self.allocate_id(),
-			parent:    Some(parent),
-			instances: Vec::new(),
-		}));
-
-		debug_assert_ne!(ring.lock().id(), 0, "ring ID must not be 0");
-
-		self.rings.lock().push(Arc::downgrade(&ring));
-
-		ring
-	}
-
-	/// Creates a new module and returns a [`Handle`] to it.
-	pub fn create_module(
-		&'static self,
-		id: Id<{ IdType::Module }>,
-	) -> Result<Arc<Mutex<module::Module<A>>>, MapError> {
-		let mapper = {
-			AddrSpace::<A>::duplicate_user_space_shallow(&self.user_mapper)
-				.ok_or(MapError::OutOfMemory)?
-		};
-
-		let module = Arc::new(Mutex::new(module::Module::<A> {
-			id: self.allocate_id(),
-			module_id: id,
-			instances: Vec::new(),
-			mapper,
-		}));
-
-		debug_assert_ne!(module.lock().id(), 0, "module ID must not be 0");
-
-		self.modules.lock().push(Arc::downgrade(&module));
-
-		Ok(module)
-	}
-
-	/// Creates a new instance and returns a [`Handle`] to it.
-	#[expect(clippy::needless_pass_by_value)]
-	pub fn create_instance(
-		&'static self,
-		module: Arc<Mutex<module::Module<A>>>,
-		ring: Arc<Mutex<ring::Ring<A>>>,
-	) -> Result<Arc<Mutex<instance::Instance<A>>>, MapError> {
-		let mapper = {
-			let module_lock = module.lock();
-			AddrSpace::<A>::duplicate_user_space_shallow(module_lock.mapper())
-				.ok_or(MapError::OutOfMemory)?
-		};
-
-		let instance = Arc::new(Mutex::new(instance::Instance {
-			id: self.allocate_id(),
-			module: module.clone(),
-			ring: ring.clone(),
-			threads: Vec::new(),
-			ports: Vec::new(),
-			mapper,
-		}));
-
-		debug_assert_ne!(instance.lock().id(), 0, "instance ID must not be 0");
-
-		self.instances.lock().push(Arc::downgrade(&instance));
-		module.lock().instances.push(instance.clone());
-		ring.lock().instances.push(instance.clone());
-
-		Ok(instance)
-	}
-
-	/// Creates a new thread and returns a [`Handle`] to it.
-	///
-	/// `stack_size` is rounded up to the next page size.
-	#[expect(clippy::missing_panics_doc, clippy::needless_pass_by_value)]
-	pub fn create_thread(
-		&'static self,
-		instance: Arc<Mutex<instance::Instance<A>>>,
-		stack_size: usize,
-		mut thread_state: A::ThreadState,
-	) -> Result<Arc<Mutex<thread::Thread<A>>>, MapError> {
-		let mapper = {
-			let instance_lock = instance.lock();
-			AddrSpace::<A>::duplicate_user_space_shallow(instance_lock.mapper())
-				.ok_or(MapError::OutOfMemory)?
-		};
-
-		// Map the stack for the thread.
-		// SAFETY(qix-): We don't panic here.
-		let thread = unsafe {
-			// Map a stack for the thread.
-			let stack_segment = AddrSpace::<A>::module_thread_stack();
-			let stack_size = (stack_size + 0xFFF) & !0xFFF;
-
-			let stack_high_guard = stack_segment.range().1 & !0xFFF;
-			let stack_first_page = stack_high_guard - stack_size;
-			#[cfg(debug_assertions)]
-			let stack_low_guard = stack_first_page - 0x1000;
-
-			let map_result = {
-				for virt in (stack_first_page..stack_high_guard).step_by(0x1000) {
-					let phys = GlobalPfa.allocate().ok_or(MapError::OutOfMemory)?;
-					stack_segment.map(&mapper, virt, phys)?;
-				}
-
-				// Make sure the guard pages are unmapped.
-				// This is more of an assertion to make sure the thread
-				// state is not in a bad state, but should never be the
-				// case outside of bugs.
-				#[cfg(debug_assertions)]
-				{
-					match stack_segment.unmap(&mapper, stack_low_guard) {
-						Ok(phys) => {
-							panic!("a module's thread stack low guard page was mapped: {phys:016X}")
-						}
-						Err(UnmapError::NotMapped) => {}
-						Err(e) => {
-							panic!("failed to unmap a module's thread stack low guard page: {e:?}")
-						}
-					}
-
-					match stack_segment.unmap(&mapper, stack_high_guard) {
-						Ok(phys) => {
-							panic!(
-								"a module's thread stack high guard page was mapped: {phys:016X}"
-							)
-						}
-						Err(UnmapError::NotMapped) => {}
-						Err(e) => {
-							panic!("failed to unmap a module's thread stack high guard page: {e:?}")
-						}
-					}
-				}
-
-				// Let the architecture do any additional stack setup.
-				A::initialize_thread_mappings(&mapper, &mut thread_state)?;
-
-				let thread = Arc::new(Mutex::new(thread::Thread::<A> {
-					id: self.allocate_id(),
-					instance: instance.clone(),
-					// We set it in a moment.
-					mapper: MaybeUninit::uninit(),
-					// We set it in a moment.
-					thread_state: MaybeUninit::uninit(),
-					run_on_id: None,
-					running_on_id: None,
-				}));
-
-				debug_assert_ne!(thread.lock().id(), 0, "thread ID must not be 0");
-
-				instance.lock().threads.push(thread.clone());
-				self.threads.lock().push(Arc::downgrade(&thread));
-
-				Ok(thread)
-			};
-
-			// Try to reclaim the memory we just allocated, if any.
-			match map_result {
-				Err(err) => {
-					if let Err(err) = A::reclaim_thread_mappings(&mapper, &mut thread_state) {
-						dbg_err!(
-							"failed to reclaim architecture thread mappings - MEMORY MAY LEAK: \
-							 {err:?}"
-						);
-					}
-
-					if let Err(err) = stack_segment.unmap_all_and_reclaim(&mapper) {
-						dbg_err!("failed to reclaim thread stack - MEMORY MAY LEAK: {err:?}");
-					}
-
-					AddrSpace::<A>::free_user_space(mapper);
-
-					return Err(err);
-				}
-				Ok(thread) => thread,
-			}
-		};
-
-		{
-			let mut thread_lock = thread.lock();
-			thread_lock.mapper.write(mapper);
-			thread_lock.thread_state.write(thread_state);
-		}
-
-		Ok(thread)
+	fn allocate_id(&self) -> u64 {
+		let r = self.id_counter.fetch_add(1, Relaxed);
+		assert_ne!(r, u64::MAX, "ID counter overflow");
+		debug_assert_ne!(r, 0, "resource ID counter yielded 0, which is reserved");
+		r
 	}
 }
 
@@ -462,34 +259,29 @@ pub trait Arch: 'static {
 	/// The core-local state type.
 	type CoreState: Sized + Send + Sync + 'static = ();
 
-	/// Allows the architecture to further initialize an instance
-	/// thread's mappings when threads are created.
-	///
-	/// This guarantees that, no matter from where the thread is
-	/// created, the thread's address space will be initialized
-	/// correctly for the architecture.
-	fn initialize_thread_mappings(
-		_thread: &<Self::AddrSpace as AddressSpace>::UserHandle,
-		_thread_state: &mut Self::ThreadState,
-	) -> Result<(), MapError> {
-		Ok(())
-	}
+	/// Makes the given instance mapper unique, either by duplicating
+	/// all RW pages or by implementing COW (copy-on-write) semantics.
+	fn make_instance_unique(
+		mapper: &<Self::AddrSpace as AddressSpace>::UserHandle,
+	) -> Result<(), MapError>;
 
-	/// Allows the architecture to further reclaim any memory
-	/// associated with a thread when it is destroyed.
+	/// Creates a new [`Self::ThreadState`] instance.
+	fn new_thread_state(stack_ptr: usize, entry_point: usize) -> Self::ThreadState;
+
+	/// Allows for the architecture to initialize additional mappings per-thread
+	/// necessary to make threads work on that architecture.
+	fn initialize_thread_mappings(
+		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
+		thread_state: &mut Self::ThreadState,
+	) -> Result<(), MapError>;
+
+	/// Reclaims any mappings created by [`Self::initialize_thread_mappings`].
 	///
-	/// This method only reclaim memory that was allocated in
-	/// [`Self::initialize_thread_mappings()`].
-	///
-	/// Further, it should _not_ expect the mappings to be present
-	/// all the time; it may be called if allocation fails during
-	/// thread creation, causing a fragmented thread map.
+	/// Must be infallible.
 	fn reclaim_thread_mappings(
-		_thread: &<Self::AddrSpace as AddressSpace>::UserHandle,
-		_thread_state: &mut Self::ThreadState,
-	) -> Result<(), UnmapError> {
-		Ok(())
-	}
+		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
+		thread_state: &mut Self::ThreadState,
+	);
 }
 
 /// Helper trait association type for `Arch::AddrSpace`.

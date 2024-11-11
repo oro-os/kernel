@@ -23,8 +23,22 @@ use crate::pfa::Alloc;
 // TODO(qix-): Turn this into a const trait whenever const traits are stabilized.
 pub unsafe trait AddressSpace: 'static {
 	/// The type of supervisor address space handle that this address space works with.
+	///
+	/// Mapper handles **must not be** self-referential. Further, they are not marked
+	/// `Copy` or `Clone`, but are sometimes bitwise _moved_ around internally due to
+	/// the nature of kernel memory management. The kernel will never duplicate handles,
+	/// but might have to move them around in memory in copy-like ways.
+	///
+	/// Further, handles **may not** have `Drop` semantics.
 	type SupervisorHandle: Send + Sized + 'static;
 	/// The type of user address space handle that this address space works with.
+	///
+	/// Mapper handles **must not be** self-referential. Further, they are not marked
+	/// `Copy` or `Clone`, but are sometimes bitwise _moved_ around internally due to
+	/// the nature of kernel memory management. The kernel will never duplicate handles,
+	/// but might have to move them around in memory in copy-like ways.
+	///
+	/// Further, handles **may not** have `Drop` semantics.
 	type UserHandle: Send + Sized + 'static;
 
 	/// The type of [`AddressSegment`] that this address space
@@ -73,6 +87,24 @@ pub unsafe trait AddressSpace: 'static {
 	fn new_user_space(space: &Self::SupervisorHandle) -> Option<Self::UserHandle> {
 		Self::new_user_space_in(space, &mut crate::global_alloc::GlobalPfa)
 	}
+
+	/// Creates a new **empty** user address space handle. Uses the global allocator.
+	///
+	/// **NOTE**: This is NOT for creating new user space threads or processes. It's
+	/// meant **only** for creating userspace overlay handles for module and ring
+	/// mappers.
+	fn new_user_space_empty() -> Option<Self::UserHandle> {
+		Self::new_user_space_empty_in(&mut crate::global_alloc::GlobalPfa)
+	}
+
+	/// Creates a new **empty** user address space handle. Uses the given allocator.
+	///
+	/// **NOTE**: This is NOT for creating new user space threads or processes. It's
+	/// meant **only** for creating userspace overlay handles for module and ring
+	/// mappers.
+	fn new_user_space_empty_in<A>(alloc: &mut A) -> Option<Self::UserHandle>
+	where
+		A: Alloc;
 
 	/// Creates a new user address space handle based on the given supervisor handle.
 	/// Uses the given allocator.
@@ -140,27 +172,39 @@ pub unsafe trait AddressSpace: 'static {
 	where
 		A: Alloc;
 
-	/// Frees and reclaims the user address space handle. Uses the global allocator.
+	/// Frees and _shallowly_ reclaims the user address space handle. Uses the global allocator.
 	///
 	/// Frees the TOP LEVEL page table, without reclaiming any of the pages
-	/// that the page table points to.
-	fn free_user_space(space: Self::UserHandle) {
-		Self::free_user_space_in(space, &mut crate::global_alloc::GlobalPfa);
+	/// that the page table points to. In other words, no mappings that are shared
+	/// with other spaces are affected as long as the handle itself is not somehow
+	/// shared or bitwise cloned (which isn't supported to begin with).
+	fn free_user_space_handle(space: Self::UserHandle) {
+		Self::free_user_space_handle_in(space, &mut crate::global_alloc::GlobalPfa);
 	}
 
-	/// Frees and reclaims the user address space handle. Uses the given allocator.
+	/// Frees and _shallowly_ reclaims the user address space handle. Uses the given allocator.
 	///
 	/// Frees the TOP LEVEL page table, without reclaiming any of the pages
-	/// that the page table points to.
-	fn free_user_space_in<A>(space: Self::UserHandle, alloc: &mut A)
+	/// that the page table points to. In other words, no mappings that are shared
+	/// with other spaces are affected as long as the handle itself is not somehow
+	/// shared or bitwise cloned (which isn't supported to begin with).
+	fn free_user_space_handle_in<A>(space: Self::UserHandle, alloc: &mut A)
 	where
 		A: Alloc;
 
-	/// Returns the layout descriptor for the module thread segment.
+	/// Frees and _completely_ reclaims the user address space handle. Uses the global allocator.
 	///
-	/// This must be read-write, user accessible, and is
-	/// **not** executable.
-	fn module_thread_stack() -> Self::UserSegment;
+	/// **Frees all pages that the handle points to, including the top-level page table.**
+	fn free_user_space_deep(space: Self::UserHandle) {
+		Self::free_user_space_deep_in(space, &mut crate::global_alloc::GlobalPfa);
+	}
+
+	/// Frees and _completely_ reclaims the user address space handle. Uses the given allocator.
+	///
+	/// **Frees all pages that the handle points to, including the top-level page table.**
+	fn free_user_space_deep_in<A>(space: Self::UserHandle, alloc: &mut A)
+	where
+		A: Alloc;
 
 	/// Returns the layout descriptor for the kernel code segment.
 	///
@@ -199,6 +243,43 @@ pub unsafe trait AddressSpace: 'static {
 	///
 	/// It **must not** overlap with any other segment.
 	fn kernel_core_local() -> Self::SupervisorSegment;
+
+	/// Returns the layout descriptor for the sysabi segment,
+	/// exposed to instances and managed by the kernel.
+	///
+	/// This must be read-only, user accessible, and is **not** executable.
+	fn sysabi() -> Self::UserSegment;
+
+	/// Returns the layout descriptor for the user code segment.
+	///
+	/// This must be read-only, user accessible, and is executable.
+	///
+	/// **Must overlap with [`Self::user_data()`] and [`Self::user_rodata()`]**
+	fn user_code() -> Self::UserSegment;
+
+	/// Returns the layout descriptor for the user data segment.
+	///
+	/// This must be read-write, user accessible, and is **not** executable.
+	///
+	/// **Must overlap with [`Self::user_code()`] and [`Self::user_rodata()`]**
+	fn user_data() -> Self::UserSegment;
+
+	/// Returns the layout descriptor for the user read-only data segment.
+	///
+	/// This must be read-only, user accessible, and is **not** executable.
+	///
+	/// **Must overlap with [`Self::user_code()`] and [`Self::user_data()`]**
+	///
+	/// **This is the segment used to clone all module mappings when creating instances,
+	/// regardless of their permissions. Any sort of intermediate page mappings must be
+	/// prepared for that.**
+	fn user_rodata() -> Self::UserSegment;
+
+	/// Returns the layout descriptor for the userspace thread stack segment.
+	///
+	/// This must be read-write, user accessible, and is
+	/// **not** executable.
+	fn user_thread_stack() -> Self::UserSegment;
 }
 
 /// An address space segment descriptor.
@@ -268,13 +349,33 @@ pub unsafe trait AddressSegment<Handle: Sized>: Send + 'static {
 	where
 		A: Alloc;
 
+	/// Unmaps all pages in the segment. **Does not reclaim the pages**.
+	///
+	/// # Safety
+	/// Caller must ensure that unmapped pages are eventually freed and reclaimed,
+	/// else a memory leak will occur.
+	unsafe fn unmap_all_without_reclaim(&self, space: &Handle);
+
+	/// Applies the given `overlay` handle's top-level mappings to the given
+	/// `destination` handle, shallowly. Errors if any mappings already exist
+	/// in the destination handle.
+	///
+	/// Note that this is a **shallow** application, meaning that the mappings
+	/// are shared between the spaces; any writable mappings in the overlay
+	/// will be seen by all other spaces that have the same mappings.
+	fn apply_user_space_shallow(
+		&self,
+		destination: &Handle,
+		overlay: &Handle,
+	) -> Result<(), MapError>;
+
 	/// Unmaps and reclaims all pages in the segment. Uses the global allocator.
 	///
 	/// # Safety
 	/// Caller must ensure that all reclaimed pages are truly
 	/// freeable and not in use by any other address space handle.
-	unsafe fn unmap_all_and_reclaim(&self, space: &Handle) -> Result<(), UnmapError> {
-		self.unmap_all_and_reclaim_in(space, &mut crate::global_alloc::GlobalPfa)
+	unsafe fn unmap_all_and_reclaim(&self, space: &Handle) {
+		self.unmap_all_and_reclaim_in(space, &mut crate::global_alloc::GlobalPfa);
 	}
 
 	/// Unmaps and reclaims all pages in the segment. Uses the given allocator.
@@ -282,11 +383,7 @@ pub unsafe trait AddressSegment<Handle: Sized>: Send + 'static {
 	/// # Safety
 	/// Caller must ensure that all reclaimed pages are truly
 	/// freeable and not in use by any other address space handle.
-	unsafe fn unmap_all_and_reclaim_in<A>(
-		&self,
-		space: &Handle,
-		alloc: &mut A,
-	) -> Result<(), UnmapError>
+	unsafe fn unmap_all_and_reclaim_in<A>(&self, space: &Handle, alloc: &mut A)
 	where
 		A: Alloc;
 

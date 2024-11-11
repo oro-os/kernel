@@ -13,7 +13,7 @@ use crate::mem::address_space::AddressSpaceLayout;
 pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64) -> u64 {
 	// TODO(qix-): Not happy about doing this here. There should be a better way
 	// TODO(qix-): to defend against fragmentation regarding this.
-	let thread_stack_top = AddressSpaceLayout::module_thread_stack().range().1 & !0xFFF;
+	let thread_stack_top = AddressSpaceLayout::user_thread_stack().range().1 & !0xFFF;
 
 	let mut top = page_slice.len();
 	let mut written = 0;

@@ -523,7 +523,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		&DESCRIPTOR
 	}
 
-	fn module_thread_stack() -> Self::UserSegment {
+	fn user_thread_stack() -> Self::UserSegment {
 		todo!();
 	}
 }

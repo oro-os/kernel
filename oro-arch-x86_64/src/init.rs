@@ -272,7 +272,7 @@ pub unsafe fn boot(lapic: Lapic) -> ! {
 				let kernel_irq_rsp_ptr = kernel.core().kernel_irq_stack.get() as u64;
 				(*kernel.core().tss.get())
 					.rsp0
-					.write(AddressSpaceLayout::module_interrupt_stack().range().1 as u64 & !0xFFF);
+					.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
 				drop(ctx_lock);
 				(cr3, rsp, kernel_rsp_ptr, kernel_irq_rsp_ptr)
 			};

@@ -216,7 +216,7 @@ impl AddressSpaceLayout {
 	/// writable, and must NOT be user-accessible (despite being
 	/// in the user address space). It must also not be executable.
 	#[must_use]
-	pub fn module_interrupt_stack() -> &'static AddressSegment {
+	pub fn interrupt_stack() -> &'static AddressSegment {
 		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: (
@@ -300,6 +300,24 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		Some(duplicated)
 	}
 
+	fn new_user_space_empty_in<A>(alloc: &mut A) -> Option<Self::UserHandle>
+	where
+		A: Alloc,
+	{
+		let base_phys = alloc.allocate()?;
+
+		unsafe {
+			Phys::from_address_unchecked(base_phys)
+				.as_mut_unchecked::<PageTable>()
+				.reset();
+		}
+
+		Some(Self::UserHandle {
+			base_phys,
+			paging_level: PagingLevel::current_from_cpu(),
+		})
+	}
+
 	fn duplicate_supervisor_space_shallow_in<A: Alloc>(
 		space: &Self::SupervisorHandle,
 		alloc: &mut A,
@@ -331,16 +349,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		Self::duplicate_supervisor_space_shallow_in(space, alloc)
 	}
 
-	fn free_user_space_in<A>(space: Self::UserHandle, alloc: &mut A)
-	where
-		A: Alloc,
-	{
-		// SAFETY(qix-): We can guarantee that if we have a valid handle,
-		// SAFETY(qix-): we own this physical page and can free it.
-		unsafe { alloc.free(space.base_phys) };
-	}
-
-	fn module_thread_stack() -> Self::UserSegment {
+	fn user_thread_stack() -> Self::UserSegment {
 		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: (

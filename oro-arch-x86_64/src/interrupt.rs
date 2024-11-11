@@ -129,7 +129,7 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 			let rsp = ctx_lock.thread_state().irq_stack_ptr;
 			(*handler.kernel().core().tss.get())
 				.rsp0
-				.write(AddressSpaceLayout::module_interrupt_stack().range().1 as u64 & !0xFFF);
+				.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
 			drop(ctx_lock);
 			(cr3, rsp)
 		};

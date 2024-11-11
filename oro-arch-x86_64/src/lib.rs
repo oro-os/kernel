@@ -108,7 +108,7 @@ impl oro_kernel::Arch for Arch {
 	) -> Result<(), oro_mem::mapper::MapError> {
 		// Map only a page, with a stack guard.
 		// Must match below, in `ThreadState::default`.
-		let irq_stack_segment = AddressSpaceLayout::module_interrupt_stack();
+		let irq_stack_segment = AddressSpaceLayout::interrupt_stack();
 		let stack_high_guard = irq_stack_segment.range().1 & !0xFFF;
 		let stack_start = stack_high_guard - 0x1000;
 		#[cfg(debug_assertions)]
@@ -162,7 +162,7 @@ impl oro_kernel::Arch for Arch {
 		_thread_state: &mut Self::ThreadState,
 	) -> Result<(), UnmapError> {
 		// SAFETY(qix-): The module interrupt stack space is fully reclaimable and never shared.
-		unsafe { AddressSpaceLayout::module_interrupt_stack().unmap_all_and_reclaim(thread) }
+		unsafe { AddressSpaceLayout::interrupt_stack().unmap_all_and_reclaim(thread) }
 	}
 }
 
@@ -212,7 +212,7 @@ impl ThreadState {
 	/// Creates a new thread state with the given entry point.
 	pub fn new(entry: u64) -> Self {
 		// Must match above in `Arch::initialize_thread_mappings`.
-		let irq_stack_segment = AddressSpaceLayout::module_interrupt_stack();
+		let irq_stack_segment = AddressSpaceLayout::interrupt_stack();
 		let stack_high_guard = irq_stack_segment.range().1 & !0xFFF;
 
 		Self {
