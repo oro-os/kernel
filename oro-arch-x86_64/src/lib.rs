@@ -160,9 +160,11 @@ impl oro_kernel::Arch for Arch {
 	fn reclaim_thread_mappings(
 		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
 		_thread_state: &mut Self::ThreadState,
-	) -> Result<(), UnmapError> {
+	) {
 		// SAFETY(qix-): The module interrupt stack space is fully reclaimable and never shared.
-		unsafe { AddressSpaceLayout::interrupt_stack().unmap_all_and_reclaim(thread) }
+		unsafe {
+			AddressSpaceLayout::interrupt_stack().unmap_all_and_reclaim(thread);
+		}
 	}
 }
 

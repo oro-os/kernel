@@ -329,23 +329,6 @@ impl AddressSegment {
 		})
 	}
 
-	/// Unmaps the entire range's top level page tables without
-	/// reclaiming any of the physical memory.
-	///
-	/// # Safety
-	/// Caller must ensure that pages not being claimed _won't_
-	/// lead to memory leaks.
-	pub unsafe fn unmap_without_reclaim<Handle: MapperHandle>(&self, space: &Handle) {
-		let top_level = space.base_phys().as_mut_unchecked::<PageTable>();
-
-		for idx in self.valid_range.0..=self.valid_range.1 {
-			let entry = &mut top_level[idx];
-			if entry.present() {
-				entry.reset();
-			}
-		}
-	}
-
 	/// Takes the page table entry at the given index and unmaps it based on the current
 	/// depth.
 	///
@@ -428,11 +411,41 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		}
 	}
 
-	unsafe fn unmap_all_and_reclaim_in<A>(
+	fn apply_user_space_shallow(
 		&self,
-		space: &AddressSpaceHandle,
-		alloc: &mut A,
-	) -> Result<(), UnmapError>
+		destination: &AddressSpaceHandle,
+		overlay: &AddressSpaceHandle,
+	) -> Result<(), MapError> {
+		// SAFETY(qix-): We can assume the destination physical address is a valid page table.
+		let dest_pt = unsafe { destination.base_phys().as_mut_unchecked::<PageTable>() };
+		// SAFETY(qix-): We can assume the overlay physical address is a valid page table.
+		let overlay_pt = unsafe { overlay.base_phys().as_ref_unchecked::<PageTable>() };
+
+		for idx in self.valid_range.0..=self.valid_range.1 {
+			if dest_pt[idx].present() {
+				return Err(MapError::Exists);
+			}
+		}
+
+		for idx in self.valid_range.0..=self.valid_range.1 {
+			dest_pt[idx] = overlay_pt[idx];
+		}
+
+		Ok(())
+	}
+
+	unsafe fn unmap_all_without_reclaim(&self, space: &AddressSpaceHandle) {
+		let top_level = space.base_phys().as_mut_unchecked::<PageTable>();
+
+		for idx in self.valid_range.0..=self.valid_range.1 {
+			let entry = &mut top_level[idx];
+			if entry.present() {
+				entry.reset();
+			}
+		}
+	}
+
+	unsafe fn unmap_all_and_reclaim_in<A>(&self, space: &AddressSpaceHandle, alloc: &mut A)
 	where
 		A: Alloc,
 	{
@@ -445,8 +458,6 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 				space.paging_level.as_usize() - 1,
 			);
 		}
-
-		Ok(())
 	}
 
 	fn provision_as_shared_in<A>(

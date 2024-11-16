@@ -110,7 +110,7 @@ pub unsafe fn boot_secondary(
 	// is for the very, very top level page table. All of the L4/5 entries
 	// still point to the primary core's page tables, so resetting them
 	// before we remap them is sufficient enough.
-	kernel_stack_segment.unmap_without_reclaim(&mapper);
+	kernel_stack_segment.unmap_all_without_reclaim(&mapper);
 
 	// make sure top guard page is unmapped
 	match kernel_stack_segment.unmap(&mapper, last_stack_page_virt) {
@@ -525,8 +525,8 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	let mapper = AddressSpaceLayout::current_supervisor_space();
 	// SAFETY(qix-): We're sure that unmapping without reclaiming won't lead to a memory leak.
 	unsafe {
-		AddressSpaceLayout::secondary_boot_stub_code().unmap_without_reclaim(&mapper);
-		AddressSpaceLayout::secondary_boot_stub_stack().unmap_without_reclaim(&mapper);
+		AddressSpaceLayout::secondary_boot_stub_code().unmap_all_without_reclaim(&mapper);
+		AddressSpaceLayout::secondary_boot_stub_stack().unmap_all_without_reclaim(&mapper);
 	}
 
 	crate::init::boot(lapic);
