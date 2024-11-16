@@ -519,6 +519,56 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		&DESCRIPTOR
 	}
 
+	fn user_code() -> Self::UserSegment {
+		#[expect(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range: AddressSpaceLayout::MODULE_EXE_IDX,
+			entry_template: PageTableEntry::new().with_user().with_present(),
+			intermediate_entry_template: MODULE_EXE_INTERMEDIATE_ENTRY,
+		};
+
+		&DESCRIPTOR
+	}
+
+	fn user_data() -> Self::UserSegment {
+		#[expect(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range: AddressSpaceLayout::MODULE_EXE_IDX,
+			entry_template: PageTableEntry::new()
+				.with_present()
+				.with_writable()
+				.with_no_exec(),
+			intermediate_entry_template: MODULE_EXE_INTERMEDIATE_ENTRY,
+		};
+
+		&DESCRIPTOR
+	}
+
+	fn user_rodata() -> Self::UserSegment {
+		#[expect(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range: AddressSpaceLayout::MODULE_EXE_IDX,
+			entry_template: PageTableEntry::new().with_present().with_no_exec(),
+			intermediate_entry_template: MODULE_EXE_INTERMEDIATE_ENTRY,
+		};
+
+		&DESCRIPTOR
+	}
+
+	fn sysabi() -> Self::UserSegment {
+		#[expect(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range: (0, 0),
+			entry_template: PageTableEntry::new()
+				.with_user()
+				.with_present()
+				.with_no_exec(),
+			intermediate_entry_template: PageTableEntry::new().with_present().with_no_exec(),
+		};
+
+		&DESCRIPTOR
+	}
+
 	fn kernel_code() -> Self::SupervisorSegment {
 		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
