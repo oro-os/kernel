@@ -300,15 +300,23 @@ impl Segment {
 }
 
 unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
-	unsafe fn unmap_all_and_reclaim_in<A>(
-		&self,
-		_space: &Handle,
-		_alloc: &mut A,
-	) -> Result<(), UnmapError>
+	unsafe fn unmap_all_and_reclaim_in<A>(&self, _space: &Handle, _alloc: &mut A)
 	where
 		A: Alloc,
 	{
-		todo!();
+		todo!("unmap_all_and_reclaim_in()");
+	}
+
+	unsafe fn unmap_all_without_reclaim(&self, _space: &Handle) {
+		todo!("unmap_all_without_reclaim()");
+	}
+
+	fn apply_user_space_shallow(
+		&self,
+		_destination: &Handle,
+		_overlay: &Handle,
+	) -> Result<(), MapError> {
+		todo!("apply_user_space_shallow()");
 	}
 
 	fn range(&self) -> (usize, usize) {
