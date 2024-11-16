@@ -77,8 +77,13 @@ impl AddressSpaceLayout {
 	/// range that spans the entirety of the lower half.
 	pub const STUBS_IDX: (usize, usize) = (0, 255);
 
+	/// The index for the system ABI segment.
+	pub const SYSABI: usize = 1;
+
 	/// The index for the module segments.
 	pub const MODULE_EXE_IDX: (usize, usize) = (5, 16);
+	/// The index for the module thread stack segment.
+	pub const MODULE_THREAD_STACK_IDX: usize = 17;
 
 	/// The recursive entry indices.
 	pub const RECURSIVE_ENTRY_IDX: (usize, usize) = (256, 259);
@@ -282,6 +287,36 @@ const KERNEL_EXE_L2: L2PageTableDescriptor = unsafe {
 		.with_user_no_exec()
 };
 
+/// L0 intermediate PTE for the user executable segment.
+///
+/// Defined here as a constant since it's used within overlapping
+/// segments and any differences will cause indeterministic behavior.
+const USER_EXE_L0: L0PageTableDescriptor = unsafe {
+	L0PageTableDescriptor::new()
+		.with_valid()
+		.with_table_access_permissions(PageTableEntryTableAccessPerm::NoEffect)
+};
+
+/// L1 intermediate PTE for the user executable segment.
+///
+/// Defined here as a constant since it's used within overlapping
+/// segments and any differences will cause indeterministic behavior.
+const USER_EXE_L1: L1PageTableDescriptor = unsafe {
+	L1PageTableDescriptor::new()
+		.with_valid()
+		.with_table_access_permissions(PageTableEntryTableAccessPerm::NoEffect)
+};
+
+/// L2 intermediate PTE for the user executable segment.
+///
+/// Defined here as a constant since it's used within overlapping
+/// segments and any differences will cause indeterministic behavior.
+const USER_EXE_L2: L2PageTableDescriptor = unsafe {
+	L2PageTableDescriptor::new()
+		.with_valid()
+		.with_table_access_permissions(PageTableEntryTableAccessPerm::NoEffect)
+};
+
 unsafe impl AddressSpace for AddressSpaceLayout {
 	type SupervisorHandle = Ttbr1Handle;
 	type SupervisorSegment = &'static Segment;
@@ -335,13 +370,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		Some(Ttbr0Handle { base_phys })
 	}
 
-	fn free_user_space_in<A>(_space: Self::UserHandle, _alloc: &mut A)
-	where
-		A: Alloc,
-	{
-		todo!();
-	}
-
 	fn duplicate_supervisor_space_shallow_in<A>(
 		space: &Self::SupervisorHandle,
 		alloc: &mut A,
@@ -380,6 +408,36 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		}
 
 		Some(Self::UserHandle { base_phys })
+	}
+
+	fn new_user_space_empty_in<A>(alloc: &mut A) -> Option<Self::UserHandle>
+	where
+		A: Alloc,
+	{
+		Some(Self::UserHandle {
+			base_phys: alloc
+				.allocate()
+				.map(|addr| unsafe { Phys::from_address_unchecked(addr) })?,
+		})
+	}
+
+	fn free_user_space_handle_in<A>(space: Self::UserHandle, alloc: &mut A)
+	where
+		A: Alloc,
+	{
+		// SAFETY: We allocated this space, so it's safe to free, namely
+		// SAFETY: because it's being passed by value and it's not marked
+		// SAFETY: as Copy/Clone.
+		unsafe {
+			alloc.free(space.base_phys.address_u64());
+		}
+	}
+
+	fn free_user_space_deep_in<A>(_space: Self::UserHandle, _alloc: &mut A)
+	where
+		A: Alloc,
+	{
+		todo!("free_user_space_deep_in()");
 	}
 
 	fn kernel_code() -> Self::SupervisorSegment {
@@ -524,6 +582,121 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn user_thread_stack() -> Self::UserSegment {
-		todo!();
+		#[expect(clippy::missing_docs_in_private_items)]
+		static DESCRIPTOR: Segment = unsafe {
+			Segment {
+				valid_range:       (
+					AddressSpaceLayout::MODULE_THREAD_STACK_IDX,
+					AddressSpaceLayout::MODULE_THREAD_STACK_IDX,
+				),
+				l0_template:       USER_EXE_L0,
+				l1_table_template: USER_EXE_L1,
+				l2_table_template: USER_EXE_L2,
+				l3_template:       L3PageTableBlockDescriptor::new()
+					.with_valid()
+					.with_block_access_permissions(PageTableEntryBlockAccessPerm::KernelRWUserRW)
+					.with_user_no_exec()
+					.with_kernel_no_exec()
+					.with_not_secure()
+					.with_mair_index(MairEntry::NormalMemory.index() as u64),
+			}
+		};
+
+		&DESCRIPTOR
+	}
+
+	fn user_code() -> Self::UserSegment {
+		#[expect(clippy::missing_docs_in_private_items)]
+		static DESCRIPTOR: Segment = unsafe {
+			Segment {
+				valid_range:       AddressSpaceLayout::MODULE_EXE_IDX,
+				l0_template:       USER_EXE_L0,
+				l1_table_template: USER_EXE_L1,
+				l2_table_template: USER_EXE_L2,
+				l3_template:       L3PageTableBlockDescriptor::new()
+					.with_valid()
+					.with_block_access_permissions(PageTableEntryBlockAccessPerm::KernelROUserRO)
+					.with_not_secure()
+					.with_kernel_no_exec()
+					.with_mair_index(MairEntry::NormalMemory.index() as u64),
+			}
+		};
+
+		&DESCRIPTOR
+	}
+
+	fn user_data() -> Self::UserSegment {
+		#[expect(clippy::missing_docs_in_private_items)]
+		static DESCRIPTOR: Segment = unsafe {
+			Segment {
+				valid_range:       AddressSpaceLayout::MODULE_EXE_IDX,
+				l0_template:       USER_EXE_L0,
+				l1_table_template: USER_EXE_L1,
+				l2_table_template: USER_EXE_L2,
+				l3_template:       L3PageTableBlockDescriptor::new()
+					.with_valid()
+					.with_block_access_permissions(PageTableEntryBlockAccessPerm::KernelRWUserRW)
+					.with_not_secure()
+					.with_user_no_exec()
+					.with_kernel_no_exec()
+					.with_mair_index(MairEntry::NormalMemory.index() as u64),
+			}
+		};
+
+		&DESCRIPTOR
+	}
+
+	fn user_rodata() -> Self::UserSegment {
+		#[expect(clippy::missing_docs_in_private_items)]
+		static DESCRIPTOR: Segment = unsafe {
+			Segment {
+				valid_range:       AddressSpaceLayout::MODULE_EXE_IDX,
+				l0_template:       USER_EXE_L0,
+				l1_table_template: USER_EXE_L1,
+				l2_table_template: USER_EXE_L2,
+				l3_template:       L3PageTableBlockDescriptor::new()
+					.with_valid()
+					.with_block_access_permissions(PageTableEntryBlockAccessPerm::KernelROUserRO)
+					.with_not_secure()
+					.with_user_no_exec()
+					.with_kernel_no_exec()
+					.with_mair_index(MairEntry::NormalMemory.index() as u64),
+			}
+		};
+
+		&DESCRIPTOR
+	}
+
+	fn sysabi() -> Self::UserSegment {
+		#[expect(clippy::missing_docs_in_private_items)]
+		static DESCRIPTOR: Segment = unsafe {
+			Segment {
+				valid_range:       (AddressSpaceLayout::SYSABI, AddressSpaceLayout::SYSABI),
+				l0_template:       L0PageTableDescriptor::new()
+					.with_valid()
+					.with_kernel_no_exec()
+					.with_user_no_exec()
+					.with_table_access_permissions(PageTableEntryTableAccessPerm::ReadOnly),
+				l1_table_template: L1PageTableDescriptor::new()
+					.with_valid()
+					.with_kernel_no_exec()
+					.with_user_no_exec()
+					.with_table_access_permissions(PageTableEntryTableAccessPerm::ReadOnly),
+				l2_table_template: L2PageTableDescriptor::new()
+					.with_valid()
+					.with_kernel_no_exec()
+					.with_user_no_exec()
+					.with_table_access_permissions(PageTableEntryTableAccessPerm::ReadOnly),
+				l3_template:       L3PageTableBlockDescriptor::new()
+					.with_valid()
+					.with_block_access_permissions(PageTableEntryBlockAccessPerm::KernelROUserRO)
+					.with_not_secure()
+					.with_user_no_exec()
+					.with_kernel_no_exec()
+					.with_mair_index(MairEntry::NormalMemory.index() as u64),
+			}
+		};
+
+		&DESCRIPTOR
 	}
 }
