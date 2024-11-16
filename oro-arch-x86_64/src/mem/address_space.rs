@@ -51,6 +51,11 @@ impl AddressSpaceLayout {
 	/// if the segment is used for userspace.
 	pub const KERNEL_SECONDARY_BOOT_IDX: usize = 0;
 
+	/// The index for the system ABI segment.
+	///
+	/// Must be placed in the lower half.
+	pub const SYSABI: usize = 1;
+
 	/// The index for the module segments.
 	pub const MODULE_EXE_IDX: (usize, usize) = (5, 16);
 	/// The index for the module thread stack segment.
@@ -560,7 +565,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	fn sysabi() -> Self::UserSegment {
 		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
-			valid_range: (0, 0),
+			valid_range: (AddressSpaceLayout::SYSABI, AddressSpaceLayout::SYSABI),
 			entry_template: PageTableEntry::new()
 				.with_user()
 				.with_present()
