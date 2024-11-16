@@ -57,6 +57,32 @@ pub(crate) struct Arch;
 
 impl oro_kernel::Arch for Arch {
 	type AddrSpace = crate::mem::address_space::AddressSpaceLayout;
+	type CoreState = ();
+	type ThreadState = ();
+
+	fn make_instance_unique(
+		_mapper: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
+	) -> Result<(), oro_mem::mapper::MapError> {
+		todo!("make_instance_unique()");
+	}
+
+	fn new_thread_state(_stack_ptr: usize, _entry_point: usize) -> Self::ThreadState {
+		todo!("new_thread_state()");
+	}
+
+	fn initialize_thread_mappings(
+		_thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
+		_thread_state: &mut Self::ThreadState,
+	) -> Result<(), oro_mem::mapper::MapError> {
+		todo!("initialize_thread_mappings()");
+	}
+
+	fn reclaim_thread_mappings(
+		_thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
+		_thread_state: &mut Self::ThreadState,
+	) {
+		todo!("reclaim_thread_mappings()");
+	}
 }
 
 /// Type alias for the Oro kernel core-local instance type.
