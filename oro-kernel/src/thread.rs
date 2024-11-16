@@ -178,7 +178,7 @@ impl<A: Arch> Thread<A> {
 		self.id
 	}
 
-	/// Returns module instance [`Handle`] to which this thread belongs.
+	/// Returns module instance handle to which this thread belongs.
 	pub fn instance(&self) -> Arc<Mutex<Instance<A>>> {
 		self.instance.clone()
 	}

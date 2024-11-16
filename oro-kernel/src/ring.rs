@@ -35,7 +35,7 @@ use crate::{AddrSpace, Arch, Kernel, UserHandle, instance::Instance};
 pub struct Ring<A: Arch> {
 	/// The resource ID.
 	id: u64,
-	/// The parent ring [`Handle`]. `None` if this is the root ring.
+	/// The parent ring handle, or `None` if this is the root ring.
 	parent: Option<Weak<Mutex<Ring<A>>>>,
 	/// The module [`Instance`]s on the ring.
 	pub(super) instances: Vec<Arc<Mutex<Instance<A>>>>,
