@@ -5,7 +5,7 @@ use core::{arch::asm, cell::UnsafeCell, mem::MaybeUninit};
 
 use oro_debug::{dbg, dbg_err, dbg_warn};
 use oro_elf::{ElfSegment, ElfSegmentType};
-use oro_kernel::KernelState;
+use oro_kernel::{KernelState, instance::Instance, module::Module, thread::Thread};
 use oro_mem::{
 	global_alloc::GlobalPfa,
 	mapper::AddressSegment,
@@ -102,9 +102,7 @@ pub unsafe fn initialize_primary() {
 				module.length
 			);
 
-			let module_handle = state
-				.create_module(id.clone())
-				.expect("failed to create root ring module");
+			let module_handle = Module::new(id.clone()).expect("failed to create root ring module");
 
 			let entry_point = {
 				let module_lock = module_handle.lock();
@@ -195,18 +193,12 @@ pub unsafe fn initialize_primary() {
 				elf.entry_point()
 			};
 
-			let instance = state
-				.create_instance(module_handle, root_ring.clone())
+			let instance = Instance::new(&module_handle, &root_ring)
 				.expect("failed to create root ring instance");
 
 			// Create a thread for the entry point.
 			// TODO(qix-): Allow stack size to be passed in via module command line.
-			let _thread = state
-				.create_thread(
-					instance,
-					16 * 1024,
-					crate::ThreadState::new(u64::try_from(entry_point).unwrap()),
-				)
+			let _thread = Thread::new(&instance, entry_point)
 				.expect("failed to create root ring instance thread");
 		}
 	}
