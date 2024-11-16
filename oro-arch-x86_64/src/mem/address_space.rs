@@ -374,7 +374,8 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		// Iterate over all the pages in the page table and free them.
 		match space.paging_level {
 			PagingLevel::Level4 => {
-				for l0_idx in 0..511 {
+				// NOTE(qix-): Only the lower half! The upper half is reserved for the kernel.
+				for l0_idx in 0..=255 {
 					let l0_entry = pt[l0_idx];
 					if l0_entry.present() {
 						// SAFETY: We can assume the address is valid if it's been placed in here.
@@ -382,7 +383,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 							Phys::from_address_unchecked(l0_entry.address())
 								.as_mut_unchecked::<PageTable>()
 						};
-						for l1_idx in 0..511 {
+						for l1_idx in 0..=511 {
 							let l1_entry = l1[l1_idx];
 							if l1_entry.present() {
 								// SAFETY: We can assume the address is valid if it's been placed in here.
@@ -390,7 +391,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 									Phys::from_address_unchecked(l1_entry.address())
 										.as_mut_unchecked::<PageTable>()
 								};
-								for l2_idx in 0..511 {
+								for l2_idx in 0..=511 {
 									let l2_entry = l2[l2_idx];
 									if l2_entry.present() {
 										// SAFETY: We can assume the address is valid if it's been placed in here.
@@ -398,7 +399,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 											Phys::from_address_unchecked(l2_entry.address())
 												.as_mut_unchecked::<PageTable>()
 										};
-										for l3_idx in 0..511 {
+										for l3_idx in 0..=511 {
 											let l3_entry = l3[l3_idx];
 											if l3_entry.present() {
 												// SAFETY: We're sure this is a page we want to free.
@@ -427,7 +428,8 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 				}
 			}
 			PagingLevel::Level5 => {
-				for l0_idx in 0..511 {
+				// NOTE(qix-): Only the lower half! The upper half is reserved for the kernel.
+				for l0_idx in 0..=255 {
 					let l0_entry = pt[l0_idx];
 					if l0_entry.present() {
 						// SAFETY: We can assume the address is valid if it's been placed in here.
@@ -435,7 +437,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 							Phys::from_address_unchecked(l0_entry.address())
 								.as_mut_unchecked::<PageTable>()
 						};
-						for l1_idx in 0..511 {
+						for l1_idx in 0..=511 {
 							let l1_entry = l1[l1_idx];
 							if l1_entry.present() {
 								// SAFETY: We can assume the address is valid if it's been placed in here.
@@ -443,7 +445,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 									Phys::from_address_unchecked(l1_entry.address())
 										.as_mut_unchecked::<PageTable>()
 								};
-								for l2_idx in 0..511 {
+								for l2_idx in 0..=511 {
 									let l2_entry = l2[l2_idx];
 									if l2_entry.present() {
 										// SAFETY: We can assume the address is valid if it's been placed in here.
@@ -451,7 +453,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 											Phys::from_address_unchecked(l2_entry.address())
 												.as_mut_unchecked::<PageTable>()
 										};
-										for l3_idx in 0..511 {
+										for l3_idx in 0..=511 {
 											let l3_entry = l3[l3_idx];
 											if l3_entry.present() {
 												// SAFETY: We can assume the address is valid if it's been placed in here.
@@ -459,7 +461,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 													Phys::from_address_unchecked(l3_entry.address())
 														.as_mut_unchecked::<PageTable>()
 												};
-												for l4_idx in 0..511 {
+												for l4_idx in 0..=511 {
 													let l4_entry = l4[l4_idx];
 													if l4_entry.present() {
 														// SAFETY: We're sure this is a page we want to free.
