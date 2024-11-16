@@ -81,7 +81,7 @@ use mem::address_space::AddressSpaceLayout;
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 use oro_mem::{
 	global_alloc::GlobalPfa,
-	mapper::{AddressSegment, MapError, UnmapError},
+	mapper::{AddressSegment, MapError},
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
@@ -132,6 +132,8 @@ impl oro_kernel::Arch for Arch {
 		// with a bug-free implementation.
 		#[cfg(debug_assertions)]
 		{
+			use oro_mem::mapper::UnmapError;
+
 			match irq_stack_segment.unmap(thread, stack_high_guard) {
 				Ok(phys) => panic!("interrupt stack high guard was already mapped at {phys:016X}"),
 				Err(UnmapError::NotMapped) => {}
