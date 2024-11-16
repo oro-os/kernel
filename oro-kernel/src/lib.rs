@@ -208,21 +208,19 @@ impl<A: Arch> KernelState<A> {
 	#[allow(clippy::missing_panics_doc)]
 	pub unsafe fn init(this: &'static mut MaybeUninit<Self>) -> Result<(), MapError> {
 		let root_ring = ring::Ring::<A>::new_root()?;
-
-		this.write(Self {
-			root_ring:  root_ring.clone(),
-			modules:    TicketMutex::default(),
-			rings:      TicketMutex::new(vec![Arc::downgrade(&root_ring)]),
-			instances:  TicketMutex::default(),
-			threads:    TicketMutex::default(),
-			id_counter: AtomicU64::new(0),
-		});
-
-		let this = this.assume_init_mut();
+		let root_ring_weak = Arc::downgrade(&root_ring);
 
 		// Sanity check
-		debug_assert_eq!(this.root_ring.lock().id(), 0, "root ring ID must be 0");
-		debug_assert_eq!(this.allocate_id(), 0, "first allocated ID must be 0");
+		debug_assert_eq!(root_ring.lock().id(), 0, "root ring ID must be 0");
+
+		this.write(Self {
+			root_ring,
+			modules: TicketMutex::default(),
+			rings: TicketMutex::new(vec![root_ring_weak]),
+			instances: TicketMutex::default(),
+			threads: TicketMutex::default(),
+			id_counter: AtomicU64::new(1),
+		});
 
 		Ok(())
 	}

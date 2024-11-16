@@ -46,11 +46,10 @@ pub struct Ring<A: Arch> {
 }
 
 impl<A: Arch> Ring<A> {
-	/// Common constructor for creating a new ring with the given ID and optional parent.
-	fn new_with(
-		id: u64,
-		parent: Option<&Arc<Mutex<Ring<A>>>>,
-	) -> Result<Arc<Mutex<Self>>, MapError> {
+	/// Creates a new ring.
+	pub fn new(parent: &Arc<Mutex<Ring<A>>>) -> Result<Arc<Mutex<Self>>, MapError> {
+		let id = Kernel::<A>::get().state().allocate_id();
+
 		let mapper = AddrSpace::<A>::new_user_space(&Kernel::<A>::get().mapper)
 			.ok_or(MapError::OutOfMemory)?;
 
@@ -58,15 +57,14 @@ impl<A: Arch> Ring<A> {
 
 		let r = Arc::new(Mutex::new(Self {
 			id,
-			parent: parent.as_ref().map(|p| Arc::downgrade(p)),
+			parent: Some(Arc::downgrade(parent)),
 			instances: Vec::new(),
 			mapper,
 			children: Vec::new(),
 		}));
 
-		if let Some(p) = parent.as_ref() {
-			p.lock().children.push(r.clone());
-		}
+		parent.lock().children.push(r.clone());
+
 		Kernel::<A>::get()
 			.state()
 			.rings
@@ -76,12 +74,6 @@ impl<A: Arch> Ring<A> {
 		Ok(r)
 	}
 
-	/// Creates a new ring.
-	pub fn new(parent: &Arc<Mutex<Ring<A>>>) -> Result<Arc<Mutex<Self>>, MapError> {
-		let id = Kernel::<A>::get().state().allocate_id();
-		Self::new_with(id, Some(parent))
-	}
-
 	/// Creates a new root ring.
 	///
 	/// # Safety
@@ -89,8 +81,34 @@ impl<A: Arch> Ring<A> {
 	///
 	/// Intended to be assigned to the kernel state's `root_ring` field immediately
 	/// after creation.
-	pub unsafe fn new_root() -> Result<Arc<Mutex<Self>>, MapError> {
-		Self::new_with(0, None)
+	///
+	/// Caller **must** push the ring onto the kernel state's `rings` list itself;
+	/// this method **will not** do it for you.
+	pub(crate) unsafe fn new_root() -> Result<Arc<Mutex<Self>>, MapError> {
+		// NOTE(qix-): This method CANNOT call `Kernel::<A>::get()` because
+		// NOTE(qix-): core-local kernels are not guaranteed to be initialized
+		// NOTE(qix-): at this point in the kernel's lifetime.
+
+		// NOTE(qix-): We'd normally use the kernel's cached mapper instead of
+		// NOTE(qix-): getting the supervisor mapper directly (since it's slower
+		// NOTE(qix-): and less "safe" to pull it from the registers) but at this
+		// NOTE(qix-): point it's the only way to get the supervisor mapper and is,
+		// NOTE(qix-): for all intents and purposes, safe to do so. It's not ideal
+		// NOTE(qix-): and might get refactored in the future to be even more bulletproof.
+		let mapper = AddrSpace::<A>::new_user_space(&AddrSpace::<A>::current_supervisor_space())
+			.ok_or(MapError::OutOfMemory)?;
+
+		AddrSpace::<A>::sysabi().provision_as_shared(&mapper)?;
+
+		let r = Arc::new(Mutex::new(Self {
+			id: 0,
+			parent: None,
+			instances: Vec::new(),
+			mapper,
+			children: Vec::new(),
+		}));
+
+		Ok(r)
 	}
 
 	/// Returns the ring's ID.
