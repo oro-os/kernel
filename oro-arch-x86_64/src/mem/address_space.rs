@@ -328,7 +328,9 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 			Phys::from_address_unchecked(base_phys)
 				.as_mut_unchecked::<PageTable>()
 				.shallow_copy_from(
-					Phys::from_address_unchecked(space.base_phys).as_ref_unchecked::<PageTable>(),
+					Phys::from_address_unchecked(space.base_phys)
+						.as_ref::<PageTable>()
+						.unwrap(),
 				);
 		}
 
