@@ -2,19 +2,11 @@
 
 use core::arch::naked_asm;
 
-use oro_mem::mapper::{AddressSegment, AddressSpace};
-
-use crate::mem::address_space::AddressSpaceLayout;
-
 /// Initializes a thread's IRQ stack, priming it for
 /// its first context switch.
 ///
 /// Returns the number of _bytes_ written.
-pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64) -> u64 {
-	// TODO(qix-): Not happy about doing this here. There should be a better way
-	// TODO(qix-): to defend against fragmentation regarding this.
-	let thread_stack_top = AddressSpaceLayout::user_thread_stack().range().1 & !0xFFF;
-
+pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64, stack_ptr: u64) -> u64 {
 	let mut top = page_slice.len();
 	let mut written = 0;
 	let mut write_u64 = |val| {
@@ -25,7 +17,7 @@ pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64) -> u6
 
 	// Values for iretq
 	write_u64((crate::gdt::USER_DS | 3).into()); // ds
-	write_u64(thread_stack_top as u64); // rsp
+	write_u64(stack_ptr); // rsp
 	write_u64(crate::asm::rflags() | 0x200); // rflags
 	write_u64((crate::gdt::USER_CS | 3).into()); // cs
 	write_u64(entry_point); // rip

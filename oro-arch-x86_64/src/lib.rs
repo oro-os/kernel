@@ -102,6 +102,17 @@ impl oro_kernel::Arch for Arch {
 	type CoreState = CoreState;
 	type ThreadState = ThreadState;
 
+	fn make_instance_unique(
+		_mapper: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
+	) -> Result<(), MapError> {
+		// TODO(qix-): There won't be anything to do here, but we need to implement copy on write.
+		Ok(())
+	}
+
+	fn new_thread_state(stack_ptr: usize, entry_point: usize) -> Self::ThreadState {
+		Self::ThreadState::new(entry_point, stack_ptr)
+	}
+
 	fn initialize_thread_mappings(
 		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
 		thread_state: &mut Self::ThreadState,
@@ -114,7 +125,7 @@ impl oro_kernel::Arch for Arch {
 		#[cfg(debug_assertions)]
 		let stack_low_guard = stack_start - 0x1000;
 
-		debug_assert_eq!(thread_state.irq_stack_ptr, stack_high_guard as u64);
+		debug_assert_eq!(thread_state.irq_stack_ptr, stack_high_guard);
 
 		// Make sure the guard pages are unmapped.
 		// More of a debug check, as this should never be the case
@@ -149,9 +160,12 @@ impl oro_kernel::Arch for Arch {
 				Phys::from_address_unchecked(phys).as_mut_ptr_unchecked(),
 				4096 >> 3,
 			);
-			let written =
-				crate::task::initialize_user_irq_stack(page_slice, thread_state.entry_point);
-			thread_state.irq_stack_ptr -= written;
+			let written = crate::task::initialize_user_irq_stack(
+				page_slice,
+				thread_state.entry_point as u64,
+				thread_state.stack_ptr as u64,
+			);
+			thread_state.irq_stack_ptr -= written as usize;
 		}
 
 		Ok(())
@@ -205,21 +219,24 @@ unsafe impl Sync for CoreState {}
 /// x86_64-specific thread state.
 pub(crate) struct ThreadState {
 	/// The thread's interrupt stack pointer.
-	pub irq_stack_ptr: u64,
+	pub irq_stack_ptr: usize,
 	/// The thread's entry point.
-	pub entry_point:   u64,
+	pub entry_point:   usize,
+	/// The thread's stack pointer.
+	pub stack_ptr:     usize,
 }
 
 impl ThreadState {
 	/// Creates a new thread state with the given entry point.
-	pub fn new(entry: u64) -> Self {
+	pub fn new(entry_point: usize, stack_ptr: usize) -> Self {
 		// Must match above in `Arch::initialize_thread_mappings`.
 		let irq_stack_segment = AddressSpaceLayout::interrupt_stack();
 		let stack_high_guard = irq_stack_segment.range().1 & !0xFFF;
 
 		Self {
-			irq_stack_ptr: stack_high_guard as u64,
-			entry_point:   entry,
+			irq_stack_ptr: stack_high_guard,
+			entry_point,
+			stack_ptr,
 		}
 	}
 }
