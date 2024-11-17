@@ -35,7 +35,9 @@ pub static mut KERNEL_STATE: MaybeUninit<KernelState<crate::Arch>> = MaybeUninit
 /// Must be called exactly once for the lifetime of the system,
 /// only by the boot processor at boot time (_not_ at any
 /// subsequent bringup).
-pub unsafe fn initialize_primary() {
+///
+/// Must be called before [`boot()`].
+pub unsafe fn initialize_primary(lapic: Lapic) {
 	#[cfg(debug_assertions)]
 	{
 		use core::sync::atomic::{AtomicBool, Ordering};
@@ -51,12 +53,12 @@ pub unsafe fn initialize_primary() {
 		}
 	}
 
-	// SAFETY(qix-): We know what we're doing here.
+	// SAFETY(qix-): This is the only place we take a mutable reference to it.
 	#[expect(static_mut_refs)]
 	KernelState::init(&mut KERNEL_STATE).expect("failed to create global kernel state");
 
-	#[expect(static_mut_refs)]
-	let state = KERNEL_STATE.assume_init_ref();
+	initialize_core_local(lapic);
+	let kernel = crate::Kernel::get();
 
 	// TODO(qix-): Not sure that I like that this is ELF-aware. This may get
 	// TODO(qix-): refactored at some point.
@@ -66,7 +68,7 @@ pub unsafe fn initialize_primary() {
 		let modules = core::ptr::read_volatile(modules.assume_init_ref());
 		let mut next = modules.next;
 
-		let root_ring = state.root_ring();
+		let root_ring = kernel.state().root_ring();
 
 		'module: while next != 0 {
 			let Some(module) =
@@ -204,18 +206,22 @@ pub unsafe fn initialize_primary() {
 	}
 }
 
-/// Main boot sequence for all cores for each bringup
-/// (including boot, including the primary core).
+/// Initializes a secondary core.
 ///
 /// # Safety
-/// Must be called _exactly once_ per core, per core lifetime
-/// (i.e. boot, or powerdown/subsequent bringup).
+/// Must be called EXACTLY ONCE before [`boot()`] is called,
+/// and only AFTER the initial primary core has been initialized.
+pub unsafe fn initialize_secondary(lapic: Lapic) {
+	initialize_core_local(lapic);
+}
+
+/// Initializes the core local kernel.
 ///
-/// **Interrupts must be disabled upon entering this function.**
-pub unsafe fn boot(lapic: Lapic) -> ! {
-	// SAFETY(qix-): THIS MUST ABSOLUTELY BE FIRST.
+/// # Safety
+/// Must ONLY be called ONCE for the entire lifetime of the core.
+unsafe fn initialize_core_local(lapic: Lapic) {
 	#[expect(static_mut_refs)]
-	let kernel = crate::Kernel::initialize_for_core(
+	crate::Kernel::initialize_for_core(
 		lapic.id().into(),
 		KERNEL_STATE.assume_init_ref(),
 		crate::CoreState {
@@ -227,6 +233,18 @@ pub unsafe fn boot(lapic: Lapic) -> ! {
 		},
 	)
 	.expect("failed to initialize kernel");
+}
+
+/// Main boot sequence for all cores for each bringup
+/// (including boot, including the primary core).
+///
+/// # Safety
+/// Must be called _exactly once_ per core, per core lifetime
+/// (i.e. boot, or powerdown/subsequent bringup).
+///
+/// **Interrupts must be disabled upon entering this function.**
+pub unsafe fn boot() -> ! {
+	let kernel = crate::Kernel::get();
 
 	let (tss_offset, gdt) =
 		Gdt::<5>::new().with_sys_entry(SysEntry::for_tss(kernel.core().tss.get()));

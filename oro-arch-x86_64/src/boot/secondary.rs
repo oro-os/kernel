@@ -1,6 +1,12 @@
 //! Boot routines for secondary cores.
 
-use core::{mem::MaybeUninit, sync::atomic::AtomicU64};
+use core::{
+	mem::MaybeUninit,
+	sync::atomic::{
+		AtomicBool, AtomicU64,
+		Ordering::{Acquire, Relaxed, Release},
+	},
+};
 
 use oro_acpi::{Madt, Rsdp};
 use oro_boot_protocol::acpi::AcpiKind;
@@ -24,6 +30,19 @@ use crate::{
 /// The LA57 bit in the CR4 register.
 // TODO(qix-): Pull this out into a register abstraction.
 const CR4_LA57: u32 = 1 << 12;
+
+/// Indicates that the primary has finished initializing the core state
+/// and that the secondaries are now free to boot.
+///
+/// We have to do this since the control of the LAPIC is singular (i.e.
+/// non-`Clone`-able), the core-local kernel needs an owning reference to it,
+/// but the secondary boot sequence needs to use it to send SIPIs to the secondaries.
+///
+/// However, if the secondaries boot before the primary has finished initializing
+/// and they try to reference the global kernel state, it'll invoke UB. So we have
+/// to barrier them until all of the cores are booted, the primary has initialized
+/// the global kernel state, and _then_ they can start.
+pub(super) static SECONDARIES_MAY_BOOT: AtomicBool = AtomicBool::new(false);
 
 /// The error type for booting a secondary core.
 #[expect(dead_code)]
@@ -300,12 +319,12 @@ pub unsafe fn boot_secondary(
 	lapic.boot_core(secondary_lapic_id, 8);
 
 	// Tell the secondary core we're ready to go.
-	primary_flag.store(1, core::sync::atomic::Ordering::Release);
+	primary_flag.store(1, Release);
 
 	// Wait for the secondary core to signal it's ready.
 	let mut ok = false;
 	for _ in 0..100_000 {
-		match secondary_flag.load(core::sync::atomic::Ordering::Acquire) {
+		match secondary_flag.load(Acquire) {
 			1 => {
 				ok = true;
 				break;
@@ -314,7 +333,7 @@ pub unsafe fn boot_secondary(
 			err => {
 				// Tell the secondary we no longer want it to boot.
 				// Just as a precaution since it's already in an error state.
-				primary_flag.store(0xFFFF_FFFF_FFFF_FFFE, core::sync::atomic::Ordering::Release);
+				primary_flag.store(0xFFFF_FFFF_FFFF_FFFE, Release);
 				return Err(BootError::SecondaryError(err));
 			}
 		}
@@ -322,7 +341,7 @@ pub unsafe fn boot_secondary(
 
 	if !ok {
 		// Tell the secondary we no longer want it to boot.
-		primary_flag.store(0xFFFF_FFFF_FFFF_FFFE, core::sync::atomic::Ordering::Release);
+		primary_flag.store(0xFFFF_FFFF_FFFF_FFFE, Release);
 		return Err(BootError::SecondaryTimeout);
 	}
 
@@ -458,7 +477,7 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	else {
 		// Tell the primary we failed.
 		dbg_err!("failed to get RSDT from ACPI tables");
-		secondary_flag.store(0xFFFF_FFFF_FFFF_FFFE, core::sync::atomic::Ordering::Release);
+		secondary_flag.store(0xFFFF_FFFF_FFFF_FFFE, Release);
 		crate::asm::hang();
 	};
 
@@ -471,7 +490,7 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	else {
 		// Tell the primary we failed.
 		dbg_err!("failed to get LAPIC from ACPI tables");
-		secondary_flag.store(0xFFFF_FFFF_FFFF_FFFE, core::sync::atomic::Ordering::Release);
+		secondary_flag.store(0xFFFF_FFFF_FFFF_FFFE, Release);
 		crate::asm::hang();
 	};
 
@@ -488,7 +507,7 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	if lapic_id != given_lapic_id {
 		// Tell the primary we failed.
 		dbg_err!("LAPIC ID mismatch: expected {given_lapic_id}, got {lapic_id}");
-		secondary_flag.store(0xFFFF_FFFF_FFFF_FFFE, core::sync::atomic::Ordering::Release);
+		secondary_flag.store(0xFFFF_FFFF_FFFF_FFFE, Release);
 		crate::asm::hang();
 	}
 
@@ -497,12 +516,12 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	// Wait for the primary to tell us to continue.
 	let mut ok = false;
 	for _ in 0..100_000 {
-		match primary_flag.load(core::sync::atomic::Ordering::Acquire) {
+		match primary_flag.load(Acquire) {
 			1 => {
 				// Tell the primary we're ready to go.
 				// SAFETY(qix-): Once we've written this value, the boot stub pages are no longer
 				// SAFETY(qix-): safe to write to.
-				(*secondary_flag).store(1, core::sync::atomic::Ordering::Release);
+				(*secondary_flag).store(1, Release);
 				ok = true;
 				break;
 			}
@@ -529,5 +548,19 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 		AddressSpaceLayout::secondary_boot_stub_stack().unmap_all_without_reclaim(&mapper);
 	}
 
-	crate::init::boot(lapic);
+	// Wait for the primary to tell us to continue.
+	for _ in 0..10_000_000_000_usize {
+		if SECONDARIES_MAY_BOOT.load(Relaxed) {
+			break;
+		}
+		::core::hint::spin_loop();
+	}
+
+	assert!(
+		SECONDARIES_MAY_BOOT.load(Relaxed),
+		"secondary core booted but primary didn't signal to continue in a timely fashion"
+	);
+
+	crate::init::initialize_secondary(lapic);
+	crate::init::boot();
 }

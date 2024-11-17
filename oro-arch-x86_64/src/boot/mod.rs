@@ -119,8 +119,6 @@ pub unsafe fn boot_primary() -> ! {
 	let lapic_id = lapic.id();
 	dbg!("local APIC ID: {lapic_id}");
 
-	crate::init::initialize_primary();
-
 	{
 		let num_cores = if has_cs89 {
 			dbg!("physical pages 0x8000/0x9000 are valid; attempting to boot secondary cores");
@@ -168,5 +166,14 @@ pub unsafe fn boot_primary() -> ! {
 		dbg!("proceeding with {} core(s)", num_cores);
 	}
 
-	crate::init::boot(lapic)
+	// The secondaries are now waiting for our signal that the global state has been initialized.
+	crate::init::initialize_primary(lapic);
+
+	// Global state has been initialized (along with the primary core's local kernel instance).
+	// Signal to the secondaries that they can now proceed with initializing their core-local
+	// kernel instances.
+	self::secondary::SECONDARIES_MAY_BOOT.store(true, core::sync::atomic::Ordering::Relaxed);
+
+	// Now boot our own kernel instance.
+	crate::init::boot()
 }
