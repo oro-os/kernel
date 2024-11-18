@@ -1,7 +1,7 @@
 [package]
-name = "oro-id"
+name = "oro"
 version.workspace = true
-description = "Oro operating system module ID type / parser / formatter"
+description = "High level module API and build tooling."
 publish = true
 edition = "2021"
 authors = [
@@ -10,6 +10,9 @@ authors = [
 homepage = "https://oro.sh"
 repository = "https://github.com/oro-os/kernel"
 license = "MIT OR Apache-2.0"
+
+[lib]
+doctest = false
 
 [lints]
 workspace = true

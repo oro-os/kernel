@@ -1,4 +1,6 @@
-//! Implements Oro IDs in the kernel.
+//! Provides functionality for parsing and formatting Oro Module and Port IDs.
+//!
+//! For general usage information, start with the [`Id`] type.
 #![cfg_attr(not(test), no_std)]
 // NOTE(qix-): `adt_const_params` isn't strictly necessary but is on track for acceptance,
 // NOTE(qix-): and the open questions (e.g. mangling) are not of concern here.

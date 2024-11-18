@@ -28,6 +28,8 @@ members = [
 	"oro-dbgutil",
 	"oro-id",
 	"oro-sync",
+	"oro-sysabi",
+	"oro",
 ]
 
 [workspace.dependencies]
@@ -50,6 +52,8 @@ oro-dtb.path = "oro-dtb"
 oro-dbgutil.path = "oro-dbgutil"
 oro-id.path = "oro-id"
 oro-sync.path = "oro-sync"
+oro-sysabi.path = "oro-sysabi"
+oro.path = "oro"
 
 limine = "0.2.0"
 uart_16550 = "0.3.0"

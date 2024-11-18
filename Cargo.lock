@@ -183,6 +183,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "oro"
+version = "0.0.0"
+
+[[package]]
 name = "oro-acpi"
 version = "0.0.0"
 dependencies = [
@@ -363,6 +367,10 @@ version = "0.0.0"
 dependencies = [
  "oro-dbgutil",
 ]
+
+[[package]]
+name = "oro-sysabi"
+version = "0.0.0"
 
 [[package]]
 name = "oro-type"
