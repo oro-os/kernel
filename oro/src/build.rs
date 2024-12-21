@@ -30,6 +30,7 @@ pub fn build() {
 
 			println!("cargo:rustc-link-arg=-static");
 			println!("cargo:rustc-link-arg=--relax");
+			println!("cargo:rustc-link-arg=-no-pie");
 			println!("cargo:rustc-link-arg=-T");
 			println!("cargo:rustc-link-arg={}", linker_script.display());
 		}
@@ -43,6 +44,7 @@ pub fn build() {
 
 			println!("cargo:rustc-link-arg=-static");
 			println!("cargo:rustc-link-arg=--relax");
+			println!("cargo:rustc-link-arg=-no-pie");
 			println!("cargo:rustc-link-arg=-T");
 			println!("cargo:rustc-link-arg={}", linker_script.display());
 		}
