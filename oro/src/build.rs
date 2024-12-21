@@ -28,6 +28,7 @@ pub fn build() {
 				.unwrap()
 				.join("aarch64.ld");
 
+			println!("cargo:rerun-if-changed={}", linker_script.display());
 			println!("cargo:rustc-link-arg=-static");
 			println!("cargo:rustc-link-arg=--relax");
 			println!("cargo:rustc-link-arg=-no-pie");
@@ -42,6 +43,7 @@ pub fn build() {
 				.unwrap()
 				.join("x86_64.ld");
 
+			println!("cargo:rerun-if-changed={}", linker_script.display());
 			println!("cargo:rustc-link-arg=-static");
 			println!("cargo:rustc-link-arg=--relax");
 			println!("cargo:rustc-link-arg=-no-pie");
