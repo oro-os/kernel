@@ -86,6 +86,8 @@ items_after_statements = "allow"
 cast_possible_truncation = "allow" # TODO(qix-): Temporary until the virt/phys types land.
 assertions_on_constants = "allow"
 new_without_default = "allow"
+needless_doctest_main = "allow"
+tabs_in_doc_comments = "allow"
 
 [profile.dev]
 panic = "abort"            # Use "abort" panic strategy
