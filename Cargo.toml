@@ -30,6 +30,9 @@ members = [
 	"oro-sync",
 	"oro-sysabi",
 	"oro",
+
+	# Examples
+	"examples/noop",
 ]
 
 [workspace.dependencies]

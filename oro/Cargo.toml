@@ -17,5 +17,13 @@ doctest = false
 [lints]
 workspace = true
 
-# NOTE(qix-): This crate MUST NOT have any workspace dependencies
+[features]
+default = ["panic_handler"]
+runtime = []
+build = []
+panic_handler = []
+
+# NOTE(qix-): This crate MUST NOT have any workspace (only) dependencies
 # NOTE(qix-): as it is published publicly.
+[dependencies]
+oro-sysabi = { version = "0.0.0", path = "../oro-sysabi" }

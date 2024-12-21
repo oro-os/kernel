@@ -127,3 +127,15 @@ jobs:
           ORO_BUILD_PROTOCOL_HEADER: 1
       - name: Check
         run: bash ./oro-boot-protocol/test-boot-header.sh
+  examples:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        profile: ["dev", "release"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - uses: ./.github/actions/rust
+      - name: Build
+        run: cargo oro-examples --profile ${{ matrix.profile }}
