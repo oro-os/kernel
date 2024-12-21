@@ -10,7 +10,7 @@ PHDRS {
 }
 
 SECTIONS {
-	. = 0x3000000000;
+	. = 0x30000000000;
 
 	.text : {
 		*(.text .text.*)
