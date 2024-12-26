@@ -52,7 +52,9 @@ pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64, stack
 /// called from an `asm!()` block.**
 ///
 /// - `rax` must be the physical address of the
-///   user task's CR3.
+///   user task's CR3. All core-local mappings
+///   must be transferred to the mapper prior to this
+///   function being called.
 /// - `rdx` must be the user task's IRQ stack pointer.
 /// - `r9` must be a pointer to the core state `kernel_irq_stack` field.
 /// - `r10` must be a pointer to the core state `kernel_stack` field.
@@ -137,7 +139,9 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 /// called from an `asm!()` block.**
 ///
 /// - `rax` must be the physical address of the
-///   user task's CR3.
+///   user task's CR3. All core-local mappings
+///   must be transferred to the mapper prior to this
+///   function being called.
 /// - `rdx` must be the user task's IRQ stack pointer.
 /// - `jmp` must be used to jump to this function.
 ///
