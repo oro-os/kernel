@@ -13,12 +13,12 @@ pub fn install_syscall_handler() {
 	ia32_efer |= 1; // Set the SCE bit
 	wrmsr(0xC000_0080, ia32_efer);
 
-	// Tell the CPU to clear the interrupt enable flag (IF) when
+	// Tell the CPU to clear the interrupt enable flag (IF) and trap flag (TF) when
 	// executing a syscall via the SFMASK MSR.
 	//
 	// TODO(qix-): Make an RFLAGS register in crate::reg and use that instead
 	// TODO(qix-): of hardcoding the value.
-	wrmsr(0xC000_0084, 0x0200);
+	wrmsr(0xC000_0084, 0x0200 | 0x0100);
 
 	// Tell the CPU which CS and SS selectors to use when executing a syscall.
 	// See the `STAR` constant in the `gid` module for more information.
