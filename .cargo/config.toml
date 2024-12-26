@@ -21,4 +21,4 @@ oro-ra-x86_64 = "check --quiet --message-format=json --keep-going --target ./oro
 
 oro-ra-aarch64 = "check --quiet --message-format=json --keep-going --target ./oro-arch-aarch64/aarch64-unknown-oro.json --bin oro-kernel-aarch64 --bin oro-limine-aarch64 -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
 
-oro-examples = "build --target=x86_64-unknown-none --target=aarch64-unknown-none -p exmod-noop"
+oro-examples = "build --target=x86_64-unknown-none --target=aarch64-unknown-none -p exmod-noop -p exmod-spin"

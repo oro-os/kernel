@@ -1,6 +1,6 @@
 [package]
-name = "exmod-noop"
-description = "Example module that exits immediately."
+name = "exmod-spin"
+description = "Example module that spins endlessly"
 version = "0.0.0"
 publish = false
 edition = "2021"

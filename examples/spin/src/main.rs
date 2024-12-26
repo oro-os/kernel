@@ -6,5 +6,7 @@ use oro;
 
 #[no_mangle]
 fn main() {
-	// Left intentionally blank
+	loop {
+		::core::hint::spin_loop();
+	}
 }

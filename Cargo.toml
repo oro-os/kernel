@@ -33,6 +33,7 @@ members = [
 
 	# Examples
 	"examples/noop",
+	"examples/spin",
 ]
 
 [workspace.dependencies]
