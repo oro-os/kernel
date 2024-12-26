@@ -72,6 +72,10 @@ impl AddressSpaceLayout {
 	/// The index for the kernel core-local segment.
 	pub const KERNEL_CORE_LOCAL_IDX: usize = 350;
 
+	/// The index for the kernel syscall stack.
+	/// This is a core-local stack that is used for handling syscalls.
+	pub const KERNEL_SYSCALL_STACK_IDX: usize = 355;
+
 	/// The kernel executable range, shared by the RX, RO, and RW segments.
 	///
 	/// MUST BE 511.
@@ -120,6 +124,28 @@ impl AddressSpaceLayout {
 				.with_present()
 				.with_no_exec()
 				.with_writable(),
+		};
+
+		&DESCRIPTOR
+	}
+
+	/// Returns the kernel syscall stack segment.
+	#[must_use]
+	pub fn kernel_syscall_stack() -> &'static AddressSegment {
+		#[expect(clippy::missing_docs_in_private_items)]
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range: (
+				AddressSpaceLayout::KERNEL_SYSCALL_STACK_IDX,
+				AddressSpaceLayout::KERNEL_SYSCALL_STACK_IDX,
+			),
+			entry_template: PageTableEntry::new()
+				.with_present()
+				.with_writable()
+				.with_no_exec(),
+			intermediate_entry_template: PageTableEntry::new()
+				.with_present()
+				.with_writable()
+				.with_no_exec(),
 		};
 
 		&DESCRIPTOR

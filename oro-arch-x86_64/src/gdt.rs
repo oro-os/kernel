@@ -258,13 +258,15 @@ pub const KERNEL_DS: u16 = 0x10;
 pub const USER_CS: u16 = 0x18;
 /// The offset into the standard GDT of the user data segment.
 pub const USER_DS: u16 = 0x20;
-/// The offset of the system call STAR GDT entry.
+/// The offset of the sysem call STAR GDT entry for kernel mode.
+pub const STAR_KERNEL: u16 = KERNEL_CS;
+/// The offset of the system call STAR GDT entry for user mode.
 ///
 /// The offset here must be formatted such that
 /// - `STAR+0` is the user CS
 /// - `STAR+8` is the user SS (DS)
 /// - `STAR+16` is the user CS (again)
-pub const STAR: u16 = USER_CS;
+pub const STAR_USER: u16 = USER_CS;
 
 /// Where the Task State Segment (TSS) should be placed in the GDT.
 ///
@@ -279,8 +281,10 @@ impl<const COUNT: usize> Gdt<COUNT> {
 			// MUST match the `*_CS` and `*_DS` constants above.
 			entries: [
 				GdtEntry::null_descriptor(),
+				// Must be in the order CS, DS for compatibility with STAR[47:32].
 				GdtEntry::kernel_code_segment(),
 				GdtEntry::kernel_data_segment(),
+				// Must be in the order CS, DS, CS for compatibility with STAR[63:48].
 				GdtEntry::user_code_segment(),
 				GdtEntry::user_data_segment(),
 				// Repeated here (must be directly after user data segment)

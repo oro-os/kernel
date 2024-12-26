@@ -20,6 +20,13 @@ pub fn install_syscall_handler() {
 	// TODO(qix-): of hardcoding the value.
 	wrmsr(0xC000_0084, 0x0200);
 
+	// Tell the CPU which CS and SS selectors to use when executing a syscall.
+	// See the `STAR` constant in the `gid` module for more information.
+	const STAR: u64 = ((must_be_u16(crate::gdt::STAR_KERNEL) as u64) << 32)
+		| ((must_be_u16(crate::gdt::STAR_USER) as u64) << 48);
+
+	wrmsr(0xC000_0081, STAR);
+
 	// Tell the CPU where to jump to when a syscall is executed (LSTAR MSR).
 	wrmsr(0xC000_0082, syscall_enter_non_compat as *const () as u64);
 }
@@ -39,4 +46,9 @@ unsafe extern "C" fn syscall_enter_non_compat() {
 		"4: hlt",
 		"jmp 4b",
 	}
+}
+
+#[doc(hidden)]
+const fn must_be_u16(x: u16) -> u16 {
+	x
 }
