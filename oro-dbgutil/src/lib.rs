@@ -31,7 +31,7 @@ pub extern "C" fn __oro_dbgutil_kernel_will_transfer() {
 /// `PAR_EL1`.
 ///
 /// Pass the virtual address to translate in `x0`.
-#[cfg(target_arch = "aarch64")]
+#[cfg(any(doc, target_arch = "aarch64"))]
 #[link_section = ".text.force_keep"]
 #[no_mangle]
 #[naked]

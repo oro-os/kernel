@@ -48,7 +48,7 @@
 //! once it has booted.
 #![no_std]
 #![expect(internal_features)]
-#![cfg(not(all(doc, not(target_arch = "x86_64"))))]
+#![cfg(any(doc, target_arch = "x86_64"))]
 #![feature(naked_functions, core_intrinsics)]
 // SAFETY(qix-): This is accepted, but moving slowly (in fact, probably the slowest
 // SAFETY(qix-): I've seen - predates Rust 1.0). It simplifies the amount of `#[allow]`

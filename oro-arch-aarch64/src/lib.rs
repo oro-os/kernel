@@ -22,7 +22,7 @@
 //! preboot environment, as the preboot environment MUST NOT rely on TTBR0 for any resource
 //! allocation or mapping.
 #![no_std]
-#![cfg(not(all(doc, not(target_arch = "aarch64"))))]
+#![cfg(any(doc, target_arch = "aarch64"))]
 #![expect(internal_features)]
 #![feature(core_intrinsics)]
 // SAFETY(qix-): It's probably accepted, and I want to refactor the
