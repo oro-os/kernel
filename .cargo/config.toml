@@ -13,9 +13,7 @@ oro-clippy-x86_64 = "clippy --target ./oro-arch-x86_64/x86_64-unknown-oro.json -
 
 oro-clippy-aarch64 = "clippy --target ./oro-arch-aarch64/aarch64-unknown-oro.json --features oro-debug/pl011 --bin oro-kernel-aarch64 --bin oro-limine-aarch64 -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
 
-oro-doc-x86_64 = "doc --lib --document-private-items --target=oro-arch-x86_64/x86_64-unknown-oro.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
-
-oro-doc-aarch64 = "doc --lib --document-private-items --target=oro-arch-aarch64/aarch64-unknown-oro.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
+oro-doc = "doc --lib --document-private-items --target=oro-arch-x86_64/x86_64-unknown-oro.json -Zunstable-options -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
 
 oro-test = "test -p oro-boot -p oro-boot-protocol -p oro-mem -p oro-debug -p oro-elf -p oro-kernel -p oro-macro -p oro-macro-proc"
 

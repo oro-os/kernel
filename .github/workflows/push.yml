@@ -38,10 +38,8 @@ jobs:
         with:
           submodules: 'true'
       - uses: ./.github/actions/rust
-      - name: Lint (rustdoc - x86_64)
-        run: env RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D rustdoc::all" cargo oro-doc-x86_64
-      - name: Lint (rustdoc - aarch64)
-        run: env RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D rustdoc::all" cargo oro-doc-aarch64
+      - name: Lint (rustdoc)
+        run: env RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D rustdoc::all" cargo oro-doc
   lint-python:
     runs-on: ubuntu-latest
     steps:
