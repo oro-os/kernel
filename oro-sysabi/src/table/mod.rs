@@ -8,6 +8,7 @@ macro_rules! table_id {
 		assert!($id.len() == 8, "table IDs must be 8 bytes long");
 
 		let b = $id.as_bytes();
+
 		(((b[0] as u64) << (8 * 7))
 			| ((b[1] as u64) << (8 * 6))
 			| ((b[2] as u64) << (8 * 5))
