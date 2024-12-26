@@ -16,6 +16,7 @@ use std::path::PathBuf;
 ///
 /// This function configures the linker to generate a valid
 /// Oro module that can be loaded by the Oro kernel.
+#[expect(clippy::missing_panics_doc)]
 pub fn build() {
 	let target = std::env::var("TARGET").unwrap();
 
