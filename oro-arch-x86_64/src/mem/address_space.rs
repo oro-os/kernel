@@ -592,6 +592,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: AddressSpaceLayout::MODULE_EXE_IDX,
 			entry_template: PageTableEntry::new()
+				.with_user()
 				.with_present()
 				.with_writable()
 				.with_no_exec(),
@@ -605,7 +606,10 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: AddressSpaceLayout::MODULE_EXE_IDX,
-			entry_template: PageTableEntry::new().with_present().with_no_exec(),
+			entry_template: PageTableEntry::new()
+				.with_user()
+				.with_present()
+				.with_no_exec(),
 			intermediate_entry_template: MODULE_EXE_INTERMEDIATE_ENTRY,
 		};
 
@@ -633,10 +637,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 				AddressSpaceLayout::KERNEL_EXE_IDX,
 				AddressSpaceLayout::KERNEL_EXE_IDX,
 			),
-			entry_template: PageTableEntry::new()
-				.with_user()
-				.with_global()
-				.with_present(),
+			entry_template: PageTableEntry::new().with_global().with_present(),
 			intermediate_entry_template: KERNEL_EXE_INTERMEDIATE_ENTRY,
 		};
 

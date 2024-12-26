@@ -208,8 +208,8 @@ pub unsafe trait AddressSpace: 'static {
 
 	/// Returns the layout descriptor for the kernel code segment.
 	///
-	/// This must be read-only, user accessible if the architecture
-	/// requires that e.g. interrupts have kernel access, and is executable.
+	/// This must be read-only, user accessible ONLY if the architecture
+	/// requires it, and is executable.
 	fn kernel_code() -> Self::SupervisorSegment;
 
 	/// Returns the layout descriptor for the kernel data segment.
