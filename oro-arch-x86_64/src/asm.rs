@@ -181,6 +181,22 @@ pub fn rdmsr(msr: u32) -> u64 {
 	(u64::from(val_d) << 32) | u64::from(val_a)
 }
 
+/// Writes a value to an MSR
+#[inline(always)]
+pub fn wrmsr(msr: u32, value: u64) {
+	let val_a = value as u32;
+	let val_d = (value >> 32) as u32;
+	unsafe {
+		asm!(
+			"wrmsr",
+			in("ecx") msr,
+			in("eax") val_a,
+			in("edx") val_d,
+			options(nostack, preserves_flags)
+		);
+	}
+}
+
 /// Loads (sets) the given GDT offset as the TSS (Task State Segment) for the current core.
 #[inline(always)]
 pub fn load_tss(offset: u16) {

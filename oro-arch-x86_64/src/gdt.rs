@@ -8,7 +8,7 @@ use crate::tss::Tss;
 /// A global descriptor table (GDT) entry.
 ///
 /// Note that task state segment (TSS) entries are
-/// ultimately stored in the GDT as two GDT entries,,
+/// ultimately stored in the GDT as two GDT entries,
 /// so the introspection of GDT entries is not recommended
 /// unless you know the GDT layout.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -240,7 +240,7 @@ pub enum SysType {
 }
 
 /// A basic GDT that can be used for early-stage booting.
-pub static GDT: Gdt<5> = Gdt::<5>::new();
+pub static GDT: Gdt<6> = Gdt::<6>::new();
 
 /// A global descriptor table (GDT).
 #[must_use]
@@ -258,10 +258,23 @@ pub const KERNEL_DS: u16 = 0x10;
 pub const USER_CS: u16 = 0x18;
 /// The offset into the standard GDT of the user data segment.
 pub const USER_DS: u16 = 0x20;
+/// The offset of the system call STAR GDT entry.
+///
+/// The offset here must be formatted such that
+/// - `STAR+0` is the user CS
+/// - `STAR+8` is the user SS (DS)
+/// - `STAR+16` is the user CS (again)
+pub const STAR: u16 = USER_CS;
+
+/// Where the Task State Segment (TSS) should be placed in the GDT.
+///
+/// Verified at boot time, such that this index can be used without having
+/// to perform a lookup.
+pub const TSS_GDT_OFFSET: u16 = 0x30;
 
 impl<const COUNT: usize> Gdt<COUNT> {
 	/// Creates a new GDT with the standard entries (see the `*_CS` and `*_DS` constants).
-	pub const fn new() -> Gdt<5> {
+	pub const fn new() -> Gdt<6> {
 		Gdt {
 			// MUST match the `*_CS` and `*_DS` constants above.
 			entries: [
@@ -270,6 +283,9 @@ impl<const COUNT: usize> Gdt<COUNT> {
 				GdtEntry::kernel_data_segment(),
 				GdtEntry::user_code_segment(),
 				GdtEntry::user_data_segment(),
+				// Repeated here (must be directly after user data segment)
+				// since SYSRET loads STAR[63:48]+16. See `STAR` constant.
+				GdtEntry::user_code_segment(),
 			],
 		}
 	}

@@ -249,7 +249,11 @@ pub unsafe fn boot() -> ! {
 	let (tss_offset, gdt) =
 		Gdt::<5>::new().with_sys_entry(SysEntry::for_tss(kernel.core().tss.get()));
 
-	assert_eq!(tss_offset, crate::TSS_GDT_OFFSET, "TSS offset mismatch");
+	assert_eq!(
+		tss_offset,
+		crate::gdt::TSS_GDT_OFFSET,
+		"TSS offset mismatch"
+	);
 
 	{
 		let gdt_raw = kernel.core().gdt.get();
@@ -260,7 +264,8 @@ pub unsafe fn boot() -> ! {
 	}
 
 	crate::interrupt::install_idt();
-	crate::asm::load_tss(crate::TSS_GDT_OFFSET);
+	crate::syscall::install_syscall_handler();
+	crate::asm::load_tss(crate::gdt::TSS_GDT_OFFSET);
 
 	dbg!("boot");
 
