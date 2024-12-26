@@ -16,6 +16,37 @@ pub mod unsafe_macros;
 
 pub use oro_macro_proc::*;
 
+/// Converts a `#[naked]`-like assembly block into a byte buffer of assembly
+/// instructions.
+///
+/// This macro uses the same [`core::arch::asm!`] syntax, but instead of embedding
+/// the instructions inline into the binary, it generates a constant byte buffer
+/// literal with the encoded instructions.
+///
+/// # Limitations
+/// This macro only works with instructions that would otherwise work in a `#[naked]`
+/// function. This means that the instructions must not reference any local variables
+/// or function arguments.
+///
+/// The use of the bytes `0xDE`, `0xAD`, `0xBE`, and `0xEF` are allowed (in that order,
+/// regardless of endianness) but the sequence cannot be repeated three times in a row,
+/// else the macro will produce a short count.
+#[macro_export]
+macro_rules! asm_buffer {
+	($($tt:tt)*) => {
+		const {
+			#[cfg(not(doc))]
+			{
+				$crate::asm_buffer_unchecked!($($tt)*)
+			}
+			#[cfg(doc)]
+			{
+				[]
+			}
+		}
+	};
+}
+
 // We re-export this at the top level so that both
 // the derive macro and trait get imported at once.
 mod enum_iterator;
