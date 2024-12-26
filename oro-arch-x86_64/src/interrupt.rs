@@ -125,7 +125,11 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 	if let Some(user_ctx) = maybe_user_context {
 		let (thread_cr3_phys, thread_rsp) = unsafe {
 			let ctx_lock = user_ctx.lock();
-			let cr3 = ctx_lock.mapper().base_phys;
+
+			let mapper = ctx_lock.mapper();
+			AddressSpaceLayout::apply_core_local_mappings(handler.kernel().mapper(), mapper);
+
+			let cr3 = mapper.base_phys;
 			let rsp = ctx_lock.thread_state().irq_stack_ptr;
 			(*handler.kernel().core().tss.get())
 				.rsp0

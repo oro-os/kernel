@@ -281,7 +281,11 @@ pub unsafe fn boot() -> ! {
 		if let Some(user_ctx) = maybe_ctx {
 			let (thread_cr3_phys, thread_rsp, kernel_rsp, kernel_irq_rsp) = unsafe {
 				let ctx_lock = user_ctx.lock();
-				let cr3 = ctx_lock.mapper().base_phys;
+
+				let mapper = ctx_lock.mapper();
+				AddressSpaceLayout::apply_core_local_mappings(kernel.mapper(), mapper);
+
+				let cr3 = mapper.base_phys;
 				let rsp = ctx_lock.thread_state().irq_stack_ptr;
 				let kernel_rsp_ptr = kernel.core().kernel_stack.get() as u64;
 				let kernel_irq_rsp_ptr = kernel.core().kernel_irq_stack.get() as u64;

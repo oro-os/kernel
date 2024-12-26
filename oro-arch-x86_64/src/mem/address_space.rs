@@ -266,6 +266,30 @@ impl AddressSpaceLayout {
 
 		&DESCRIPTOR
 	}
+
+	/// Applies all core-local resources from the given (kernel)
+	/// mapper to the destination (typically user) mapper.
+	///
+	/// Used prior to a context switch to ensure that all core-local
+	/// resources are available to the user task during e.g. interrupts
+	/// and syscalls.
+	pub fn apply_core_local_mappings(
+		kernel_mapper: &AddressSpaceHandle,
+		dest_mapper: &AddressSpaceHandle,
+	) {
+		// We can simply apply the core-local mappings by copying the
+		// top-level entries from the kernel mapper to the destination mapper.
+		unsafe {
+			let kernel_pt = Phys::from_address_unchecked(kernel_mapper.base_phys)
+				.as_ref_unchecked::<PageTable>();
+			let dest_pt =
+				Phys::from_address_unchecked(dest_mapper.base_phys).as_mut_unchecked::<PageTable>();
+
+			// Copy the top-level entries.
+			dest_pt[Self::KERNEL_CORE_LOCAL_IDX] = kernel_pt[Self::KERNEL_CORE_LOCAL_IDX];
+			dest_pt[Self::KERNEL_SYSCALL_STACK_IDX] = kernel_pt[Self::KERNEL_SYSCALL_STACK_IDX];
+		}
+	}
 }
 
 /// Intermediate page table entry template for the kernel code segment.
