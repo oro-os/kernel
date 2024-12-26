@@ -5,6 +5,7 @@
 // TODO(qix-): Remove this when <https://github.com/rust-lang/rust-clippy/issues/12425> is fixed
 #![expect(clippy::tabs_in_doc_comments)]
 #![feature(let_chains, proc_macro_span)]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 mod asm_buffer;
 mod enum_as;

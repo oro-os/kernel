@@ -5,6 +5,7 @@
 #![cfg_attr(not(test), no_std)]
 #![cfg(debug_assertions)]
 #![feature(naked_functions)]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 use core::arch::asm;
 

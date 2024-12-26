@@ -11,6 +11,7 @@
 // SAFETY(qix-): Technically not required but helps clean things up a bit for the archs.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/29661
 #![feature(associated_type_defaults)]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 pub mod instance;
 pub mod module;

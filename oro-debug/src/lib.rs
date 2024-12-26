@@ -8,6 +8,7 @@
 //! Namely, it's not interrupt-safe and may cause deadlocks
 //! if used improperly.
 #![cfg_attr(not(test), no_std)]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 /// Initializes the debug logger with a linear map offset, if one is enabled.
 ///

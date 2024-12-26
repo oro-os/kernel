@@ -1,6 +1,7 @@
 //! Early-stage debugging support for the 16550 UART on x86_64
 #![cfg_attr(not(test), no_std)]
 #![cfg(target_arch = "x86_64")]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 use core::fmt::{self, Write};
 

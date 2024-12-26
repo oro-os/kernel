@@ -61,6 +61,7 @@
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/76560
 #![expect(incomplete_features)]
 #![feature(generic_const_exprs)]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 pub mod asm;
 pub mod boot;

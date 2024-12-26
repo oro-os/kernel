@@ -7,6 +7,7 @@
 // SAFETY(qix-): to the API after stabilization will be minor.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/117729
 #![feature(debug_closure_helpers)]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 use core::{
 	fmt,

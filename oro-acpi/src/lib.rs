@@ -5,6 +5,7 @@
 // SAFETY(qix-): It's also not critical to the operation of the crate.
 // https://github.com/rust-lang/rust/issues/48214
 #![feature(trivial_bounds)]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 use core::ptr::from_ref;
 

@@ -32,6 +32,7 @@
 //! }
 //! ```
 #![cfg_attr(not(feature = "build"), no_std)]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(feature = "build")]
 mod build;

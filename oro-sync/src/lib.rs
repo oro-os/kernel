@@ -1,5 +1,6 @@
 //! Synchronization primitives for the Oro Kernel.
 #![cfg_attr(not(test), no_std)]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 use core::{
 	cell::UnsafeCell,

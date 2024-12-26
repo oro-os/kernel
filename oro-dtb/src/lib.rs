@@ -1,5 +1,6 @@
 //! DeviceTree blob reader support for the Oro kernel.
 #![cfg_attr(not(test), no_std)]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 use core::{ffi::CStr, mem::size_of, ptr::from_ref};
 

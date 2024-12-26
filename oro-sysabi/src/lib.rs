@@ -99,6 +99,7 @@
 //!  The current status of a port's mode can be queried via the sysabi
 //!  and, like all other sysabi data, is updated in real-time.
 #![no_std]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 /// The Root structure is the entry point to the sysabi, and is
 /// passed to the entry point of a module instance at first execution.

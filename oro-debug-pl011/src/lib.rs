@@ -5,6 +5,7 @@
 #![no_std]
 #![expect(internal_features)]
 #![feature(core_intrinsics)]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 mod driver;
 

@@ -6,6 +6,7 @@
 // NOTE(qix-): and the open questions (e.g. mangling) are not of concern here.
 // NOTE(qix-): https://github.com/rust-lang/rust/issues/95174
 #![feature(adt_const_params)]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 use core::{fmt, marker::ConstParamTy, str::FromStr};
 

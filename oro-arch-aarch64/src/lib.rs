@@ -30,6 +30,7 @@
 // SAFETY(qix-): this is probably fine for now.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/122034
 #![feature(ptr_as_ref_unchecked)]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 pub mod asm;
 pub mod boot;
