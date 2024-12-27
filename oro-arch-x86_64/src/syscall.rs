@@ -8,7 +8,10 @@ use oro_mem::{
 	pfa::Alloc,
 };
 
-use crate::asm::{rdmsr, wrmsr};
+use crate::{
+	asm::{rdmsr, wrmsr},
+	mem::paging_level::PagingLevel,
+};
 
 /// Core-local syscall stack base pointer.
 ///
@@ -19,6 +22,10 @@ use crate::asm::{rdmsr, wrmsr};
 /// paging mode, which can only be determined at runtime.
 #[no_mangle]
 static mut ORO_SYSCALL_STACK_BASE: u64 = 0;
+
+/// Caches the system's paging level.
+#[no_mangle]
+static mut CANONICAL_ADDRESS_MASK: u64 = !0;
 
 /// The number of pages in the core-local syscall stack to allocate.
 /// Should be small - 1 or 2 pages should be sufficient.
@@ -111,6 +118,14 @@ pub unsafe fn install_syscall_handler() {
 			)
 		}
 	}
+
+	// Get the paging level and construct a canonical address mask.
+	CANONICAL_ADDRESS_MASK = match PagingLevel::current_from_cpu() {
+		// 47-bit canonical addresses (lower-half 48 bit address)
+		PagingLevel::Level4 => 0x0000_7FFF_FFFF_FFFF,
+		// 56-bit canonical addresses (lower-half 57 bit address)
+		PagingLevel::Level5 => 0x00FF_FFFF_FFFF_FFFF,
+	};
 }
 
 /// A frame for an ABI call, for the x86_64 architecture.
@@ -128,6 +143,7 @@ pub struct AbiCallFrame {
 	r12:    u64,
 	r13:    u64,
 	r14:    u64,
+	r15:    u64,
 	rcx:    u64,
 	rflags: u64,
 }
@@ -186,6 +202,7 @@ unsafe extern "C" fn syscall_enter_non_compat_stage2() -> ! {
 		r12:    0,
 		r13:    0,
 		r14:    0,
+		r15:    0,
 		rcx:    0,
 		rflags: 0,
 	};
@@ -206,6 +223,7 @@ unsafe extern "C" fn syscall_enter_non_compat_stage2() -> ! {
 		out("r12") frame.r12,
 		out("r13") frame.r13,
 		out("r14") frame.r14,
+		out("r15") frame.r15,
 		// Holds the return address used by the eventual `sysret` or `iret`.
 		out("rcx") frame.rcx,
 		// The `syscall` instruction automatically puts `rflags` into `r11`.
@@ -247,19 +265,23 @@ unsafe extern "C" fn syscall_enter_non_compat_stage2() -> ! {
 unsafe extern "C" fn syscall_enter_non_compat_stage3() -> ! {
 	// Now we can copy the ABI frame to the new stack.
 	let abi_frame_ptr: u64;
+
 	asm! {
 		"",
 		out("r8") abi_frame_ptr,
 	};
-	let _abi_frame = (abi_frame_ptr as *const AbiCallFrame).read_volatile();
+
+	let abi_frame = (abi_frame_ptr as *const AbiCallFrame).read_volatile();
+
+	// Sanity check that the syscall instruction cleared the IF flag.
+	debug_assert!(
+		!crate::asm::interrupts_enabled(),
+		"syscall instruction did not clear IF"
+	);
 
 	// Now we can call the syscall handler.
 	// XXX(qix-): placeholder stub
-	asm! {
-		"4: hlt",
-		"jmp 4b",
-		options(noreturn),
-	}
+	return_to_user_from_syscall(abi_frame, 1337, 867_5309)
 }
 
 /// Returns to userspace from a syscall (previously constructed from the
@@ -268,12 +290,50 @@ unsafe extern "C" fn syscall_enter_non_compat_stage3() -> ! {
 /// # Safety
 /// **This is an incredibly sensitive security boundary.** Calls to this
 /// function should be done with extreme caution and care.
-pub unsafe fn return_to_user_from_syscall(_frame: AbiCallFrame) -> ! {
-	// There are two ways to return from a syscall; the fast way, and the slow way.
-	// In some cases, depending on the state of the userspace application when
-	// `syscall` was executed, we have to instead set up an `iret`, which is more
-	// flexible but slower than `sysret`.
-	todo!();
+///
+/// Caller must ensure that the task is ready to be executed again. This means
+/// the memory map, core-local mappings, etc. are all restored to the task that
+/// originally made the syscall that created the given [`AbiCallFrame`].
+///
+/// **Interrupts must be disabled when calling this function.**
+pub unsafe fn return_to_user_from_syscall(frame: AbiCallFrame, error: u32, value: u64) -> ! {
+	// TODO(qix-): There is almost definitely some missing functionality here, namely
+	// TODO(qix-): around the resume flag (RF) and the trap flag (TF) in the RFLAGS register.
+
+	// Restore the frame.
+	asm! {
+		// Force the return address to a canonical address.
+		"and rcx, CANONICAL_ADDRESS_MASK",
+		// Restore the stack.
+		"mov rsp, r9",
+		// Restore RBP/RBX.
+		"mov rbp, r10",
+		"mov rbx, r8",
+		// Zero clobbered registers.
+		//
+		// SAFETY(qix-): Vector registers are clobbered AND considered insecurely transferred.
+		// SAFETY(qix-): It is specified that the kernel DOES NOT zero vector registers.
+		"xor r8, r8",
+		"xor r9, r9",
+		"xor r10, r10",
+		"xor r11, r11",
+		"xor rdi, rdi",
+		"xor rsi, rsi",
+		// Return to userspace.
+		"sysretq",
+		in("rax") u64::from(error),
+		in("rdx") value,
+		in("r9") frame.rsp,
+		in("r12") frame.r12,
+		in("r13") frame.r13,
+		in("r14") frame.r14,
+		in("r15") frame.r15,
+		in("rcx") frame.rcx,
+		in("r11") frame.rflags,
+		in("r8") frame.rbx,
+		in("r10") frame.rbp,
+		options(noreturn),
+	}
 }
 
 #[doc(hidden)]

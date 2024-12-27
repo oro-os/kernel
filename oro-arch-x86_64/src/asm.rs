@@ -97,6 +97,17 @@ pub fn enable_interrupts() {
 	}
 }
 
+/// Returns whether or not interrupts are enabled.
+#[inline]
+#[must_use]
+pub fn interrupts_enabled() -> bool {
+	let flags: u64;
+	unsafe {
+		asm!("pushfq", "pop rax", out("rax") flags, options(nostack, preserves_flags));
+	}
+	flags & (1 << 9) != 0
+}
+
 /// Sends a byte to the specified I/O port.
 #[inline(always)]
 pub fn outb(port: u16, value: u8) {
