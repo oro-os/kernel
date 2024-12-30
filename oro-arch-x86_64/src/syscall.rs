@@ -271,7 +271,7 @@ unsafe extern "C" fn syscall_enter_non_compat_stage3() -> ! {
 		out("r8") abi_frame_ptr,
 	};
 
-	let abi_frame = (abi_frame_ptr as *const AbiCallFrame).read_volatile();
+	let mut abi_frame = (abi_frame_ptr as *const AbiCallFrame).read_volatile();
 
 	// Sanity check that the syscall instruction cleared the IF flag.
 	debug_assert!(
@@ -281,7 +281,9 @@ unsafe extern "C" fn syscall_enter_non_compat_stage3() -> ! {
 
 	// Now we can call the syscall handler.
 	// XXX(qix-): placeholder stub
-	return_to_user_from_syscall(abi_frame, 1337, 867_5309)
+	abi_frame.rax = oro_sysabi::syscall::Error::NotImplemented as u64;
+	abi_frame.rdx = 0;
+	return_to_user_from_syscall(abi_frame)
 }
 
 /// Returns to userspace from a syscall (previously constructed from the
@@ -296,7 +298,7 @@ unsafe extern "C" fn syscall_enter_non_compat_stage3() -> ! {
 /// originally made the syscall that created the given [`AbiCallFrame`].
 ///
 /// **Interrupts must be disabled when calling this function.**
-pub unsafe fn return_to_user_from_syscall(frame: AbiCallFrame, error: u32, value: u64) -> ! {
+unsafe fn return_to_user_from_syscall(frame: AbiCallFrame) -> ! {
 	// TODO(qix-): There is almost definitely some missing functionality here, namely
 	// TODO(qix-): around the resume flag (RF) and the trap flag (TF) in the RFLAGS register.
 
@@ -321,8 +323,8 @@ pub unsafe fn return_to_user_from_syscall(frame: AbiCallFrame, error: u32, value
 		"xor rsi, rsi",
 		// Return to userspace.
 		"sysretq",
-		in("rax") u64::from(error),
-		in("rdx") value,
+		in("rax") frame.rax,
+		in("rdx") frame.rdx,
 		in("r9") frame.rsp,
 		in("r12") frame.r12,
 		in("r13") frame.r13,
@@ -339,4 +341,48 @@ pub unsafe fn return_to_user_from_syscall(frame: AbiCallFrame, error: u32, value
 #[doc(hidden)]
 const fn must_be_u16(x: u16) -> u16 {
 	x
+}
+
+impl oro_kernel::SystemCallFrame for AbiCallFrame {
+	#[inline]
+	fn opcode(&self) -> oro_sysabi::syscall::Opcode {
+		// SAFETY: This is safe because the opcode is non_exhaustive and the
+		// SAFETY: kernel validates the value before using it.
+		unsafe { core::mem::transmute(self.rax) }
+	}
+
+	#[inline]
+	fn table_id(&self) -> u64 {
+		self.rsi
+	}
+
+	#[inline]
+	fn key(&self) -> u64 {
+		self.rdi
+	}
+
+	#[inline]
+	fn value(&self) -> u64 {
+		self.rdx
+	}
+
+	#[inline]
+	fn entity_id(&self) -> u64 {
+		self.r9
+	}
+
+	#[inline]
+	fn set_error(&mut self, error: oro_sysabi::syscall::Error) {
+		self.rax = error as u64;
+	}
+
+	#[inline]
+	fn set_return_value(&mut self, value: u64) {
+		self.rdx = value;
+	}
+
+	#[inline]
+	unsafe fn return_to_caller(self) -> ! {
+		return_to_user_from_syscall(self)
+	}
 }

@@ -236,6 +236,7 @@ dependencies = [
  "oro-macro",
  "oro-mem",
  "oro-sync",
+ "oro-sysabi",
  "oro-type",
 ]
 
@@ -253,6 +254,7 @@ dependencies = [
  "oro-macro",
  "oro-mem",
  "oro-sync",
+ "oro-sysabi",
 ]
 
 [[package]]
@@ -347,6 +349,7 @@ dependencies = [
  "oro-macro",
  "oro-mem",
  "oro-sync",
+ "oro-sysabi",
 ]
 
 [[package]]

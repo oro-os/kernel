@@ -257,6 +257,8 @@ pub trait Arch: 'static {
 	type ThreadState: Sized + Send = ();
 	/// The core-local state type.
 	type CoreState: Sized + Send + Sync + 'static = ();
+	/// The system call frame type.
+	type SystemCallFrame: SystemCallFrame + 'static;
 
 	/// Makes the given instance mapper unique, either by duplicating
 	/// all RW pages or by implementing COW (copy-on-write) semantics.
@@ -281,6 +283,43 @@ pub trait Arch: 'static {
 		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
 		thread_state: &mut Self::ThreadState,
 	);
+}
+
+/// Implements a type that reports information about a system call to the kernel.
+///
+/// Frames are handed to the kernel to either process or store (if the task must
+/// be made dormant) in order to hand _back_ to the architecture for restoration
+/// at a later time.
+pub trait SystemCallFrame: Sized + Send + Sync {
+	/// Returns the opcode for the operation.
+	///
+	/// Does not need to be validated; the kernel will do that.
+	fn opcode(&self) -> oro_sysabi::syscall::Opcode;
+	/// Returns the table ID for the operation.
+	///
+	/// Does not need to be validated; the kernel will do that.
+	fn table_id(&self) -> u64;
+	/// Returns the entity ID for the operation.
+	///
+	/// Does not need to be validated; the kernel will do that.
+	fn entity_id(&self) -> u64;
+	/// Returns the key for the operation.
+	fn key(&self) -> u64;
+	/// Returns the value for the operation.
+	///
+	/// Does not need to be validated; the kernel will do that.
+	fn value(&self) -> u64;
+	/// Sets the return value for the system call.
+	fn set_return_value(&mut self, value: u64);
+	/// Sets the error code for the system call.
+	fn set_error(&mut self, error: oro_sysabi::syscall::Error);
+
+	/// Returns to the task that made the system call.
+	///
+	/// # Safety
+	/// The caller must ensure that the task's context has been
+	/// appropriately restored before calling this function.
+	unsafe fn return_to_caller(self) -> !;
 }
 
 /// Helper trait association type for `Arch::AddrSpace`.

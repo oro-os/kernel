@@ -102,6 +102,7 @@ pub(crate) struct Arch;
 impl oro_kernel::Arch for Arch {
 	type AddrSpace = crate::mem::address_space::AddressSpaceLayout;
 	type CoreState = CoreState;
+	type SystemCallFrame = crate::syscall::AbiCallFrame;
 	type ThreadState = ThreadState;
 
 	fn make_instance_unique(

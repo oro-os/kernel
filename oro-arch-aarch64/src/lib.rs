@@ -38,6 +38,7 @@ pub mod mair;
 pub mod mem;
 pub mod psci;
 pub mod reg;
+pub mod syscall;
 
 pub(crate) mod init;
 
@@ -59,6 +60,7 @@ pub(crate) struct Arch;
 impl oro_kernel::Arch for Arch {
 	type AddrSpace = crate::mem::address_space::AddressSpaceLayout;
 	type CoreState = ();
+	type SystemCallFrame = crate::syscall::SystemCallFrame;
 	type ThreadState = ();
 
 	fn make_instance_unique(

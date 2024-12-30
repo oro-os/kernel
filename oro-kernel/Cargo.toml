@@ -17,6 +17,7 @@ oro-macro.workspace = true
 oro-id.workspace = true
 oro-debug.workspace = true
 oro-sync.workspace = true
+oro-sysabi.workspace = true
 
 [lints]
 workspace = true
