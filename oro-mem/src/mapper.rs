@@ -43,9 +43,13 @@ pub unsafe trait AddressSpace: 'static {
 
 	/// The type of [`AddressSegment`] that this address space
 	/// returns for supervisor handle mappings.
+	///
+	/// **Must not have `Drop` semantics.**
 	type SupervisorSegment: AddressSegment<Self::SupervisorHandle> + Sized;
 	/// The type of [`AddressSegment`] that this address space
 	/// returns for userspace handle mappings.
+	///
+	/// **Must not have `Drop` semantics.**
 	type UserSegment: AddressSegment<Self::UserHandle> + Sized;
 
 	/// Returns the supervisor address space handle for the current CPU.

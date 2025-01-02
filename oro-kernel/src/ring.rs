@@ -5,11 +5,11 @@ use oro_mem::{
 		sync::{Arc, Weak},
 		vec::Vec,
 	},
-	mapper::{AddressSegment, AddressSpace, MapError},
+	mapper::{AddressSegment, AddressSpace as _, MapError},
 };
 use oro_sync::{Lock, Mutex};
 
-use crate::{AddrSpace, Arch, Kernel, UserHandle, instance::Instance};
+use crate::{AddressSpace, Kernel, UserHandle, arch::Arch, instance::Instance};
 
 /// A singular ring.
 ///
@@ -50,10 +50,10 @@ impl<A: Arch> Ring<A> {
 	pub fn new(parent: &Arc<Mutex<Ring<A>>>) -> Result<Arc<Mutex<Self>>, MapError> {
 		let id = Kernel::<A>::get().state().allocate_id();
 
-		let mapper = AddrSpace::<A>::new_user_space(&Kernel::<A>::get().mapper)
+		let mapper = AddressSpace::<A>::new_user_space(&Kernel::<A>::get().mapper)
 			.ok_or(MapError::OutOfMemory)?;
 
-		AddrSpace::<A>::sysabi().provision_as_shared(&mapper)?;
+		AddressSpace::<A>::sysabi().provision_as_shared(&mapper)?;
 
 		let r = Arc::new(Mutex::new(Self {
 			id,
@@ -95,10 +95,11 @@ impl<A: Arch> Ring<A> {
 		// NOTE(qix-): point it's the only way to get the supervisor mapper and is,
 		// NOTE(qix-): for all intents and purposes, safe to do so. It's not ideal
 		// NOTE(qix-): and might get refactored in the future to be even more bulletproof.
-		let mapper = AddrSpace::<A>::new_user_space(&AddrSpace::<A>::current_supervisor_space())
-			.ok_or(MapError::OutOfMemory)?;
+		let mapper =
+			AddressSpace::<A>::new_user_space(&AddressSpace::<A>::current_supervisor_space())
+				.ok_or(MapError::OutOfMemory)?;
 
-		AddrSpace::<A>::sysabi().provision_as_shared(&mapper)?;
+		AddressSpace::<A>::sysabi().provision_as_shared(&mapper)?;
 
 		let r = Arc::new(Mutex::new(Self {
 			id: 0,

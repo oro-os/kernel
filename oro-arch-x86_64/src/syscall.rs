@@ -343,7 +343,7 @@ const fn must_be_u16(x: u16) -> u16 {
 	x
 }
 
-impl oro_kernel::SystemCallFrame for AbiCallFrame {
+impl oro_kernel::arch::SystemCallHandle for AbiCallFrame {
 	#[inline]
 	fn opcode(&self) -> oro_sysabi::syscall::Opcode {
 		// SAFETY: This is safe because the opcode is non_exhaustive and the

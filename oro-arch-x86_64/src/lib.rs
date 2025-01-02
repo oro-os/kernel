@@ -67,26 +67,21 @@ pub mod asm;
 pub mod boot;
 pub mod gdt;
 pub mod handler;
+pub mod instance;
 pub mod interrupt;
 pub mod lapic;
 pub mod mem;
 pub mod reg;
 pub mod syscall;
 pub mod task;
+pub mod thread;
 pub mod tss;
 
 pub(crate) mod init;
 
 use core::{cell::UnsafeCell, mem::MaybeUninit};
 
-use mem::address_space::AddressSpaceLayout;
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
-use oro_mem::{
-	global_alloc::GlobalPfa,
-	mapper::{AddressSegment, MapError},
-	pfa::Alloc,
-	phys::{Phys, PhysAddr},
-};
 
 /// The ELF class of the x86_64 architecture.
 pub const ELF_CLASS: ElfClass = ElfClass::Class64;
@@ -99,92 +94,11 @@ pub const ELF_MACHINE: ElfMachine = ElfMachine::X86_64;
 /// used throughout the `oro-kernel` crate.
 pub(crate) struct Arch;
 
-impl oro_kernel::Arch for Arch {
-	type AddrSpace = crate::mem::address_space::AddressSpaceLayout;
+impl oro_kernel::arch::Arch for Arch {
+	type AddressSpace = crate::mem::address_space::AddressSpaceLayout;
 	type CoreState = CoreState;
-	type SystemCallFrame = crate::syscall::AbiCallFrame;
-	type ThreadState = ThreadState;
-
-	fn make_instance_unique(
-		_mapper: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
-	) -> Result<(), MapError> {
-		// TODO(qix-): There won't be anything to do here, but we need to implement copy on write.
-		Ok(())
-	}
-
-	fn new_thread_state(stack_ptr: usize, entry_point: usize) -> Self::ThreadState {
-		Self::ThreadState::new(entry_point, stack_ptr)
-	}
-
-	fn initialize_thread_mappings(
-		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
-		thread_state: &mut Self::ThreadState,
-	) -> Result<(), oro_mem::mapper::MapError> {
-		// Map only a page, with a stack guard.
-		// Must match below, in `ThreadState::default`.
-		let irq_stack_segment = AddressSpaceLayout::interrupt_stack();
-		let stack_high_guard = irq_stack_segment.range().1 & !0xFFF;
-		let stack_start = stack_high_guard - 0x1000;
-		#[cfg(debug_assertions)]
-		let stack_low_guard = stack_start - 0x1000;
-
-		debug_assert_eq!(thread_state.irq_stack_ptr, stack_high_guard);
-
-		// Make sure the guard pages are unmapped.
-		// More of a debug check, as this should never be the case
-		// with a bug-free implementation.
-		#[cfg(debug_assertions)]
-		{
-			use oro_mem::mapper::UnmapError;
-
-			match irq_stack_segment.unmap(thread, stack_high_guard) {
-				Ok(phys) => panic!("interrupt stack high guard was already mapped at {phys:016X}"),
-				Err(UnmapError::NotMapped) => {}
-				Err(err) => {
-					panic!("interrupt stack high guard encountered error when unmapping: {err:?}")
-				}
-			}
-
-			match irq_stack_segment.unmap(thread, stack_low_guard) {
-				Ok(phys) => panic!("interrupt stack low guard was already mapped at {phys:016X}"),
-				Err(UnmapError::NotMapped) => {}
-				Err(err) => {
-					panic!("interrupt stack low guard encountered error when unmapping: {err:?}")
-				}
-			}
-		}
-
-		// Map the stack page.
-		let phys = GlobalPfa.allocate().ok_or(MapError::OutOfMemory)?;
-		irq_stack_segment.map(thread, stack_start, phys)?;
-
-		// Now write the initial `iretq` information to the frame.
-		// SAFETY(qix-): We know that these are valid addresses.
-		unsafe {
-			let page_slice = core::slice::from_raw_parts_mut(
-				Phys::from_address_unchecked(phys).as_mut_ptr_unchecked(),
-				4096 >> 3,
-			);
-			let written = crate::task::initialize_user_irq_stack(
-				page_slice,
-				thread_state.entry_point as u64,
-				thread_state.stack_ptr as u64,
-			);
-			thread_state.irq_stack_ptr -= written as usize;
-		}
-
-		Ok(())
-	}
-
-	fn reclaim_thread_mappings(
-		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
-		_thread_state: &mut Self::ThreadState,
-	) {
-		// SAFETY(qix-): The module interrupt stack space is fully reclaimable and never shared.
-		unsafe {
-			AddressSpaceLayout::interrupt_stack().unmap_all_and_reclaim(thread);
-		}
-	}
+	type InstanceHandle = self::instance::InstanceHandle;
+	type ThreadHandle = self::thread::ThreadHandle;
 }
 
 /// Type alias for the Oro kernel core-local instance type.
@@ -214,28 +128,3 @@ pub(crate) struct CoreState {
 // XXX(qix-): the `Sync` requirement altogether, but for now this is sufficient,
 // XXX(qix-): if not a little fragile.
 unsafe impl Sync for CoreState {}
-
-/// x86_64-specific thread state.
-pub(crate) struct ThreadState {
-	/// The thread's interrupt stack pointer.
-	pub irq_stack_ptr: usize,
-	/// The thread's entry point.
-	pub entry_point:   usize,
-	/// The thread's stack pointer.
-	pub stack_ptr:     usize,
-}
-
-impl ThreadState {
-	/// Creates a new thread state with the given entry point.
-	pub fn new(entry_point: usize, stack_ptr: usize) -> Self {
-		// Must match above in `Arch::initialize_thread_mappings`.
-		let irq_stack_segment = AddressSpaceLayout::interrupt_stack();
-		let stack_high_guard = irq_stack_segment.range().1 & !0xFFF;
-
-		Self {
-			irq_stack_ptr: stack_high_guard,
-			entry_point,
-			stack_ptr,
-		}
-	}
-}

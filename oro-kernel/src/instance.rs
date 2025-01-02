@@ -5,12 +5,17 @@ use oro_mem::{
 		sync::{Arc, Weak},
 		vec::Vec,
 	},
-	mapper::{AddressSegment, AddressSpace, MapError},
+	mapper::{AddressSegment, AddressSpace as _, MapError},
 };
 use oro_sync::{Lock, Mutex};
 
 use crate::{
-	AddrSpace, Arch, Kernel, UserHandle, module::Module, port::Port, ring::Ring, thread::Thread,
+	AddressSpace, Kernel, UserHandle,
+	arch::{Arch, InstanceHandle},
+	module::Module,
+	port::Port,
+	ring::Ring,
+	thread::Thread,
 };
 
 /// A singular module instance.
@@ -58,11 +63,8 @@ pub struct Instance<A: Arch> {
 	pub(super) threads: Vec<Arc<Mutex<Thread<A>>>>,
 	/// The port list for the instance.
 	ports: Vec<Arc<Mutex<Port>>>,
-	/// The instance's address space mapper handle.
-	///
-	/// This is typically cloned from the module's user
-	/// space handle.
-	mapper: UserHandle<A>,
+	/// The instance's architecture handle.
+	handle: A::InstanceHandle,
 }
 
 impl<A: Arch> Instance<A> {
@@ -75,17 +77,18 @@ impl<A: Arch> Instance<A> {
 	) -> Result<Arc<Mutex<Self>>, MapError> {
 		let id = Kernel::<A>::get().state().allocate_id();
 
-		let mapper = AddrSpace::<A>::new_user_space(Kernel::<A>::get().mapper())
+		let mapper = AddressSpace::<A>::new_user_space(Kernel::<A>::get().mapper())
 			.ok_or(MapError::OutOfMemory)?;
 
+		let handle = A::InstanceHandle::new(mapper)?;
+
 		// Apply the ring mapper overlay to the instance.
-		AddrSpace::<A>::sysabi().apply_user_space_shallow(&mapper, &ring.lock().mapper)?;
+		AddressSpace::<A>::sysabi()
+			.apply_user_space_shallow(handle.mapper(), &ring.lock().mapper)?;
 
 		// Apply the module's read-only mapper overlay to the instance.
-		AddrSpace::<A>::user_rodata().apply_user_space_shallow(&mapper, module.lock().mapper())?;
-
-		// Makes the instance unique, either duplicating RW pages or marking them as COW.
-		A::make_instance_unique(&mapper)?;
+		AddressSpace::<A>::user_rodata()
+			.apply_user_space_shallow(handle.mapper(), module.lock().mapper())?;
 
 		let r = Arc::new(Mutex::new(Self {
 			id,
@@ -93,7 +96,7 @@ impl<A: Arch> Instance<A> {
 			ring: Arc::downgrade(ring),
 			threads: Vec::new(),
 			ports: Vec::new(),
-			mapper,
+			handle,
 		}));
 
 		ring.lock().instances.push(r.clone());
@@ -136,6 +139,6 @@ impl<A: Arch> Instance<A> {
 	/// Returns the instance's address space handle.
 	#[must_use]
 	pub fn mapper(&self) -> &UserHandle<A> {
-		&self.mapper
+		self.handle.mapper()
 	}
 }

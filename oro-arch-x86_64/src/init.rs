@@ -286,7 +286,7 @@ pub unsafe fn boot() -> ! {
 				AddressSpaceLayout::apply_core_local_mappings(kernel.mapper(), mapper);
 
 				let cr3 = mapper.base_phys;
-				let rsp = ctx_lock.thread_state().irq_stack_ptr;
+				let rsp = ctx_lock.handle().irq_stack_ptr;
 				let kernel_rsp_ptr = kernel.core().kernel_stack.get() as u64;
 				let kernel_irq_rsp_ptr = kernel.core().kernel_irq_stack.get() as u64;
 				(*kernel.core().tss.get())

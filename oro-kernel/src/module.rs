@@ -7,11 +7,11 @@ use oro_mem::{
 		sync::{Arc, Weak},
 		vec::Vec,
 	},
-	mapper::{AddressSpace, MapError},
+	mapper::{AddressSpace as _, MapError},
 };
 use oro_sync::{Lock, Mutex};
 
-use crate::{AddrSpace, Arch, Kernel, UserHandle, instance::Instance};
+use crate::{AddressSpace, Kernel, UserHandle, arch::Arch, instance::Instance};
 
 /// A singular executable module.
 ///
@@ -21,8 +21,7 @@ use crate::{AddrSpace, Arch, Kernel, UserHandle, instance::Instance};
 ///
 /// After creating a module, its [`Module::mapper()`] handle can be used
 /// to populate the module with the executable code and data, which is then
-/// used to create instances of the module (followed by a call to
-/// [`crate::Arch::make_instance_unique()`]).
+/// used to create instances of the module.
 pub struct Module<A: Arch> {
 	/// The resource ID.
 	id: u64,
@@ -47,7 +46,7 @@ impl<A: Arch> Module<A> {
 	pub fn new(module_id: Id<{ IdType::Module }>) -> Result<Arc<Mutex<Self>>, MapError> {
 		let id = Kernel::<A>::get().state().allocate_id();
 
-		let mapper = AddrSpace::<A>::new_user_space_empty().ok_or(MapError::OutOfMemory)?;
+		let mapper = AddressSpace::<A>::new_user_space_empty().ok_or(MapError::OutOfMemory)?;
 
 		let r = Arc::new(Mutex::new(Self {
 			id,
@@ -87,8 +86,7 @@ impl<A: Arch> Module<A> {
 	///
 	/// **All mappings created with this handle are shared between all instances of this module.**
 	/// Thus, this handle should only be used for read-only mappings, or mappings that are RW
-	/// and can either be duplicated or handled as COW (copy-on-write) by the architecture
-	/// via the [`crate::Arch::make_instance_unique`] method.
+	/// and can either be duplicated or handled as COW (copy-on-write) by the architecture.
 	pub fn mapper(&self) -> &UserHandle<A> {
 		&self.mapper
 	}
@@ -128,6 +126,6 @@ impl<A: Arch> Drop for Module<A> {
 		let mapper = core::mem::replace(&mut self.mapper, unsafe { core::mem::zeroed() });
 
 		// Reclaim all pages from the module's address space.
-		AddrSpace::<A>::free_user_space_deep(mapper);
+		AddressSpace::<A>::free_user_space_deep(mapper);
 	}
 }

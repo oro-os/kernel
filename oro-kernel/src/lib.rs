@@ -13,6 +13,7 @@
 #![feature(associated_type_defaults)]
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
+pub mod arch;
 pub mod instance;
 pub mod module;
 pub mod port;
@@ -36,12 +37,12 @@ use oro_mem::{
 		vec::Vec,
 	},
 	global_alloc::GlobalPfa,
-	mapper::{AddressSegment, AddressSpace, MapError},
+	mapper::{AddressSegment, MapError, AddressSpace as _},
 	pfa::Alloc,
 };
 use oro_sync::{Lock, Mutex, TicketMutex};
 
-use self::scheduler::Scheduler;
+use self::{arch::Arch, scheduler::Scheduler};
 
 /// Core-local instance of the Oro kernel.
 ///
@@ -69,7 +70,7 @@ pub struct Kernel<A: Arch> {
 impl<A: Arch> Kernel<A> {
 	/// Initializes a new core-local instance of the Oro kernel.
 	///
-	/// The [`AddressSpace::kernel_core_local()`] segment must
+	/// The [`oro_mem::mapper::AddressSpace::kernel_core_local()`] segment must
 	/// be empty prior to calling this function, else it will
 	/// return [`MapError::Exists`].
 	///
@@ -93,8 +94,8 @@ impl<A: Arch> Kernel<A> {
 	) -> Result<&'static Self, MapError> {
 		assert::fits::<Self, 4096>();
 
-		let mapper = AddrSpace::<A>::current_supervisor_space();
-		let core_local_segment = AddrSpace::<A>::kernel_core_local();
+		let mapper = AddressSpace::<A>::current_supervisor_space();
+		let core_local_segment = AddressSpace::<A>::kernel_core_local();
 
 		let kernel_base = core_local_segment.range().0;
 		debug_assert!((kernel_base as *mut Self).is_aligned());
@@ -135,7 +136,7 @@ impl<A: Arch> Kernel<A> {
 	pub fn get() -> &'static Self {
 		// SAFETY(qix-): The kernel instance is initialized for the core
 		// SAFETY(qix-): before any other code runs.
-		unsafe { &*(AddrSpace::<A>::kernel_core_local().range().0 as *const Self) }
+		unsafe { &*(AddressSpace::<A>::kernel_core_local().range().0 as *const Self) }
 	}
 
 	/// Returns the core's ID.
@@ -247,84 +248,10 @@ impl<A: Arch> KernelState<A> {
 	}
 }
 
-/// A trait for architectures to list commonly used types
-/// to be passed around the kernel.
-pub trait Arch: 'static {
-	/// The address space layout the architecture uses.
-	type AddrSpace: AddressSpace;
-	/// Architecture-specific thread state to be stored alongside
-	/// each thread.
-	type ThreadState: Sized + Send = ();
-	/// The core-local state type.
-	type CoreState: Sized + Send + Sync + 'static = ();
-	/// The system call frame type.
-	type SystemCallFrame: SystemCallFrame + 'static;
-
-	/// Makes the given instance mapper unique, either by duplicating
-	/// all RW pages or by implementing COW (copy-on-write) semantics.
-	fn make_instance_unique(
-		mapper: &<Self::AddrSpace as AddressSpace>::UserHandle,
-	) -> Result<(), MapError>;
-
-	/// Creates a new [`Self::ThreadState`] instance.
-	fn new_thread_state(stack_ptr: usize, entry_point: usize) -> Self::ThreadState;
-
-	/// Allows for the architecture to initialize additional mappings per-thread
-	/// necessary to make threads work on that architecture.
-	fn initialize_thread_mappings(
-		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
-		thread_state: &mut Self::ThreadState,
-	) -> Result<(), MapError>;
-
-	/// Reclaims any mappings created by [`Self::initialize_thread_mappings`].
-	///
-	/// Must be infallible.
-	fn reclaim_thread_mappings(
-		thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
-		thread_state: &mut Self::ThreadState,
-	);
-}
-
-/// Implements a type that reports information about a system call to the kernel.
-///
-/// Frames are handed to the kernel to either process or store (if the task must
-/// be made dormant) in order to hand _back_ to the architecture for restoration
-/// at a later time.
-pub trait SystemCallFrame: Sized + Send + Sync {
-	/// Returns the opcode for the operation.
-	///
-	/// Does not need to be validated; the kernel will do that.
-	fn opcode(&self) -> oro_sysabi::syscall::Opcode;
-	/// Returns the table ID for the operation.
-	///
-	/// Does not need to be validated; the kernel will do that.
-	fn table_id(&self) -> u64;
-	/// Returns the entity ID for the operation.
-	///
-	/// Does not need to be validated; the kernel will do that.
-	fn entity_id(&self) -> u64;
-	/// Returns the key for the operation.
-	fn key(&self) -> u64;
-	/// Returns the value for the operation.
-	///
-	/// Does not need to be validated; the kernel will do that.
-	fn value(&self) -> u64;
-	/// Sets the return value for the system call.
-	fn set_return_value(&mut self, value: u64);
-	/// Sets the error code for the system call.
-	fn set_error(&mut self, error: oro_sysabi::syscall::Error);
-
-	/// Returns to the task that made the system call.
-	///
-	/// # Safety
-	/// The caller must ensure that the task's context has been
-	/// appropriately restored before calling this function.
-	unsafe fn return_to_caller(self) -> !;
-}
-
 /// Helper trait association type for `Arch::AddrSpace`.
-pub(crate) type AddrSpace<A> = <A as Arch>::AddrSpace;
+pub(crate) type AddressSpace<A> = <A as Arch>::AddressSpace;
 /// Helper trait association type for `Arch::AddrSpace::SupervisorHandle`.
-pub(crate) type SupervisorHandle<A> = <AddrSpace<A> as AddressSpace>::SupervisorHandle;
+pub(crate) type SupervisorHandle<A> =
+	<AddressSpace<A> as oro_mem::mapper::AddressSpace>::SupervisorHandle;
 /// Helper trait association type for `Arch::AddrSpace::UserHandle`.
-pub(crate) type UserHandle<A> = <AddrSpace<A> as AddressSpace>::UserHandle;
+pub(crate) type UserHandle<A> = <AddressSpace<A> as oro_mem::mapper::AddressSpace>::UserHandle;

@@ -3,7 +3,7 @@
 /// Holds the data related to a system call frame.
 pub struct SystemCallFrame;
 
-impl oro_kernel::SystemCallFrame for SystemCallFrame {
+impl oro_kernel::arch::SystemCallHandle for SystemCallFrame {
 	#[inline]
 	fn opcode(&self) -> oro_sysabi::syscall::Opcode {
 		todo!();

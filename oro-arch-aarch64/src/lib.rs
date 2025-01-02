@@ -34,11 +34,13 @@
 
 pub mod asm;
 pub mod boot;
+pub mod instance;
 pub mod mair;
 pub mod mem;
 pub mod psci;
 pub mod reg;
 pub mod syscall;
+pub mod thread;
 
 pub(crate) mod init;
 
@@ -57,35 +59,11 @@ pub const ELF_MACHINE: ElfMachine = ElfMachine::Aarch64;
 /// used throughout the `oro-kernel` crate.
 pub(crate) struct Arch;
 
-impl oro_kernel::Arch for Arch {
-	type AddrSpace = crate::mem::address_space::AddressSpaceLayout;
+impl oro_kernel::arch::Arch for Arch {
+	type AddressSpace = crate::mem::address_space::AddressSpaceLayout;
 	type CoreState = ();
-	type SystemCallFrame = crate::syscall::SystemCallFrame;
-	type ThreadState = ();
-
-	fn make_instance_unique(
-		_mapper: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
-	) -> Result<(), oro_mem::mapper::MapError> {
-		todo!("make_instance_unique()");
-	}
-
-	fn new_thread_state(_stack_ptr: usize, _entry_point: usize) -> Self::ThreadState {
-		todo!("new_thread_state()");
-	}
-
-	fn initialize_thread_mappings(
-		_thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
-		_thread_state: &mut Self::ThreadState,
-	) -> Result<(), oro_mem::mapper::MapError> {
-		todo!("initialize_thread_mappings()");
-	}
-
-	fn reclaim_thread_mappings(
-		_thread: &<Self::AddrSpace as oro_mem::mapper::AddressSpace>::UserHandle,
-		_thread_state: &mut Self::ThreadState,
-	) {
-		todo!("reclaim_thread_mappings()");
-	}
+	type InstanceHandle = self::instance::InstanceHandle;
+	type ThreadHandle = self::thread::ThreadHandle;
 }
 
 /// Type alias for the Oro kernel core-local instance type.

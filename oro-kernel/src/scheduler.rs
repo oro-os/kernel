@@ -3,7 +3,7 @@
 use oro_mem::alloc::sync::Arc;
 use oro_sync::{Lock, Mutex};
 
-use crate::{Arch, Kernel, thread::Thread};
+use crate::{Kernel, arch::Arch, thread::Thread};
 
 /// Architecture-specific handler for scheduler related
 /// commands.

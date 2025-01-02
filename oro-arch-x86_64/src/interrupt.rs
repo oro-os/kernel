@@ -99,7 +99,7 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 		// If this is `None`, then the kernel is currently running.
 		// Otherwise it's a userspace task that we just jumped from.
 		if let Some(user_task) = scheduler_lock.current_thread().as_ref() {
-			user_task.lock().thread_state_mut().irq_stack_ptr = irq_stack_ptr as usize;
+			user_task.lock().handle_mut().irq_stack_ptr = irq_stack_ptr as usize;
 
 			coming_from_user = true;
 		} else {
@@ -130,7 +130,7 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 			AddressSpaceLayout::apply_core_local_mappings(handler.kernel().mapper(), mapper);
 
 			let cr3 = mapper.base_phys;
-			let rsp = ctx_lock.thread_state().irq_stack_ptr;
+			let rsp = ctx_lock.handle().irq_stack_ptr;
 			(*handler.kernel().core().tss.get())
 				.rsp0
 				.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
