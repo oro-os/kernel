@@ -51,20 +51,17 @@ use self::{arch::Arch, scheduler::Scheduler};
 /// from anywhere in the kernel as a static reference.
 pub struct Kernel<A: Arch> {
 	/// The core's ID.
-	id:         usize,
-	/// Local core state. The kernel instance owns this
-	/// due to all of the machinery already in place to make
-	/// this kernel instance object core-local and accessible
-	/// from anywhere in the kernel.
-	core_state: A::CoreState,
+	id:        usize,
 	/// Global reference to the shared kernel state.
-	state:      &'static KernelState<A>,
+	state:     &'static KernelState<A>,
 	/// The kernel scheduler.
 	///
 	/// Guaranteed valid after a successful call to `initialize_for_core`.
-	scheduler:  MaybeUninit<TicketMutex<Scheduler<A>>>,
+	scheduler: MaybeUninit<TicketMutex<Scheduler<A>>>,
 	/// Cached mapper handle for the kernel.
-	mapper:     SupervisorHandle<A>,
+	mapper:    SupervisorHandle<A>,
+	/// Core-local, architecture-specific handle.
+	handle:    A::CoreHandle,
 }
 
 impl<A: Arch> Kernel<A> {
@@ -90,7 +87,7 @@ impl<A: Arch> Kernel<A> {
 	pub unsafe fn initialize_for_core(
 		id: usize,
 		global_state: &'static KernelState<A>,
-		core_state: A::CoreState,
+		handle: A::CoreHandle,
 	) -> Result<&'static Self, MapError> {
 		assert::fits::<Self, 4096>();
 
@@ -108,7 +105,7 @@ impl<A: Arch> Kernel<A> {
 		let kernel_ptr = kernel_base as *mut Self;
 		kernel_ptr.write(Self {
 			id,
-			core_state,
+			handle,
 			state: global_state,
 			scheduler: MaybeUninit::uninit(),
 			mapper,
@@ -151,10 +148,16 @@ impl<A: Arch> Kernel<A> {
 		self.state
 	}
 
-	/// Returns the architecture-specific core local state reference.
+	/// Returns the architecture-specific core local handle reference.
 	#[must_use]
-	pub fn core(&self) -> &A::CoreState {
-		&self.core_state
+	pub fn handle(&self) -> &A::CoreHandle {
+		&self.handle
+	}
+
+	/// Returns the architecture-specific core local handle reference.
+	#[must_use]
+	pub fn handle_mut(&mut self) -> &mut A::CoreHandle {
+		&mut self.handle
 	}
 
 	/// Returns the mapper for the kernel.

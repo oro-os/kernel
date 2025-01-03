@@ -90,11 +90,11 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 	let irq_stack_ptr: u64;
 	asm!("", out("rcx") irq_stack_ptr, options(nostack, preserves_flags));
 
-	let handler = crate::handler::Handler::new();
+	let kernel = crate::Kernel::get();
 
 	let mut coming_from_user = false;
 	{
-		let scheduler_lock = handler.kernel().scheduler().lock();
+		let scheduler_lock = kernel.scheduler().lock();
 
 		// If this is `None`, then the kernel is currently running.
 		// Otherwise it's a userspace task that we just jumped from.
@@ -103,35 +103,26 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 
 			coming_from_user = true;
 		} else {
-			handler
-				.kernel()
-				.core()
-				.kernel_irq_stack
-				.get()
-				.write(irq_stack_ptr);
+			kernel.handle().kernel_irq_stack.get().write(irq_stack_ptr);
 		}
 
 		drop(scheduler_lock);
 	}
 
-	handler.kernel().core().lapic.eoi();
+	kernel.handle().lapic.eoi();
 
-	let maybe_user_context = handler
-		.kernel()
-		.scheduler()
-		.lock()
-		.event_timer_expired(&handler);
+	let maybe_user_context = kernel.scheduler().lock().event_timer_expired();
 
 	if let Some(user_ctx) = maybe_user_context {
 		let (thread_cr3_phys, thread_rsp) = unsafe {
 			let ctx_lock = user_ctx.lock();
 
 			let mapper = ctx_lock.mapper();
-			AddressSpaceLayout::apply_core_local_mappings(handler.kernel().mapper(), mapper);
+			AddressSpaceLayout::apply_core_local_mappings(kernel.mapper(), mapper);
 
 			let cr3 = mapper.base_phys;
 			let rsp = ctx_lock.handle().irq_stack_ptr;
-			(*handler.kernel().core().tss.get())
+			(*kernel.handle().tss.get())
 				.rsp0
 				.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
 			drop(ctx_lock);
@@ -145,10 +136,10 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 			options(noreturn),
 		};
 	} else {
-		let kernel_irq_stack = handler.kernel().core().kernel_irq_stack.get().read();
-		let kernel_stack = handler.kernel().core().kernel_stack.get().read();
+		let kernel_irq_stack = kernel.handle().kernel_irq_stack.get().read();
+		let kernel_stack = kernel.handle().kernel_stack.get().read();
 		if coming_from_user {
-			let kernel_cr3 = handler.kernel().mapper().base_phys;
+			let kernel_cr3 = kernel.mapper().base_phys;
 
 			asm! {
 				"mov cr3, rdx",
@@ -180,7 +171,7 @@ unsafe extern "C" fn isr_sys_timer() -> ! {
 /// The ISR (Interrupt Service Routine) for the APIC spurious interrupt.
 #[no_mangle]
 unsafe extern "C" fn isr_apic_svr_rust() {
-	crate::Kernel::get().core().lapic.eoi();
+	crate::Kernel::get().handle().lapic.eoi();
 }
 
 /// The ISR (Interrupt Service Routine) trampoline stub for the APIC spurious interrupt.
@@ -207,7 +198,7 @@ const APIC_SVR_VECTOR: u8 = 255;
 /// The kernel MUST be fully initialized before calling this function.
 pub unsafe fn install_idt() {
 	// Get the LAPIC.
-	let lapic = &crate::Kernel::get().core().lapic;
+	let lapic = &crate::Kernel::get().handle().lapic;
 
 	/// The IDTR (Interrupt Descriptor Table Register) structure,
 	/// read in by the `lidt` instruction.

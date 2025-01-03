@@ -48,7 +48,7 @@ pub unsafe fn boot() -> ! {
 	let _kernel = crate::Kernel::initialize_for_core(
 		0, // TODO(qix-): pass in the core ID
 		KERNEL_STATE.assume_init_ref(),
-		(),
+		crate::core_local::CoreHandle,
 	)
 	.expect("failed to initialize kernel");
 

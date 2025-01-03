@@ -16,7 +16,6 @@ use oro_sync::Lock;
 
 use crate::{
 	gdt::{Gdt, SysEntry},
-	handler::Handler,
 	lapic::Lapic,
 	mem::address_space::AddressSpaceLayout,
 	tss::Tss,
@@ -224,7 +223,7 @@ unsafe fn initialize_core_local(lapic: Lapic) {
 	crate::Kernel::initialize_for_core(
 		lapic.id().into(),
 		KERNEL_STATE.assume_init_ref(),
-		crate::CoreState {
+		crate::core_local::CoreHandle {
 			lapic,
 			gdt: UnsafeCell::new(MaybeUninit::uninit()),
 			tss: UnsafeCell::new(Tss::default()),
@@ -247,7 +246,7 @@ pub unsafe fn boot() -> ! {
 	let kernel = crate::Kernel::get();
 
 	let (tss_offset, gdt) =
-		Gdt::<5>::new().with_sys_entry(SysEntry::for_tss(kernel.core().tss.get()));
+		Gdt::<5>::new().with_sys_entry(SysEntry::for_tss(kernel.handle().tss.get()));
 
 	assert_eq!(
 		tss_offset,
@@ -256,7 +255,7 @@ pub unsafe fn boot() -> ! {
 	);
 
 	{
-		let gdt_raw = kernel.core().gdt.get();
+		let gdt_raw = kernel.handle().gdt.get();
 		let gdt_mut = &mut *gdt_raw;
 		gdt_mut.write(gdt);
 		core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
@@ -269,11 +268,10 @@ pub unsafe fn boot() -> ! {
 
 	dbg!("boot");
 
-	let handler = Handler::new();
 	loop {
 		let maybe_ctx = {
-			let mut lock = handler.kernel().scheduler().lock();
-			let ctx = lock.event_idle(&handler);
+			let mut lock = kernel.scheduler().lock();
+			let ctx = lock.event_idle();
 			drop(lock);
 			ctx
 		};
@@ -287,9 +285,9 @@ pub unsafe fn boot() -> ! {
 
 				let cr3 = mapper.base_phys;
 				let rsp = ctx_lock.handle().irq_stack_ptr;
-				let kernel_rsp_ptr = kernel.core().kernel_stack.get() as u64;
-				let kernel_irq_rsp_ptr = kernel.core().kernel_irq_stack.get() as u64;
-				(*kernel.core().tss.get())
+				let kernel_rsp_ptr = kernel.handle().kernel_stack.get() as u64;
+				let kernel_irq_rsp_ptr = kernel.handle().kernel_irq_stack.get() as u64;
+				(*kernel.handle().tss.get())
 					.rsp0
 					.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
 				drop(ctx_lock);
@@ -307,7 +305,7 @@ pub unsafe fn boot() -> ! {
 			// Nothing to do. Wait for an interrupt.
 			// Scheduler will have asked us to set a timer
 			// if it wants to be woken up.
-			let kernel_rsp_ptr = kernel.core().kernel_stack.get() as u64;
+			let kernel_rsp_ptr = kernel.handle().kernel_stack.get() as u64;
 
 			asm! {
 				"call oro_x86_64_kernel_to_idle",

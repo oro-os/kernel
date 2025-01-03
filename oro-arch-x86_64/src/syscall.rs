@@ -246,7 +246,7 @@ unsafe extern "C" fn syscall_enter_non_compat_stage2() -> ! {
 
 	// Now we get the address of the kernel stack from the core local
 	// state.
-	let kernel_stack = crate::Kernel::get().core().kernel_stack.get().read();
+	let kernel_stack = crate::Kernel::get().handle().kernel_stack.get().read();
 
 	// We then set the new stack pointer, subtracting the size of the
 	// frame from the kernel stack pointer, and copying the frame to

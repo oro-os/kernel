@@ -12,6 +12,8 @@ pub trait Arch: Sized + 'static {
 	type CoreState: Sized + Send + Sync + 'static = ();
 	/// The architecture-specific instance handle.
 	type InstanceHandle: InstanceHandle<Self>;
+	/// The architecture-specific core handle.
+	type CoreHandle: CoreHandle;
 }
 
 /// An architecture-specific thread handle.
@@ -144,4 +146,29 @@ pub unsafe trait InstanceHandle<A: Arch>: Sized + Send {
 	/// # Invariants
 	/// Must return the same mapper handle that was given to the constructor.
 	fn mapper(&self) -> &<<A as Arch>::AddressSpace as AddressSpace>::UserHandle;
+}
+
+/// A handle to a local core.
+///
+/// Used primarily to issue timer and other core-wide operations.
+///
+/// # Safety
+/// This trait is inherently unsafe. Implementors must take
+/// great care that **all** invariants for **each individual method**
+/// are upheld.
+pub unsafe trait CoreHandle {
+	/// Tells a one-off timer to expire after `ticks`.
+	/// The architecture should not transform the number
+	/// of ticks unless it has good reason to.
+	///
+	/// The architecture should call [`crate::scheduler::Scheduler::event_timer_expired()`]
+	/// if the timer expires.
+	fn schedule_timer(&self, ticks: u32);
+
+	/// Tells the core to cancel any pending timer.
+	///
+	/// Between this point and a subsequent call to
+	/// [`Self::schedule_timer()`], the architecture should
+	/// **not** call [`crate::scheduler::Scheduler::event_timer_expired()`].
+	fn cancel_timer(&self);
 }

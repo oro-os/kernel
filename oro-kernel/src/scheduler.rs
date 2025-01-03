@@ -5,42 +5,9 @@ use oro_sync::{Lock, Mutex};
 
 use crate::{
 	Kernel,
-	arch::{Arch, ThreadHandle},
+	arch::{Arch, CoreHandle, ThreadHandle},
 	thread::Thread,
 };
-
-/// Architecture-specific handler for scheduler related
-/// commands.
-///
-/// Upon events coming into the CPU, the architecture will
-/// consult the [`crate::Kernel`] about what to do next.
-///
-/// The kernel will accept an object bounded to this trait,
-/// through which it may issue commands to the architecture
-/// to perform certain low-level actions, before finally
-/// returning a user context to which the architecture will
-/// switch to.
-///
-/// During the time the kernel handler is processing, the
-/// kernel thread may execute tasks related to system management,
-/// kernel modules, etc. before handing control back to
-/// a userspace thread via the architecture.
-pub trait Handler<A: Arch> {
-	/// Tells a one-off timer to expire after `ticks`.
-	/// The architecture should not transform the number
-	/// of ticks unless it has good reason to.
-	///
-	/// The architecture should call [`Scheduler::event_timer_expired()`]
-	/// if the timer expires.
-	fn schedule_timer(&self, ticks: u32);
-
-	/// Tells the architecture to cancel any pending timer.
-	///
-	/// Between this point and a subsequent call to
-	/// [`Self::schedule_timer()`], the architecture should
-	/// not call [`Scheduler::event_timer_expired()`].
-	fn cancel_timer(&self);
-}
 
 /// Main scheduler state machine.
 ///
@@ -179,12 +146,9 @@ impl<A: Arch> Scheduler<A> {
 	/// can other scheduler methods be invoked while this function
 	/// is running.
 	#[must_use]
-	pub unsafe fn event_idle<H: Handler<A>>(
-		&mut self,
-		handler: &H,
-	) -> Option<Arc<Mutex<Thread<A>>>> {
+	pub unsafe fn event_idle(&mut self) -> Option<Arc<Mutex<Thread<A>>>> {
 		let result = self.pick_user_thread();
-		handler.schedule_timer(1000);
+		self.kernel.handle().schedule_timer(1000);
 		result
 	}
 
@@ -212,12 +176,9 @@ impl<A: Arch> Scheduler<A> {
 	/// can other scheduler methods be invoked while this function
 	/// is running.
 	#[must_use]
-	pub unsafe fn event_timer_expired<H: Handler<A>>(
-		&mut self,
-		handler: &H,
-	) -> Option<Arc<Mutex<Thread<A>>>> {
+	pub unsafe fn event_timer_expired(&mut self) -> Option<Arc<Mutex<Thread<A>>>> {
 		let result = self.pick_user_thread();
-		handler.schedule_timer(1000);
+		self.kernel.handle().schedule_timer(1000);
 		result
 	}
 }

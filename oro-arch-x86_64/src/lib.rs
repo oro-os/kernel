@@ -65,8 +65,8 @@
 
 pub mod asm;
 pub mod boot;
+pub mod core_local;
 pub mod gdt;
-pub mod handler;
 pub mod instance;
 pub mod interrupt;
 pub mod lapic;
@@ -78,8 +78,6 @@ pub mod thread;
 pub mod tss;
 
 pub(crate) mod init;
-
-use core::{cell::UnsafeCell, mem::MaybeUninit};
 
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 
@@ -96,35 +94,10 @@ pub(crate) struct Arch;
 
 impl oro_kernel::arch::Arch for Arch {
 	type AddressSpace = crate::mem::address_space::AddressSpaceLayout;
-	type CoreState = CoreState;
+	type CoreHandle = self::core_local::CoreHandle;
 	type InstanceHandle = self::instance::InstanceHandle;
 	type ThreadHandle = self::thread::ThreadHandle;
 }
 
 /// Type alias for the Oro kernel core-local instance type.
 pub(crate) type Kernel = oro_kernel::Kernel<Arch>;
-
-/// Architecture-specific core-local state.
-pub(crate) struct CoreState {
-	/// The LAPIC (Local Advanced Programmable Interrupt Controller)
-	/// for the core.
-	pub lapic: lapic::Lapic,
-	/// The core's local GDT
-	///
-	/// Only valid after the Kernel has been initialized
-	/// and properly mapped.
-	pub gdt: UnsafeCell<MaybeUninit<gdt::Gdt<8>>>,
-	/// The TSS (Task State Segment) for the core.
-	pub tss: UnsafeCell<tss::Tss>,
-	/// The kernel's stored stack pointer.
-	pub kernel_stack: UnsafeCell<u64>,
-	/// The IRQ head of the kernel stack (with GP registers)
-	pub kernel_irq_stack: UnsafeCell<u64>,
-}
-
-// XXX(qix-): This is temporary. The core state is not currently used
-// XXX(qix-): across core boundaries, so we can manually mark it as `Sync`.
-// XXX(qix-): I want to fix up how the kernel guards this value so as to drop
-// XXX(qix-): the `Sync` requirement altogether, but for now this is sufficient,
-// XXX(qix-): if not a little fragile.
-unsafe impl Sync for CoreState {}

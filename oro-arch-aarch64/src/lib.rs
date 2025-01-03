@@ -34,6 +34,7 @@
 
 pub mod asm;
 pub mod boot;
+pub mod core_local;
 pub mod instance;
 pub mod mair;
 pub mod mem;
@@ -61,18 +62,10 @@ pub(crate) struct Arch;
 
 impl oro_kernel::arch::Arch for Arch {
 	type AddressSpace = crate::mem::address_space::AddressSpaceLayout;
-	type CoreState = ();
+	type CoreHandle = self::core_local::CoreHandle;
 	type InstanceHandle = self::instance::InstanceHandle;
 	type ThreadHandle = self::thread::ThreadHandle;
 }
 
 /// Type alias for the Oro kernel core-local instance type.
 pub(crate) type Kernel = oro_kernel::Kernel<Arch>;
-
-/// Architecture-specific core-local state.
-#[expect(dead_code)] // XXX DEBUG
-pub(crate) struct CoreState {
-	// XXX DEBUG
-	#[doc(hidden)]
-	pub unused: u64,
-}
