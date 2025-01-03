@@ -87,6 +87,7 @@ macro_rules! madt_entries {
 		paste! {
 			/// Represents an entry in the MADT table.
 			#[expect(missing_docs)]
+			#[allow(non_camel_case_types)]
 			#[non_exhaustive]
 			pub enum MadtEntry<'a> {
 				$(
