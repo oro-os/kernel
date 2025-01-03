@@ -56,6 +56,18 @@ pub unsafe trait ThreadHandle<A: Arch>: Sized + Send {
 	/// # Invariants
 	/// Must return the same mapper handle that was given to the constructor.
 	fn mapper(&self) -> &<<A as Arch>::AddressSpace as AddressSpace>::UserHandle;
+
+	/// Migrates the thread to the current core.
+	///
+	/// # Invariants
+	/// Must map in the current kernel and any core-local mappings
+	/// into the thread's address space.
+	///
+	/// Must make the thread ready to be run on the calling core
+	/// shortly after being called.
+	///
+	/// Must be infallible.
+	fn migrate(&self);
 }
 
 /// Architecture-specific system call frame handle.

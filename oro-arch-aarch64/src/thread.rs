@@ -28,6 +28,10 @@ unsafe impl oro_kernel::arch::ThreadHandle<crate::Arch> for ThreadHandle {
 	fn mapper(&self) -> &Ttbr0Handle {
 		&self.mapper
 	}
+
+	fn migrate(&self) {
+		// No-op
+	}
 }
 
 impl Drop for ThreadHandle {

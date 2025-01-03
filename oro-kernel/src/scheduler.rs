@@ -3,7 +3,11 @@
 use oro_mem::alloc::sync::Arc;
 use oro_sync::{Lock, Mutex};
 
-use crate::{Kernel, arch::Arch, thread::Thread};
+use crate::{
+	Kernel,
+	arch::{Arch, ThreadHandle},
+	thread::Thread,
+};
 
 /// Architecture-specific handler for scheduler related
 /// commands.
@@ -36,14 +40,6 @@ pub trait Handler<A: Arch> {
 	/// [`Self::schedule_timer()`], the architecture should
 	/// not call [`Scheduler::event_timer_expired()`].
 	fn cancel_timer(&self);
-
-	/// Migrates the given thread to this kernel core.
-	///
-	/// This function is called when a thread is assigned to
-	/// this core but is not currently running on it.
-	///
-	/// It must either succeed, or panic (killing the kernel).
-	fn migrate_thread(kernel: &Kernel<A>, thread: &mut Thread<A>);
 }
 
 /// Main scheduler state machine.
@@ -102,7 +98,7 @@ impl<A: Arch> Scheduler<A> {
 	/// # Safety
 	/// Interrupts MUST be disabled before calling this function.
 	#[must_use]
-	unsafe fn pick_user_thread<H: Handler<A>>(&mut self) -> Option<Arc<Mutex<Thread<A>>>> {
+	unsafe fn pick_user_thread(&mut self) -> Option<Arc<Mutex<Thread<A>>>> {
 		if let Some(thread) = self.current.take() {
 			thread.lock().running_on_id = None;
 		}
@@ -137,7 +133,7 @@ impl<A: Arch> Scheduler<A> {
 						// Thread is not assigned to any core.
 						// Migrate it to this core.
 						t.run_on_id = Some(self.kernel.id());
-						H::migrate_thread(self.kernel, &mut t);
+						t.handle().migrate();
 
 						// Select it for execution.
 						drop(t);
@@ -187,7 +183,7 @@ impl<A: Arch> Scheduler<A> {
 		&mut self,
 		handler: &H,
 	) -> Option<Arc<Mutex<Thread<A>>>> {
-		let result = self.pick_user_thread::<H>();
+		let result = self.pick_user_thread();
 		handler.schedule_timer(1000);
 		result
 	}
@@ -220,7 +216,7 @@ impl<A: Arch> Scheduler<A> {
 		&mut self,
 		handler: &H,
 	) -> Option<Arc<Mutex<Thread<A>>>> {
-		let result = self.pick_user_thread::<H>();
+		let result = self.pick_user_thread();
 		handler.schedule_timer(1000);
 		result
 	}

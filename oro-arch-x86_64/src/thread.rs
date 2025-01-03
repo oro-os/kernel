@@ -105,6 +105,19 @@ unsafe impl oro_kernel::arch::ThreadHandle<crate::Arch> for ThreadHandle {
 	fn mapper(&self) -> &AddressSpaceHandle {
 		&self.mapper
 	}
+
+	fn migrate(&self) {
+		let mapper = crate::Kernel::get().mapper();
+
+		// Re-map the stack and core-local mappings.
+		// SAFETY(qix-): We don't need to reclaim anything so overwriting the mappings
+		// SAFETY(qix-): is safe.
+		unsafe {
+			let thread_mapper = self.mapper();
+			AddressSpaceLayout::kernel_stack().mirror_into(thread_mapper, mapper);
+			AddressSpaceLayout::kernel_core_local().mirror_into(thread_mapper, mapper);
+		}
+	}
 }
 
 impl Drop for ThreadHandle {
