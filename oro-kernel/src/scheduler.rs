@@ -5,7 +5,7 @@ use oro_sync::{Lock, Mutex};
 
 use crate::{
 	Kernel,
-	arch::{Arch, CoreHandle, ThreadHandle},
+	arch::{Arch, CoreHandle},
 	thread::Thread,
 };
 
@@ -67,7 +67,10 @@ impl<A: Arch> Scheduler<A> {
 	#[must_use]
 	unsafe fn pick_user_thread(&mut self) -> Option<Arc<Mutex<Thread<A>>>> {
 		if let Some(thread) = self.current.take() {
-			thread.lock().running_on_id = None;
+			thread
+				.lock()
+				.try_pause(self.kernel.id())
+				.expect("thread pause failed");
 		}
 
 		// XXX(qix-): This is a terrible design but gets the job done for now.
@@ -82,39 +85,10 @@ impl<A: Arch> Scheduler<A> {
 			if let Some(thread) = thread.upgrade() {
 				let mut t = thread.lock();
 
-				match (t.run_on_id, t.running_on_id) {
-					(Some(run_on), _) if run_on != self.kernel.id() => {
-						// Not scheduled to run on this core.
-						continue;
-					}
-					(_, Some(running_on)) => {
-						// Thread is currently running; skip it.
-						if running_on == self.kernel.id() {
-							// Something isn't right; it's not running here.
-							// Clear it and continue so it can be tried again later.
-							t.running_on_id = None;
-						}
-						continue;
-					}
-					(None, _) => {
-						// Thread is not assigned to any core.
-						// Migrate it to this core.
-						t.run_on_id = Some(self.kernel.id());
-						t.handle().migrate();
-
-						// Select it for execution.
-						drop(t);
-						return Some(thread);
-					}
-					(Some(run_on), None) if run_on == self.kernel.id() => {
-						// Select it for execution.
-						drop(t);
-						return Some(thread.clone());
-					}
-					_ => {
-						// Not pertinent to this core.
-						continue;
-					}
+				if t.try_schedule(self.kernel.id()).is_ok() {
+					// Select it for execution.
+					drop(t);
+					return Some(thread);
 				}
 			}
 		}

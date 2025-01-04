@@ -14,6 +14,25 @@ use crate::{
 	instance::Instance,
 };
 
+/// A thread's state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum State<A: Arch> {
+	/// The thread is not allocated to any core.
+	#[default]
+	Unallocated,
+	/// The thread is stopped.
+	Stopped,
+	/// The thread is paused on the given core, awaiting a new time slice.
+	Paused(usize),
+	/// The thread is running on the given core.
+	Running(usize),
+	/// The thread invoked a system call, which is blocked and awaiting
+	/// a response.
+	PausedSystemCall(A::SystemCallHandle),
+	/// The thread is terminated.
+	Terminated,
+}
+
 /// A singular system thread.
 ///
 /// Threads are the primary unit of 'execution' in the
@@ -26,21 +45,13 @@ use crate::{
 /// have a parent thread).
 pub struct Thread<A: Arch> {
 	/// The resource ID.
-	pub id: u64,
+	id:       u64,
 	/// The module instance to which this thread belongs.
-	pub instance: Arc<Mutex<Instance<A>>>,
+	instance: Arc<Mutex<Instance<A>>>,
 	/// Architecture-specific thread state.
-	pub handle: A::ThreadHandle,
-	/// The kernel core ID this thread should run on.
-	///
-	/// None if this thread hasn't been claimed by any core
-	/// (or the core has powered off and the thread should
-	/// be migrated).
-	pub run_on_id: Option<usize>,
-	/// The kernel core ID this thread is currently running on.
-	///
-	/// None if this thread is not currently running.
-	pub running_on_id: Option<usize>,
+	handle:   A::ThreadHandle,
+	/// The thread's state.
+	state:    State<A>,
 }
 
 impl<A: Arch> Thread<A> {
@@ -139,8 +150,7 @@ impl<A: Arch> Thread<A> {
 			id,
 			instance: instance.clone(),
 			handle,
-			run_on_id: None,
-			running_on_id: None,
+			state: State::default(),
 		}));
 
 		instance.lock().threads.push(r.clone());
@@ -182,23 +192,87 @@ impl<A: Arch> Thread<A> {
 	pub fn handle_mut(&mut self) -> &mut A::ThreadHandle {
 		&mut self.handle
 	}
+
+	/// Attempts to schedule the thread on the given core.
+	pub fn try_schedule(&mut self, core_id: usize) -> Result<(), ScheduleError> {
+		match &self.state {
+			State::Terminated => Err(ScheduleError::Terminated),
+			State::Running(core) => Err(ScheduleError::AlreadyRunning(*core)),
+			State::Paused(core) => {
+				if *core == core_id {
+					self.state = State::Running(*core);
+					Ok(())
+				} else {
+					Err(ScheduleError::Paused(*core))
+				}
+			}
+			State::Stopped => Err(ScheduleError::Stopped),
+			State::PausedSystemCall(_) => Err(ScheduleError::AwaitingResponse),
+			State::Unallocated => {
+				self.handle.migrate();
+				self.state = State::Running(core_id);
+				Ok(())
+			}
+		}
+	}
+
+	/// Attempts to pause the thread on the given core.
+	///
+	/// The thread must already be running on the given core,
+	/// else an error is returned.
+	pub fn try_pause(&mut self, core_id: usize) -> Result<(), PauseError> {
+		match &self.state {
+			State::Terminated => Err(PauseError::Terminated),
+			State::Running(core) => {
+				if *core == core_id {
+					self.state = State::Paused(core_id);
+					Ok(())
+				} else {
+					Err(PauseError::WrongCore(*core))
+				}
+			}
+			State::Paused(_) | State::Stopped | State::PausedSystemCall(_) | State::Unallocated => {
+				Err(PauseError::NotRunning)
+			}
+		}
+	}
+}
+
+/// Error type for thread scheduling.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScheduleError {
+	/// The thread is already running on the given core.
+	AlreadyRunning(usize),
+	/// The thread is terminated.
+	Terminated,
+	/// The thread needs an explicit response to an application request
+	/// and cannot be scheduled normally.
+	AwaitingResponse,
+	/// The thread is paused on another core.
+	Paused(usize),
+	/// The thread is stopped.
+	Stopped,
+}
+
+/// Error type for thread pausing (i.e. its timeslice has expired).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PauseError {
+	/// The thread was not running (either unallocated, paused, or stopped) - **but
+	/// not terminated**.
+	NotRunning,
+	/// The thread is allocated to another core.
+	WrongCore(usize),
+	/// The thread is terminated.
+	Terminated,
 }
 
 impl<A: Arch> Drop for Thread<A> {
 	fn drop(&mut self) {
-		// Make sure that, for whatever reason, a scheduler doesn't try to
-		// run this thread after it's been dropped. This isn't 100% correct
-		// but is a good enough deterrent.
-		//
-		// It's important to do this BEFORE the `running_on_id` check, just for
-		// making things every so slightly more bulletproof.
-		//
-		// XXX(qix-): Create a better mechanism for preventing dead-thread scheduling.
-		self.run_on_id = Some(usize::MAX);
+		let old_state = core::mem::replace(&mut self.state, State::Terminated);
 
 		// Sanity check; make sure the thread is not running on any scheduler,
 		// as that indicates a bug in the kernel.
-		assert!(self.running_on_id.is_none());
+		assert!(!matches!(old_state, State::Running(_)));
 
 		// SAFETY: Thread stack regions are specific to the thread and are not shared,
 		// SAFETY: and thus safe to reclaim.

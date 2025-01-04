@@ -14,6 +14,8 @@ pub trait Arch: Sized + 'static {
 	type InstanceHandle: InstanceHandle<Self>;
 	/// The architecture-specific core handle.
 	type CoreHandle: CoreHandle;
+	/// The architecture-specific system call handle.
+	type SystemCallHandle: SystemCallHandle;
 }
 
 /// An architecture-specific thread handle.
