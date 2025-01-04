@@ -102,13 +102,6 @@ pub trait SystemCallHandle: Sized + Send + Sync {
 	fn set_return_value(&mut self, value: u64);
 	/// Sets the error code for the system call.
 	fn set_error(&mut self, error: oro_sysabi::syscall::Error);
-
-	/// Returns to the task that made the system call.
-	///
-	/// # Safety
-	/// The caller must ensure that the task's context has been
-	/// appropriately restored before calling this function.
-	unsafe fn return_to_caller(self) -> !;
 }
 
 /// An architecture-specific instance state handle.

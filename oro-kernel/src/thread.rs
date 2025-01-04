@@ -16,6 +16,7 @@ use crate::{
 
 /// A thread's state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[expect(dead_code)]
 enum State<A: Arch> {
 	/// The thread is not allocated to any core.
 	#[default]
@@ -29,6 +30,11 @@ enum State<A: Arch> {
 	/// The thread invoked a system call, which is blocked and awaiting
 	/// a response.
 	PausedSystemCall(A::SystemCallHandle),
+	/// The thread invoked a system call that has be responded to.
+	///
+	/// The next time it's scheduled, it will consume the handle
+	/// and respond to the system call.
+	RespondingSystemCall(A::SystemCallHandle),
 	/// The thread is terminated.
 	Terminated,
 }
@@ -194,14 +200,22 @@ impl<A: Arch> Thread<A> {
 	}
 
 	/// Attempts to schedule the thread on the given core.
-	pub fn try_schedule(&mut self, core_id: usize) -> Result<(), ScheduleError> {
+	///
+	/// # Safety
+	/// The caller must **infallibly** consume any handles passed back
+	/// in an `Ok` result, else they are forever lost, since this method
+	/// advances the state machine and consumes the handle.
+	pub unsafe fn try_schedule(
+		&mut self,
+		core_id: usize,
+	) -> Result<ScheduleAction<A>, ScheduleError> {
 		match &self.state {
 			State::Terminated => Err(ScheduleError::Terminated),
 			State::Running(core) => Err(ScheduleError::AlreadyRunning(*core)),
 			State::Paused(core) => {
 				if *core == core_id {
 					self.state = State::Running(*core);
-					Ok(())
+					Ok(ScheduleAction::Resume)
 				} else {
 					Err(ScheduleError::Paused(*core))
 				}
@@ -211,7 +225,15 @@ impl<A: Arch> Thread<A> {
 			State::Unallocated => {
 				self.handle.migrate();
 				self.state = State::Running(core_id);
-				Ok(())
+				Ok(ScheduleAction::Resume)
+			}
+			State::RespondingSystemCall(_) => {
+				let State::RespondingSystemCall(handle) =
+					::core::mem::replace(&mut self.state, State::Running(core_id))
+				else {
+					unreachable!();
+				};
+				Ok(ScheduleAction::SystemCall(handle))
 			}
 		}
 	}
@@ -231,15 +253,51 @@ impl<A: Arch> Thread<A> {
 					Err(PauseError::WrongCore(*core))
 				}
 			}
-			State::Paused(_) | State::Stopped | State::PausedSystemCall(_) | State::Unallocated => {
-				Err(PauseError::NotRunning)
+			State::Paused(_)
+			| State::Stopped
+			| State::PausedSystemCall(_)
+			| State::Unallocated
+			| State::RespondingSystemCall(_) => Err(PauseError::NotRunning),
+		}
+	}
+
+	/// Signals that the thread has invoked a system call and is now
+	/// awaiting a response.
+	pub fn try_system_call(
+		&mut self,
+		core_id: usize,
+		handle: A::SystemCallHandle,
+	) -> Result<SystemCallAction<A>, PauseError> {
+		match &self.state {
+			State::Terminated => Err(PauseError::Terminated),
+			State::Running(core) => {
+				if *core == core_id {
+					// TODO(qix-): Handle system call
+					self.state = State::PausedSystemCall(handle);
+					Ok(SystemCallAction::Pause)
+				} else {
+					Err(PauseError::WrongCore(*core))
+				}
 			}
+			State::Paused(_)
+			| State::Stopped
+			| State::PausedSystemCall(_)
+			| State::Unallocated
+			| State::RespondingSystemCall(_) => Err(PauseError::NotRunning),
 		}
 	}
 }
 
+/// The action to take after a system call has been processed.
+pub enum SystemCallAction<A: Arch> {
+	/// Resume the thread with the given system call handle.
+	Resume(A::SystemCallHandle),
+	/// Pause the thread and await a response.
+	Pause,
+}
+
 /// Error type for thread scheduling.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum ScheduleError {
 	/// The thread is already running on the given core.
 	AlreadyRunning(usize),
@@ -255,7 +313,7 @@ pub enum ScheduleError {
 }
 
 /// Error type for thread pausing (i.e. its timeslice has expired).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum PauseError {
 	/// The thread was not running (either unallocated, paused, or stopped) - **but
 	/// not terminated**.
@@ -264,6 +322,18 @@ pub enum PauseError {
 	WrongCore(usize),
 	/// The thread is terminated.
 	Terminated,
+}
+
+/// Action to take when scheduling a thread.
+///
+/// # Safety
+/// Users of this enum MUST infallibly consume any handles passed back,
+/// else they are forever lost.
+pub enum ScheduleAction<A: Arch> {
+	/// The thread should be resumed normally.
+	Resume,
+	/// The thread needs to respond to a system call.
+	SystemCall(A::SystemCallHandle),
 }
 
 impl<A: Arch> Drop for Thread<A> {
