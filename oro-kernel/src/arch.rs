@@ -12,8 +12,6 @@ pub trait Arch: Sized + 'static {
 	type InstanceHandle: InstanceHandle<Self>;
 	/// The architecture-specific core handle.
 	type CoreHandle: CoreHandle;
-	/// The architecture-specific system call handle.
-	type SystemCallHandle: SystemCallHandle;
 }
 
 /// An architecture-specific thread handle.
@@ -70,36 +68,6 @@ pub unsafe trait ThreadHandle<A: Arch>: Sized + Send {
 	///
 	/// Must be infallible.
 	fn migrate(&self);
-}
-
-/// Architecture-specific system call frame handle.
-///
-/// Frames are handed to the kernel to either process or store (if the task must
-/// be made dormant) in order to hand _back_ to the architecture for restoration
-/// at a later time.
-pub trait SystemCallHandle: Sized + Send + Sync {
-	/// Returns the opcode for the operation.
-	///
-	/// Does not need to be validated; the kernel will do that.
-	fn opcode(&self) -> oro_sysabi::syscall::Opcode;
-	/// Returns the table ID for the operation.
-	///
-	/// Does not need to be validated; the kernel will do that.
-	fn table_id(&self) -> u64;
-	/// Returns the entity ID for the operation.
-	///
-	/// Does not need to be validated; the kernel will do that.
-	fn entity_id(&self) -> u64;
-	/// Returns the key for the operation.
-	fn key(&self) -> u64;
-	/// Returns the value for the operation.
-	///
-	/// Does not need to be validated; the kernel will do that.
-	fn value(&self) -> u64;
-	/// Sets the return value for the system call.
-	fn set_return_value(&mut self, value: u64);
-	/// Sets the error code for the system call.
-	fn set_error(&mut self, error: oro_sysabi::syscall::Error);
 }
 
 /// An architecture-specific instance state handle.

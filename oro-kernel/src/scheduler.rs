@@ -6,7 +6,7 @@ use oro_sync::{Lock, Mutex};
 use crate::{
 	Kernel,
 	arch::{Arch, CoreHandle},
-	thread::{ScheduleAction, SystemCallAction, Thread},
+	thread::{ScheduleAction, SystemCallAction, SystemCallRequest, SystemCallResponse, Thread},
 };
 
 /// Main scheduler state machine.
@@ -65,8 +65,7 @@ impl<A: Arch> Scheduler<A> {
 	/// # Safety
 	/// Interrupts MUST be disabled before calling this function.
 	#[must_use]
-	#[expect(clippy::type_complexity)]
-	unsafe fn pick_user_thread(&mut self) -> Option<(Arc<Mutex<Thread<A>>>, ScheduleAction<A>)> {
+	unsafe fn pick_user_thread(&mut self) -> Option<(Arc<Mutex<Thread<A>>>, ScheduleAction)> {
 		if let Some(thread) = self.current.take() {
 			thread
 				.lock()
@@ -193,19 +192,19 @@ impl<A: Arch> Scheduler<A> {
 	/// can other scheduler methods be invoked while this function
 	/// is running.
 	#[must_use]
-	pub unsafe fn event_system_call(&mut self, handle: A::SystemCallHandle) -> Switch<A> {
+	pub unsafe fn event_system_call(&mut self, request: SystemCallRequest) -> Switch<A> {
 		let coming_from_user = if let Some(thread) = self.current.take() {
 			let mut t = thread.lock();
 
-			let Ok(action) = t.try_system_call(self.kernel.id(), handle) else {
+			let Ok(action) = t.try_system_call(self.kernel.id(), request) else {
 				unreachable!()
 			};
 
 			match action {
-				SystemCallAction::Resume(handle) => {
+				SystemCallAction::Resume(response) => {
 					drop(t);
 					self.current = Some(thread.clone());
-					return Switch::UserResume(thread, Some(handle));
+					return Switch::UserResume(thread, Some(response));
 				}
 				SystemCallAction::Pause => {
 					let id = t.id();
@@ -237,7 +236,7 @@ pub enum Switch<A: Arch> {
 	///
 	/// If the system call handle is not `None`, the thread had invoked
 	/// a system call and is awaiting a response.
-	KernelToUser(Arc<Mutex<Thread<A>>>, Option<A::SystemCallHandle>),
+	KernelToUser(Arc<Mutex<Thread<A>>>, Option<SystemCallResponse>),
 	/// Coming from kernel execution, return back to the kernel.
 	KernelResume,
 	/// Coming from a user thread, return to the same user thread.
@@ -250,21 +249,20 @@ pub enum Switch<A: Arch> {
 	///
 	/// If the system call handle is not `None`, the thread had invoked
 	/// a system call and is awaiting a response.
-	UserResume(Arc<Mutex<Thread<A>>>, Option<A::SystemCallHandle>),
+	UserResume(Arc<Mutex<Thread<A>>>, Option<SystemCallResponse>),
 	/// Coming from a user thread, return to the given (different) user thread.
 	///
 	/// If the system call handle is not `None`, the thread had invoked
 	/// a system call and is awaiting a response.
-	UserToUser(Arc<Mutex<Thread<A>>>, Option<A::SystemCallHandle>),
+	UserToUser(Arc<Mutex<Thread<A>>>, Option<SystemCallResponse>),
 }
 
 impl<A: Arch> Switch<A> {
 	/// Converts a schedule action and optional previous user thread ID
 	/// into a switch type.
 	#[must_use]
-	#[expect(clippy::type_complexity)]
 	fn from_schedule_action(
-		action: Option<(Arc<Mutex<Thread<A>>>, ScheduleAction<A>)>,
+		action: Option<(Arc<Mutex<Thread<A>>>, ScheduleAction)>,
 		coming_from_user: Option<u64>,
 	) -> Self {
 		match (action, coming_from_user) {
@@ -276,14 +274,14 @@ impl<A: Arch> Switch<A> {
 					Switch::UserToUser(thread, None)
 				}
 			}
-			(Some((thread, ScheduleAction::SystemCall(syscall_handle))), None) => {
-				Switch::KernelToUser(thread, Some(syscall_handle))
+			(Some((thread, ScheduleAction::SystemCall(syscall_res))), None) => {
+				Switch::KernelToUser(thread, Some(syscall_res))
 			}
-			(Some((thread, ScheduleAction::SystemCall(syscall_handle))), Some(old_id)) => {
+			(Some((thread, ScheduleAction::SystemCall(syscall_res))), Some(old_id)) => {
 				if thread.lock().id() == old_id {
-					Switch::UserResume(thread, Some(syscall_handle))
+					Switch::UserResume(thread, Some(syscall_res))
 				} else {
-					Switch::UserToUser(thread, Some(syscall_handle))
+					Switch::UserToUser(thread, Some(syscall_res))
 				}
 			}
 			(None, None) => Switch::KernelResume,

@@ -15,9 +15,9 @@ use crate::{
 };
 
 /// A thread's state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Default)]
 #[expect(dead_code)]
-enum State<A: Arch> {
+enum State {
 	/// The thread is not allocated to any core.
 	#[default]
 	Unallocated,
@@ -29,12 +29,12 @@ enum State<A: Arch> {
 	Running(usize),
 	/// The thread invoked a system call, which is blocked and awaiting
 	/// a response.
-	PausedSystemCall(A::SystemCallHandle),
+	PausedSystemCall(SystemCallRequest),
 	/// The thread invoked a system call that has be responded to.
 	///
 	/// The next time it's scheduled, it will consume the handle
 	/// and respond to the system call.
-	RespondingSystemCall(A::SystemCallHandle),
+	RespondingSystemCall(SystemCallResponse),
 	/// The thread is terminated.
 	Terminated,
 }
@@ -57,7 +57,7 @@ pub struct Thread<A: Arch> {
 	/// Architecture-specific thread state.
 	handle:   A::ThreadHandle,
 	/// The thread's state.
-	state:    State<A>,
+	state:    State,
 }
 
 impl<A: Arch> Thread<A> {
@@ -205,10 +205,7 @@ impl<A: Arch> Thread<A> {
 	/// The caller must **infallibly** consume any handles passed back
 	/// in an `Ok` result, else they are forever lost, since this method
 	/// advances the state machine and consumes the handle.
-	pub unsafe fn try_schedule(
-		&mut self,
-		core_id: usize,
-	) -> Result<ScheduleAction<A>, ScheduleError> {
+	pub unsafe fn try_schedule(&mut self, core_id: usize) -> Result<ScheduleAction, ScheduleError> {
 		match &self.state {
 			State::Terminated => Err(ScheduleError::Terminated),
 			State::Running(core) => Err(ScheduleError::AlreadyRunning(*core)),
@@ -228,12 +225,12 @@ impl<A: Arch> Thread<A> {
 				Ok(ScheduleAction::Resume)
 			}
 			State::RespondingSystemCall(_) => {
-				let State::RespondingSystemCall(handle) =
+				let State::RespondingSystemCall(response) =
 					::core::mem::replace(&mut self.state, State::Running(core_id))
 				else {
 					unreachable!();
 				};
-				Ok(ScheduleAction::SystemCall(handle))
+				Ok(ScheduleAction::SystemCall(response))
 			}
 		}
 	}
@@ -266,14 +263,14 @@ impl<A: Arch> Thread<A> {
 	pub fn try_system_call(
 		&mut self,
 		core_id: usize,
-		handle: A::SystemCallHandle,
-	) -> Result<SystemCallAction<A>, PauseError> {
+		request: SystemCallRequest,
+	) -> Result<SystemCallAction, PauseError> {
 		match &self.state {
 			State::Terminated => Err(PauseError::Terminated),
 			State::Running(core) => {
 				if *core == core_id {
 					// TODO(qix-): Handle system call
-					self.state = State::PausedSystemCall(handle);
+					self.state = State::PausedSystemCall(request);
 					Ok(SystemCallAction::Pause)
 				} else {
 					Err(PauseError::WrongCore(*core))
@@ -289,9 +286,9 @@ impl<A: Arch> Thread<A> {
 }
 
 /// The action to take after a system call has been processed.
-pub enum SystemCallAction<A: Arch> {
+pub enum SystemCallAction {
 	/// Resume the thread with the given system call handle.
-	Resume(A::SystemCallHandle),
+	Resume(SystemCallResponse),
 	/// Pause the thread and await a response.
 	Pause,
 }
@@ -329,11 +326,11 @@ pub enum PauseError {
 /// # Safety
 /// Users of this enum MUST infallibly consume any handles passed back,
 /// else they are forever lost.
-pub enum ScheduleAction<A: Arch> {
+pub enum ScheduleAction {
 	/// The thread should be resumed normally.
 	Resume,
 	/// The thread needs to respond to a system call.
-	SystemCall(A::SystemCallHandle),
+	SystemCall(SystemCallResponse),
 }
 
 impl<A: Arch> Drop for Thread<A> {
@@ -350,4 +347,28 @@ impl<A: Arch> Drop for Thread<A> {
 			AddressSpace::<A>::user_thread_stack().unmap_all_and_reclaim(self.mapper());
 		}
 	}
+}
+
+/// System call request data.
+#[derive(Debug, Clone)]
+pub struct SystemCallRequest {
+	/// The opcode.
+	pub opcode:    oro_sysabi::syscall::Opcode,
+	/// The table ID.
+	pub table_id:  u64,
+	/// The key.
+	pub key:       u64,
+	/// The value.
+	pub value:     u64,
+	/// The entity ID.
+	pub entity_id: u64,
+}
+
+/// System call response data.
+#[derive(Debug, Clone)]
+pub struct SystemCallResponse {
+	/// The error code.
+	pub error: oro_sysabi::syscall::Error,
+	/// The value.
+	pub value: u64,
 }
