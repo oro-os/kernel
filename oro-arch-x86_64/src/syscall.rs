@@ -380,9 +380,4 @@ impl oro_kernel::arch::SystemCallHandle for AbiCallFrame {
 	fn set_return_value(&mut self, value: u64) {
 		self.rdx = value;
 	}
-
-	#[inline]
-	unsafe fn return_to_caller(self) -> ! {
-		return_to_user_from_syscall(self)
-	}
 }

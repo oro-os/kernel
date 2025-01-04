@@ -38,9 +38,4 @@ impl oro_kernel::arch::SystemCallHandle for SystemCallFrame {
 	fn set_return_value(&mut self, _value: u64) {
 		todo!();
 	}
-
-	#[inline]
-	unsafe fn return_to_caller(self) -> ! {
-		todo!();
-	}
 }
