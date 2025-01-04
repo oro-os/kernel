@@ -130,6 +130,7 @@ pub enum Error {
 /// Each individual operation that can be performed by the Oro registry.
 #[non_exhaustive]
 #[repr(u64)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Opcode {
 	/// Get a registry value by key.
 	RegGet = 0,
