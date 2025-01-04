@@ -124,7 +124,6 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 		"pop rcx",
 		"pop rbx",
 		"pop rax",
-		"sti",
 		"iretq",
 		const (crate::gdt::USER_DS | 3),
 	);
@@ -188,7 +187,6 @@ pub unsafe extern "C" fn oro_x86_64_user_to_user() {
 		"pop rcx",
 		"pop rbx",
 		"pop rax",
-		"sti",
 		"iretq",
 		const (crate::gdt::USER_DS | 3),
 	);
