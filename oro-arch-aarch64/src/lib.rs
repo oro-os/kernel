@@ -40,7 +40,6 @@ pub mod mair;
 pub mod mem;
 pub mod psci;
 pub mod reg;
-pub mod syscall;
 pub mod thread;
 
 pub(crate) mod init;
@@ -64,7 +63,6 @@ impl oro_kernel::arch::Arch for Arch {
 	type AddressSpace = crate::mem::address_space::AddressSpaceLayout;
 	type CoreHandle = self::core_local::CoreHandle;
 	type InstanceHandle = self::instance::InstanceHandle;
-	type SystemCallHandle = self::syscall::SystemCallFrame;
 	type ThreadHandle = self::thread::ThreadHandle;
 }
 
