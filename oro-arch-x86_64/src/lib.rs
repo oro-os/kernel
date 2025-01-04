@@ -96,7 +96,6 @@ impl oro_kernel::arch::Arch for Arch {
 	type AddressSpace = crate::mem::address_space::AddressSpaceLayout;
 	type CoreHandle = self::core_local::CoreHandle;
 	type InstanceHandle = self::instance::InstanceHandle;
-	type SystemCallHandle = self::syscall::AbiCallFrame;
 	type ThreadHandle = self::thread::ThreadHandle;
 }
 

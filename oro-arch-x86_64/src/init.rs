@@ -5,7 +5,9 @@ use core::{arch::asm, cell::UnsafeCell, mem::MaybeUninit};
 
 use oro_debug::{dbg, dbg_err, dbg_warn};
 use oro_elf::{ElfSegment, ElfSegmentType};
-use oro_kernel::{KernelState, instance::Instance, module::Module, thread::Thread};
+use oro_kernel::{
+	KernelState, instance::Instance, module::Module, scheduler::Switch, thread::Thread,
+};
 use oro_mem::{
 	global_alloc::GlobalPfa,
 	mapper::AddressSegment,
@@ -269,47 +271,85 @@ pub unsafe fn boot() -> ! {
 	dbg!("boot");
 
 	loop {
-		let maybe_ctx = {
+		let switch = {
 			let mut lock = kernel.scheduler().lock();
 			let ctx = lock.event_idle();
 			drop(lock);
 			ctx
 		};
 
-		if let Some(user_ctx) = maybe_ctx {
-			let (thread_cr3_phys, thread_rsp, kernel_rsp, kernel_irq_rsp) = unsafe {
-				let ctx_lock = user_ctx.lock();
-
-				let mapper = ctx_lock.mapper();
-
-				let cr3 = mapper.base_phys;
-				let rsp = ctx_lock.handle().irq_stack_ptr;
-				let kernel_rsp_ptr = kernel.handle().kernel_stack.get() as u64;
-				let kernel_irq_rsp_ptr = kernel.handle().kernel_irq_stack.get() as u64;
-				(*kernel.handle().tss.get())
-					.rsp0
-					.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
-				drop(ctx_lock);
-				(cr3, rsp, kernel_rsp_ptr, kernel_irq_rsp_ptr)
-			};
-
-			asm! {
-				"call oro_x86_64_kernel_to_user",
-				in("rax") thread_cr3_phys,
-				in("rdx") thread_rsp,
-				in("r9") kernel_irq_rsp,
-				in("r10") kernel_rsp,
+		match switch {
+			Switch::UserToKernel | Switch::UserResume(_, _) | Switch::UserToUser(_, _) => {
+				// SAFETY(qix-): Should never happen; barring a bug, the scheduler
+				// SAFETY(qix-): should never think we're executing a user thread at
+				// SAFETY(qix-): this point in time.
+				unreachable!();
 			}
-		} else {
-			// Nothing to do. Wait for an interrupt.
-			// Scheduler will have asked us to set a timer
-			// if it wants to be woken up.
-			let kernel_rsp_ptr = kernel.handle().kernel_stack.get() as u64;
-
-			asm! {
-				"call oro_x86_64_kernel_to_idle",
-				in("r9") kernel_rsp_ptr,
+			Switch::KernelResume => {
+				// Intentionally blank.
 			}
+			Switch::KernelToUser(user_ctx, None) => {
+				let (thread_cr3_phys, thread_rsp, kernel_rsp, kernel_irq_rsp) = unsafe {
+					let ctx_lock = user_ctx.lock();
+
+					let mapper = ctx_lock.mapper();
+
+					let cr3 = mapper.base_phys;
+					let rsp = ctx_lock.handle().irq_stack_ptr;
+					let kernel_rsp_ptr = kernel.handle().kernel_stack.get() as u64;
+					let kernel_irq_rsp_ptr = kernel.handle().kernel_irq_stack.get() as u64;
+					(*kernel.handle().tss.get())
+						.rsp0
+						.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+					drop(ctx_lock);
+					(cr3, rsp, kernel_rsp_ptr, kernel_irq_rsp_ptr)
+				};
+
+				asm! {
+					"call oro_x86_64_kernel_to_user",
+					in("rax") thread_cr3_phys,
+					in("rdx") thread_rsp,
+					in("r9") kernel_irq_rsp,
+					in("r10") kernel_rsp,
+				}
+			}
+			Switch::KernelToUser(user_ctx, Some(syscall_response)) => {
+				let (thread_cr3_phys, thread_rsp, kernel_rsp, kernel_irq_rsp) = unsafe {
+					let ctx_lock = user_ctx.lock();
+
+					let mapper = ctx_lock.mapper();
+
+					let cr3 = mapper.base_phys;
+					let rsp = ctx_lock.handle().irq_stack_ptr;
+					let kernel_rsp_ptr = kernel.handle().kernel_stack.get() as u64;
+					let kernel_irq_rsp_ptr = kernel.handle().kernel_irq_stack.get() as u64;
+					(*kernel.handle().tss.get())
+						.rsp0
+						.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+					drop(ctx_lock);
+					(cr3, rsp, kernel_rsp_ptr, kernel_irq_rsp_ptr)
+				};
+
+				asm! {
+					"call oro_x86_64_kernel_to_user_sysret",
+					in("r8") thread_cr3_phys,
+					in("r9") thread_rsp,
+					in("rdi") kernel_irq_rsp,
+					in("rsi") kernel_rsp,
+					in("rax") syscall_response.error as u64,
+					in("rdx") syscall_response.value,
+				}
+			}
+		}
+
+		// Nothing to do. Wait for an interrupt.
+		// Scheduler will have asked us to set a timer
+		// if it wants to be woken up.
+		let kernel_rsp_ptr = kernel.handle().kernel_stack.get() as u64;
+
+		asm! {
+			"call oro_x86_64_kernel_to_idle",
+			in("r9") kernel_rsp_ptr,
 		}
 	}
 }

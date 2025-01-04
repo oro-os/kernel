@@ -50,7 +50,7 @@ pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64, stack
 /// storing the kernel's state, restoring the
 /// user task state, and resuming executing
 /// via the `iretq` method.
-
+///
 /// # Safety
 ///
 /// **This is not a normal function. It must be
@@ -75,9 +75,6 @@ pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64, stack
 ///
 /// **Interrupts must be disabled before calling
 /// this function.**
-///
-/// This function MUST NOT be jumped to; it must
-/// always be called normally.
 #[no_mangle]
 #[naked]
 pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
@@ -100,8 +97,6 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 		"push r13",
 		"push r14",
 		"push r15",
-		// Not needed, technically, but kept so that interrupts can be entered from
-		// either the kernel or a user task.
 		"pushfq",
 		"mov r11, rsp",
 		"mov [r9], r11",
@@ -133,6 +128,227 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 	);
 }
 
+/// Switches from the kernel to a user task,
+/// responding to a syscall.
+///
+/// # Safety
+///
+/// **This is not a normal function. It must be
+/// called from an `asm!()` block.**
+///
+/// **This is an incredibly sensitive security boundary.** Calls to this
+/// function should be done with extreme caution and care.
+///
+/// Caller must ensure that the task is ready to be executed again. This means
+/// the memory map, core-local mappings, etc. are all restored to the task that
+/// originally made the syscall.
+///
+/// This function **must only be called** from
+/// a task that was previously switched *away* from
+/// under system call circumstances.
+///
+/// - `r8` must be the `cr3` value of the user task.
+/// - `r9` must be the user task's IRQ stack pointer.
+/// - `rdi` must be a pointer to the core state `kernel_irq_stack` field.
+/// - `rsi` must be a pointer to the core state `kernel_stack` field.
+/// - `rax` must contain the system call error code.
+/// - `rdx` must contain the system call return value.
+/// - `call` must be used to jump to this function.
+///
+/// All registers must be marked as clobbered.
+///
+/// The HEAD of the task's IRQ stack must be stored
+/// in `Tss::rsp0` before calling this function.
+///
+/// Caller MUST NOT have any critical sections
+/// enabled, or any locks held.
+///
+/// **Interrupts must be disabled before calling
+/// this function.**
+#[no_mangle]
+#[naked]
+pub unsafe extern "C" fn oro_x86_64_kernel_to_user_sysret() {
+	// TODO(qix-): There is almost definitely some missing functionality here, namely
+	// TODO(qix-): around the resume flag (RF) and the trap flag (TF) in the RFLAGS register.
+	naked_asm!(
+		"mov [rsi], rsp",
+		"push r8",
+		"push r9",
+		"push r10",
+		"push r11",
+		"push rdi",
+		"push rax",
+		"push rdx",
+		"push rsi",
+		"push rdi",
+		"push rbp",
+		"push r8",
+		"push r9",
+		"push r10",
+		"push r11",
+		"push r12",
+		"push r13",
+		"push r14",
+		"push r15",
+		"pushfq",
+		"mov r11, rsp",
+		"mov [rdi], r11",
+		"mov cr3, r8",
+		"mov rsp, r9",
+		"pop rcx", // RIP
+		// Force the return address to a canonical address
+		"and rcx, ORO_SYSCALL_CANONICAL_ADDRESS_MASK",
+		"pop r11", // RFLAGS
+		"pop rbp",
+		"pop rbx",
+		"pop r12",
+		"pop r13",
+		"pop r14",
+		"pop r15",
+		"pop rsp",
+		// Zero clobbered registers.
+		//
+		// SAFETY(qix-): Vector registers are clobbered AND considered insecurely transferred.
+		// SAFETY(qix-): It is specified that the kernel DOES NOT zero vector registers.
+		"xor r8, r8",
+		"xor r9, r9",
+		"xor r10, r10",
+		"xor r11, r11",
+		"xor rdi, rdi",
+		"xor rsi, rsi",
+		// Return to userspace.
+		"sysretq",
+	);
+}
+
+/// Switches from a user task to another user task,
+/// WITHOUT storing any state, and returning to the
+/// given task via a system call return.
+///
+/// # Safety
+///
+/// **This is not a normal function. It must be
+/// jumped to from an `asm!()` block.**
+///
+/// **This is an incredibly sensitive security boundary.** Calls to this
+/// function should be done with extreme caution and care.
+///
+/// Caller must ensure that the task is ready to be executed again. This means
+/// the memory map, core-local mappings, etc. are all restored to the task that
+/// originally made the syscall.
+///
+/// This function **must only be jumped to** from
+/// a task that was previously switched *away* from
+/// under system call circumstances.
+///
+/// - `r8` must be the `cr3` value of the user task.
+/// - `r9` must be the user task's IRQ stack pointer.
+/// - `rax` must contain the system call error code.
+/// - `rdx` must contain the system call return value.
+///
+/// All registers must be marked as clobbered.
+///
+/// The HEAD of the task's IRQ stack must be stored
+/// in `Tss::rsp0` before calling this function.
+///
+/// Caller MUST NOT have any critical sections
+/// enabled, or any locks held.
+///
+/// **Interrupts must be disabled before calling
+/// this function.**
+#[no_mangle]
+#[naked]
+pub unsafe extern "C" fn oro_x86_64_user_to_user_sysret() {
+	// TODO(qix-): There is almost definitely some missing functionality here, namely
+	// TODO(qix-): around the resume flag (RF) and the trap flag (TF) in the RFLAGS register.
+	naked_asm! {
+		"mov cr3, r8",
+		"mov rsp, r9",
+		"pop rcx", // RIP
+		// Force the return address to a canonical address
+		"and rcx, ORO_SYSCALL_CANONICAL_ADDRESS_MASK",
+		"pop r11", // RFLAGS
+		"pop rbp",
+		"pop rbx",
+		"pop r12",
+		"pop r13",
+		"pop r14",
+		"pop r15",
+		"pop rsp",
+		// Zero clobbered registers.
+		//
+		// SAFETY(qix-): Vector registers are clobbered AND considered insecurely transferred.
+		// SAFETY(qix-): It is specified that the kernel DOES NOT zero vector registers.
+		"xor r8, r8",
+		"xor r9, r9",
+		"xor r10, r10",
+		"xor r11, r11",
+		"xor rdi, rdi",
+		"xor rsi, rsi",
+		// Return to userspace.
+		"sysretq",
+	}
+}
+
+/// Stores the task's state in order to process a system call.
+///
+/// **This does not restore the kernel's core thread; it ONLY
+/// stores the calling task's state so that general purpose registers
+/// are not clobbered.**
+///
+/// **This must not be called from kernel contexts. The Oro kernel
+/// does not support `syscall` instructions from kernel contexts!**
+///
+/// The function is called with the task's IRQ stack loaded into `rsp`.
+/// The stack can be used briefly to switch to another task, but
+/// anything after `r8` should be considered trash after the task
+/// is switched away from.
+///
+/// That function MUST NOT return (at least, not back to the ISR
+/// stub).
+///
+/// The function MUST store the following at the very start of the
+/// function, before any other register clobbering may occur:
+///
+/// - `r8` as the thread's new IRQ stack pointer.
+/// - 'rax' as the system call opcode
+/// - 'rsi' as the system call table ID
+/// - 'rdi' as the system call key
+/// - 'rdx' as the system call value
+/// - 'r9' as the system call entity ID
+///
+/// To be used **solely** from syscall entry stubs. Interrupts
+/// are disabled already by the `syscall` instruction.
+///
+/// The function must be provided as an identifier.
+#[macro_export]
+macro_rules! syscall_store_task_and_jmp {
+	($jmp_to:ident) => {
+		naked_asm! {
+			// Store the user stack for a moment.
+			"mov r8, rsp",
+			// Set the stack base pointer to the IRQ stack base address.
+			"mov rsp, ORO_SYSCALL_IRQ_STACK_BASE",
+			// Push all values needed by the syscall return stub
+			// to the stack.
+			"push r8", // user task stack pointer
+			"push r15",
+			"push r14",
+			"push r13",
+			"push r12",
+			"push rbx",
+			"push rbp",
+			"push r11", // RFLAGS
+			"push rcx", // RIP
+			// Now store the stack pointer.
+			"mov r8, rsp",
+			// Jump to the handler
+			concat!("jmp ", stringify!($jmp_to)),
+			"ud2",
+		}
+	};
+}
+
 /// Switches from one user task to another,
 /// WITHOUT storing any state, but restoring the
 /// user task state, and resuming executing
@@ -141,7 +357,7 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 /// # Safety
 ///
 /// **This is not a normal function. It must be
-/// called from an `asm!()` block.**
+/// jumped to from an `asm!()` block.**
 ///
 /// - `rax` must be the physical address of the
 ///   user task's CR3. All core-local mappings

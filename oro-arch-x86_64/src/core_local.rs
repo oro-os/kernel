@@ -21,6 +21,9 @@ pub struct CoreHandle {
 	/// The kernel's stored stack pointer.
 	pub kernel_stack: UnsafeCell<u64>,
 	/// The IRQ head of the kernel stack (with GP registers)
+	// TODO(qix-): This is probably unnecessary, and was only included
+	// TODO(qix-): as a precaution against stack leak when switching to/from
+	// TODO(qix-): the kernel task. This should be removed if it's not needed.
 	pub kernel_irq_stack: UnsafeCell<u64>,
 }
 

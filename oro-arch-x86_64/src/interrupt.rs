@@ -2,11 +2,12 @@
 
 use core::arch::{asm, naked_asm};
 
+use oro_kernel::scheduler::Switch;
 use oro_mem::mapper::AddressSegment;
 use oro_sync::Lock;
 
 use crate::{
-	isr_store_user_task_and_jmp,
+	isr_store_task_and_jmp,
 	lapic::{ApicSvr, ApicTimerConfig, ApicTimerMode},
 	mem::address_space::AddressSpaceLayout,
 };
@@ -92,7 +93,6 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 
 	let kernel = crate::Kernel::get();
 
-	let mut coming_from_user = false;
 	{
 		let scheduler_lock = kernel.scheduler().lock();
 
@@ -100,8 +100,6 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 		// Otherwise it's a userspace task that we just jumped from.
 		if let Some(user_task) = scheduler_lock.current_thread().as_ref() {
 			user_task.lock().handle_mut().irq_stack_ptr = irq_stack_ptr as usize;
-
-			coming_from_user = true;
 		} else {
 			kernel.handle().kernel_irq_stack.get().write(irq_stack_ptr);
 		}
@@ -111,32 +109,23 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 
 	kernel.handle().lapic.eoi();
 
-	let maybe_user_context = kernel.scheduler().lock().event_timer_expired();
+	let switch = kernel.scheduler().lock().event_timer_expired();
 
-	if let Some(user_ctx) = maybe_user_context {
-		let (thread_cr3_phys, thread_rsp) = unsafe {
-			let ctx_lock = user_ctx.lock();
-
-			let mapper = ctx_lock.mapper();
-			let cr3 = mapper.base_phys;
-			let rsp = ctx_lock.handle().irq_stack_ptr;
-			(*kernel.handle().tss.get())
-				.rsp0
-				.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
-			drop(ctx_lock);
-			(cr3, rsp)
-		};
-
-		asm! {
-			"jmp oro_x86_64_user_to_user",
-			in("rax") thread_cr3_phys,
-			in("rdx") thread_rsp,
-			options(noreturn),
-		};
-	} else {
-		let kernel_irq_stack = kernel.handle().kernel_irq_stack.get().read();
-		let kernel_stack = kernel.handle().kernel_stack.get().read();
-		if coming_from_user {
+	match switch {
+		Switch::KernelResume => {
+			let kernel_irq_stack = kernel.handle().kernel_irq_stack.get().read();
+			let kernel_stack = kernel.handle().kernel_stack.get().read();
+			asm! {
+				"mov rsp, rcx",
+				"jmp oro_x86_64_return_to_kernel",
+				in("rcx") kernel_irq_stack,
+				in("r9") kernel_stack,
+				options(noreturn),
+			};
+		}
+		Switch::UserToKernel => {
+			let kernel_irq_stack = kernel.handle().kernel_irq_stack.get().read();
+			let kernel_stack = kernel.handle().kernel_stack.get().read();
 			let kernel_cr3 = kernel.mapper().base_phys;
 
 			asm! {
@@ -148,14 +137,55 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 				in("rdx") kernel_cr3,
 				options(noreturn),
 			};
-		} else {
+		}
+		Switch::UserResume(user_ctx, None)
+		| Switch::UserToUser(user_ctx, None)
+		| Switch::KernelToUser(user_ctx, None) => {
+			let (thread_cr3_phys, thread_rsp) = unsafe {
+				let ctx_lock = user_ctx.lock();
+
+				let mapper = ctx_lock.mapper();
+				let cr3 = mapper.base_phys;
+				let rsp = ctx_lock.handle().irq_stack_ptr;
+				(*kernel.handle().tss.get())
+					.rsp0
+					.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+				drop(ctx_lock);
+				(cr3, rsp)
+			};
+
 			asm! {
-				"mov rsp, rcx",
-				"jmp oro_x86_64_return_to_kernel",
-				in("rcx") kernel_irq_stack,
-				in("r9") kernel_stack,
+				"jmp oro_x86_64_user_to_user",
+				in("rax") thread_cr3_phys,
+				in("rdx") thread_rsp,
 				options(noreturn),
 			};
+		}
+
+		Switch::UserResume(user_ctx, Some(syscall_response))
+		| Switch::UserToUser(user_ctx, Some(syscall_response))
+		| Switch::KernelToUser(user_ctx, Some(syscall_response)) => {
+			let (thread_cr3_phys, thread_rsp) = unsafe {
+				let ctx_lock = user_ctx.lock();
+
+				let mapper = ctx_lock.mapper();
+				let cr3 = mapper.base_phys;
+				let rsp = ctx_lock.handle().irq_stack_ptr;
+				(*kernel.handle().tss.get())
+					.rsp0
+					.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+				drop(ctx_lock);
+				(cr3, rsp)
+			};
+
+			asm! {
+				"jmp oro_x86_64_user_to_user_sysret",
+				in("r8") thread_cr3_phys,
+				in("r9") thread_rsp,
+				in("rax") syscall_response.error as u64,
+				in("rdx") syscall_response.value,
+				options(noreturn)
+			}
 		}
 	}
 }
@@ -163,7 +193,7 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 /// The ISR (Interrupt Service Routine) trampoline stub for the system timer.
 #[naked]
 unsafe extern "C" fn isr_sys_timer() -> ! {
-	isr_store_user_task_and_jmp!(isr_sys_timer_rust);
+	isr_store_task_and_jmp!(isr_sys_timer_rust);
 }
 
 /// The ISR (Interrupt Service Routine) for the APIC spurious interrupt.
