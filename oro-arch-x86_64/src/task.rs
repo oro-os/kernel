@@ -18,7 +18,8 @@ pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64, stack
 	// Values for iretq
 	write_u64((crate::gdt::USER_DS | 3).into()); // ds
 	write_u64(stack_ptr); // rsp
-	write_u64(crate::asm::rflags() | 0x200); // rflags
+	// TODO(qix-): Generate a well-specified RFLAGS value after an RFLAGS register type is created.
+	write_u64(crate::asm::rflags() | 0x200); // rflags (including IF)
 	write_u64((crate::gdt::USER_CS | 3).into()); // cs
 	write_u64(entry_point); // rip
 
@@ -38,7 +39,9 @@ pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64, stack
 	write_u64(0); // r13
 	write_u64(0); // r14
 	write_u64(0); // r15
-	write_u64(0); // rflags (for compatibility with kernel switches)
+	// Not needed, technically, but kept so that interrupts can be entered from
+	// either the kernel or a user task (since kernel rflags must be saved).
+	write_u64(0); // rflags
 
 	written
 }
@@ -47,6 +50,8 @@ pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64, stack
 /// storing the kernel's state, restoring the
 /// user task state, and resuming executing
 /// via the `iretq` method.
+
+/// # Safety
 ///
 /// **This is not a normal function. It must be
 /// called from an `asm!()` block.**
@@ -64,9 +69,6 @@ pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64, stack
 ///
 /// The HEAD of the task's IRQ stack must be stored
 /// in `Tss::rsp0` before calling this function.
-///
-/// # Safety
-/// This method is inherently unsafe.
 ///
 /// Caller MUST NOT have any critical sections
 /// enabled, or any locks held.
@@ -98,6 +100,8 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 		"push r13",
 		"push r14",
 		"push r15",
+		// Not needed, technically, but kept so that interrupts can be entered from
+		// either the kernel or a user task.
 		"pushfq",
 		"mov r11, rsp",
 		"mov [r9], r11",
@@ -134,6 +138,8 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 /// user task state, and resuming executing
 /// via the `iretq` method.
 ///
+/// # Safety
+///
 /// **This is not a normal function. It must be
 /// called from an `asm!()` block.**
 ///
@@ -146,9 +152,6 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 ///
 /// The HEAD of the task's IRQ stack must be stored
 /// in `Tss::rsp0` before calling this function.
-///
-/// # Safety
-/// This method is inherently unsafe.
 ///
 /// Caller MUST NOT have any critical sections
 /// enabled, or any locks held.
@@ -171,6 +174,8 @@ pub unsafe extern "C" fn oro_x86_64_user_to_user() {
 		"mov es, ax",
 		"mov fs, ax",
 		"mov gs, ax",
+		// Not needed, technically, but kept so that interrupts can be entered from
+		// either the kernel or a user task.
 		"popfq",
 		"pop r15",
 		"pop r14",
@@ -192,10 +197,10 @@ pub unsafe extern "C" fn oro_x86_64_user_to_user() {
 	);
 }
 
-/// Stores the user task's state in order to process an interrupt.
+/// Stores the task's state in order to process an interrupt.
 ///
 /// **This does not restore the kernel's core thread; it ONLY
-/// stores the user task's state so that general purpose registers
+/// stores the calling task's state so that general purpose registers
 /// are not clobbered.**
 ///
 /// That function MUST NOT return (at least, not back to the ISR
@@ -210,7 +215,7 @@ pub unsafe extern "C" fn oro_x86_64_user_to_user() {
 ///
 /// The function must be provided as an identifier.
 #[macro_export]
-macro_rules! isr_store_user_task_and_jmp {
+macro_rules! isr_store_task_and_jmp {
 	($jmp_to:ident) => {
 		naked_asm!(
 			"cli",
@@ -229,6 +234,8 @@ macro_rules! isr_store_user_task_and_jmp {
 			"push r13",
 			"push r14",
 			"push r15",
+			// Not needed, technically, but kept so that interrupts can be entered from
+			// either the kernel or a user task.
 			"pushfq",
 			"mov rcx, rsp",
 			concat!("jmp ", stringify!($jmp_to)),
@@ -239,6 +246,8 @@ macro_rules! isr_store_user_task_and_jmp {
 
 /// Pops the kernel state from the stack and returns to the kernel.
 ///
+/// # Safety
+///
 /// **This is not a normal function. It must be
 /// called from an `asm!()` block.**
 ///
@@ -247,9 +256,6 @@ macro_rules! isr_store_user_task_and_jmp {
 ///
 /// **`r9` must be marked as clobbered at the callsite from which
 /// the kernel context was switched!**
-///
-/// # Safety
-/// This method is inherently unsafe.
 ///
 /// Caller MUST NOT have any critical sections
 /// enabled, or any locks held.
@@ -287,6 +293,8 @@ pub unsafe extern "C" fn oro_x86_64_return_to_kernel() {
 /// Pushes the kernel state and halts the core, waiting
 /// for an interrupt.
 ///
+/// # Safety
+///
 /// **This is not a normal function. It must be
 /// called from an `asm!()` block.**
 ///
@@ -294,9 +302,6 @@ pub unsafe extern "C" fn oro_x86_64_return_to_kernel() {
 /// - `call` must be used to jump to this function.
 ///
 /// **The `asm!()` call MUST declare `r9` as clobbered!**
-///
-/// # Safety
-/// This method is inherently unsafe.
 ///
 /// Caller MUST NOT have any critical sections
 /// enabled, or any locks held.
