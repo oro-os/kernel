@@ -118,8 +118,6 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 			let ctx_lock = user_ctx.lock();
 
 			let mapper = ctx_lock.mapper();
-			AddressSpaceLayout::apply_core_local_mappings(kernel.mapper(), mapper);
-
 			let cr3 = mapper.base_phys;
 			let rsp = ctx_lock.handle().irq_stack_ptr;
 			(*kernel.handle().tss.get())
