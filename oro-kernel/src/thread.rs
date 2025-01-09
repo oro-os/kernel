@@ -354,14 +354,14 @@ impl<A: Arch> Drop for Thread<A> {
 pub struct SystemCallRequest {
 	/// The opcode.
 	pub opcode:    oro_sysabi::syscall::Opcode,
-	/// The table ID.
-	pub table_id:  u64,
-	/// The key.
+	/// The object ID, or `!0` for the root object.
+	pub object_id: u64,
+	/// The key, or `0` if not applicable (generally
+	/// ignored if not needed).
 	pub key:       u64,
-	/// The value.
+	/// The value, or `0` if not applicable (generally
+	/// ignored if not needed).
 	pub value:     u64,
-	/// The entity ID.
-	pub entity_id: u64,
 }
 
 /// System call response data.
@@ -369,6 +369,7 @@ pub struct SystemCallRequest {
 pub struct SystemCallResponse {
 	/// The error code.
 	pub error: oro_sysabi::syscall::Error,
-	/// The value.
+	/// The value, if applicable. Set to `0` if not applicable
+	/// based on the originating [`SystemCallRequest`]'s opcode.
 	pub value: u64,
 }

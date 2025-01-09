@@ -97,28 +97,25 @@ unsafe extern "C" fn syscall_enter_noncompat() -> ! {
 unsafe extern "C" fn syscall_enter_noncompat_rust() -> ! {
 	let stack_ptr: usize;
 	let opcode: u64;
-	let table_id: u64;
+	let object_id: u64;
 	let key: u64;
 	let value: u64;
-	let entity_id: u64;
 	asm! {
 		"",
 		out("r8") stack_ptr,
 		out("rax") opcode,
-		out("rsi") table_id,
+		out("rsi") object_id,
 		out("rdi") key,
 		out("rdx") value,
-		out("r9") entity_id,
 	};
 
 	let opcode = core::mem::transmute::<u64, Opcode>(opcode);
 
 	let syscall_request = SystemCallRequest {
 		opcode,
-		table_id,
+		object_id,
 		key,
 		value,
-		entity_id,
 	};
 
 	let mut scheduler = crate::Kernel::get().scheduler().lock();
