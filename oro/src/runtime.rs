@@ -45,14 +45,12 @@ extern "C" fn _oro_start() -> ! {
 /// # Safety
 /// This function is inherently unsafe as it immediately terminates the current thread.
 pub unsafe fn terminate() -> ! {
-	unsafe {
-		let _ = crate::sysabi::syscall::reg_set_raw(
-			crate::sysabi::THIS_THREAD,
-			crate::sysabi::table::thread_control_v0::ID,
-			crate::sysabi::table::thread_control_v0::Key::Terminate as u64,
-			1,
-		);
-	}
+	use crate::sysabi::{key, syscall as s};
+
+	// SAFETY: MUST NOT PANIC.
+	let _ = s::reg_open(0, key!("thread"))
+		.and_then(|thread_table_handle| s::reg_open(thread_table_handle, key!("self")))
+		.and_then(|thread_handle| s::reg_set(thread_handle, key!("kill"), 1, u64::MAX));
 
 	force_crash()
 }
@@ -71,7 +69,7 @@ pub unsafe fn terminate() -> ! {
 ///
 /// Do not call unless you intend to... crash the application.
 pub unsafe fn force_crash() -> ! {
-	// NOTE(qix-): UNDER NO CIRCUMSTANCE SHOULD THIS FUNCTION PERFORM A WRITE OPERATION.
+	// NOTE(qix-): UNDER NO CIRCUMSTANCE SHOULD THIS FUNCTION PERFORM A MEMORY WRITE OPERATION.
 	// NOTE(qix-): FURTHER, DO NOT PANIC AS IT WILL LOOP INDEFINITELY.
 
 	// NOTE(qix-): Do not try the null-pointer trick on any architecture
@@ -104,7 +102,7 @@ pub unsafe fn force_crash() -> ! {
 		core::arch::asm!("mrs x0, spsr_el1");
 	}
 
-	// Otherwise, spin loop.
+	// Otherwise, spin loop. We should never get here.
 	loop {
 		core::hint::spin_loop();
 	}
