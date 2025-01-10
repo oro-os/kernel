@@ -181,9 +181,10 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 			asm! {
 				"jmp oro_x86_64_user_to_user_sysret",
 				in("r8") thread_cr3_phys,
-				in("r9") thread_rsp,
+				in("r10") thread_rsp,
 				in("rax") syscall_response.error as u64,
-				in("rdx") syscall_response.value,
+				in("rdx") syscall_response.ret1,
+				in("r9") syscall_response.ret2,
 				options(noreturn)
 			}
 		}

@@ -97,25 +97,28 @@ unsafe extern "C" fn syscall_enter_noncompat() -> ! {
 unsafe extern "C" fn syscall_enter_noncompat_rust() -> ! {
 	let stack_ptr: usize;
 	let opcode: u64;
-	let object_id: u64;
-	let key: u64;
-	let value: u64;
+	let arg1: u64;
+	let arg2: u64;
+	let arg3: u64;
+	let arg4: u64;
 	asm! {
 		"",
 		out("r8") stack_ptr,
 		out("rax") opcode,
-		out("rsi") object_id,
-		out("rdi") key,
-		out("rdx") value,
+		out("rsi") arg1,
+		out("rdi") arg2,
+		out("rdx") arg3,
+		out("r9") arg4,
 	};
 
 	let opcode = core::mem::transmute::<u64, Opcode>(opcode);
 
 	let syscall_request = SystemCallRequest {
 		opcode,
-		object_id,
-		key,
-		value,
+		arg1,
+		arg2,
+		arg3,
+		arg4,
 	};
 
 	let mut scheduler = crate::Kernel::get().scheduler().lock();
@@ -181,9 +184,10 @@ unsafe extern "C" fn syscall_enter_noncompat_rust() -> ! {
 			asm! {
 				"jmp oro_x86_64_user_to_user_sysret",
 				in("r8") thread_cr3_phys,
-				in("r9") thread_rsp,
+				in("r10") thread_rsp,
 				in("rax") syscall_response.error as u64,
-				in("rdx") syscall_response.value,
+				in("rdx") syscall_response.ret1,
+				in("r9") syscall_response.ret2,
 				options(noreturn)
 			}
 		}

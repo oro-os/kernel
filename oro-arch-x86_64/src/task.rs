@@ -148,11 +148,12 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 /// under system call circumstances.
 ///
 /// - `r8` must be the `cr3` value of the user task.
-/// - `r9` must be the user task's IRQ stack pointer.
+/// - `r10` must be the user task's IRQ stack pointer.
 /// - `rdi` must be a pointer to the core state `kernel_irq_stack` field.
 /// - `rsi` must be a pointer to the core state `kernel_stack` field.
 /// - `rax` must contain the system call error code.
-/// - `rdx` must contain the system call return value.
+/// - `rdx` must contain the first system call return value.
+/// - `r9` must contain the second system call return value.
 /// - `call` must be used to jump to this function.
 ///
 /// All registers must be marked as clobbered.
@@ -194,7 +195,7 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user_sysret() {
 		"mov r11, rsp",
 		"mov [rdi], r11",
 		"mov cr3, r8",
-		"mov rsp, r9",
+		"mov rsp, r10",
 		"pop rcx", // RIP
 		// Force the return address to a canonical address
 		"and rcx, ORO_SYSCALL_CANONICAL_ADDRESS_MASK",
@@ -211,7 +212,6 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user_sysret() {
 		// SAFETY(qix-): Vector registers are clobbered AND considered insecurely transferred.
 		// SAFETY(qix-): It is specified that the kernel DOES NOT zero vector registers.
 		"xor r8, r8",
-		"xor r9, r9",
 		"xor r10, r10",
 		"xor r11, r11",
 		"xor rdi, rdi",
@@ -242,9 +242,10 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user_sysret() {
 /// under system call circumstances.
 ///
 /// - `r8` must be the `cr3` value of the user task.
-/// - `r9` must be the user task's IRQ stack pointer.
 /// - `rax` must contain the system call error code.
-/// - `rdx` must contain the system call return value.
+/// - `rdx` must contain the first system call return value.
+/// - `r9` must contain the second system call return value.
+/// - `r10` must be the user task's IRQ stack pointer.
 ///
 /// All registers must be marked as clobbered.
 ///
@@ -263,7 +264,7 @@ pub unsafe extern "C" fn oro_x86_64_user_to_user_sysret() {
 	// TODO(qix-): around the resume flag (RF) and the trap flag (TF) in the RFLAGS register.
 	naked_asm! {
 		"mov cr3, r8",
-		"mov rsp, r9",
+		"mov rsp, r10",
 		"pop rcx", // RIP
 		// Force the return address to a canonical address
 		"and rcx, ORO_SYSCALL_CANONICAL_ADDRESS_MASK",
@@ -280,7 +281,6 @@ pub unsafe extern "C" fn oro_x86_64_user_to_user_sysret() {
 		// SAFETY(qix-): Vector registers are clobbered AND considered insecurely transferred.
 		// SAFETY(qix-): It is specified that the kernel DOES NOT zero vector registers.
 		"xor r8, r8",
-		"xor r9, r9",
 		"xor r10, r10",
 		"xor r11, r11",
 		"xor rdi, rdi",
