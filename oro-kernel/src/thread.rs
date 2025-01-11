@@ -260,6 +260,7 @@ impl<A: Arch> Thread<A> {
 
 	/// Signals that the thread has invoked a system call and is now
 	/// awaiting a response.
+	#[expect(clippy::needless_pass_by_value)]
 	pub fn try_system_call(
 		&mut self,
 		core_id: usize,
@@ -268,13 +269,65 @@ impl<A: Arch> Thread<A> {
 		match &self.state {
 			State::Terminated => Err(PauseError::Terminated),
 			State::Running(core) => {
-				if *core == core_id {
-					// TODO(qix-): Handle system call
-					self.state = State::PausedSystemCall(request);
-					Ok(SystemCallAction::Pause)
-				} else {
-					Err(PauseError::WrongCore(*core))
+				if *core != core_id {
+					return Err(PauseError::WrongCore(*core));
 				}
+
+				// TODO(qix-): Use registry instead of hardcoding the request.
+				// TODO(qix-): This is just to make sure syscalls are working.
+				use oro_sysabi::{
+					key,
+					syscall::{Error as SysErr, Opcode},
+				};
+
+				let mut ret1 = 0;
+				let mut ret2 = 0;
+
+				let error = match (
+					request.opcode,
+					request.arg1,
+					request.arg2,
+					request.arg3,
+					request.arg4,
+				) {
+					(Opcode::Open, 0, key!("thread"), _, _) => {
+						ret1 = 1;
+						SysErr::Ok
+					}
+					(Opcode::Open, 1, key!("self"), _, _) => {
+						ret1 = 2;
+						SysErr::Ok
+					}
+					(Opcode::Close, 1 | 2, _, _, _) => {
+						// TODO(qix-): Technically we should check the handle here, but for now we just assume
+						// TODO(qix-): that it's been opened. This is incorrect but easier to test.
+						SysErr::Ok
+					}
+					(Opcode::Get, 2, key!("kill"), _, _) => {
+						// TODO(qix-): Technically we should check the actual state, but there's no way
+						// TODO(qix-): a killed thread can be running to even make this syscall.
+						ret1 = 0;
+						ret2 = 0;
+						SysErr::Ok
+					}
+					(Opcode::Set, 2, key!("kill"), v, _) => {
+						if v != 0 {
+							self.state = State::Terminated;
+							return Ok(SystemCallAction::Pause);
+						}
+
+						SysErr::Ok
+					}
+					(Opcode::Get | Opcode::Set | Opcode::Open, 1 | 2, _, _, _) => SysErr::BadKey,
+					(Opcode::Get | Opcode::Set | Opcode::Open | Opcode::Close, _, _, _, _) => {
+						SysErr::BadHandle
+					}
+					(_, _, _, _, _) => SysErr::BadOpcode,
+				};
+
+				let response = SystemCallResponse { error, ret1, ret2 };
+
+				Ok(SystemCallAction::Resume(response))
 			}
 			State::Paused(_)
 			| State::Stopped
