@@ -55,7 +55,7 @@ pub enum Error {
 	/// The operation code is invalid.
 	///
 	/// This error is **permanent**.
-	Invalid         = 1,
+	BadOpcode       = 1,
 	/// The requested operation code is valid, but some portion of the operation
 	/// is not implemented in the current version of the kernel (or environment).
 	///
@@ -82,6 +82,12 @@ pub enum Error {
 	///
 	/// This error is **permanent**.
 	VersionMismatch = 7,
+	/// The given handle is invalid.
+	///
+	/// This error is **temporary** (really, _permanent_ but technically _temporary_ since
+	/// it's unlikely that a bad handle is passed, an open operation returns that exact handle,
+	/// and passing the previously bad handle results in a system call that is meaningfully the same).
+	BadHandle       = 8,
 }
 
 /// Each individual operation that can be performed by the Oro registry.
