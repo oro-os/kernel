@@ -11,6 +11,10 @@ homepage = "https://oro.sh"
 repository = "https://github.com/oro-os/kernel"
 license = "MPL-2.0"
 
+[features]
+default = ["reentrant_mutex"]
+reentrant_mutex = []
+
 [lib]
 doctest = false
 

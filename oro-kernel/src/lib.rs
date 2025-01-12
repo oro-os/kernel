@@ -56,9 +56,12 @@ use self::{arch::Arch, scheduler::Scheduler};
 /// **The fields of this structure are NOT accessible
 /// between cores.** Taking references to fields of this structure
 /// and passing them between cores is **undefined behavior**.
+///
+/// The generic type `A` **must** be the same type across
+/// all cores in the system, else undefined behavior WILL occur.
 pub struct Kernel<A: Arch> {
 	/// The core's ID.
-	id:        usize,
+	id:        u32,
 	/// Global reference to the shared kernel state.
 	state:     &'static KernelState<A>,
 	/// The kernel scheduler.
@@ -69,6 +72,21 @@ pub struct Kernel<A: Arch> {
 	mapper:    SupervisorHandle<A>,
 	/// Core-local, architecture-specific handle.
 	handle:    A::CoreHandle,
+}
+
+// NOTE(qix-): This is an ergonomics hack to avoid `A: Arch` in a lot of places.
+#[doc(hidden)]
+static mut KERNEL_ID_FN: MaybeUninit<fn() -> u32> = MaybeUninit::uninit();
+
+#[doc(hidden)]
+#[no_mangle]
+unsafe extern "C" fn oro_sync_current_core_id() -> u32 {
+	KERNEL_ID_FN.assume_init()()
+}
+
+#[doc(hidden)]
+fn get_arch_kernel_id<A: Arch>() -> u32 {
+	Kernel::<A>::get().id()
 }
 
 impl<A: Arch> Kernel<A> {
@@ -92,11 +110,16 @@ impl<A: Arch> Kernel<A> {
 	/// address space mapper handle for the kernel to use. It must
 	/// be the final one that will be used for the lifetime of the core.
 	pub unsafe fn initialize_for_core(
-		id: usize,
+		id: u32,
 		global_state: &'static KernelState<A>,
 		handle: A::CoreHandle,
 	) -> Result<&'static Self, MapError> {
 		assert::fits::<Self, 4096>();
+
+		#[expect(static_mut_refs)]
+		{
+			KERNEL_ID_FN.write(get_arch_kernel_id::<A>);
+		}
 
 		let mapper = AddressSpace::<A>::current_supervisor_space();
 		let core_local_segment = AddressSpace::<A>::kernel_core_local();
@@ -145,7 +168,7 @@ impl<A: Arch> Kernel<A> {
 
 	/// Returns the core's ID.
 	#[must_use]
-	pub fn id(&self) -> usize {
+	pub fn id(&self) -> u32 {
 		self.id
 	}
 

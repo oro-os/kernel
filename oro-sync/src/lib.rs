@@ -247,3 +247,142 @@ impl<T: Send + 'static> DerefMut for TicketMutexGuard<'_, T> {
 		unsafe { &mut *self.lock.value.get() }
 	}
 }
+
+#[doc(hidden)]
+#[cfg(feature = "reentrant_mutex")]
+mod reentrant {
+	use core::{
+		cell::UnsafeCell,
+		sync::atomic::{
+			AtomicU64,
+			Ordering::{Acquire, Relaxed, Release},
+		},
+	};
+
+	use super::Lock;
+
+	unsafe extern "C" {
+		/// Returns the current core ID.
+		///
+		/// # Safety
+		/// This function must always return a valid core ID for the currently
+		/// running execution context. If this value has not yet been set up,
+		/// reentrant mutexes should NOT be locked (though they can be created).
+		///
+		/// The value returned by this function MUST always be the same for the same
+		/// core.
+		unsafe fn oro_sync_current_core_id() -> u32;
+	}
+
+	/// A reentrant mutex implementation.
+	///
+	/// This mutex allows the same core to lock the mutex multiple times.
+	///
+	/// **NOTE:** This implementation spins (and does not lock) if the refcount
+	/// reaches `u32::MAX`. This is usually not a problem.
+	pub struct ReentrantMutex<T: Send + 'static> {
+		/// The inner value.
+		inner: UnsafeCell<T>,
+		/// The lock state.
+		///
+		/// The upper 32 bits are the core ID of the lock holder, and the lower 32 bits
+		/// are the lock count.
+		lock:  AtomicU64,
+	}
+
+	impl<T: Send + 'static> ReentrantMutex<T> {
+		/// Constructs a new reentrant mutex.
+		pub const fn new(inner: T) -> Self {
+			Self {
+				inner: UnsafeCell::new(inner),
+				lock:  AtomicU64::new(0),
+			}
+		}
+	}
+
+	impl<T: Send + 'static> Lock for ReentrantMutex<T> {
+		/// The lock guard type used by the lock implementation.
+		type Guard<'a> = ReentrantMutexGuard<'a, Self::Target>;
+		/// The target type of value being guarded.
+		type Target = T;
+
+		fn lock(&self) -> Self::Guard<'_> {
+			// SAFETY: The safety requirements for this function are offloaded to the
+			// SAFETY: implementation; it's marked unsafe as a requirement by Rust.
+			let core_id = unsafe { oro_sync_current_core_id() };
+
+			loop {
+				let current = self.lock.load(Acquire);
+				let current_core = (current >> 32) as u32;
+				let current_count = (current & 0xFFFF_FFFF) as u32;
+
+				if (current == 0 || current_core == core_id)
+					&& self
+						.lock
+						.compare_exchange_weak(
+							current,
+							(u64::from(core_id) << 32) | u64::from(current_count + 1),
+							Release,
+							Relaxed,
+						)
+						.is_ok()
+				{
+					return ReentrantMutexGuard { inner: self };
+				}
+			}
+		}
+	}
+
+	/// A guard for a reentrant mutex.
+	pub struct ReentrantMutexGuard<'a, T: Send + 'static> {
+		inner: &'a ReentrantMutex<T>,
+	}
+
+	impl<T: Send + 'static> core::ops::Deref for ReentrantMutexGuard<'_, T> {
+		type Target = T;
+
+		fn deref(&self) -> &Self::Target {
+			// SAFETY: The guard is only created if the lock is held.
+			unsafe { &*self.inner.inner.get() }
+		}
+	}
+
+	impl<T: Send + 'static> core::ops::DerefMut for ReentrantMutexGuard<'_, T> {
+		fn deref_mut(&mut self) -> &mut Self::Target {
+			// SAFETY: The guard is only created if the lock is held.
+			unsafe { &mut *self.inner.inner.get() }
+		}
+	}
+
+	impl<T: Send + 'static> Drop for ReentrantMutexGuard<'_, T> {
+		fn drop(&mut self) {
+			loop {
+				let current = self.inner.lock.load(Relaxed);
+				let current_count = current & 0xFFFF_FFFF;
+
+				debug_assert_eq!(
+					(current >> 32) as u32,
+					unsafe { oro_sync_current_core_id() },
+					"re-entrant lock held lock by another core upon drop"
+				);
+
+				if self
+					.inner
+					.lock
+					.compare_exchange(
+						current,
+						if current_count == 1 { 0 } else { current - 1 },
+						Release,
+						Relaxed,
+					)
+					.is_ok()
+				{
+					break;
+				}
+			}
+		}
+	}
+}
+
+#[cfg(feature = "reentrant_mutex")]
+pub use reentrant::*;

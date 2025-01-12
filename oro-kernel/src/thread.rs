@@ -24,9 +24,9 @@ enum State {
 	/// The thread is stopped.
 	Stopped,
 	/// The thread is paused on the given core, awaiting a new time slice.
-	Paused(usize),
+	Paused(u32),
 	/// The thread is running on the given core.
-	Running(usize),
+	Running(u32),
 	/// The thread invoked a system call, which is blocked and awaiting
 	/// a response.
 	PausedSystemCall(SystemCallRequest),
@@ -205,7 +205,7 @@ impl<A: Arch> Thread<A> {
 	/// The caller must **infallibly** consume any handles passed back
 	/// in an `Ok` result, else they are forever lost, since this method
 	/// advances the state machine and consumes the handle.
-	pub unsafe fn try_schedule(&mut self, core_id: usize) -> Result<ScheduleAction, ScheduleError> {
+	pub unsafe fn try_schedule(&mut self, core_id: u32) -> Result<ScheduleAction, ScheduleError> {
 		match &self.state {
 			State::Terminated => Err(ScheduleError::Terminated),
 			State::Running(core) => Err(ScheduleError::AlreadyRunning(*core)),
@@ -239,7 +239,7 @@ impl<A: Arch> Thread<A> {
 	///
 	/// The thread must already be running on the given core,
 	/// else an error is returned.
-	pub fn try_pause(&mut self, core_id: usize) -> Result<(), PauseError> {
+	pub fn try_pause(&mut self, core_id: u32) -> Result<(), PauseError> {
 		match &self.state {
 			State::Terminated => Err(PauseError::Terminated),
 			State::Running(core) => {
@@ -263,7 +263,7 @@ impl<A: Arch> Thread<A> {
 	#[expect(clippy::needless_pass_by_value)]
 	pub fn try_system_call(
 		&mut self,
-		core_id: usize,
+		core_id: u32,
 		request: SystemCallRequest,
 	) -> Result<SystemCallAction, PauseError> {
 		match &self.state {
@@ -350,14 +350,14 @@ pub enum SystemCallAction {
 #[derive(Debug)]
 pub enum ScheduleError {
 	/// The thread is already running on the given core.
-	AlreadyRunning(usize),
+	AlreadyRunning(u32),
 	/// The thread is terminated.
 	Terminated,
 	/// The thread needs an explicit response to an application request
 	/// and cannot be scheduled normally.
 	AwaitingResponse,
 	/// The thread is paused on another core.
-	Paused(usize),
+	Paused(u32),
 	/// The thread is stopped.
 	Stopped,
 }
@@ -369,7 +369,7 @@ pub enum PauseError {
 	/// not terminated**.
 	NotRunning,
 	/// The thread is allocated to another core.
-	WrongCore(usize),
+	WrongCore(u32),
 	/// The thread is terminated.
 	Terminated,
 }
