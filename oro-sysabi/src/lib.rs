@@ -5,11 +5,3 @@
 pub(crate) mod arch;
 
 pub mod syscall;
-pub mod table;
-
-/// Special entity ID that can be used to refer to the
-/// currently running thread.
-///
-/// This is the equivalent of an entity ID with all bits
-/// set high.
-pub const THIS_THREAD: u64 = !0;
