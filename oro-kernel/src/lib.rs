@@ -51,6 +51,11 @@ use self::{arch::Arch, scheduler::Scheduler};
 /// This object's constructor sets up a core-local
 /// mapping of itself such that it can be accessed
 /// from anywhere in the kernel as a static reference.
+///
+/// # Safety
+/// **The fields of this structure are NOT accessible
+/// between cores.** Taking references to fields of this structure
+/// and passing them between cores is **undefined behavior**.
 pub struct Kernel<A: Arch> {
 	/// The core's ID.
 	id:        usize,
