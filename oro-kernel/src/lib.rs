@@ -21,6 +21,7 @@ pub mod module;
 pub mod port;
 pub mod ring;
 pub mod scheduler;
+pub mod sync;
 pub mod thread;
 
 use core::{
@@ -74,21 +75,6 @@ pub struct Kernel<A: Arch> {
 	handle:    A::CoreHandle,
 }
 
-// NOTE(qix-): This is an ergonomics hack to avoid `A: Arch` in a lot of places.
-#[doc(hidden)]
-static mut KERNEL_ID_FN: MaybeUninit<fn() -> u32> = MaybeUninit::uninit();
-
-#[doc(hidden)]
-#[no_mangle]
-unsafe extern "C" fn oro_sync_current_core_id() -> u32 {
-	KERNEL_ID_FN.assume_init()()
-}
-
-#[doc(hidden)]
-fn get_arch_kernel_id<A: Arch>() -> u32 {
-	Kernel::<A>::get().id()
-}
-
 impl<A: Arch> Kernel<A> {
 	/// Initializes a new core-local instance of the Oro kernel.
 	///
@@ -116,11 +102,6 @@ impl<A: Arch> Kernel<A> {
 	) -> Result<&'static Self, MapError> {
 		assert::fits::<Self, 4096>();
 
-		#[expect(static_mut_refs)]
-		{
-			KERNEL_ID_FN.write(get_arch_kernel_id::<A>);
-		}
-
 		let mapper = AddressSpace::<A>::current_supervisor_space();
 		let core_local_segment = AddressSpace::<A>::kernel_core_local();
 
@@ -140,6 +121,13 @@ impl<A: Arch> Kernel<A> {
 			scheduler: MaybeUninit::uninit(),
 			mapper,
 		});
+
+		// SAFETY(qix-): Now that the kernel has been mapped in, we can initialize the _real_
+		// SAFETY(qix-): core-local ID function. This is effectively a no-op for secondary
+		// SAFETY(qix-): cores, but doing it here ensures that any stray usage of `ReentrantLock`s
+		// SAFETY(qix-): at least see _some_ core ID. This isn't ideal, it's a bit of a hack, but
+		// SAFETY(qix-): it's a one-off situation that isn't trivial to avoid.
+		sync::initialize_kernel_id_fn::<A>();
 
 		(*kernel_ptr)
 			.scheduler
@@ -242,6 +230,9 @@ impl<A: Arch> KernelState<A> {
 	/// or else registry accesses will page fault.
 	#[allow(clippy::missing_panics_doc)]
 	pub unsafe fn init(this: &'static mut MaybeUninit<Self>) -> Result<(), MapError> {
+		// SAFETY(qix-): Must be first, before anything else happens in the kernel.
+		self::sync::install_dummy_kernel_id_fn();
+
 		let root_ring = ring::Ring::<A>::new_root()?;
 		let root_ring_weak = Arc::downgrade(&root_ring);
 
