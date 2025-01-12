@@ -305,7 +305,7 @@ mod reentrant {
 		/// are the lock count.
 		lock:  AtomicU64,
 		/// The inner value.
-		inner: UnsafeCell<T>,
+		value: UnsafeCell<T>,
 	}
 
 	impl<T> ReentrantMutex<T> {
@@ -313,7 +313,7 @@ mod reentrant {
 		pub const fn new(inner: T) -> Self {
 			Self {
 				lock:  AtomicU64::new(0),
-				inner: UnsafeCell::new(inner),
+				value: UnsafeCell::new(inner),
 			}
 		}
 	}
@@ -348,7 +348,13 @@ mod reentrant {
 						)
 						.is_ok()
 				{
-					return ReentrantMutexGuard { inner: self };
+					#[cfg(debug_assertions)]
+					if current == 0 {
+						::oro_dbgutil::__oro_dbgutil_lock_acquire(
+							self.value.get() as *const () as usize
+						);
+					}
+					return ReentrantMutexGuard { lock: self };
 				}
 			}
 		}
@@ -362,7 +368,7 @@ mod reentrant {
 
 	/// A guard for a reentrant mutex.
 	pub struct ReentrantMutexGuard<'a, T: ?Sized + 'a> {
-		inner: &'a ReentrantMutex<T>,
+		lock: &'a ReentrantMutex<T>,
 	}
 
 	impl<T: ?Sized> core::ops::Deref for ReentrantMutexGuard<'_, T> {
@@ -370,21 +376,21 @@ mod reentrant {
 
 		fn deref(&self) -> &Self::Target {
 			// SAFETY: The guard is only created if the lock is held.
-			unsafe { &*self.inner.inner.get() }
+			unsafe { &*self.lock.value.get() }
 		}
 	}
 
 	impl<T: ?Sized> core::ops::DerefMut for ReentrantMutexGuard<'_, T> {
 		fn deref_mut(&mut self) -> &mut Self::Target {
 			// SAFETY: The guard is only created if the lock is held.
-			unsafe { &mut *self.inner.inner.get() }
+			unsafe { &mut *self.lock.value.get() }
 		}
 	}
 
 	impl<T: ?Sized> Drop for ReentrantMutexGuard<'_, T> {
 		fn drop(&mut self) {
 			loop {
-				let current = self.inner.lock.load(Relaxed);
+				let current = self.lock.lock.load(Relaxed);
 				let current_count = current & 0xFFFF_FFFF;
 
 				debug_assert_eq!(
@@ -394,7 +400,7 @@ mod reentrant {
 				);
 
 				if self
-					.inner
+					.lock
 					.lock
 					.compare_exchange(
 						current,
@@ -404,6 +410,12 @@ mod reentrant {
 					)
 					.is_ok()
 				{
+					#[cfg(debug_assertions)]
+					if current_count == 1 {
+						::oro_dbgutil::__oro_dbgutil_lock_release(
+							self.lock.value.get() as *const () as usize,
+						);
+					}
 					break;
 				}
 			}
