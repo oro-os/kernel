@@ -9,7 +9,7 @@ use oro_mem::{
 	},
 	mapper::{AddressSpace as _, MapError},
 };
-use oro_sync::{Lock, Mutex};
+use oro_sync::{Lock, ReentrantMutex};
 
 use crate::{AddressSpace, Kernel, UserHandle, arch::Arch, instance::Instance};
 
@@ -29,7 +29,7 @@ pub struct Module<A: Arch> {
 	/// to refer to the module during module loading.
 	module_id: Id<{ IdType::Module }>,
 	/// The list of instances spawned from this module.
-	pub(super) instances: Vec<Weak<Mutex<Instance<A>>>>,
+	pub(super) instances: Vec<Weak<ReentrantMutex<Instance<A>>>>,
 	/// The module's address space mapper handle.
 	///
 	/// Only uninitialized if the module is in the process of being freed.
@@ -43,12 +43,12 @@ pub struct Module<A: Arch> {
 
 impl<A: Arch> Module<A> {
 	/// Creates a new module.
-	pub fn new(module_id: Id<{ IdType::Module }>) -> Result<Arc<Mutex<Self>>, MapError> {
+	pub fn new(module_id: Id<{ IdType::Module }>) -> Result<Arc<ReentrantMutex<Self>>, MapError> {
 		let id = Kernel::<A>::get().state().allocate_id();
 
 		let mapper = AddressSpace::<A>::new_user_space_empty().ok_or(MapError::OutOfMemory)?;
 
-		let r = Arc::new(Mutex::new(Self {
+		let r = Arc::new(ReentrantMutex::new(Self {
 			id,
 			module_id,
 			instances: Vec::new(),
@@ -78,7 +78,7 @@ impl<A: Arch> Module<A> {
 	}
 
 	/// Returns a list of weak handles to instances spawned from this module.
-	pub fn instances(&self) -> &[Weak<Mutex<Instance<A>>>] {
+	pub fn instances(&self) -> &[Weak<ReentrantMutex<Instance<A>>>] {
 		&self.instances
 	}
 

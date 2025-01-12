@@ -1,12 +1,12 @@
 //! Houses types, traits and functionality for the Oro kernel scheduler.
 
 use oro_mem::alloc::sync::Arc;
-use oro_sync::{Lock, Mutex};
+use oro_sync::{Lock, ReentrantMutex};
 
 use crate::{
 	Kernel,
 	arch::{Arch, CoreHandle},
-	thread::{ScheduleAction, SystemCallAction, SystemCallRequest, SystemCallResponse, Thread},
+	thread::{ScheduleAction, Thread},
 };
 
 /// Main scheduler state machine.
@@ -22,7 +22,7 @@ pub struct Scheduler<A: Arch> {
 	/// A reference to the kernel instance.
 	kernel:     &'static Kernel<A>,
 	/// The current thread, if there is one being executed.
-	current:    Option<Arc<Mutex<Thread<A>>>>,
+	current:    Option<Arc<ReentrantMutex<Thread<A>>>>,
 	/// The index of the next thread to execute.
 	next_index: usize,
 }
@@ -44,7 +44,7 @@ impl<A: Arch> Scheduler<A> {
 
 	/// Returns a handle to the currently processing thread.
 	#[must_use]
-	pub fn current_thread(&self) -> Option<Arc<Mutex<Thread<A>>>> {
+	pub fn current_thread(&self) -> Option<Arc<ReentrantMutex<Thread<A>>>> {
 		self.current.clone()
 	}
 
@@ -65,7 +65,9 @@ impl<A: Arch> Scheduler<A> {
 	/// # Safety
 	/// Interrupts MUST be disabled before calling this function.
 	#[must_use]
-	unsafe fn pick_user_thread(&mut self) -> Option<(Arc<Mutex<Thread<A>>>, ScheduleAction)> {
+	unsafe fn pick_user_thread(
+		&mut self,
+	) -> Option<(Arc<ReentrantMutex<Thread<A>>>, ScheduleAction)> {
 		if let Some(thread) = self.current.take() {
 			thread
 				.lock()
@@ -192,16 +194,21 @@ impl<A: Arch> Scheduler<A> {
 	/// can other scheduler methods be invoked while this function
 	/// is running.
 	#[must_use]
-	pub unsafe fn event_system_call(&mut self, request: SystemCallRequest) -> Switch<A> {
+	pub unsafe fn event_system_call(&mut self, request: &SystemCallRequest) -> Switch<A> {
 		let coming_from_user = if let Some(thread) = self.current.take() {
-			let mut t = thread.lock();
+			let t = thread.lock();
 
-			let Ok(action) = t.try_system_call(self.kernel.id(), request) else {
-				unreachable!()
+			let response = {
+				let instance = t.instance();
+				let registry = instance.lock().registry();
+				let mut registry_lock = registry.lock();
+				let r = registry_lock.dispatch_system_call(&thread, request);
+				drop(registry_lock);
+				r
 			};
 
-			match action {
-				SystemCallAction::Resume(response) => {
+			match response {
+				SystemCallAction::RespondImmediate(response) => {
 					drop(t);
 					self.current = Some(thread.clone());
 					return Switch::UserResume(thread, Some(response));
@@ -236,7 +243,7 @@ pub enum Switch<A: Arch> {
 	///
 	/// If the system call handle is not `None`, the thread had invoked
 	/// a system call and is awaiting a response.
-	KernelToUser(Arc<Mutex<Thread<A>>>, Option<SystemCallResponse>),
+	KernelToUser(Arc<ReentrantMutex<Thread<A>>>, Option<SystemCallResponse>),
 	/// Coming from kernel execution, return back to the kernel.
 	KernelResume,
 	/// Coming from a user thread, return to the same user thread.
@@ -249,12 +256,12 @@ pub enum Switch<A: Arch> {
 	///
 	/// If the system call handle is not `None`, the thread had invoked
 	/// a system call and is awaiting a response.
-	UserResume(Arc<Mutex<Thread<A>>>, Option<SystemCallResponse>),
+	UserResume(Arc<ReentrantMutex<Thread<A>>>, Option<SystemCallResponse>),
 	/// Coming from a user thread, return to the given (different) user thread.
 	///
 	/// If the system call handle is not `None`, the thread had invoked
 	/// a system call and is awaiting a response.
-	UserToUser(Arc<Mutex<Thread<A>>>, Option<SystemCallResponse>),
+	UserToUser(Arc<ReentrantMutex<Thread<A>>>, Option<SystemCallResponse>),
 }
 
 impl<A: Arch> Switch<A> {
@@ -262,7 +269,7 @@ impl<A: Arch> Switch<A> {
 	/// into a switch type.
 	#[must_use]
 	fn from_schedule_action(
-		action: Option<(Arc<Mutex<Thread<A>>>, ScheduleAction)>,
+		action: Option<(Arc<ReentrantMutex<Thread<A>>>, ScheduleAction)>,
 		coming_from_user: Option<u64>,
 	) -> Self {
 		match (action, coming_from_user) {
@@ -288,4 +295,39 @@ impl<A: Arch> Switch<A> {
 			(None, Some(_)) => Switch::UserToKernel,
 		}
 	}
+}
+
+/// System call request data.
+#[derive(Debug, Clone)]
+pub struct SystemCallRequest {
+	/// The opcode.
+	pub opcode: oro_sysabi::syscall::Opcode,
+	/// The first argument.
+	pub arg1:   u64,
+	/// The second argument.
+	pub arg2:   u64,
+	/// The third argument.
+	pub arg3:   u64,
+	/// The fourth argument.
+	pub arg4:   u64,
+}
+
+/// System call response data.
+#[derive(Debug, Clone)]
+pub struct SystemCallResponse {
+	/// The error code.
+	pub error: oro_sysabi::syscall::Error,
+	/// The first return value.
+	pub ret1:  u64,
+	/// The second return value.
+	pub ret2:  u64,
+}
+
+/// Response action from the registry after dispatching a system call.
+#[derive(Debug)]
+pub enum SystemCallAction {
+	/// The system call has been processed and the thread should be resumed.
+	RespondImmediate(SystemCallResponse),
+	/// The system call has been processed or is in-flight and the thread should be paused.
+	Pause,
 }

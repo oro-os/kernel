@@ -19,6 +19,7 @@ pub mod arch;
 pub mod instance;
 pub mod module;
 pub mod port;
+pub mod registry;
 pub mod ring;
 pub mod scheduler;
 pub mod sync;
@@ -43,7 +44,7 @@ use oro_mem::{
 	mapper::{AddressSegment, MapError, AddressSpace as _},
 	pfa::Alloc,
 };
-use oro_sync::{Lock, Mutex, TicketMutex};
+use oro_sync::{Lock, ReentrantMutex, TicketMutex};
 
 use self::{arch::Arch, scheduler::Scheduler};
 
@@ -200,16 +201,16 @@ impl<A: Arch> Kernel<A> {
 /// core boot/powerdown/bringup cycles.
 pub struct KernelState<A: Arch> {
 	/// List of all modules.
-	modules:   TicketMutex<Vec<Weak<Mutex<module::Module<A>>>>>,
+	modules:   TicketMutex<Vec<Weak<ReentrantMutex<module::Module<A>>>>>,
 	/// List of all rings.
-	rings:     TicketMutex<Vec<Weak<Mutex<ring::Ring<A>>>>>,
+	rings:     TicketMutex<Vec<Weak<ReentrantMutex<ring::Ring<A>>>>>,
 	/// List of all instances.
-	instances: TicketMutex<Vec<Weak<Mutex<instance::Instance<A>>>>>,
+	instances: TicketMutex<Vec<Weak<ReentrantMutex<instance::Instance<A>>>>>,
 	/// List of all threads.
-	threads:   TicketMutex<Vec<Weak<Mutex<thread::Thread<A>>>>>,
+	threads:   TicketMutex<Vec<Weak<ReentrantMutex<thread::Thread<A>>>>>,
 
 	/// The root ring.
-	root_ring: Arc<Mutex<ring::Ring<A>>>,
+	root_ring: Arc<ReentrantMutex<ring::Ring<A>>>,
 
 	/// The ID counter for resource allocation.
 	id_counter: AtomicU64,
@@ -252,14 +253,14 @@ impl<A: Arch> KernelState<A> {
 	}
 
 	/// Returns a handle to the root ring.
-	pub fn root_ring(&'static self) -> Arc<Mutex<ring::Ring<A>>> {
+	pub fn root_ring(&'static self) -> Arc<ReentrantMutex<ring::Ring<A>>> {
 		self.root_ring.clone()
 	}
 
 	/// Returns a reference to the mutex-guarded list of threads.
 	pub fn threads(
 		&'static self,
-	) -> &'static impl Lock<Target = Vec<Weak<Mutex<thread::Thread<A>>>>> {
+	) -> &'static impl Lock<Target = Vec<Weak<ReentrantMutex<thread::Thread<A>>>>> {
 		&self.threads
 	}
 

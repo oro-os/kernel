@@ -2,7 +2,7 @@
 
 use core::arch::{asm, naked_asm};
 
-use oro_kernel::{scheduler::Switch, thread::SystemCallRequest};
+use oro_kernel::scheduler::{Switch, SystemCallRequest};
 use oro_mem::mapper::AddressSegment;
 use oro_sync::Lock;
 use oro_sysabi::syscall::Opcode;
@@ -132,7 +132,7 @@ unsafe extern "C" fn syscall_enter_noncompat_rust() -> ! {
 
 	current_thread.lock().handle_mut().irq_stack_ptr = stack_ptr;
 
-	let switch = scheduler.event_system_call(syscall_request);
+	let switch = scheduler.event_system_call(&syscall_request);
 
 	drop(scheduler);
 

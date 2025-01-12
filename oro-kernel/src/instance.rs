@@ -7,13 +7,14 @@ use oro_mem::{
 	},
 	mapper::{AddressSegment, AddressSpace as _, MapError},
 };
-use oro_sync::{Lock, Mutex};
+use oro_sync::{Lock, ReentrantMutex};
 
 use crate::{
 	AddressSpace, Kernel, UserHandle,
 	arch::{Arch, InstanceHandle},
 	module::Module,
 	port::Port,
+	registry::Registry,
 	ring::Ring,
 	thread::Thread,
 };
@@ -56,15 +57,17 @@ pub struct Instance<A: Arch> {
 	/// Strong reference to prevent the module from being
 	/// deallocated while the instance is still alive, which would
 	/// otherwise reclaim the executable memory pages and wreak havoc.
-	module: Arc<Mutex<Module<A>>>,
+	module: Arc<ReentrantMutex<Module<A>>>,
 	/// The ring on which this instance resides.
-	ring: Weak<Mutex<Ring<A>>>,
+	ring: Weak<ReentrantMutex<Ring<A>>>,
 	/// The thread list for the instance.
-	pub(super) threads: Vec<Arc<Mutex<Thread<A>>>>,
+	pub(super) threads: Vec<Arc<ReentrantMutex<Thread<A>>>>,
 	/// The port list for the instance.
-	ports: Vec<Arc<Mutex<Port>>>,
+	ports: Vec<Arc<ReentrantMutex<Port>>>,
 	/// The instance's architecture handle.
 	handle: A::InstanceHandle,
+	/// The root object registry for the instance.
+	registry: Arc<ReentrantMutex<Registry>>,
 }
 
 impl<A: Arch> Instance<A> {
@@ -72,9 +75,9 @@ impl<A: Arch> Instance<A> {
 	///
 	/// Notably, this does **not** spawn any threads.
 	pub fn new(
-		module: &Arc<Mutex<Module<A>>>,
-		ring: &Arc<Mutex<Ring<A>>>,
-	) -> Result<Arc<Mutex<Self>>, MapError> {
+		module: &Arc<ReentrantMutex<Module<A>>>,
+		ring: &Arc<ReentrantMutex<Ring<A>>>,
+	) -> Result<Arc<ReentrantMutex<Self>>, MapError> {
 		let id = Kernel::<A>::get().state().allocate_id();
 
 		let mapper = AddressSpace::<A>::new_user_space(Kernel::<A>::get().mapper())
@@ -90,13 +93,14 @@ impl<A: Arch> Instance<A> {
 		AddressSpace::<A>::user_rodata()
 			.apply_user_space_shallow(handle.mapper(), module.lock().mapper())?;
 
-		let r = Arc::new(Mutex::new(Self {
+		let r = Arc::new(ReentrantMutex::new(Self {
 			id,
 			module: module.clone(),
 			ring: Arc::downgrade(ring),
 			threads: Vec::new(),
 			ports: Vec::new(),
 			handle,
+			registry: Arc::default(),
 		}));
 
 		ring.lock().instances.push(r.clone());
@@ -117,22 +121,22 @@ impl<A: Arch> Instance<A> {
 	}
 
 	/// The handle to the module from which this instance was spawned.
-	pub fn module(&self) -> Arc<Mutex<Module<A>>> {
+	pub fn module(&self) -> Arc<ReentrantMutex<Module<A>>> {
 		self.module.clone()
 	}
 
 	/// The weak handle to the ring on which this instance resides.
-	pub fn ring(&self) -> Weak<Mutex<Ring<A>>> {
+	pub fn ring(&self) -> Weak<ReentrantMutex<Ring<A>>> {
 		self.ring.clone()
 	}
 
 	/// Gets a handle to the list of threads for this instance.
-	pub fn threads(&self) -> &[Arc<Mutex<Thread<A>>>] {
+	pub fn threads(&self) -> &[Arc<ReentrantMutex<Thread<A>>>] {
 		&self.threads
 	}
 
 	/// Gets a handle to the list of ports for this instance.
-	pub fn ports(&self) -> &[Arc<Mutex<Port>>] {
+	pub fn ports(&self) -> &[Arc<ReentrantMutex<Port>>] {
 		&self.ports
 	}
 
@@ -140,5 +144,11 @@ impl<A: Arch> Instance<A> {
 	#[must_use]
 	pub fn mapper(&self) -> &UserHandle<A> {
 		self.handle.mapper()
+	}
+
+	/// Returns a handle to the instance's object registry.
+	#[must_use]
+	pub fn registry(&self) -> Arc<ReentrantMutex<Registry>> {
+		self.registry.clone()
 	}
 }

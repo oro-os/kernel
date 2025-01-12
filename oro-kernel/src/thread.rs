@@ -6,12 +6,13 @@ use oro_mem::{
 	mapper::{AddressSegment, AddressSpace as _, MapError, UnmapError},
 	pfa::Alloc,
 };
-use oro_sync::{Lock, Mutex};
+use oro_sync::{Lock, ReentrantMutex};
 
 use crate::{
 	AddressSpace, Kernel, UserHandle,
 	arch::{Arch, ThreadHandle},
 	instance::Instance,
+	scheduler::{SystemCallRequest, SystemCallResponse},
 };
 
 /// A thread's state.
@@ -53,7 +54,7 @@ pub struct Thread<A: Arch> {
 	/// The resource ID.
 	id:       u64,
 	/// The module instance to which this thread belongs.
-	instance: Arc<Mutex<Instance<A>>>,
+	instance: Arc<ReentrantMutex<Instance<A>>>,
 	/// Architecture-specific thread state.
 	handle:   A::ThreadHandle,
 	/// The thread's state.
@@ -64,9 +65,9 @@ impl<A: Arch> Thread<A> {
 	/// Creates a new thread in the given module instance.
 	#[expect(clippy::missing_panics_doc)]
 	pub fn new(
-		instance: &Arc<Mutex<Instance<A>>>,
+		instance: &Arc<ReentrantMutex<Instance<A>>>,
 		entry_point: usize,
-	) -> Result<Arc<Mutex<Thread<A>>>, MapError> {
+	) -> Result<Arc<ReentrantMutex<Thread<A>>>, MapError> {
 		let id = Kernel::<A>::get().state().allocate_id();
 
 		// Pre-calculate the stack pointer.
@@ -152,7 +153,7 @@ impl<A: Arch> Thread<A> {
 
 		AddressSpace::<A>::free_user_space_handle(thread_mapper);
 
-		let r = Arc::new(Mutex::new(Self {
+		let r = Arc::new(ReentrantMutex::new(Self {
 			id,
 			instance: instance.clone(),
 			handle,
@@ -177,7 +178,7 @@ impl<A: Arch> Thread<A> {
 	}
 
 	/// Returns module instance handle to which this thread belongs.
-	pub fn instance(&self) -> Arc<Mutex<Instance<A>>> {
+	pub fn instance(&self) -> Arc<ReentrantMutex<Instance<A>>> {
 		self.instance.clone()
 	}
 
@@ -257,93 +258,6 @@ impl<A: Arch> Thread<A> {
 			| State::RespondingSystemCall(_) => Err(PauseError::NotRunning),
 		}
 	}
-
-	/// Signals that the thread has invoked a system call and is now
-	/// awaiting a response.
-	#[expect(clippy::needless_pass_by_value)]
-	pub fn try_system_call(
-		&mut self,
-		core_id: u32,
-		request: SystemCallRequest,
-	) -> Result<SystemCallAction, PauseError> {
-		match &self.state {
-			State::Terminated => Err(PauseError::Terminated),
-			State::Running(core) => {
-				if *core != core_id {
-					return Err(PauseError::WrongCore(*core));
-				}
-
-				// TODO(qix-): Use registry instead of hardcoding the request.
-				// TODO(qix-): This is just to make sure syscalls are working.
-				use oro_sysabi::{
-					key,
-					syscall::{Error as SysErr, Opcode},
-				};
-
-				let mut ret1 = 0;
-				let mut ret2 = 0;
-
-				let error = match (
-					request.opcode,
-					request.arg1,
-					request.arg2,
-					request.arg3,
-					request.arg4,
-				) {
-					(Opcode::Open, 0, key!("thread"), _, _) => {
-						ret1 = 1;
-						SysErr::Ok
-					}
-					(Opcode::Open, 1, key!("self"), _, _) => {
-						ret1 = 2;
-						SysErr::Ok
-					}
-					(Opcode::Close, 1 | 2, _, _, _) => {
-						// TODO(qix-): Technically we should check the handle here, but for now we just assume
-						// TODO(qix-): that it's been opened. This is incorrect but easier to test.
-						SysErr::Ok
-					}
-					(Opcode::Get, 2, key!("kill"), _, _) => {
-						// TODO(qix-): Technically we should check the actual state, but there's no way
-						// TODO(qix-): a killed thread can be running to even make this syscall.
-						ret1 = 0;
-						ret2 = 0;
-						SysErr::Ok
-					}
-					(Opcode::Set, 2, key!("kill"), v, _) => {
-						if v != 0 {
-							self.state = State::Terminated;
-							return Ok(SystemCallAction::Pause);
-						}
-
-						SysErr::Ok
-					}
-					(Opcode::Get | Opcode::Set | Opcode::Open, 1 | 2, _, _, _) => SysErr::BadKey,
-					(Opcode::Get | Opcode::Set | Opcode::Open | Opcode::Close, _, _, _, _) => {
-						SysErr::BadHandle
-					}
-					(_, _, _, _, _) => SysErr::BadOpcode,
-				};
-
-				let response = SystemCallResponse { error, ret1, ret2 };
-
-				Ok(SystemCallAction::Resume(response))
-			}
-			State::Paused(_)
-			| State::Stopped
-			| State::PausedSystemCall(_)
-			| State::Unallocated
-			| State::RespondingSystemCall(_) => Err(PauseError::NotRunning),
-		}
-	}
-}
-
-/// The action to take after a system call has been processed.
-pub enum SystemCallAction {
-	/// Resume the thread with the given system call handle.
-	Resume(SystemCallResponse),
-	/// Pause the thread and await a response.
-	Pause,
 }
 
 /// Error type for thread scheduling.
@@ -400,30 +314,4 @@ impl<A: Arch> Drop for Thread<A> {
 			AddressSpace::<A>::user_thread_stack().unmap_all_and_reclaim(self.mapper());
 		}
 	}
-}
-
-/// System call request data.
-#[derive(Debug, Clone)]
-pub struct SystemCallRequest {
-	/// The opcode.
-	pub opcode: oro_sysabi::syscall::Opcode,
-	/// The first argument.
-	pub arg1:   u64,
-	/// The second argument.
-	pub arg2:   u64,
-	/// The third argument.
-	pub arg3:   u64,
-	/// The fourth argument.
-	pub arg4:   u64,
-}
-
-/// System call response data.
-#[derive(Debug, Clone)]
-pub struct SystemCallResponse {
-	/// The error code.
-	pub error: oro_sysabi::syscall::Error,
-	/// The first return value.
-	pub ret1:  u64,
-	/// The second return value.
-	pub ret2:  u64,
 }

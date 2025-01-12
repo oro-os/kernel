@@ -7,7 +7,7 @@ use oro_mem::{
 	},
 	mapper::{AddressSegment, AddressSpace as _, MapError},
 };
-use oro_sync::{Lock, Mutex};
+use oro_sync::{Lock, ReentrantMutex};
 
 use crate::{AddressSpace, Kernel, UserHandle, arch::Arch, instance::Instance};
 
@@ -36,18 +36,20 @@ pub struct Ring<A: Arch> {
 	/// The resource ID.
 	id: u64,
 	/// The parent ring handle, or `None` if this is the root ring.
-	parent: Option<Weak<Mutex<Ring<A>>>>,
+	parent: Option<Weak<ReentrantMutex<Ring<A>>>>,
 	/// The module [`Instance`]s on the ring.
-	pub(super) instances: Vec<Arc<Mutex<Instance<A>>>>,
+	pub(super) instances: Vec<Arc<ReentrantMutex<Instance<A>>>>,
 	/// The ring's base mapper handle.
 	pub(super) mapper: UserHandle<A>,
 	/// The ring's child rings.
-	pub(super) children: Vec<Arc<Mutex<Ring<A>>>>,
+	pub(super) children: Vec<Arc<ReentrantMutex<Ring<A>>>>,
 }
 
 impl<A: Arch> Ring<A> {
 	/// Creates a new ring.
-	pub fn new(parent: &Arc<Mutex<Ring<A>>>) -> Result<Arc<Mutex<Self>>, MapError> {
+	pub fn new(
+		parent: &Arc<ReentrantMutex<Ring<A>>>,
+	) -> Result<Arc<ReentrantMutex<Self>>, MapError> {
 		let id = Kernel::<A>::get().state().allocate_id();
 
 		let mapper = AddressSpace::<A>::new_user_space(&Kernel::<A>::get().mapper)
@@ -55,7 +57,7 @@ impl<A: Arch> Ring<A> {
 
 		AddressSpace::<A>::sysabi().provision_as_shared(&mapper)?;
 
-		let r = Arc::new(Mutex::new(Self {
+		let r = Arc::new(ReentrantMutex::new(Self {
 			id,
 			parent: Some(Arc::downgrade(parent)),
 			instances: Vec::new(),
@@ -84,7 +86,7 @@ impl<A: Arch> Ring<A> {
 	///
 	/// Caller **must** push the ring onto the kernel state's `rings` list itself;
 	/// this method **will not** do it for you.
-	pub(crate) unsafe fn new_root() -> Result<Arc<Mutex<Self>>, MapError> {
+	pub(crate) unsafe fn new_root() -> Result<Arc<ReentrantMutex<Self>>, MapError> {
 		// NOTE(qix-): This method CANNOT call `Kernel::<A>::get()` because
 		// NOTE(qix-): core-local kernels are not guaranteed to be initialized
 		// NOTE(qix-): at this point in the kernel's lifetime.
@@ -101,7 +103,7 @@ impl<A: Arch> Ring<A> {
 
 		AddressSpace::<A>::sysabi().provision_as_shared(&mapper)?;
 
-		let r = Arc::new(Mutex::new(Self {
+		let r = Arc::new(ReentrantMutex::new(Self {
 			id: 0,
 			parent: None,
 			instances: Vec::new(),
@@ -122,13 +124,13 @@ impl<A: Arch> Ring<A> {
 	///
 	/// If the ring is the root ring, this function will return `None`.
 	#[must_use]
-	pub fn parent(&self) -> Option<Weak<Mutex<Ring<A>>>> {
+	pub fn parent(&self) -> Option<Weak<ReentrantMutex<Ring<A>>>> {
 		self.parent.clone()
 	}
 
 	/// Returns a slice of instances on the ring.
 	#[must_use]
-	pub fn instances(&self) -> &[Arc<Mutex<Instance<A>>>] {
+	pub fn instances(&self) -> &[Arc<ReentrantMutex<Instance<A>>>] {
 		&self.instances
 	}
 }
