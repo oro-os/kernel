@@ -384,6 +384,12 @@ mod reentrant {
 	}
 
 	unsafe impl<T: Send + 'static> Sync for ReentrantMutex<T> {}
+
+	impl<T: Default + Send + 'static> Default for ReentrantMutex<T> {
+		fn default() -> Self {
+			Self::new(T::default())
+		}
+	}
 }
 
 #[cfg(feature = "reentrant_mutex")]
