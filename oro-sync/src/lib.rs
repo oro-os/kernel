@@ -382,6 +382,8 @@ mod reentrant {
 			}
 		}
 	}
+
+	unsafe impl<T: Send + 'static> Sync for ReentrantMutex<T> {}
 }
 
 #[cfg(feature = "reentrant_mutex")]
