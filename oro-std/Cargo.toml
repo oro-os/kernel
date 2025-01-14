@@ -20,6 +20,10 @@ workspace = true
 [features]
 default = []
 oro = []
+nightly = []
+
+# `std` features
+thread_id_value = []
 
 # NOTE(qix-): This crate MUST NOT have any workspace (only) dependencies
 # NOTE(qix-): as it is published publicly.

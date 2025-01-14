@@ -16,7 +16,7 @@
 //! std = { git = "https://github.com/oro-os/kernel.git", package = "oro-std" }
 //! ```
 //!
-//! ## OS-Specific `std::os::oro` Module
+//! ### OS-Specific `std::os::oro` Module
 //! By default, the `std::os::oro` module is **not** enabled. To enable it, you must include the
 //! `oro` feature in your `Cargo.toml`:
 //!
@@ -27,8 +27,29 @@
 //!
 //! Note that `std::os::oro` is just a re-export of the `oro` crate. If you wish to write
 //! less-fragile code for the future, you may choose to depend on `oro` directly.
+//!
+//! ### Nightly Features
+//! To enable certain nightly-only features that also exist in `std`, you can enable the `nightly`
+//! feature in your `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! std = { git = "https://github.com/oro-os/kernel.git", package = "oro-std", features = ["nightly"] }
+//! ```
+//!
+//! Further, any feature typically enabled with `#![feature(...)]` in nightly Rust can be enabled
+//! in `oro-std` by adding the feature to the `Cargo.toml` file. **Any `core` features must be
+//! included using the normal `#![feature(...)]` syntax in your code.** This may change in the
+//! future.
+//!
+//! > **NOTE:** Using the `oro-std` crates **always requires nightly** Rust, as the `oro` crate uses
+//! > unstable features. However, this doesn't intrinsically mean application code also wants to
+//! > use nightly features. Therefore, the `nightly` feature is **not** automatically enabled simply
+//! > by building using a nightly toolchain.
 #![no_std]
 #![deny(unsafe_op_in_unsafe_fn)]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![feature(cfg_target_thread_local)]
 
 #[expect(unused_imports)]
 use ::oro;
