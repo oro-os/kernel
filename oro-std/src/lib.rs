@@ -50,6 +50,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 #![feature(cfg_target_thread_local)]
+#![allow(clippy::missing_docs_in_private_items)]
 
 #[expect(unused_imports)]
 use ::oro;
