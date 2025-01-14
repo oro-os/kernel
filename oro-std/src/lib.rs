@@ -28,9 +28,16 @@
 //! Note that `std::os::oro` is just a re-export of the `oro` crate. If you wish to write
 //! less-fragile code for the future, you may choose to depend on `oro` directly.
 #![no_std]
+#![deny(unsafe_op_in_unsafe_fn)]
 
 #[expect(unused_imports)]
 use ::oro;
 
 pub mod os;
 pub mod prelude;
+pub mod thread;
+
+pub use core::{
+	any, arch, array, ascii, borrow, cell, char, clone, cmp, convert, default, f32, f64, ffi, fmt,
+	hash, hint, iter, marker, num, ops, option, pin, primitive, ptr, result, slice, str,
+};
