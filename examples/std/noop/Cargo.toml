@@ -1,5 +1,5 @@
 [package]
-name = "exmod-noop"
+name = "example-std-noop"
 description = "Example module that exits immediately."
 version = "0.0.0"
 publish = false
@@ -7,11 +7,14 @@ edition = "2021"
 
 build = "build.rs"
 
+[dependencies]
+std = { version = "0.0.0", package = "oro-std", path = "../../../oro-std" }
+
 [dependencies.oro]
-path = "../../oro"
+path = "../../../oro"
 features = ["runtime"]
 
 [build-dependencies.oro]
-path = "../../oro"
+path = "../../../oro"
 features = ["build"]
 default-features = false

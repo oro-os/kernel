@@ -105,17 +105,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60b1af1c220855b6ceac025d3f6ecdd2b7c4894bfe9cd9bda4fbb4bc7c0d4cf0"
 
 [[package]]
-name = "exmod-noop"
+name = "example-noop"
 version = "0.0.0"
 dependencies = [
  "oro",
 ]
 
 [[package]]
-name = "exmod-spin"
+name = "example-spin"
 version = "0.0.0"
 dependencies = [
  "oro",
+]
+
+[[package]]
+name = "example-std-noop"
+version = "0.0.0"
+dependencies = [
+ "oro",
+ "oro-std",
 ]
 
 [[package]]
@@ -380,6 +388,13 @@ dependencies = [
  "oro-elf",
  "oro-macro",
  "oro-sync",
+]
+
+[[package]]
+name = "oro-std"
+version = "0.0.0"
+dependencies = [
+ "oro",
 ]
 
 [[package]]

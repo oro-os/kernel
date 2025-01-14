@@ -29,11 +29,13 @@ members = [
 	"oro-id",
 	"oro-sync",
 	"oro-sysabi",
+	"oro-std",
 	"oro",
 
 	# Examples
-	"examples/noop",
-	"examples/spin",
+	"examples/no-std/noop",
+	"examples/no-std/spin",
+	"examples/std/noop",
 ]
 
 [workspace.dependencies]
@@ -57,7 +59,6 @@ oro-dbgutil.path = "oro-dbgutil"
 oro-id.path = "oro-id"
 oro-sync.path = "oro-sync"
 oro-sysabi.path = "oro-sysabi"
-oro.path = "oro"
 
 limine = "0.2.0"
 uart_16550 = "0.3.0"
