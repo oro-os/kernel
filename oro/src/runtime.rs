@@ -1,6 +1,7 @@
 //! High-level runtime support for Oro modules.
 
 pub use ::oro_sysabi as sysabi;
+pub use sysabi::{key, uses};
 
 #[cfg(feature = "panic_handler")]
 #[panic_handler]
@@ -105,5 +106,20 @@ pub unsafe fn force_crash() -> ! {
 	// Otherwise, spin loop. We should never get here.
 	loop {
 		core::hint::spin_loop();
+	}
+}
+
+/// IDs used throughout the Oro kernel.
+pub mod id {
+	/// Kernel IDs; re-exported from [`oro_sysabi::id`].
+	pub use ::oro_sysabi::id as kernel;
+
+	/// Common non-kernel IDs.
+	///
+	/// > **NOTE:** This is not a comprehensive list of all IDs in the Oro ecosystem,
+	/// > but - notably - the IDs used by the standard library (`oro-std` or, in the future,
+	/// > `std`). They can be used directly or by using non-`core` types provided by the `[oro-]std` module.
+	pub mod common {
+		// TODO(qix-): Intentionally empty for now.
 	}
 }

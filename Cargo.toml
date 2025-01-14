@@ -37,6 +37,7 @@ members = [
 	"examples/no-std/spin",
 	"examples/std/noop",
 	"examples/std/noop-nightly",
+	"examples/std/spin",
 ]
 
 [workspace.dependencies]

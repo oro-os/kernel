@@ -1,0 +1,20 @@
+[package]
+name = "example-std-spin"
+description = "Example module that yields its time slice forever."
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+build = "build.rs"
+
+[dependencies]
+std = { version = "0.0.0", package = "oro-std", path = "../../../oro-std" }
+
+[dependencies.oro]
+path = "../../../oro"
+features = ["runtime"]
+
+[build-dependencies.oro]
+path = "../../../oro"
+features = ["build"]
+default-features = false

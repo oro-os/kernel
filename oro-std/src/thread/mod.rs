@@ -1,5 +1,8 @@
 //! Native threads.
 
+mod current;
+
+pub use self::current::{current, yield_now};
 use crate::{fmt, num::NonZero};
 
 /// A unique identifier for a running thread.
