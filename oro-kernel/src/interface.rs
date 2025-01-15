@@ -10,6 +10,9 @@ use core::{
 };
 
 use oro_mem::alloc::sync::Arc;
+use oro_sync::ReentrantMutex;
+
+use crate::{arch::Arch, thread::Thread};
 
 /// Implements an interface, which is a flat namespace of `(index, flay_keyvals)`.
 ///
@@ -21,21 +24,40 @@ use oro_mem::alloc::sync::Arc;
 /// them as direct interfaces to kernel data structures and machinery. They can also
 /// be implemented by userspace applications, which can then be interacted with by
 /// system calls or ports (or perhaps other interfaces).
-pub trait Interface: Send + Sync {
+pub trait Interface<A: Arch>: Send + Sync {
 	/// Returns the type ID of the interface. Note that IDs with all high 32 bits
 	/// cleared are reserved for kernel usage.
 	fn type_id(&self) -> u64;
-	/// Handles a system call request to this interface.
+
+	/// Handles a [`oro_sysabi::syscall::Opcode::Get`] system call request to this interface.
 	///
 	/// System call handling must be quick and non-blocking. Either it can be
 	/// serviced immediately, or can be processed "offline", returning a handle
 	/// that can be polled for completion.
-	fn handle(&self, request: SystemCallRequest) -> InterfaceResponse;
+	fn get(
+		&self,
+		thread: &Arc<ReentrantMutex<Thread<A>>>,
+		index: u64,
+		key: u64,
+	) -> InterfaceResponse;
+
+	/// Handles a [`oro_sysabi::syscall::Opcode::Set`] system call request to this interface.
+	///
+	/// System call handling must be quick and non-blocking. Either it can be
+	/// serviced immediately, or can be processed "offline", returning a handle
+	/// that can be polled for completion.
+	fn set(
+		&self,
+		thread: &Arc<ReentrantMutex<Thread<A>>>,
+		index: u64,
+		key: u64,
+		value: u64,
+	) -> InterfaceResponse;
 }
 
 /// Response from an interface after handling a system call.
 ///
-/// When performing a [`Interface::handle`] operation, the interface can either
+/// When performing an [`Interface`] syscall operation, the interface can either
 /// respond immediately, or defer the response to a later time. In the latter case,
 /// a pollable handle is returned.
 pub enum InterfaceResponse {
@@ -68,7 +90,7 @@ unsafe impl Sync for InFlightSystemCallInner {}
 unsafe impl Send for InFlightSystemCallInner {}
 
 /// Indicates the state of the in-flight system call.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum InFlightState {
 	/// Pending
@@ -222,13 +244,4 @@ pub struct SystemCallResponse {
 	pub error: oro_sysabi::syscall::Error,
 	/// The return value.
 	pub ret:   u64,
-}
-
-/// Response action from the registry after dispatching a system call.
-#[derive(Debug)]
-pub enum SystemCallAction {
-	/// The system call has been processed and the thread should be resumed.
-	RespondImmediate(SystemCallResponse),
-	/// The system call has been processed or is in-flight and the thread should be paused.
-	Pause,
 }

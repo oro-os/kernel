@@ -219,7 +219,7 @@ pub struct KernelState<A: Arch> {
 
 	/// The system-wide registry, loaded at boot with all of the "static" kernel
 	/// interfaces.
-	registry: Arc<ReentrantMutex<RootRegistry>>,
+	registry: Arc<ReentrantMutex<RootRegistry<A>>>,
 }
 
 impl<A: Arch> KernelState<A> {
@@ -274,7 +274,7 @@ impl<A: Arch> KernelState<A> {
 
 	/// Returns a reference to the root registry.
 	#[inline]
-	pub fn registry(&self) -> &Arc<ReentrantMutex<RootRegistry>> {
+	pub fn registry(&self) -> &Arc<ReentrantMutex<RootRegistry<A>>> {
 		&self.registry
 	}
 }

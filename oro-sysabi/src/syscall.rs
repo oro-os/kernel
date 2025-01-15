@@ -59,6 +59,11 @@ pub enum Error {
 	BadIndex       = 5,
 	/// The given key is read-only and cannot be modified.
 	ReadOnly       = 6,
+	/// The system call was canceled by the interface or kernel.
+	///
+	/// This often means the interface was unloaded or crashed before the system call
+	/// could be completed.
+	Canceled       = 7,
 	/// The interface returned an interface-specific error; check the `value`
 	/// code for that error.
 	InterfaceError = 0xFFFF_FFFF_FFFF_FFFF,

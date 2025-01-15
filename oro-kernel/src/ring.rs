@@ -49,7 +49,7 @@ pub struct Ring<A: Arch> {
 	/// The ring's child rings.
 	children:  Vec<Arc<ReentrantMutex<Ring<A>>>>,
 	/// The ring's registry.
-	registry:  Arc<ReentrantMutex<RegistryView<RootRegistry>>>,
+	registry:  Arc<ReentrantMutex<RegistryView<A, RootRegistry<A>>>>,
 }
 
 impl<A: Arch> Ring<A> {
@@ -97,7 +97,7 @@ impl<A: Arch> Ring<A> {
 	/// Caller **must** push the ring onto the kernel state's `rings` list itself;
 	/// this method **will not** do it for you.
 	pub(crate) unsafe fn new_root(
-		registry: Arc<ReentrantMutex<RootRegistry>>,
+		registry: Arc<ReentrantMutex<RootRegistry<A>>>,
 	) -> Result<Arc<ReentrantMutex<Self>>, MapError> {
 		// NOTE(qix-): This method CANNOT call `Kernel::<A>::get()` because
 		// NOTE(qix-): core-local kernels are not guaranteed to be initialized
@@ -161,7 +161,7 @@ impl<A: Arch> Ring<A> {
 
 	/// Returns the ring's registry handle.
 	#[must_use]
-	pub fn registry(&self) -> &Arc<ReentrantMutex<RegistryView<RootRegistry>>> {
+	pub fn registry(&self) -> &Arc<ReentrantMutex<RegistryView<A, RootRegistry<A>>>> {
 		&self.registry
 	}
 }

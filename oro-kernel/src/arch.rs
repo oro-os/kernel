@@ -3,7 +3,7 @@
 use oro_mem::mapper::{AddressSpace, MapError};
 
 /// Implements an architecture for the Oro kernel.
-pub trait Arch: Sized + 'static {
+pub trait Arch: Sized + Send + Sync + 'static {
 	/// The architecture-specific thread handle.
 	type ThreadHandle: ThreadHandle<Self>;
 	/// The architecture-specific address space layout.

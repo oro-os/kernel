@@ -7,16 +7,17 @@ use oro_mem::{
 	pfa::Alloc,
 };
 use oro_sync::{Lock, ReentrantMutex};
+use oro_sysabi::syscall::Error as SysError;
 
 use crate::{
 	AddressSpace, Kernel, UserHandle,
 	arch::{Arch, ThreadHandle},
 	instance::Instance,
-	interface::{SystemCallRequest, SystemCallResponse},
+	interface::{InFlightState, InFlightSystemCallHandle, SystemCallResponse},
 };
 
 /// A thread's state.
-#[derive(Debug, Clone, Default)]
+#[derive(Default)]
 #[expect(dead_code)]
 enum State {
 	/// The thread is not allocated to any core.
@@ -30,12 +31,7 @@ enum State {
 	Running(u32),
 	/// The thread invoked a system call, which is blocked and awaiting
 	/// a response.
-	PausedSystemCall(SystemCallRequest),
-	/// The thread invoked a system call that has be responded to.
-	///
-	/// The next time it's scheduled, it will consume the handle
-	/// and respond to the system call.
-	RespondingSystemCall(SystemCallResponse),
+	PausedSystemCall(InFlightSystemCallHandle),
 	/// The thread is terminated.
 	Terminated,
 }
@@ -219,19 +215,27 @@ impl<A: Arch> Thread<A> {
 				}
 			}
 			State::Stopped => Err(ScheduleError::Stopped),
-			State::PausedSystemCall(_) => Err(ScheduleError::AwaitingResponse),
+			State::PausedSystemCall(handle) => {
+				let running_result = match handle.try_take_response() {
+					Ok(None) => return Err(ScheduleError::AwaitingResponse),
+					Ok(Some(response)) => response,
+					Err(InFlightState::InterfaceCanceled) => {
+						SystemCallResponse {
+							error: SysError::Canceled,
+							ret:   0,
+						}
+					}
+					Err(_) => unreachable!(),
+				};
+
+				self.state = State::Running(core_id);
+
+				Ok(ScheduleAction::SystemCall(running_result))
+			}
 			State::Unallocated => {
 				self.handle.migrate();
 				self.state = State::Running(core_id);
 				Ok(ScheduleAction::Resume)
-			}
-			State::RespondingSystemCall(_) => {
-				let State::RespondingSystemCall(response) =
-					::core::mem::replace(&mut self.state, State::Running(core_id))
-				else {
-					unreachable!();
-				};
-				Ok(ScheduleAction::SystemCall(response))
 			}
 		}
 	}
@@ -251,11 +255,22 @@ impl<A: Arch> Thread<A> {
 					Err(PauseError::WrongCore(*core))
 				}
 			}
-			State::Paused(_)
-			| State::Stopped
-			| State::PausedSystemCall(_)
-			| State::Unallocated
-			| State::RespondingSystemCall(_) => Err(PauseError::NotRunning),
+			State::Paused(_) | State::Stopped | State::PausedSystemCall(_) | State::Unallocated => {
+				Err(PauseError::NotRunning)
+			}
+		}
+	}
+
+	/// Tells the thread it's waiting for an in-flight system call response.
+	///
+	/// # Panics
+	/// Panics if the thread is not running on the given core.
+	pub fn await_system_call_response(&mut self, core_id: u32, handle: InFlightSystemCallHandle) {
+		if let State::Running(core) = &self.state {
+			assert_eq!(*core, core_id, "thread is running, but on a different core");
+			self.state = State::PausedSystemCall(handle);
+		} else {
+			panic!("thread is not running on the given core");
 		}
 	}
 }

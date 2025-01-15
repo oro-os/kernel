@@ -6,7 +6,8 @@ use oro_sync::{Lock, ReentrantMutex};
 use crate::{
 	Kernel,
 	arch::{Arch, CoreHandle},
-	interface::{SystemCallAction, SystemCallRequest, SystemCallResponse},
+	interface::{InterfaceResponse, SystemCallRequest, SystemCallResponse},
+	registry::Registry,
 	thread::{ScheduleAction, Thread},
 };
 
@@ -194,34 +195,39 @@ impl<A: Arch> Scheduler<A> {
 	/// disabled before calling this function.** At no point
 	/// can other scheduler methods be invoked while this function
 	/// is running.
+	///
+	/// # Panics
+	/// Will panic if the kernel ever gets into an invalid state
+	/// (indicating a bug in the scheduler logic / thread state machine).
 	#[must_use]
 	pub unsafe fn event_system_call(&mut self, request: &SystemCallRequest) -> Switch<A> {
 		let coming_from_user = if let Some(thread) = self.current.take() {
-			let t = thread.lock();
+			let mut t = thread.lock();
 
-			// TODO(qix-): Put back the registry stuff when it's working.
 			let response = {
-				// let instance = t.instance();
-				// let registry = instance.lock().registry();
-				// let mut registry_lock = registry.lock();
-				// drop(registry_lock);
-				// let r = registry_lock.dispatch_system_call(&thread, request);
-				// r
-				let _ = request;
-				SystemCallAction::RespondImmediate(SystemCallResponse {
-					error: oro_sysabi::syscall::Error::NotImplemented,
-					ret:   0,
-				})
+				if let Some(instance) = t.instance().lock().ring().upgrade() {
+					let instance_lock = instance.lock();
+					let registry = instance_lock.registry();
+					let mut registry_lock = registry.lock();
+					registry_lock.dispatch(&thread, request)
+				} else {
+					// The instance is gone; we can't do anything.
+					// This is a critical error.
+					panic!(
+						"instance is still running but has no ring; kernel is in an invalid state"
+					);
+				}
 			};
 
 			match response {
-				SystemCallAction::RespondImmediate(response) => {
+				InterfaceResponse::Immediate(response) => {
 					drop(t);
 					self.current = Some(thread.clone());
 					return Switch::UserResume(thread, Some(response));
 				}
-				SystemCallAction::Pause => {
+				InterfaceResponse::Pending(handle) => {
 					let id = t.id();
+					t.await_system_call_response(self.kernel.id(), handle);
 					drop(t);
 					Some(id)
 				}

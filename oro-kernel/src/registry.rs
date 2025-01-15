@@ -21,7 +21,7 @@ use oro_sysabi::{
 
 use crate::{
 	arch::Arch,
-	interface::{Interface, SystemCallAction, SystemCallRequest, SystemCallResponse},
+	interface::{Interface, InterfaceResponse, SystemCallRequest, SystemCallResponse},
 	table::Table,
 	thread::Thread,
 };
@@ -35,12 +35,12 @@ use crate::{
 /// The lower level entity types (rings, instances, etc.) hold
 /// a view into this registry, caching interfaces as needed
 /// so as to reduce pressure on the registry's locks.
-pub struct RootRegistry {
+pub struct RootRegistry<A: Arch> {
 	/// A map of all registered interfaces.
-	interface_map: Table<Arc<dyn Interface>>,
+	interface_map: Table<Arc<dyn Interface<A>>>,
 }
 
-impl RootRegistry {
+impl<A: Arch> RootRegistry<A> {
 	/// Creates a new, fully empty registry.
 	#[must_use]
 	pub fn new_empty() -> Self {
@@ -52,26 +52,53 @@ impl RootRegistry {
 
 /// Implements access to a [`RootRegistry`] or a [`RegistryView`]
 /// (or some wrapper thereof).
-pub trait Registry: Send {
+pub trait Registry<A: Arch>: Send {
 	/// Inserts an interface into the registry and returns its globally unique ID.
 	///
 	/// The interface is guaranteed to be unique in the registry, and is registered
 	/// globally.
-	fn register_interface(&mut self, interface: Arc<dyn Interface>) -> u64;
+	fn register_interface(&mut self, interface: Arc<dyn Interface<A>>) -> u64;
 
 	/// Looks up an interface by its globally unique ID. If this is a view,
 	/// it may cache the interface for future lookups.
-	fn lookup(&mut self, interface_id: u64) -> Option<Arc<dyn Interface>>;
+	fn lookup(&mut self, interface_id: u64) -> Option<Arc<dyn Interface<A>>>;
+
+	/// Handles a system call request to the registry.
+	fn dispatch(
+		&mut self,
+		thread: &Arc<ReentrantMutex<Thread<A>>>,
+		request: &SystemCallRequest,
+	) -> InterfaceResponse {
+		let error = match request.opcode {
+			Opcode::Get => {
+				match self.lookup(request.arg1) {
+					Some(interface) => return interface.get(thread, request.arg2, request.arg3),
+					None => Error::BadInterface,
+				}
+			}
+			Opcode::Set => {
+				match self.lookup(request.arg1) {
+					Some(interface) => {
+						return interface.set(thread, request.arg2, request.arg3, request.arg4);
+					}
+					None => Error::BadInterface,
+				}
+			}
+			_ => Error::BadOpcode,
+		};
+
+		InterfaceResponse::Immediate(SystemCallResponse { error, ret: 0 })
+	}
 }
 
-impl Registry for RootRegistry {
+impl<A: Arch> Registry<A> for RootRegistry<A> {
 	#[inline]
-	fn register_interface(&mut self, interface: Arc<dyn Interface>) -> u64 {
+	fn register_interface(&mut self, interface: Arc<dyn Interface<A>>) -> u64 {
 		self.interface_map.insert_unique(interface)
 	}
 
 	#[inline]
-	fn lookup(&mut self, interface_id: u64) -> Option<Arc<dyn Interface>> {
+	fn lookup(&mut self, interface_id: u64) -> Option<Arc<dyn Interface<A>>> {
 		self.interface_map.get(interface_id).cloned()
 	}
 }
@@ -80,15 +107,15 @@ impl Registry for RootRegistry {
 ///
 /// Accesses to the registry through this type are cached,
 /// reducing contention on the parent registry's locks.
-pub struct RegistryView<P: Registry> {
+pub struct RegistryView<A: Arch, P: Registry<A>> {
 	/// The parent registry from which to fetch interfaces.
 	parent: Arc<ReentrantMutex<P>>,
 	/// A cache of interfaces.
 	// TODO(qix-): Use an LFU?
-	cache: Table<Weak<dyn Interface>>,
+	cache: Table<Weak<dyn Interface<A>>>,
 }
 
-impl<P: Registry> RegistryView<P> {
+impl<A: Arch, P: Registry<A>> RegistryView<A, P> {
 	/// Creates a new registry view into the given parent registry.
 	pub fn new(parent: Arc<ReentrantMutex<P>>) -> Self {
 		Self {
@@ -98,8 +125,8 @@ impl<P: Registry> RegistryView<P> {
 	}
 }
 
-impl<P: Registry> Registry for RegistryView<P> {
-	fn register_interface(&mut self, interface: Arc<dyn Interface>) -> u64 {
+impl<A: Arch, P: Registry<A>> Registry<A> for RegistryView<A, P> {
+	fn register_interface(&mut self, interface: Arc<dyn Interface<A>>) -> u64 {
 		let weak = Arc::downgrade(&interface);
 		let id = self.parent.lock().register_interface(interface);
 		// SAFETY: We can assume that the interface has not been inserted before, since
@@ -110,7 +137,7 @@ impl<P: Registry> Registry for RegistryView<P> {
 		id
 	}
 
-	fn lookup(&mut self, interface_id: u64) -> Option<Arc<dyn Interface>> {
+	fn lookup(&mut self, interface_id: u64) -> Option<Arc<dyn Interface<A>>> {
 		self.cache
 			.get(interface_id)
 			.and_then(Weak::upgrade)
