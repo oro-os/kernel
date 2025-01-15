@@ -152,8 +152,7 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 /// - `rdi` must be a pointer to the core state `kernel_irq_stack` field.
 /// - `rsi` must be a pointer to the core state `kernel_stack` field.
 /// - `rax` must contain the system call error code.
-/// - `rdx` must contain the first system call return value.
-/// - `r9` must contain the second system call return value.
+/// - `r9` must contain the system call return value.
 /// - `call` must be used to jump to this function.
 ///
 /// All registers must be marked as clobbered.
@@ -211,6 +210,7 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user_sysret() {
 		//
 		// SAFETY(qix-): Vector registers are clobbered AND considered insecurely transferred.
 		// SAFETY(qix-): It is specified that the kernel DOES NOT zero vector registers.
+		"xor rdx, rdx",
 		"xor r8, r8",
 		"xor r10, r10",
 		"xor r11, r11",
@@ -243,8 +243,7 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user_sysret() {
 ///
 /// - `r8` must be the `cr3` value of the user task.
 /// - `rax` must contain the system call error code.
-/// - `rdx` must contain the first system call return value.
-/// - `r9` must contain the second system call return value.
+/// - `r9` must contain the system call return value.
 /// - `r10` must be the user task's IRQ stack pointer.
 ///
 /// All registers must be marked as clobbered.
@@ -280,6 +279,7 @@ pub unsafe extern "C" fn oro_x86_64_user_to_user_sysret() {
 		//
 		// SAFETY(qix-): Vector registers are clobbered AND considered insecurely transferred.
 		// SAFETY(qix-): It is specified that the kernel DOES NOT zero vector registers.
+		"xor rdx, rdx",
 		"xor r8, r8",
 		"xor r10, r10",
 		"xor r11, r11",

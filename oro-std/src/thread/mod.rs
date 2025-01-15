@@ -47,6 +47,12 @@ pub struct Thread {
 }
 
 impl Thread {
+	/// Internal method to create a new thread handle.
+	#[must_use]
+	pub(crate) fn new(id: NonZero<u64>) -> Self {
+		Self { id: ThreadId(id) }
+	}
+
 	/// Gets the thread’s unique identifier.
 	#[must_use]
 	pub fn id(&self) -> ThreadId {

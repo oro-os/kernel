@@ -337,8 +337,7 @@ pub unsafe fn boot() -> ! {
 					in("rdi") kernel_irq_rsp,
 					in("rsi") kernel_rsp,
 					in("rax") syscall_response.error as u64,
-					in("rdx") syscall_response.ret1,
-					in("r9") syscall_response.ret2,
+					in("r9") syscall_response.ret,
 				}
 			}
 		}

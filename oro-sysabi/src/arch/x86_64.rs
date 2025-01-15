@@ -13,18 +13,17 @@ pub unsafe fn syscall(
 	arg2: u64,
 	arg3: u64,
 	arg4: u64,
-) -> (syscall::Error, u64, u64) {
+) -> (syscall::Error, u64) {
 	let mut err: u64 = opcode as u64;
-	let mut ret1: u64 = arg3;
-	let mut ret2: u64 = arg4;
+	let mut ret: u64 = arg4;
 
 	asm!(
 		"syscall",
 		inlateout("rax") err,
 		in("rsi") arg1,
 		in("rdi") arg2,
-		inlateout("rdx") ret1,
-		inlateout("r9") ret2,
+		in("rdx") arg3,
+		inlateout("r9") ret,
 		lateout("rcx") _,
 		lateout("r8") _,
 		lateout("r10") _,
@@ -47,5 +46,5 @@ pub unsafe fn syscall(
 		lateout("zmm15") _,
 	);
 
-	(transmute::<u64, syscall::Error>(err), ret1, ret2)
+	(transmute::<u64, syscall::Error>(err), ret)
 }

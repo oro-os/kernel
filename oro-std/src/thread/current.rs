@@ -1,5 +1,6 @@
-#![expect(unused_imports)]
-use ::oro::{id::kernel::iface::THREAD_V0, key, uses};
+use core::num::NonZero;
+
+use ::oro::{id::kernel::iface::THREAD_V0, syscall};
 
 use crate::thread::Thread;
 
@@ -8,12 +9,21 @@ use crate::thread::Thread;
 /// # Oro-specific
 /// This function **panics** in the rare case the thread handle cannot be retrieved.
 /// This is a temporary measure until the kernel implements TLS.
+#[expect(clippy::missing_panics_doc)]
 #[must_use]
 pub fn current() -> Thread {
 	// NOTE(qix-): The real `std` stores a TLS handle to the current thread,
 	// NOTE(qix-): which is totally valid but the kernel hasn't implemented
 	// NOTE(qix-): TLS quite yet. So we do it (slowly) here each time.
-	uses!(THREAD_V0, key!("id"));
+	let id = syscall::get!(
+		THREAD_V0,
+		*::oro::shared::THREAD_V0_HANDLE,
+		0,
+		syscall::key!("id")
+	)
+	.expect("failed to retrieve current thread ID");
+
+	Thread::new(NonZero::new(id).expect("kernel indicated the current thread ID is zero"))
 }
 
 /// Cooperatively gives up a timeslice to the OS scheduler.
@@ -32,5 +42,12 @@ pub fn yield_now() {
 	// NOTE(qix-): The real `std` stores a TLS handle to the current thread,
 	// NOTE(qix-): which is totally valid but the kernel hasn't implemented
 	// NOTE(qix-): TLS quite yet. So we do it (slowly) here each time.
-	uses!(THREAD_V0, key!("id"));
+	syscall::set!(
+		THREAD_V0,
+		*::oro::shared::THREAD_V0_HANDLE,
+		0,
+		syscall::key!("yield"),
+		0
+	)
+	.expect("failed to yield current thread");
 }

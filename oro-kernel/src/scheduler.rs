@@ -198,13 +198,19 @@ impl<A: Arch> Scheduler<A> {
 		let coming_from_user = if let Some(thread) = self.current.take() {
 			let t = thread.lock();
 
+			// TODO(qix-): Put back the registry stuff when it's working.
 			let response = {
-				let instance = t.instance();
-				let registry = instance.lock().registry();
-				let mut registry_lock = registry.lock();
-				let r = registry_lock.dispatch_system_call(&thread, request);
-				drop(registry_lock);
-				r
+				// let instance = t.instance();
+				// let registry = instance.lock().registry();
+				// let mut registry_lock = registry.lock();
+				// drop(registry_lock);
+				// let r = registry_lock.dispatch_system_call(&thread, request);
+				// r
+				let _ = request;
+				SystemCallAction::RespondImmediate(SystemCallResponse {
+					error: oro_sysabi::syscall::Error::NotImplemented,
+					ret:   0,
+				})
 			};
 
 			match response {
@@ -317,10 +323,8 @@ pub struct SystemCallRequest {
 pub struct SystemCallResponse {
 	/// The error code.
 	pub error: oro_sysabi::syscall::Error,
-	/// The first return value.
-	pub ret1:  u64,
-	/// The second return value.
-	pub ret2:  u64,
+	/// The return value.
+	pub ret:   u64,
 }
 
 /// Response action from the registry after dispatching a system call.

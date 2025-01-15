@@ -14,7 +14,6 @@ use crate::{
 	arch::{Arch, InstanceHandle},
 	module::Module,
 	port::Port,
-	registry::Registry,
 	ring::Ring,
 	thread::Thread,
 };
@@ -66,8 +65,6 @@ pub struct Instance<A: Arch> {
 	ports: Vec<Arc<ReentrantMutex<Port>>>,
 	/// The instance's architecture handle.
 	handle: A::InstanceHandle,
-	/// The root object registry for the instance.
-	registry: Arc<ReentrantMutex<Registry>>,
 }
 
 impl<A: Arch> Instance<A> {
@@ -100,7 +97,6 @@ impl<A: Arch> Instance<A> {
 			threads: Vec::new(),
 			ports: Vec::new(),
 			handle,
-			registry: Arc::default(),
 		}));
 
 		ring.lock().instances.push(r.clone());
@@ -144,11 +140,5 @@ impl<A: Arch> Instance<A> {
 	#[must_use]
 	pub fn mapper(&self) -> &UserHandle<A> {
 		self.handle.mapper()
-	}
-
-	/// Returns a handle to the instance's object registry.
-	#[must_use]
-	pub fn registry(&self) -> Arc<ReentrantMutex<Registry>> {
-		self.registry.clone()
 	}
 }

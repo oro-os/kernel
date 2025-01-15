@@ -1,7 +1,6 @@
 //! High-level runtime support for Oro modules.
 
 pub use ::oro_sysabi as sysabi;
-pub use sysabi::{key, uses};
 
 #[cfg(feature = "panic_handler")]
 #[panic_handler]
@@ -49,9 +48,7 @@ pub unsafe fn terminate() -> ! {
 	use crate::sysabi::{key, syscall as s};
 
 	// SAFETY: MUST NOT PANIC.
-	let _ = s::reg_open(0, key!("thread"))
-		.and_then(|thread_table_handle| s::reg_open(thread_table_handle, key!("self")))
-		.and_then(|thread_handle| s::reg_set(thread_handle, key!("kill"), 1, u64::MAX));
+	let _ = s::set_raw(*crate::shared::THREAD_V0_HANDLE, 0, key!("kill"), 1);
 
 	force_crash()
 }
@@ -122,4 +119,20 @@ pub mod id {
 	pub mod common {
 		// TODO(qix-): Intentionally empty for now.
 	}
+}
+
+/// Syscall helper macros.
+///
+/// These are just re-exports from [`oro_sysabi::macros`].
+pub mod syscall {
+	pub use ::oro_sysabi::{interface_slot, key, syscall_get as get, syscall_set as set, uses};
+}
+
+/// Shared interface slots (for applications that don't need to create their own).
+pub mod shared {
+	/// The shared thread interface.
+	///
+	/// Used by the `oro` runtime to kill off the current thread when `main()` returns.
+	pub static THREAD_V0_HANDLE: &u64 =
+		crate::syscall::interface_slot!(crate::id::kernel::iface::THREAD_V0);
 }

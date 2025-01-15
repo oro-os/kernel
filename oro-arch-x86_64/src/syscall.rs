@@ -186,8 +186,7 @@ unsafe extern "C" fn syscall_enter_noncompat_rust() -> ! {
 				in("r8") thread_cr3_phys,
 				in("r10") thread_rsp,
 				in("rax") syscall_response.error as u64,
-				in("rdx") syscall_response.ret1,
-				in("r9") syscall_response.ret2,
+				in("r9") syscall_response.ret,
 				options(noreturn)
 			}
 		}

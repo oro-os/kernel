@@ -46,4 +46,7 @@ pub mod meta {
 
 	/// ID indicating that the following metadata indicates an interface/key usage.
 	pub const USES: u64 = KERNEL_ID_TYPE_META | 0x00_001;
+
+	/// ID indicating that the following metadata indicates an interface slot.
+	pub const IFACE_SLOT: u64 = KERNEL_ID_TYPE_META | 0x00_002;
 }
