@@ -205,9 +205,10 @@ impl<A: Arch> Scheduler<A> {
 			let mut t = thread.lock();
 
 			let response = {
-				if let Some(instance) = t.instance().lock().ring().upgrade() {
-					let instance_lock = instance.lock();
-					let registry = instance_lock.registry();
+				// TODO(qix-): use a deeper cache than the ring's
+				if let Some(ring) = t.instance().lock().ring().upgrade() {
+					let ring_lock = ring.lock();
+					let registry = ring_lock.registry();
 					let mut registry_lock = registry.lock();
 					registry_lock.dispatch(&thread, request)
 				} else {
