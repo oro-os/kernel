@@ -47,8 +47,13 @@ extern "C" fn _oro_start() -> ! {
 pub unsafe fn terminate() -> ! {
 	use crate::sysabi::{key, syscall as s};
 
-	// SAFETY: MUST NOT PANIC.
-	let _ = s::set_raw(sysabi::id::iface::THREAD_V0, 0, key!("kill"), 1);
+	// SAFETY(qix-): MUST NOT PANIC.
+	let _ = s::set_raw(
+		sysabi::id::iface::THREAD_V0,
+		0, // self
+		key!("status"),
+		key!("term"), // (not a key, but a value)
+	);
 
 	force_crash()
 }

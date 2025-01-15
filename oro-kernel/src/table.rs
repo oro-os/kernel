@@ -66,6 +66,12 @@ impl<T: Sized, Alloc: Allocator + Default> Table<T, Alloc> {
 	pub fn get(&self, id: u64) -> Option<&T> {
 		self.0.get(&id)
 	}
+
+	/// Removes a value given its key. Returns `None` if the value didn't exist.
+	#[inline]
+	pub fn remove(&mut self, id: u64) -> Option<T> {
+		self.0.remove(&id)
+	}
 }
 
 /// Builder for a [`StrictIdentityHasher`].

@@ -1,5 +1,15 @@
 //! Thread management types and functions.
 
+// TODO(qix-): As one might expect, thread state managemen here is a bit messy
+// TODO(qix-): and error-prone. It could use an FSM to help smooth out the transitions,
+// TODO(qix-): and to properly handle thread termination and cleanup. Further,
+// TODO(qix-): the schedulers have a very inefficient way of checking for relevant
+// TODO(qix-): work to schedule, and pull from a global (yes, really) thread _vector_,
+// TODO(qix-): which obviously won't scale. If you're looking at this and see problems,
+// TODO(qix-): I'm well aware of them. Trying to get things working first, then make
+// TODO(qix-): them better.
+
+use oro_macro::AsU64;
 use oro_mem::{
 	alloc::sync::Arc,
 	global_alloc::GlobalPfa,
@@ -7,24 +17,35 @@ use oro_mem::{
 	pfa::Alloc,
 };
 use oro_sync::{Lock, ReentrantMutex};
-use oro_sysabi::syscall::Error as SysError;
+use oro_sysabi::{key, syscall::Error as SysError};
 
 use crate::{
 	AddressSpace, Kernel, UserHandle,
 	arch::{Arch, ThreadHandle},
 	instance::Instance,
-	interface::{InFlightState, InFlightSystemCallHandle, SystemCallResponse},
+	interface::{InFlightState, InFlightSystemCall, InFlightSystemCallHandle, SystemCallResponse},
 };
 
-/// A thread's state.
+/// A thread's run state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, AsU64)]
+#[repr(u64)]
+pub enum RunState {
+	/// The thread is terminated.
+	Terminated = key!("term"),
+	/// The thread is running.
+	Running    = key!("run"),
+	/// The thread is stopped.
+	Stopped    = key!("stop"),
+}
+
+/// A thread's state during its executing (i.e. when its run state is [`RunState::Running`]).
+///
+/// Managed by the scheduler.
 #[derive(Default)]
-#[expect(dead_code)]
 enum State {
 	/// The thread is not allocated to any core.
 	#[default]
 	Unallocated,
-	/// The thread is stopped.
-	Stopped,
 	/// The thread is paused on the given core, awaiting a new time slice.
 	Paused(u32),
 	/// The thread is running on the given core.
@@ -32,8 +53,6 @@ enum State {
 	/// The thread invoked a system call, which is blocked and awaiting
 	/// a response.
 	PausedSystemCall(InFlightSystemCallHandle),
-	/// The thread is terminated.
-	Terminated,
 }
 
 /// A singular system thread.
@@ -48,13 +67,19 @@ enum State {
 /// have a parent thread).
 pub struct Thread<A: Arch> {
 	/// The resource ID.
-	id:       u64,
+	id: u64,
 	/// The module instance to which this thread belongs.
 	instance: Arc<ReentrantMutex<Instance<A>>>,
 	/// Architecture-specific thread state.
-	handle:   A::ThreadHandle,
-	/// The thread's state.
-	state:    State,
+	handle: A::ThreadHandle,
+	/// The thread's state (during running).
+	state: State,
+	/// The thread's run state, which dictates if the thread
+	/// is to be scheduled or not.
+	run_state: RunState,
+	/// If `Some`, another thread has requested a `run_state`
+	/// change and should be notified when it occurs.
+	run_state_transition: Option<(RunState, InFlightSystemCall)>,
 }
 
 impl<A: Arch> Thread<A> {
@@ -154,9 +179,11 @@ impl<A: Arch> Thread<A> {
 			instance: instance.clone(),
 			handle,
 			state: State::default(),
+			run_state: RunState::Running,
+			run_state_transition: None,
 		}));
 
-		instance.lock().threads.push(r.clone());
+		instance.lock().threads.insert(id, r.clone());
 
 		Kernel::<A>::get()
 			.state()
@@ -169,31 +196,43 @@ impl<A: Arch> Thread<A> {
 
 	/// Returns the thread's ID.
 	#[must_use]
+	#[inline]
 	pub fn id(&self) -> u64 {
 		self.id
 	}
 
 	/// Returns module instance handle to which this thread belongs.
+	#[inline]
 	pub fn instance(&self) -> Arc<ReentrantMutex<Instance<A>>> {
 		self.instance.clone()
 	}
 
 	/// Returns the thread's address space handle.
 	#[must_use]
+	#[inline]
 	pub fn mapper(&self) -> &UserHandle<A> {
 		self.handle.mapper()
 	}
 
 	/// Returns a refrence to the thread's architecture-specific handle.
 	#[must_use]
+	#[inline]
 	pub fn handle(&self) -> &A::ThreadHandle {
 		&self.handle
 	}
 
 	/// Returns a mutable reference to the thread's architecture-specific handle.
 	#[must_use]
+	#[inline]
 	pub fn handle_mut(&mut self) -> &mut A::ThreadHandle {
 		&mut self.handle
+	}
+
+	/// Returns the thread's [`RunState`].
+	#[must_use]
+	#[inline]
+	pub fn run_state(&self) -> RunState {
+		self.run_state
 	}
 
 	/// Attempts to schedule the thread on the given core.
@@ -203,40 +242,44 @@ impl<A: Arch> Thread<A> {
 	/// in an `Ok` result, else they are forever lost, since this method
 	/// advances the state machine and consumes the handle.
 	pub unsafe fn try_schedule(&mut self, core_id: u32) -> Result<ScheduleAction, ScheduleError> {
-		match &self.state {
-			State::Terminated => Err(ScheduleError::Terminated),
-			State::Running(core) => Err(ScheduleError::AlreadyRunning(*core)),
-			State::Paused(core) => {
-				if *core == core_id {
-					self.state = State::Running(*core);
-					Ok(ScheduleAction::Resume)
-				} else {
-					Err(ScheduleError::Paused(*core))
-				}
-			}
-			State::Stopped => Err(ScheduleError::Stopped),
-			State::PausedSystemCall(handle) => {
-				let running_result = match handle.try_take_response() {
-					Ok(None) => return Err(ScheduleError::AwaitingResponse),
-					Ok(Some(response)) => response,
-					Err(InFlightState::InterfaceCanceled) => {
-						SystemCallResponse {
-							error: SysError::Canceled,
-							ret:   0,
+		match &self.run_state {
+			RunState::Terminated => Err(ScheduleError::Terminated),
+			RunState::Running => {
+				match &self.state {
+					State::Running(core) => Err(ScheduleError::AlreadyRunning(*core)),
+					State::Paused(core) => {
+						if *core == core_id {
+							self.state = State::Running(*core);
+							Ok(ScheduleAction::Resume)
+						} else {
+							Err(ScheduleError::Paused(*core))
 						}
 					}
-					Err(_) => unreachable!(),
-				};
+					State::PausedSystemCall(handle) => {
+						let running_result = match handle.try_take_response() {
+							Ok(None) => return Err(ScheduleError::AwaitingResponse),
+							Ok(Some(response)) => response,
+							Err(InFlightState::InterfaceCanceled) => {
+								SystemCallResponse {
+									error: SysError::Canceled,
+									ret:   0,
+								}
+							}
+							Err(_) => unreachable!(),
+						};
 
-				self.state = State::Running(core_id);
+						self.state = State::Running(core_id);
 
-				Ok(ScheduleAction::SystemCall(running_result))
+						Ok(ScheduleAction::SystemCall(running_result))
+					}
+					State::Unallocated => {
+						self.handle.migrate();
+						self.state = State::Running(core_id);
+						Ok(ScheduleAction::Resume)
+					}
+				}
 			}
-			State::Unallocated => {
-				self.handle.migrate();
-				self.state = State::Running(core_id);
-				Ok(ScheduleAction::Resume)
-			}
+			RunState::Stopped => Err(ScheduleError::Stopped),
 		}
 	}
 
@@ -244,9 +287,16 @@ impl<A: Arch> Thread<A> {
 	///
 	/// The thread must already be running on the given core,
 	/// else an error is returned.
+	///
+	/// **NOTE:** This method is **NOT thread safe** and is used
+	/// exclusively by the scheduler. **"Paused" does not mean
+	/// "stopped"**; it means the thread is waiting for a new
+	/// time slice.
+	///
+	/// Use [`Thread::transition_to`] to change the thread's state
+	/// from a system call.
 	pub fn try_pause(&mut self, core_id: u32) -> Result<(), PauseError> {
 		match &self.state {
-			State::Terminated => Err(PauseError::Terminated),
 			State::Running(core) => {
 				if *core == core_id {
 					self.state = State::Paused(core_id);
@@ -255,9 +305,106 @@ impl<A: Arch> Thread<A> {
 					Err(PauseError::WrongCore(*core))
 				}
 			}
-			State::Paused(_) | State::Stopped | State::PausedSystemCall(_) | State::Unallocated => {
+			State::Paused(_) | State::PausedSystemCall(_) | State::Unallocated => {
 				Err(PauseError::NotRunning)
 			}
+		}
+	}
+
+	/// Attempts to change the thread's run state from a system call.
+	///
+	/// If the thread is the calling thread, the state is changed immediately.
+	/// Otherwise, if the state cannot be changed immediately from another thread,
+	/// a handle to the in-flight system call is returned.
+	pub fn transition_to(
+		&mut self,
+		calling_thread_id: u64,
+		new_state: RunState,
+	) -> Result<Option<InFlightSystemCallHandle>, ChangeStateError> {
+		debug_assert!(
+			self.run_state != RunState::Terminated || (self.id != calling_thread_id),
+			"a dead thread has somehow performed a syscall"
+		);
+
+		if self.run_state == new_state {
+			return Ok(None);
+		}
+
+		if self.run_state == RunState::Terminated {
+			return Err(ChangeStateError::Terminated);
+		}
+
+		if self.id == calling_thread_id {
+			// SAFETY: We're the calling thread; we can always change state immediately.
+			unsafe { self.set_run_state_unchecked(new_state) };
+			Ok(None)
+		} else {
+			match (self.run_state, new_state) {
+				(RunState::Running, new_state) => {
+					match &self.state {
+						State::Paused(_) | State::PausedSystemCall(_) | State::Unallocated => {
+							// SAFETY: The thread is running but isn't executing a time slice,
+							// SAFETY: so an immediate state transition is safe.
+							unsafe {
+								self.set_run_state_unchecked(new_state);
+							}
+							Ok(None)
+						}
+						State::Running(_) => {
+							// If we are running, and a thread has already requested
+							// a state change, we take precedence on the first one.
+							if self.run_state_transition.is_some() {
+								Err(ChangeStateError::Race)
+							} else {
+								// Otherwise, we request the state change and hand back
+								// a handle to the caller.
+								let (client, handle) = InFlightSystemCall::new();
+								self.run_state_transition = Some((new_state, client));
+								Ok(Some(handle))
+							}
+						}
+					}
+				}
+				(RunState::Stopped, new_state) => {
+					// SAFETY: We're stopped; resuming the thread has no side effects.
+					unsafe {
+						self.set_run_state_unchecked(new_state);
+					}
+					Ok(None)
+				}
+				(RunState::Terminated, _) => unreachable!(), // already handled
+			}
+		}
+	}
+
+	/// Internally sets the run state of the thread, cleaning up any resources
+	/// upon termination.
+	///
+	/// # Safety
+	/// This function **performs no error handling or checking** and will **blindly**
+	/// set the run state to the given value. It is the caller's responsibility to
+	/// ensure that the thread is in a valid state to be set to the given run state.
+	unsafe fn set_run_state_unchecked(&mut self, new_run_state: RunState) {
+		self.run_state = new_run_state;
+
+		if new_run_state == RunState::Terminated {
+			// Allow any in-flight system calls to be deemed canceled.
+			self.state = State::Unallocated;
+
+			// Remove the thread from the instance's thread table.
+			self.instance.lock().threads.remove(self.id);
+
+			// Remove the thread from the global thread table.
+			// TODO(qix-): This is horribly inefficient but it's the best I can do for now
+			// TODO(qix-): until a better data structure for the schedulers is implemented.
+			let mut threads = Kernel::<A>::get().state().threads().lock();
+			threads.retain(|t| {
+				if let Some(t) = t.upgrade() {
+					t.lock().id() != self.id
+				} else {
+					false
+				}
+			});
 		}
 	}
 
@@ -317,11 +464,16 @@ pub enum ScheduleAction {
 
 impl<A: Arch> Drop for Thread<A> {
 	fn drop(&mut self) {
-		let old_state = core::mem::replace(&mut self.state, State::Terminated);
+		let old_state = core::mem::replace(&mut self.state, State::Unallocated);
 
 		// Sanity check; make sure the thread is not running on any scheduler,
 		// as that indicates a bug in the kernel.
 		assert!(!matches!(old_state, State::Running(_)));
+
+		// Make sure it's cleaned itself up.
+		unsafe {
+			self.set_run_state_unchecked(RunState::Terminated);
+		}
 
 		// SAFETY: Thread stack regions are specific to the thread and are not shared,
 		// SAFETY: and thus safe to reclaim.
@@ -329,4 +481,14 @@ impl<A: Arch> Drop for Thread<A> {
 			AddressSpace::<A>::user_thread_stack().unmap_all_and_reclaim(self.mapper());
 		}
 	}
+}
+
+/// Error type returned when changing a thread's state.
+#[repr(u64)]
+pub enum ChangeStateError {
+	/// The thread is terminated; it cannot be resumed or stopped.
+	Terminated = 0,
+	/// Another thread is already waiting for a response. Try again
+	/// later.
+	Race       = 1,
 }

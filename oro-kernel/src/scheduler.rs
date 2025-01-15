@@ -6,9 +6,9 @@ use oro_sync::{Lock, ReentrantMutex};
 use crate::{
 	Kernel,
 	arch::{Arch, CoreHandle},
-	interface::{InterfaceResponse, SystemCallRequest, SystemCallResponse},
+	interface::{InFlightSystemCall, InterfaceResponse, SystemCallRequest, SystemCallResponse},
 	registry::Registry,
-	thread::{ScheduleAction, Thread},
+	thread::{RunState, ScheduleAction, Thread},
 };
 
 /// Main scheduler state machine.
@@ -219,13 +219,28 @@ impl<A: Arch> Scheduler<A> {
 				}
 			};
 
-			match response {
-				InterfaceResponse::Immediate(response) => {
+			// If the thread was stopped or terminated by the syscall, we need to
+			// handle it specially.
+			match (t.run_state(), response) {
+				(RunState::Running, InterfaceResponse::Immediate(response)) => {
 					drop(t);
 					self.current = Some(thread.clone());
 					return Switch::UserResume(thread, Some(response));
 				}
-				InterfaceResponse::Pending(handle) => {
+				(RunState::Stopped, InterfaceResponse::Immediate(response)) => {
+					let id = t.id();
+					let (sub, handle) = InFlightSystemCall::new();
+					t.await_system_call_response(self.kernel.id(), handle);
+					drop(t);
+					sub.submit(response);
+					Some(id)
+				}
+				(RunState::Terminated, _) => {
+					let id = t.id();
+					drop(t);
+					Some(id)
+				}
+				(RunState::Running | RunState::Stopped, InterfaceResponse::Pending(handle)) => {
 					let id = t.id();
 					t.await_system_call_response(self.kernel.id(), handle);
 					drop(t);
