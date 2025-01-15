@@ -48,7 +48,7 @@ pub unsafe fn terminate() -> ! {
 	use crate::sysabi::{key, syscall as s};
 
 	// SAFETY: MUST NOT PANIC.
-	let _ = s::set_raw(*crate::shared::THREAD_V0_HANDLE, 0, key!("kill"), 1);
+	let _ = s::set_raw(sysabi::id::iface::THREAD_V0, 0, key!("kill"), 1);
 
 	force_crash()
 }
@@ -126,13 +126,4 @@ pub mod id {
 /// These are just re-exports from [`oro_sysabi::macros`].
 pub mod syscall {
 	pub use ::oro_sysabi::{interface_slot, key, syscall_get as get, syscall_set as set, uses};
-}
-
-/// Shared interface slots (for applications that don't need to create their own).
-pub mod shared {
-	/// The shared thread interface.
-	///
-	/// Used by the `oro` runtime to kill off the current thread when `main()` returns.
-	pub static THREAD_V0_HANDLE: &u64 =
-		crate::syscall::interface_slot!(crate::id::kernel::iface::THREAD_V0);
 }

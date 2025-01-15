@@ -71,17 +71,46 @@ pub trait Registry<A: Arch>: Send {
 	) -> InterfaceResponse {
 		let error = match request.opcode {
 			Opcode::Get => {
-				match self.lookup(request.arg1) {
-					Some(interface) => return interface.get(thread, request.arg2, request.arg3),
-					None => Error::BadInterface,
+				if (request.arg1 & oro_sysabi::id::mask::KERNEL_ID) == 0 {
+					if let Some(res) = crate::iface::kernel::try_dispatch_get::<A>(
+						thread,
+						request.arg1,
+						request.arg2,
+						request.arg3,
+					) {
+						return res;
+					}
+
+					Error::BadInterface
+				} else {
+					match self.lookup(request.arg1) {
+						Some(interface) => {
+							return interface.get(thread, request.arg2, request.arg3);
+						}
+						None => Error::BadInterface,
+					}
 				}
 			}
 			Opcode::Set => {
-				match self.lookup(request.arg1) {
-					Some(interface) => {
-						return interface.set(thread, request.arg2, request.arg3, request.arg4);
+				if (request.arg1 & oro_sysabi::id::mask::KERNEL_ID) == 0 {
+					if let Some(res) = crate::iface::kernel::try_dispatch_set::<A>(
+						thread,
+						request.arg1,
+						request.arg2,
+						request.arg3,
+						request.arg4,
+					) {
+						return res;
 					}
-					None => Error::BadInterface,
+
+					Error::BadInterface
+				} else {
+					match self.lookup(request.arg1) {
+						Some(interface) => {
+							return interface.set(thread, request.arg2, request.arg3, request.arg4);
+						}
+						None => Error::BadInterface,
+					}
 				}
 			}
 			_ => Error::BadOpcode,

@@ -21,6 +21,7 @@
 
 pub mod arch;
 pub mod id;
+pub mod iface;
 pub mod instance;
 pub mod interface;
 pub mod module;
