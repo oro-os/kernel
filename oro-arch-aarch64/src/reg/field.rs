@@ -9,7 +9,7 @@ macro_rules! field {
 			#[allow(dead_code, clippy::identity_op)]
 			#[must_use]
 			pub fn $name(self) -> $T {
-				<$T>::from((self.0 >> $start_bit) & ((1 << ($end_bit - $start_bit + 1)) - 1))
+				<$T>::try_from((self.0 >> $start_bit) & ((1 << ($end_bit - $start_bit + 1)) - 1)).expect("invalid field value")
 			}
 
 			#[doc = concat!("Sets the `", stringify!($name), "` field.\n\n", $doc)]

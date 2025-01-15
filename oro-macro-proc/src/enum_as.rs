@@ -61,7 +61,7 @@ pub fn enum_as_u64(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 		let variant_ident = &variant.ident;
 
 		variant_matches.push(quote! {
-			#discrim => #name::#variant_ident,
+			#discrim => Ok(#name::#variant_ident),
 		});
 	}
 
@@ -74,11 +74,13 @@ pub fn enum_as_u64(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 		}
 
 		#[automatically_derived]
-		impl From<u64> for #name {
-			fn from(val: u64) -> #name {
+		impl TryFrom<u64> for #name {
+			type Error = u64;
+
+			fn try_from(val: u64) -> ::core::result::Result<Self, Self::Error> {
 				match val {
 					#(#variant_matches)*
-					unknown => panic!("invalid value: {unknown:b}"),
+					unknown => Err(unknown),
 				}
 			}
 		}
@@ -144,7 +146,7 @@ pub fn enum_as_u32(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 		let variant_ident = &variant.ident;
 
 		variant_matches.push(quote! {
-			#discrim => #name::#variant_ident,
+			#discrim => Ok(#name::#variant_ident),
 		});
 	}
 
@@ -157,11 +159,13 @@ pub fn enum_as_u32(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 		}
 
 		#[automatically_derived]
-		impl From<u32> for #name {
-			fn from(val: u32) -> #name {
+		impl TryFrom<u32> for #name {
+			type Error = u32;
+
+			fn try_from(val: u32) -> ::core::result::Result<Self, Self::Error> {
 				match val {
 					#(#variant_matches)*
-					unknown => panic!("invalid value: {unknown:b}"),
+					unknown => Err(unknown),
 				}
 			}
 		}
