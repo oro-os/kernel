@@ -11,24 +11,28 @@
 // SAFETY(qix-): Technically not required but helps clean things up a bit for the archs.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/29661
 #![feature(associated_type_defaults)]
-// SAFETY(qix-): This is temporary, just to test system calls. Will be removed at some point.
+// SAFETY(qix-): Needed to make the system call key checks work inline.
+// SAFETY(qix-): https://github.com/rust-lang/rust/issues/76001
 #![feature(inline_const_pat)]
+// SAFETY(qix-): Necessary to make the hashbrown crate wrapper work.
+// SAFETY(qix-): https://github.com/rust-lang/rust/issues/32838
+#![feature(allocator_api)]
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 pub mod arch;
+pub mod id;
 pub mod instance;
+pub mod interface;
 pub mod module;
 pub mod port;
 pub mod registry;
 pub mod ring;
 pub mod scheduler;
 pub mod sync;
+pub mod table;
 pub mod thread;
 
-use core::{
-	mem::MaybeUninit,
-	sync::atomic::{AtomicU64, Ordering::Relaxed},
-};
+use core::mem::MaybeUninit;
 
 use oro_macro::assert;
 // NOTE(qix-): Bug in Rustfmt where it keeps treating `vec![]` and the `mod vec`
@@ -45,6 +49,7 @@ use oro_mem::{
 	pfa::Alloc,
 };
 use oro_sync::{Lock, ReentrantMutex, TicketMutex};
+use registry::RootRegistry;
 
 use self::{arch::Arch, scheduler::Scheduler};
 
@@ -212,8 +217,9 @@ pub struct KernelState<A: Arch> {
 	/// The root ring.
 	root_ring: Arc<ReentrantMutex<ring::Ring<A>>>,
 
-	/// The ID counter for resource allocation.
-	id_counter: AtomicU64,
+	/// The system-wide registry, loaded at boot with all of the "static" kernel
+	/// interfaces.
+	registry: Arc<ReentrantMutex<RootRegistry>>,
 }
 
 impl<A: Arch> KernelState<A> {
@@ -234,7 +240,9 @@ impl<A: Arch> KernelState<A> {
 		// SAFETY(qix-): Must be first, before anything else happens in the kernel.
 		self::sync::install_dummy_kernel_id_fn();
 
-		let root_ring = ring::Ring::<A>::new_root()?;
+		let registry = Arc::new(ReentrantMutex::new(RootRegistry::new_empty()));
+
+		let root_ring = ring::Ring::<A>::new_root(registry.clone())?;
 		let root_ring_weak = Arc::downgrade(&root_ring);
 
 		// Sanity check
@@ -246,7 +254,7 @@ impl<A: Arch> KernelState<A> {
 			rings: TicketMutex::new(vec![root_ring_weak]),
 			instances: TicketMutex::default(),
 			threads: TicketMutex::default(),
-			id_counter: AtomicU64::new(1),
+			registry,
 		});
 
 		Ok(())
@@ -264,12 +272,10 @@ impl<A: Arch> KernelState<A> {
 		&self.threads
 	}
 
-	/// Allocates a new resource ID.
-	fn allocate_id(&self) -> u64 {
-		let r = self.id_counter.fetch_add(1, Relaxed);
-		assert_ne!(r, u64::MAX, "ID counter overflow");
-		debug_assert_ne!(r, 0, "resource ID counter yielded 0, which is reserved");
-		r
+	/// Returns a reference to the root registry.
+	#[inline]
+	pub fn registry(&self) -> &Arc<ReentrantMutex<RootRegistry>> {
+		&self.registry
 	}
 }
 

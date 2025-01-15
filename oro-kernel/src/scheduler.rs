@@ -6,6 +6,7 @@ use oro_sync::{Lock, ReentrantMutex};
 use crate::{
 	Kernel,
 	arch::{Arch, CoreHandle},
+	interface::{SystemCallAction, SystemCallRequest, SystemCallResponse},
 	thread::{ScheduleAction, Thread},
 };
 
@@ -301,37 +302,4 @@ impl<A: Arch> Switch<A> {
 			(None, Some(_)) => Switch::UserToKernel,
 		}
 	}
-}
-
-/// System call request data.
-#[derive(Debug, Clone)]
-pub struct SystemCallRequest {
-	/// The opcode.
-	pub opcode: oro_sysabi::syscall::Opcode,
-	/// The first argument.
-	pub arg1:   u64,
-	/// The second argument.
-	pub arg2:   u64,
-	/// The third argument.
-	pub arg3:   u64,
-	/// The fourth argument.
-	pub arg4:   u64,
-}
-
-/// System call response data.
-#[derive(Debug, Clone)]
-pub struct SystemCallResponse {
-	/// The error code.
-	pub error: oro_sysabi::syscall::Error,
-	/// The return value.
-	pub ret:   u64,
-}
-
-/// Response action from the registry after dispatching a system call.
-#[derive(Debug)]
-pub enum SystemCallAction {
-	/// The system call has been processed and the thread should be resumed.
-	RespondImmediate(SystemCallResponse),
-	/// The system call has been processed or is in-flight and the thread should be paused.
-	Pause,
 }

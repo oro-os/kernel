@@ -12,7 +12,7 @@ use crate::{
 	AddressSpace, Kernel, UserHandle,
 	arch::{Arch, ThreadHandle},
 	instance::Instance,
-	scheduler::{SystemCallRequest, SystemCallResponse},
+	interface::{SystemCallRequest, SystemCallResponse},
 };
 
 /// A thread's state.
@@ -68,7 +68,7 @@ impl<A: Arch> Thread<A> {
 		instance: &Arc<ReentrantMutex<Instance<A>>>,
 		entry_point: usize,
 	) -> Result<Arc<ReentrantMutex<Thread<A>>>, MapError> {
-		let id = Kernel::<A>::get().state().allocate_id();
+		let id = crate::id::allocate();
 
 		// Pre-calculate the stack pointer.
 		// TODO(qix-): If/when we support larger page sizes, this will need to be adjusted.

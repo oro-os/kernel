@@ -19,7 +19,7 @@ oro-debug.workspace = true
 oro-sync.workspace = true
 oro-sysabi.workspace = true
 
-stash = { workspace = true, default-features = false }
+hashbrown.workspace = true
 
 [lints]
 workspace = true

@@ -75,7 +75,7 @@ impl<A: Arch> Instance<A> {
 		module: &Arc<ReentrantMutex<Module<A>>>,
 		ring: &Arc<ReentrantMutex<Ring<A>>>,
 	) -> Result<Arc<ReentrantMutex<Self>>, MapError> {
-		let id = Kernel::<A>::get().state().allocate_id();
+		let id = crate::id::allocate();
 
 		let mapper = AddressSpace::<A>::new_user_space(Kernel::<A>::get().mapper())
 			.ok_or(MapError::OutOfMemory)?;
@@ -84,7 +84,7 @@ impl<A: Arch> Instance<A> {
 
 		// Apply the ring mapper overlay to the instance.
 		AddressSpace::<A>::sysabi()
-			.apply_user_space_shallow(handle.mapper(), &ring.lock().mapper)?;
+			.apply_user_space_shallow(handle.mapper(), ring.lock().mapper())?;
 
 		// Apply the module's read-only mapper overlay to the instance.
 		AddressSpace::<A>::user_rodata()
@@ -99,7 +99,7 @@ impl<A: Arch> Instance<A> {
 			handle,
 		}));
 
-		ring.lock().instances.push(r.clone());
+		ring.lock().instances_mut().push(r.clone());
 		module.lock().instances.push(Arc::downgrade(&r));
 		Kernel::<A>::get()
 			.state()

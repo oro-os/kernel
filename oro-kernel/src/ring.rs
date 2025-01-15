@@ -9,7 +9,12 @@ use oro_mem::{
 };
 use oro_sync::{Lock, ReentrantMutex};
 
-use crate::{AddressSpace, Kernel, UserHandle, arch::Arch, instance::Instance};
+use crate::{
+	AddressSpace, Kernel, UserHandle,
+	arch::Arch,
+	instance::Instance,
+	registry::{RegistryView, RootRegistry},
+};
 
 /// A singular ring.
 ///
@@ -34,15 +39,17 @@ use crate::{AddressSpace, Kernel, UserHandle, arch::Arch, instance::Instance};
 #[non_exhaustive]
 pub struct Ring<A: Arch> {
 	/// The resource ID.
-	id: u64,
+	id:        u64,
 	/// The parent ring handle, or `None` if this is the root ring.
-	parent: Option<Weak<ReentrantMutex<Ring<A>>>>,
+	parent:    Option<Weak<ReentrantMutex<Ring<A>>>>,
 	/// The module [`Instance`]s on the ring.
-	pub(super) instances: Vec<Arc<ReentrantMutex<Instance<A>>>>,
+	instances: Vec<Arc<ReentrantMutex<Instance<A>>>>,
 	/// The ring's base mapper handle.
-	pub(super) mapper: UserHandle<A>,
+	mapper:    UserHandle<A>,
 	/// The ring's child rings.
-	pub(super) children: Vec<Arc<ReentrantMutex<Ring<A>>>>,
+	children:  Vec<Arc<ReentrantMutex<Ring<A>>>>,
+	/// The ring's registry.
+	registry:  Arc<ReentrantMutex<RegistryView<RootRegistry>>>,
 }
 
 impl<A: Arch> Ring<A> {
@@ -50,7 +57,7 @@ impl<A: Arch> Ring<A> {
 	pub fn new(
 		parent: &Arc<ReentrantMutex<Ring<A>>>,
 	) -> Result<Arc<ReentrantMutex<Self>>, MapError> {
-		let id = Kernel::<A>::get().state().allocate_id();
+		let id = crate::id::allocate();
 
 		let mapper = AddressSpace::<A>::new_user_space(&Kernel::<A>::get().mapper)
 			.ok_or(MapError::OutOfMemory)?;
@@ -63,6 +70,9 @@ impl<A: Arch> Ring<A> {
 			instances: Vec::new(),
 			mapper,
 			children: Vec::new(),
+			registry: Arc::new(ReentrantMutex::new(RegistryView::new(
+				crate::Kernel::<A>::get().state().registry().clone(),
+			))),
 		}));
 
 		parent.lock().children.push(r.clone());
@@ -86,7 +96,9 @@ impl<A: Arch> Ring<A> {
 	///
 	/// Caller **must** push the ring onto the kernel state's `rings` list itself;
 	/// this method **will not** do it for you.
-	pub(crate) unsafe fn new_root() -> Result<Arc<ReentrantMutex<Self>>, MapError> {
+	pub(crate) unsafe fn new_root(
+		registry: Arc<ReentrantMutex<RootRegistry>>,
+	) -> Result<Arc<ReentrantMutex<Self>>, MapError> {
 		// NOTE(qix-): This method CANNOT call `Kernel::<A>::get()` because
 		// NOTE(qix-): core-local kernels are not guaranteed to be initialized
 		// NOTE(qix-): at this point in the kernel's lifetime.
@@ -109,6 +121,7 @@ impl<A: Arch> Ring<A> {
 			instances: Vec::new(),
 			mapper,
 			children: Vec::new(),
+			registry: Arc::new(ReentrantMutex::new(RegistryView::new(registry))),
 		}));
 
 		Ok(r)
@@ -132,5 +145,23 @@ impl<A: Arch> Ring<A> {
 	#[must_use]
 	pub fn instances(&self) -> &[Arc<ReentrantMutex<Instance<A>>>] {
 		&self.instances
+	}
+
+	/// Returns a reference to the ring's mapper.
+	#[must_use]
+	pub fn mapper(&self) -> &UserHandle<A> {
+		&self.mapper
+	}
+
+	/// Returns a mutable reference to the instances vector.
+	#[must_use]
+	pub fn instances_mut(&mut self) -> &mut Vec<Arc<ReentrantMutex<Instance<A>>>> {
+		&mut self.instances
+	}
+
+	/// Returns the ring's registry handle.
+	#[must_use]
+	pub fn registry(&self) -> &Arc<ReentrantMutex<RegistryView<RootRegistry>>> {
+		&self.registry
 	}
 }

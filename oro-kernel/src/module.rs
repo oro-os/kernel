@@ -44,7 +44,7 @@ pub struct Module<A: Arch> {
 impl<A: Arch> Module<A> {
 	/// Creates a new module.
 	pub fn new(module_id: Id<{ IdType::Module }>) -> Result<Arc<ReentrantMutex<Self>>, MapError> {
-		let id = Kernel::<A>::get().state().allocate_id();
+		let id = crate::id::allocate();
 
 		let mapper = AddressSpace::<A>::new_user_space_empty().ok_or(MapError::OutOfMemory)?;
 
