@@ -8,28 +8,13 @@ fn write_bytes(bytes: &[u8]) {
 		return;
 	}
 
-	let mut word = bytes[0] as u64;
-
-	for i in 1..bytes.len() {
-		if i % 8 == 0 {
-			// XXX(qix-): Hard coding the ID for a moment, bear with.
-			syscall::set!(
-				ROOT_DEBUG_OUT_V0,
-				4294967296,
-				0,
-				syscall::key!("write"),
-				word
-			)
-			.unwrap();
-			word = 0;
+	for chunk in bytes.chunks(8) {
+		let mut word = 0u64;
+		for b in chunk {
+			word = (word << 8) | *b as u64;
 		}
 
-		word = (word << 8) | bytes[i] as u64;
-	}
-
-	if bytes.len() % 8 != 0 {
-		// Shift it the remaining bits.
-		word <<= 8 * (8 - (bytes.len() % 8));
+		// XXX(qix-): Hard coding the ID for a moment, bear with.
 		syscall::set!(
 			ROOT_DEBUG_OUT_V0,
 			4294967296,
