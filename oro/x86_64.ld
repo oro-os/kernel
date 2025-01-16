@@ -23,6 +23,8 @@ SECTIONS {
 		KEEP(*(.oro .oro.*))
 	} :oro
 
+	. = ALIGN(4096);
+
 	.rodata : {
 		*(.rodata .rodata.*)
 	} :rodata
