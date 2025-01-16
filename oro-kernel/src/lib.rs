@@ -50,9 +50,9 @@ use oro_mem::{
 	pfa::Alloc,
 };
 use oro_sync::{Lock, ReentrantMutex, TicketMutex};
-use registry::RootRegistry;
+use registry::{Registry, RootRegistry};
 
-use self::{arch::Arch, scheduler::Scheduler};
+use self::{arch::Arch, interface::RingInterface, scheduler::Scheduler};
 
 /// Core-local instance of the Oro kernel.
 ///
@@ -246,8 +246,16 @@ impl<A: Arch> KernelState<A> {
 		let root_ring = ring::Ring::<A>::new_root(registry.clone())?;
 		let root_ring_weak = Arc::downgrade(&root_ring);
 
-		// Sanity check
-		debug_assert_eq!(root_ring.lock().id(), 0, "root ring ID must be 0");
+		// Install root ring interfaces.
+		{
+			let mut registry = registry.lock();
+			let ifaceid = registry.register_interface(Arc::new(RingInterface::new(
+				self::iface::root_ring::debug_out_v0::DebugOutV0::new(),
+				root_ring.lock().id(),
+			)));
+			// XXX(qix-): DEBUG
+			::oro_debug::dbg!("registered DebugLogV0: {ifaceid}");
+		}
 
 		this.write(Self {
 			root_ring,

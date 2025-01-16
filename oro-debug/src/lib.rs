@@ -31,6 +31,19 @@ pub fn init() {
 	init_with_offset(0);
 }
 
+/// Logs a module-level debug line to the debug logger.
+///
+/// To be used only by the root-ring kernel debug output interface.
+#[allow(unused_variables, dead_code)]
+pub fn log_debug_bytes(line: &[u8]) {
+	#[doc(hidden)]
+	const PREFIX: &str = "<module>:0:D:";
+	#[cfg(all(target_arch = "aarch64", feature = "pl011"))]
+	oro_debug_pl011::log_debug_bytes(PREFIX, line);
+	#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
+	oro_debug_uart16550::log_debug_bytes(PREFIX, line);
+}
+
 /// Logs a message to the debug logger.
 ///
 /// Shouldn't be used directly; use the `dbg!` macros instead.

@@ -20,3 +20,15 @@ pub fn init() {
 pub fn log(message: fmt::Arguments) {
 	writeln!(SERIAL.lock(), "{message}").unwrap();
 }
+
+/// Logs a module-level debug line to the PL011.
+pub fn log_debug_bytes(prefix: &str, line: &[u8]) {
+	let mut serial = SERIAL.lock();
+	for byte in prefix.bytes() {
+		serial.send(byte);
+	}
+	for byte in line {
+		serial.send(*byte);
+	}
+	serial.send(b'\n');
+}

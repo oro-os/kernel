@@ -91,7 +91,6 @@ struct RegisterBlock {
 	dmacr: RW<u32>,
 }
 
-#[expect(clippy::inline_always)]
 impl PL011 {
 	/// Create a new PL011 UART driver at the given base address.
 	///
@@ -188,13 +187,20 @@ impl PL011 {
 
 	// Waits for a write to be possible and then
 	// writes a byte
-	#[inline(always)]
-	fn block_write_data_byte(&self, byte: u8) {
+	#[inline]
+	pub fn block_write_data_byte(&self, byte: u8) {
 		unsafe {
 			while (*self.registers).fr.read() & FR_TXFF != 0 {
 				core::hint::spin_loop();
 			}
 			(*self.registers).dr.write(u32::from(byte));
+		}
+	}
+
+	/// Writes a byte slice to the UART using [`Self::block_write_data_byte`].
+	pub fn block_write_all(&self, data: &[u8]) {
+		for byte in data {
+			self.block_write_data_byte(*byte);
 		}
 	}
 }

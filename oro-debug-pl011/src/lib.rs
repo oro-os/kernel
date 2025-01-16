@@ -47,3 +47,12 @@ pub fn log(message: fmt::Arguments) {
 	}
 	.unwrap();
 }
+
+/// Logs a module-level debug line to the PL011.
+pub fn log_debug_bytes(prefix: &str, line: &[u8]) {
+	if let Some(serial) = SERIAL.lock().as_mut() {
+		serial.block_write_all(prefix.as_bytes());
+		serial.block_write_all(line);
+		serial.block_write_data_byte(b'\n');
+	}
+}

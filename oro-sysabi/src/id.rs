@@ -25,11 +25,15 @@ pub mod mask {
 }
 
 /// Kernel interface IDs.
+#[expect(clippy::unreadable_literal)]
 pub mod iface {
 	use crate::id::mask::KERNEL_ID_TYPE_IFACE;
 
 	/// The ID of the kernel threading interface (version 0).
 	pub const THREAD_V0: u64 = KERNEL_ID_TYPE_IFACE | 0x00_001;
+
+	/// The ID of the root ring debug output interface (version 0).
+	pub const ROOT_DEBUG_OUT_V0: u64 = 1736981805247;
 }
 
 /// Kernel primitive type IDs.

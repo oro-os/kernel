@@ -2,6 +2,7 @@
 
 use core::{
 	cell::UnsafeCell,
+	marker::PhantomData,
 	mem::MaybeUninit,
 	sync::atomic::{
 		AtomicU8,
@@ -10,7 +11,8 @@ use core::{
 };
 
 use oro_mem::alloc::sync::Arc;
-use oro_sync::ReentrantMutex;
+use oro_sync::{Lock, ReentrantMutex};
+use oro_sysabi::syscall::Error as SysError;
 
 use crate::{arch::Arch, thread::Thread};
 
@@ -53,6 +55,92 @@ pub trait Interface<A: Arch>: Send + Sync {
 		key: u64,
 		value: u64,
 	) -> InterfaceResponse;
+}
+
+/// Implements a scoped interface wrapper, which is an [`Interface`] that is only accessible
+/// within a specific ring.
+pub struct RingInterface<A: Arch, I: Interface<A>> {
+	/// The interface.
+	interface: I,
+	/// The ring ID.
+	ring_id:   u64,
+	#[doc(hidden)]
+	_arch:     PhantomData<A>,
+}
+
+impl<A: Arch, I: Interface<A>> RingInterface<A, I> {
+	/// Creates a new ring interface.
+	pub fn new(interface: I, ring_id: u64) -> Self {
+		Self {
+			interface,
+			ring_id,
+			_arch: PhantomData,
+		}
+	}
+}
+
+impl<A: Arch, I: Interface<A>> Interface<A> for RingInterface<A, I> {
+	#[inline]
+	fn type_id(&self) -> u64 {
+		self.interface.type_id()
+	}
+
+	fn get(
+		&self,
+		thread: &Arc<ReentrantMutex<Thread<A>>>,
+		index: u64,
+		key: u64,
+	) -> InterfaceResponse {
+		let ring_id = {
+			let thread_lock = thread.lock();
+			let instance = thread_lock.instance();
+			let instance_lock = instance.lock();
+			let ring = instance_lock.ring();
+			if let Some(ring) = ring.upgrade() {
+				ring.lock().id()
+			} else {
+				0
+			}
+		};
+
+		if ring_id != self.ring_id {
+			return InterfaceResponse::Immediate(SystemCallResponse {
+				error: SysError::BadInterface,
+				ret:   0,
+			});
+		}
+
+		self.interface.get(thread, index, key)
+	}
+
+	fn set(
+		&self,
+		thread: &Arc<ReentrantMutex<Thread<A>>>,
+		index: u64,
+		key: u64,
+		value: u64,
+	) -> InterfaceResponse {
+		let ring_id = {
+			let thread_lock = thread.lock();
+			let instance = thread_lock.instance();
+			let instance_lock = instance.lock();
+			let ring = instance_lock.ring();
+			if let Some(ring) = ring.upgrade() {
+				ring.lock().id()
+			} else {
+				0
+			}
+		};
+
+		if ring_id != self.ring_id {
+			return InterfaceResponse::Immediate(SystemCallResponse {
+				error: SysError::BadInterface,
+				ret:   0,
+			});
+		}
+
+		self.interface.set(thread, index, key, value)
+	}
 }
 
 /// Response from an interface after handling a system call.
