@@ -137,7 +137,7 @@ macro_rules! interface_slot {
 /// and manually call [`uses!`] before the call.
 #[macro_export]
 macro_rules! syscall_get {
-	($interface_id:expr, $interface_handle:expr, $index:expr, $key:expr) => {{
+	($interface_id:expr, $interface_handle:expr, $index:expr, $key:expr $(,)?) => {{
 		$crate::uses!($interface_id, $key);
 		$crate::syscall::get($interface_handle, $index, $key)
 	}};
@@ -151,7 +151,7 @@ macro_rules! syscall_get {
 /// and manually call [`uses!`] before the call.
 #[macro_export]
 macro_rules! syscall_set {
-	($interface_id:expr, $interface_handle:expr, $index:expr, $key:expr, $value:expr) => {{
+	($interface_id:expr, $interface_handle:expr, $index:expr, $key:expr, $value:expr $(,)?) => {{
 		$crate::uses!($interface_id, $key);
 		$crate::syscall::set($interface_handle, $index, $key, $value)
 	}};
