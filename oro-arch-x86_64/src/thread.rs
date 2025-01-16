@@ -4,12 +4,25 @@ use core::mem::ManuallyDrop;
 
 use oro_mem::{
 	global_alloc::GlobalPfa,
-	mapper::{AddressSegment, AddressSpace, MapError},
+	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
 
 use crate::mem::address_space::{AddressSpaceHandle, AddressSpaceLayout};
+
+/// The number of IRQ stack pages to allocate per thread.
+const IRQ_STACK_PAGES: usize = {
+	#[cfg(not(debug_assertions))]
+	{
+		1
+	}
+
+	#[cfg(debug_assertions)]
+	{
+		4
+	}
+};
 
 /// Concrete architecture-specific kernel thread handle.
 pub struct ThreadHandle {
@@ -26,49 +39,51 @@ pub struct ThreadHandle {
 impl ThreadHandle {
 	/// Prepares interrupt stack mappings for the thread upon creation.
 	fn prepare_mappings(&mut self) -> Result<(), MapError> {
-		// Map only a page for the interrupt stack, with a stack guard.
+		// Map in pages for the interrupt stack, with a stack guard.
 		//
 		// NOTE(qix-): This is NOT the thread's stack, but a separate stack for
 		// NOTE(qix-): handling interrupts.
 		let irq_stack_segment = AddressSpaceLayout::interrupt_stack();
 		let stack_high_guard = irq_stack_segment.range().1 & !0xFFF;
-		let stack_start = stack_high_guard - 0x1000;
-		let stack_low_guard = stack_start - 0x1000;
 
 		self.irq_stack_ptr = stack_high_guard;
+
+		let mut current_start = self.irq_stack_ptr;
+		let mut first_phys = None;
+
+		for _ in 0..IRQ_STACK_PAGES {
+			current_start -= 0x1000;
+			let phys = GlobalPfa.allocate().ok_or(MapError::OutOfMemory)?;
+			first_phys.get_or_insert(phys);
+			irq_stack_segment.map(&self.mapper, current_start, phys)?;
+		}
+
+		current_start -= 0x1000;
 
 		// Make sure the guard pages are unmapped.
 		// More of a debug check, as this should never be the case
 		// with a bug-free implementation.
-		{
-			use oro_mem::mapper::UnmapError;
-
-			match irq_stack_segment.unmap(&self.mapper, stack_high_guard) {
-				Ok(phys) => panic!("interrupt stack high guard was already mapped at {phys:016X}"),
-				Err(UnmapError::NotMapped) => {}
-				Err(err) => {
-					panic!("interrupt stack high guard encountered error when unmapping: {err:?}")
-				}
-			}
-
-			match irq_stack_segment.unmap(&self.mapper, stack_low_guard) {
-				Ok(phys) => panic!("interrupt stack low guard was already mapped at {phys:016X}"),
-				Err(UnmapError::NotMapped) => {}
-				Err(err) => {
-					panic!("interrupt stack low guard encountered error when unmapping: {err:?}")
-				}
+		match irq_stack_segment.unmap(&self.mapper, stack_high_guard) {
+			Ok(phys) => panic!("interrupt stack high guard was already mapped at {phys:016X}"),
+			Err(UnmapError::NotMapped) => {}
+			Err(err) => {
+				panic!("interrupt stack high guard encountered error when unmapping: {err:?}")
 			}
 		}
 
-		// Map the stack page.
-		let phys = GlobalPfa.allocate().ok_or(MapError::OutOfMemory)?;
-		irq_stack_segment.map(&self.mapper, stack_start, phys)?;
+		match irq_stack_segment.unmap(&self.mapper, current_start) {
+			Ok(phys) => panic!("interrupt stack low guard was already mapped at {phys:016X}"),
+			Err(UnmapError::NotMapped) => {}
+			Err(err) => {
+				panic!("interrupt stack low guard encountered error when unmapping: {err:?}")
+			}
+		}
 
 		// Now write the initial `iretq` information to the frame.
 		// SAFETY(qix-): We know that these are valid addresses.
 		unsafe {
 			let page_slice = core::slice::from_raw_parts_mut(
-				Phys::from_address_unchecked(phys).as_mut_ptr_unchecked(),
+				Phys::from_address_unchecked(first_phys.unwrap()).as_mut_ptr_unchecked(),
 				4096 >> 3,
 			);
 			let written = crate::task::initialize_user_irq_stack(
