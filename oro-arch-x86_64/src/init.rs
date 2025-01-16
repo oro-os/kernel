@@ -10,7 +10,7 @@ use oro_kernel::{
 };
 use oro_mem::{
 	global_alloc::GlobalPfa,
-	mapper::AddressSegment,
+	mapper::{AddressSegment, AddressSpace},
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
@@ -132,9 +132,9 @@ pub unsafe fn initialize_primary(lapic: Lapic) {
 							);
 							continue 'module;
 						}
-						ElfSegmentType::ModuleCode => AddressSpaceLayout::module_code(),
-						ElfSegmentType::ModuleData => AddressSpaceLayout::module_data(),
-						ElfSegmentType::ModuleRoData => AddressSpaceLayout::module_rodata(),
+						ElfSegmentType::ModuleCode => AddressSpaceLayout::user_code(),
+						ElfSegmentType::ModuleData => AddressSpaceLayout::user_data(),
+						ElfSegmentType::ModuleRoData => AddressSpaceLayout::user_rodata(),
 						ty => {
 							dbg_err!("root ring module {id} has invalid segment {ty:?}; skipping",);
 							continue 'module;

@@ -199,48 +199,6 @@ impl AddressSpaceLayout {
 		&DESCRIPTOR
 	}
 
-	/// Returns a segment for the module code segment.
-	#[must_use]
-	pub fn module_code() -> &'static AddressSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
-		const DESCRIPTOR: AddressSegment = AddressSegment {
-			valid_range: AddressSpaceLayout::MODULE_EXE_IDX,
-			entry_template: PageTableEntry::new().with_user().with_present(),
-			intermediate_entry_template: MODULE_EXE_INTERMEDIATE_ENTRY,
-		};
-
-		&DESCRIPTOR
-	}
-
-	/// Returns a segment for the module data segment.
-	#[must_use]
-	pub fn module_data() -> &'static AddressSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
-		const DESCRIPTOR: AddressSegment = AddressSegment {
-			valid_range: AddressSpaceLayout::MODULE_EXE_IDX,
-			entry_template: PageTableEntry::new()
-				.with_present()
-				.with_no_exec()
-				.with_writable(),
-			intermediate_entry_template: MODULE_EXE_INTERMEDIATE_ENTRY,
-		};
-
-		&DESCRIPTOR
-	}
-
-	/// Returns a segment for the module read-only data segment.
-	#[must_use]
-	pub fn module_rodata() -> &'static AddressSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
-		const DESCRIPTOR: AddressSegment = AddressSegment {
-			valid_range: AddressSpaceLayout::MODULE_EXE_IDX,
-			entry_template: PageTableEntry::new().with_present().with_no_exec(),
-			intermediate_entry_template: MODULE_EXE_INTERMEDIATE_ENTRY,
-		};
-
-		&DESCRIPTOR
-	}
-
 	/// Returns a segment for the module's interrupt thread stack.
 	///
 	/// This MUST NOT overlap with any other segment, must be
