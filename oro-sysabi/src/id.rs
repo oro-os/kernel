@@ -34,6 +34,8 @@ pub mod iface {
 
 	/// The ID of the root ring debug output interface (version 0).
 	pub const ROOT_DEBUG_OUT_V0: u64 = 1736981805247;
+	/// The ID of the root ring boot virtual buffer interface (version 0).
+	pub const ROOT_BOOT_VBUF_V0: u64 = 1737051091373;
 }
 
 /// Kernel primitive type IDs.
