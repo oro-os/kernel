@@ -23,7 +23,13 @@ All code necessary to build and run the kernel is provided in this repository.
 The kernel is built standalone and used as a module for a bootloader
 entry point. The kernel does not support being booted to directly.
 
-To build the kernel itself:
+ACPI support uses a submodule; be sure it's checked out (one-time setup):
+
+```shell
+git submodule update --init --recursive
+```
+
+Then, to build the kernel itself:
 
 ```shell
 cargo kernel-x86_64
