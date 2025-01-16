@@ -26,7 +26,7 @@ entry point. The kernel does not support being booted to directly.
 ACPI support uses a submodule; be sure it's checked out (one-time setup):
 
 ```shell
-git submodule update --init --recursive
+git submodule update --init --recursive --depth=1
 ```
 
 Then, to build the kernel itself:
