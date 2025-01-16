@@ -14,9 +14,13 @@ use core::{ffi::CStr, str::FromStr};
 use limine::request::StackSizeRequest;
 use limine::{
 	BaseRevision,
+	framebuffer::MemoryModel,
 	memory_map::EntryType,
 	modules::{InternalModule, ModuleFlags},
-	request::{BootTimeRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, RsdpRequest},
+	request::{
+		BootTimeRequest, FramebufferRequest, HhdmRequest, MemoryMapRequest, ModuleRequest,
+		RsdpRequest,
+	},
 };
 use oro_debug::{dbg, dbg_err};
 
@@ -86,6 +90,10 @@ static REQ_RSDP: RsdpRequest = RsdpRequest::with_revision(0);
 #[cfg(debug_assertions)]
 #[used]
 static REQ_STKSZ: StackSizeRequest = StackSizeRequest::with_revision(0).with_size(16 * 1024 * 1024);
+
+/// Requests for any video buffer(s) provided by the bootloader.
+#[used]
+static REQ_VBUF: FramebufferRequest = FramebufferRequest::with_revision(0);
 
 /// Macro to get a response from a request, panicking if it fails.
 /// All request fetches must go through this macro.
@@ -266,6 +274,35 @@ pub unsafe fn init() -> ! {
 				)?;
 
 				bs.send(oro_boot_protocol::modules::ModulesDataV0 { next: next_phys })
+			} else {
+				bs
+			};
+
+			let bs = if let Some(vbuf) = REQ_VBUF.get_response() {
+				let mut bs = bs;
+
+				let next_phys = bs.serialize(vbuf.framebuffers().filter_map(|vbuf| {
+					if vbuf.memory_model() != MemoryModel::RGB {
+						return None;
+					}
+
+					Some(oro_boot_protocol::RGBVideoBuffer {
+						base:           u64::try_from(vbuf.addr() as usize).unwrap() - hhdm_offset,
+						width:          vbuf.width(),
+						height:         vbuf.height(),
+						row_pitch:      vbuf.pitch(),
+						bits_per_pixel: vbuf.bpp(),
+						red_mask:       vbuf.red_mask_size(),
+						red_shift:      vbuf.red_mask_shift(),
+						green_mask:     vbuf.green_mask_size(),
+						green_shift:    vbuf.green_mask_shift(),
+						blue_mask:      vbuf.blue_mask_size(),
+						blue_shift:     vbuf.blue_mask_shift(),
+						next:           0, // will be written by the serializer
+					})
+				}))?;
+
+				bs.send(oro_boot_protocol::video_buffers::VideoBuffersDataV0 { next: next_phys })
 			} else {
 				bs
 			};
