@@ -7,7 +7,6 @@ PHDRS {
 	text     PT_LOAD    FLAGS((1 << 0) | (1 << 2));  /* rx */
 	rodata   PT_LOAD    FLAGS((1 << 2)           );  /* r  */
 	data     PT_LOAD    FLAGS((1 << 1) | (1 << 2));  /* rw */
-	oro      PT_LOAD    FLAGS((1 << 2) | (1 << 22)); /* r + oro */
 }
 
 SECTIONS {
@@ -19,14 +18,10 @@ SECTIONS {
 
 	. = ALIGN(4096);
 
-	.oro : {
-		KEEP(*(.oro .oro.*))
-	} :oro
-
-	. = ALIGN(4096);
-
 	.rodata : {
+		KEEP(*(.oro .oro.*))
 		*(.rodata .rodata.*)
+		*(.got .got.*)
 	} :rodata
 
 	. = ALIGN(4096);
