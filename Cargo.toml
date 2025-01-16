@@ -35,6 +35,7 @@ members = [
 	# Examples
 	"examples/no-std/noop",
 	"examples/no-std/spin",
+	"examples/no-std/hello-world",
 	"examples/std/noop",
 	"examples/std/noop-nightly",
 	"examples/std/spin",

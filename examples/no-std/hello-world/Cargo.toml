@@ -1,0 +1,17 @@
+[package]
+name = "example-hello-world"
+description = "Example module that prints Hello World to the kernel logger."
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+build = "build.rs"
+
+[dependencies.oro]
+path = "../../../oro"
+features = ["runtime"]
+
+[build-dependencies.oro]
+path = "../../../oro"
+features = ["build"]
+default-features = false
