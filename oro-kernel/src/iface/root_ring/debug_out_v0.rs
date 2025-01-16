@@ -147,23 +147,21 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 				// from `value` until we encounter a `0` byte, after which we ignore
 				// the rest.
 				let bytes = value.to_be_bytes();
-				if bytes[0] != 0 {
-					let mut inner = self.0.lock();
+				let mut inner = self.0.lock();
 
-					for b in bytes {
-						let flush = match b {
-							0 => break,
-							b'\n' => true,
-							_ => {
-								inner.buffer.push(b);
-								inner.buffer.len() >= inner.line_buffer
-							}
-						};
-
-						if flush {
-							::oro_debug::log_debug_bytes(&inner.buffer);
-							inner.buffer.clear();
+				for b in bytes {
+					let flush = match b {
+						0 => continue,
+						b'\n' => true,
+						_ => {
+							inner.buffer.push(b);
+							inner.buffer.len() >= inner.line_buffer
 						}
+					};
+
+					if flush {
+						::oro_debug::log_debug_bytes(&inner.buffer);
+						inner.buffer.clear();
 					}
 				}
 
