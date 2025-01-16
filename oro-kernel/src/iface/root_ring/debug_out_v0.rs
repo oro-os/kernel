@@ -126,11 +126,6 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 			});
 		}
 
-		// copilot: try to complete this as best as you can, with just a few
-		// requests: please hard-limit the line_buffer to 1024 bytes, and
-		// assume an `Error` type exists with some variant called `HardMax`
-		// if it does. Secondly, don't try to implement the write key; just
-		// todo!() it out for me
 		match key {
 			key!("line_max") => {
 				let value = value.clamp(HARD_MINIMUM, HARD_MAXIMUM);
