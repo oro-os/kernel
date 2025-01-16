@@ -49,7 +49,7 @@ pub unsafe fn terminate() -> ! {
 
 	// SAFETY(qix-): MUST NOT PANIC.
 	let _ = s::set_raw(
-		sysabi::id::iface::THREAD_V0,
+		sysabi::id::iface::KERNEL_THREAD_V0,
 		0, // self
 		key!("status"),
 		key!("term"), // (not a key, but a value)

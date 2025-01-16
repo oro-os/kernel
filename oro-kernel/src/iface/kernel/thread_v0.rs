@@ -67,7 +67,7 @@ macro_rules! with_thread_id {
 }
 
 impl KernelInterface for ThreadV0 {
-	const TYPE_ID: u64 = oro_sysabi::id::iface::THREAD_V0;
+	const TYPE_ID: u64 = oro_sysabi::id::iface::KERNEL_THREAD_V0;
 
 	fn get<A: Arch>(
 		thread: &Arc<ReentrantMutex<Thread<A>>>,
