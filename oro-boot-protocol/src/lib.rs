@@ -182,6 +182,22 @@ macros::oro_boot_protocol! {
 			pub next: u64,
 		}
 	}
+
+	/// Kernel request for the video buffer.
+	///
+	/// Optional, but if provided, the kernel will initialize
+	/// a `ROOT_BOOT_VBUF_V0` interface on the root ring,
+	/// allowing for it to be mapped into a module's address
+	/// space.
+	b"ORO_VBUF" => VideoBuffers {
+		0 => {
+			/// The physical address of the first [`RGBVideoBuffer`] in the list.
+			/// Must be aligned to the same alignment as the `VideoBuffer` structure.
+			///
+			/// If there are no video buffers, this value must be zero.
+			pub next: u64,
+		}
+	}
 }
 
 /// A module to load into the kernel on the root ring.
@@ -289,4 +305,49 @@ pub enum MemoryMapEntryType {
 	Reclaimable = 4,
 	/// Memory that belongs to the frame buffer, if any.
 	FrameBuffer = 5,
+}
+
+/// A video buffer to map into the kernel's address space.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct RGBVideoBuffer {
+	/// The physical address of the video buffer.
+	///
+	/// **Addresses must be page-aligned or they are skipped by the kernel.**
+	pub base:           u64,
+	/// The width of the buffer.
+	pub width:          u64,
+	/// The height of the buffer.
+	pub height:         u64,
+	/// The row pitch of the buffer. Not always a clean multiple
+	/// of the width by any particular value; users should assume
+	/// padding bytes might exist.
+	pub row_pitch:      u64,
+	/// The number of bits per pixel.
+	pub bits_per_pixel: u16,
+	/// The red mask. Applied using `v & ((1 << red_mask) - 1)`.
+	pub red_mask:       u8,
+	/// The red shift. Applied using `v << red_shift`.
+	pub red_shift:      u8,
+	/// The green mask. Applied using `v & ((1 << green_mask) - 1)`.
+	pub green_mask:     u8,
+	/// The green shift. Applied using `v << green_shift`.
+	pub green_shift:    u8,
+	/// The blue mask. Applied using `v & ((1 << blue_mask) - 1)`.
+	pub blue_mask:      u8,
+	/// The blue shift. Applied using `v << blue_shift`.
+	pub blue_shift:     u8,
+	/// The physical address of the next video buffer in the list,
+	/// or `0` if this is the last module.
+	pub next:           u64,
+}
+
+#[cfg(feature = "utils")]
+impl crate::macros::Sealed for RGBVideoBuffer {}
+
+#[cfg(feature = "utils")]
+impl crate::util::SetNext for RGBVideoBuffer {
+	fn set_next(&mut self, next: u64) {
+		self.next = next;
+	}
 }
