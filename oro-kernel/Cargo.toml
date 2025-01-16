@@ -11,6 +11,10 @@ homepage = "https://oro.sh"
 repository = "https://github.com/oro-os/kernel"
 license = "MPL-2.0"
 
+[features]
+default = ["boot-vbuf-v0"]
+boot-vbuf-v0 = ["dep:oro-boot-protocol"]
+
 [dependencies]
 oro-mem.workspace = true
 oro-macro.workspace = true
@@ -18,6 +22,7 @@ oro-id.workspace = true
 oro-debug.workspace = true
 oro-sync.workspace = true
 oro-sysabi.workspace = true
+oro-boot-protocol = { workspace = true, optional = true, features = ["utils"] }
 
 hashbrown.workspace = true
 

@@ -255,6 +255,16 @@ impl<A: Arch> KernelState<A> {
 			)));
 			// XXX(qix-): DEBUG
 			::oro_debug::dbg!("registered DebugLogV0: {ifaceid}");
+
+			#[cfg(feature = "boot-vbuf-v0")]
+			{
+				let ifaceid = registry.register_interface(Arc::new(RingInterface::new(
+					self::iface::root_ring::boot_vbuf_v0::BootVbufV0::new(),
+					root_ring.lock().id(),
+				)));
+				// XXX(qix-): DEBUG
+				::oro_debug::dbg!("registered BootVbufV0: {ifaceid}");
+			}
 		}
 
 		this.write(Self {
