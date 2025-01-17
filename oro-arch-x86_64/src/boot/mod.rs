@@ -120,7 +120,12 @@ pub unsafe fn boot_primary() -> ! {
 	dbg!("local APIC ID: {lapic_id}");
 
 	{
-		let num_cores = if has_cs89 {
+		#[cfg(feature = "multicore")]
+		const MULTICORE_ENABLED: bool = true;
+		#[cfg(not(feature = "multicore"))]
+		const MULTICORE_ENABLED: bool = false;
+
+		let num_cores = if MULTICORE_ENABLED && has_cs89 {
 			dbg!("physical pages 0x8000/0x9000 are valid; attempting to boot secondary cores");
 
 			// Get the current supervisor address space.
@@ -158,7 +163,8 @@ pub unsafe fn boot_primary() -> ! {
 			num_cores
 		} else {
 			dbg_warn!(
-				"physical pages 0x8000/0x9000 are not available; cannot boot secondary cores"
+				"multicore disabled OR physical pages 0x8000/0x9000 are not available; cannot \
+				 boot secondary cores"
 			);
 			1
 		};

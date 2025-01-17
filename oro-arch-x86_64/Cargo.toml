@@ -14,6 +14,10 @@ autobins = false
 
 build = "build.rs"
 
+[features]
+default = []
+multicore = []
+
 [lib]
 path = "src/lib.rs"
 
