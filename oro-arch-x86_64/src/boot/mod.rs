@@ -120,9 +120,9 @@ pub unsafe fn boot_primary() -> ! {
 	dbg!("local APIC ID: {lapic_id}");
 
 	{
-		#[cfg(feature = "multicore")]
+		#[cfg(not(feature = "force-singlecore"))]
 		const MULTICORE_ENABLED: bool = true;
-		#[cfg(not(feature = "multicore"))]
+		#[cfg(feature = "force-singlecore")]
 		const MULTICORE_ENABLED: bool = false;
 
 		let num_cores = if MULTICORE_ENABLED && has_cs89 {

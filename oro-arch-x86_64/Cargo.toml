@@ -16,7 +16,7 @@ build = "build.rs"
 
 [features]
 default = []
-multicore = []
+force-singlecore = []
 
 [lib]
 path = "src/lib.rs"
