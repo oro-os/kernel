@@ -20,5 +20,6 @@ unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
 #[cold]
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {
+	::core::arch::asm!("cli");
 	::oro_bootloader_limine::init()
 }
