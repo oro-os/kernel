@@ -64,7 +64,7 @@ oro-id.path = "oro-id"
 oro-sync.path = "oro-sync"
 oro-sysabi.path = "oro-sysabi"
 
-limine = "0.2.0"
+limine = "0.3.1"
 uart_16550 = "0.3.0"
 volatile-register = "0.2.2"
 buddy_system_allocator = "0.11.0"
