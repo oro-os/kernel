@@ -5,7 +5,7 @@ import subprocess
 from . import get_site_packages_dir
 
 LIMINE_GIT_URL = "https://github.com/oro-os/limine.git"
-LIMINE_REF = "v7.0.3-binary"
+LIMINE_REF = "v8.7.0-binary"
 
 
 def fetch_limine():

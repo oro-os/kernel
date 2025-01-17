@@ -120,8 +120,10 @@ pub unsafe fn boot_primary() -> ! {
 	dbg!("local APIC ID: {lapic_id}");
 
 	{
+		#[doc(hidden)]
 		#[cfg(not(feature = "force-singlecore"))]
 		const MULTICORE_ENABLED: bool = true;
+		#[doc(hidden)]
 		#[cfg(feature = "force-singlecore")]
 		const MULTICORE_ENABLED: bool = false;
 

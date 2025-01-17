@@ -34,7 +34,7 @@ const KERNEL_STACK_PAGES: usize = 16;
 /// The path to where the Oro kernel is expected.
 /// The bootloader does **not** expect it to be listed
 /// as a module (but it can be).
-const KERNEL_PATH: &CStr = limine::cstr!("/boot/oro-kernel");
+const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel");
 
 /// The path to where the DeviceTree blob is expected,
 /// if provided. The bootloader does **not** expect it to be

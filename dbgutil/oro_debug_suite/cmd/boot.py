@@ -341,24 +341,25 @@ class BootCmdLimine(gdb.Command):
         copy_limine("limine-bios-cd.bin")
         copy_limine("limine-bios.sys")
 
-        module_config = "\n".join([f"MODULE_PATH=boot:///{k}" for (k, _) in modules])
+        module_config = "\n".join([f"module_path: boot():/{k}" for (k, _) in modules])
 
-        with open(path.join(iso_dir, "limine.cfg"), "w") as f:
+        with open(path.join(iso_dir, "limine.conf"), "w") as f:
             f.write(
                 f"""
-                TIMEOUT=0
-                GRAPHICS=no
-                VERBOSE=yes
-                RANDOMISE_MEMORY=no
-                INTERFACE_BRANDING=Oro Operating System
-                INTERFACE_BRANDING_COLOR=5
-                SERIAL=yes
-                KASLR=no
+                timeout: 0
+                quiet: no
+                graphics: yes
+                verbose: yes
+                randomise_memory: no
+                interface_branding: Oro Operating System
+                interface_branding_color: 5
+                serial: yes
 
-                :Oro Operating System
-                PROTOCOL=limine
-                KERNEL_PATH=boot:///oro-limine
-                SERIAL=yes
+                /Oro Operating System
+                protocol: limine
+                path: boot():/oro-limine
+                serial: yes
+                kasler: no
                 {module_config}
                 """
             )
@@ -384,12 +385,18 @@ class BootCmdLimine(gdb.Command):
                 "xorriso",
                 "-as",
                 "mkisofs",
+                "-r",
+                "-R",
+                "-J",
                 "-b",
                 "limine-bios-cd.bin",
                 "-no-emul-boot",
                 "-boot-load-size",
                 "4",
                 "-boot-info-table",
+                "-hfsplus",
+                "-apm-block-size",
+                "2048",
                 "--efi-boot",
                 "limine-uefi-cd.bin",
                 "-efi-boot-part",
