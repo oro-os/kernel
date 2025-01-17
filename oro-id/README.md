@@ -5,7 +5,7 @@ Provides simple parser and formatter functionality for working with Oro Module a
 For updated usage information, please refer to the [crate documentation](https://docs.rs/oro-id).
 
 ## License
-This crate is Copyright &copy; 2024 by Joshua Lee Junon and is released under either
+This crate is Copyright &copy; 2024-2025 by Joshua Lee Junon and is released under either
 the [MIT](LICENSE.mit) **or** the [Apache 2.0](LICENSE.apache-2.0) license, at the
 user's discretion.
 

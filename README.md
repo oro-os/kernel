@@ -64,5 +64,11 @@ consult [SECURITY.md](SECURITY.md) for instructions on how to responsibly disclo
 your findings.
 
 # License
-The Oro Operating System kernel is &copy; 2016-2024 by Joshua Lee Junon,
+The Oro Operating System kernel is &copy; 2016-2025 by Joshua Lee Junon,
 and licensed under the [Mozilla Public License 2.0](LICENSE).
+
+Certain crates within this repository are dual-licensed under the
+MIT and Apache-2.0 licenses, typically when published to the [crates.io](https://crates.io)
+registry. Those crates will contain a `LICENSE.mit` and `LICENSE.apache-2.0` file
+and are not subject to the MPL-2.0 license to which the rest of this repository
+is subject.

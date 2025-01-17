@@ -57,7 +57,7 @@ so doing it this way allows parts of `std` to be introduced piecemeal as the pro
 progresses in its early stages.
 
 ## License
-This crate is Copyright &copy; 2024 by Joshua Lee Junon and is released under either
+This crate is Copyright &copy; 2024-2025 by Joshua Lee Junon and is released under either
 the [MIT](LICENSE.mit) **or** the [Apache 2.0](LICENSE.apache-2.0) license, at the
 user's discretion.
 
