@@ -76,7 +76,7 @@ impl Default for Inner {
 			// SAFETY: The `response()` method has done as much checking as is possible.
 			// SAFETY: This is just inherently unsafe.
 			let buffers = unsafe { vbufs.assume_init_ref() };
-			let mut current_phys = buffers.next;
+			let mut current_phys = unsafe { core::ptr::read_volatile(&buffers.next) };
 
 			while current_phys != 0 {
 				let phys = unsafe { Phys::from_address_unchecked(current_phys) };
@@ -89,6 +89,10 @@ impl Default for Inner {
 					break;
 				};
 
+				// SAFETY: We assume the buffer is valid here since it comes from the bootloader;
+				// SAFETY: there's really no way to assure this.
+				let buffer = unsafe { core::ptr::read_volatile(buffer) };
+
 				current_phys = buffer.next;
 
 				if buffer.base & 0xFFF != 0 {
@@ -99,9 +103,9 @@ impl Default for Inner {
 					continue;
 				}
 
-				this.buffers.push(*buffer);
-
 				dbg!("found video buffer: {:#016x}", buffer.base);
+
+				this.buffers.push(buffer);
 			}
 		}
 
