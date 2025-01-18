@@ -37,8 +37,16 @@ const STUBS_SEGMENT_DESCRIPTOR: AddressSegment = AddressSegment {
 /// The stub machine code to be executed in order to
 /// jump to the kernel.
 const STUBS: &[u8] = &asm_buffer! {
+	// Disable CR4.PGE
+	"mov rax, cr4",
+	"btr rax, 7",
+	"mov cr4, rax",
 	// Load the new page table base address.
 	"mov cr3, r9",
+	// Re-enable CR4.PGE
+	"mov rax, cr4",
+	"bts rax, 7",
+	"mov cr4, rax",
 	// Set the stack
 	"mov rsp, r10",
 	// Push a return value of 0 onto the stack to prevent accidental returns
