@@ -299,6 +299,11 @@ impl PageTableEntry {
 	}
 
 	/// Sets the global flag of the page table entry.
+	///
+	/// # AMD Note
+	/// AMD CPUs tend not to like this bit set on
+	/// intermediate page table entries; be sure to only
+	/// set it for leaf (PTE) entries.
 	#[inline]
 	pub fn set_global(&mut self) {
 		self.0 |= 1 << 8;
@@ -311,6 +316,11 @@ impl PageTableEntry {
 	}
 
 	/// Replaces the global flag, returning a new `PageTableEntry`.
+	///
+	/// # AMD Note
+	/// AMD CPUs tend not to like this bit set on
+	/// intermediate page table entries; be sure to only
+	/// set it for leaf (PTE) entries.
 	#[inline]
 	#[must_use]
 	pub const fn with_global(self) -> Self {

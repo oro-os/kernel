@@ -297,7 +297,6 @@ unsafe fn linear_map_regions<'a>(
 					*entry = PageTableEntry::new()
 						.with_writable()
 						.with_present()
-						.with_global()
 						.with_no_exec()
 						.with_address(pt_phys);
 					total_mappings += 1;

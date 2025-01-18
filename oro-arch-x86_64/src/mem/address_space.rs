@@ -98,12 +98,16 @@ impl AddressSpaceLayout {
 		// SAFETY(qix-): We can reasonably assuming that the `AddressSpaceHandle`
 		// SAFETY(qix-): is valid if it's been constructed by us.
 		unsafe {
+			// NOTE(qix-): Reminder not to treat this as a leaf PTE. It's setting
+			// NOTE(qix-): both intermediate entries as well as a leaf (technically,
+			// NOTE(qix-): since that's how the CPU sees it). This had a global flag
+			// NOTE(qix-): before, which really didn't need to be there to begin with,
+			// NOTE(qix-): but it also made AMD choke on it. Please don't add it back.
 			Phys::from_address_unchecked(handle.base_phys).as_mut_unchecked::<PageTable>()
 				[Self::RECURSIVE_IDX] = PageTableEntry::new()
 				.with_present()
 				.with_writable()
 				.with_no_exec()
-				.with_global()
 				.with_address(handle.base_phys);
 		}
 	}
@@ -231,10 +235,8 @@ impl AddressSpaceLayout {
 /// Defined here so that the overlapping kernel segments can share the same
 /// intermediate entry, differences between which would cause indeterministic
 /// behavior.
-const KERNEL_EXE_INTERMEDIATE_ENTRY: PageTableEntry = PageTableEntry::new()
-	.with_global()
-	.with_present()
-	.with_writable();
+const KERNEL_EXE_INTERMEDIATE_ENTRY: PageTableEntry =
+	PageTableEntry::new().with_present().with_writable();
 
 // TODO(qix-): When const trait methods are stabilized, mark these as const.
 unsafe impl AddressSpace for AddressSpaceLayout {
