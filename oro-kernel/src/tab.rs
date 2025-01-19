@@ -178,7 +178,9 @@ impl GlobalTable {
 		// Replace the version in the ID.
 		let id = (id & !((1 << 29) - 1)) | new_version;
 
-		Some(Tab::new(id, slot))
+		// SAFETY: We're passing `MUST_BE_FRESH=true`, so the tab constructor has
+		// SAFETY: no additional preconditions here.
+		Some(unsafe { Tab::new::<true>(id, slot) })
 	}
 
 	/// Frees a slot.
@@ -235,6 +237,20 @@ impl GlobalTable {
 				break;
 			}
 		}
+	}
+
+	/// Looks up a tab by its ID, returning an [`AnyTab`] if it exists.
+	pub fn lookup_any(&self, id: u64) -> Option<AnyTab> {
+		let slot = self.try_get_slot(id as usize)?;
+		AnyTab::try_new(id, slot)
+	}
+
+	/// Looks up a tab by its ID, returning a [`Tab<T>`] if it exists.
+	///
+	/// Returns `None` if the types do not match.
+	#[inline(always)]
+	pub fn lookup<T: Tabbed>(&self, id: u64) -> Option<Tab<T>> {
+		self.lookup_any(id)?.try_into()
 	}
 
 	/// Tries to get a slot, returning `None` if the slot is not allocated.
@@ -403,6 +419,132 @@ impl<T: Default + 'static> SubTable<T> {
 	}
 }
 
+/// An "any" [`Tab`], which only allows to read the type and to allow attempts
+/// to convert it to its underlying tab type.
+pub struct AnyTab {
+	/// The tab's ID.
+	id:  u64,
+	/// The raw pointer to the slot.
+	ptr: *const Slot,
+}
+
+// SAFETY: We can guarantee that this type is Send + Sync.
+unsafe impl Send for AnyTab {}
+// SAFETY: We can guarantee that this type is Send + Sync.
+unsafe impl Sync for AnyTab {}
+
+impl AnyTab {
+	/// Creates a new [`AnyTab`].
+	///
+	/// Returns `None` if the slot is no longer valid, or if it is [`TabType::Free`].
+	#[inline(always)]
+	fn try_new(id: u64, ptr: *const Slot) -> Option<Self> {
+		// SAFETY: We can guarantee that the slot is valid.
+		let slot = unsafe { &*ptr };
+
+		loop {
+			let users = slot.users.load(Relaxed);
+			if users == 0 {
+				// The slot is no longer valid (we've successfully avoided a race condition!)
+				return None;
+			} else {
+				// Try to increment the users count.
+				// We do this since there's a small race condition
+				// in the `Drop` implementation whereby the users count
+				// is checked and the free occurs.
+				//
+				// 1. (THR A) Drop checks / decs the users count. It sees 0.
+				// 2. (THR B) This function fetch-adds the users count. It thinks it has a lock.
+				// 3. (THR A) Drop frees the slot.
+				//
+				// Further, even if the caller checks `ty()` after "locking"
+				// this slot, the slot's `ver_ty` field may not have updated
+				// to `Free` yet, causing even more subtle bugs.
+				//
+				// So instead, we just try to increment the users count;
+				// with an `AnyTab`, it's only used in cases where we are
+				// looking up a tab, so we know it should be non-zero.
+				if slot
+					.users
+					.compare_exchange(users, users + 1, Relaxed, Relaxed)
+					.is_ok()
+				{
+					break;
+				}
+			}
+		}
+
+		let this = Self { id, ptr };
+
+		// We are now a valid user. Check the type.
+		if this.ty() == TabType::Free {
+			// The slot is free.
+			return None;
+		}
+
+		Some(this)
+	}
+
+	/// The tab's ID.
+	#[must_use]
+	#[inline(always)]
+	pub fn id(&self) -> u64 {
+		self.id
+	}
+
+	/// The tab's type.
+	#[must_use]
+	#[inline(always)]
+	pub fn ty(&self) -> TabType {
+		// SAFETY: We can guarantee that the slot is valid.
+		unsafe { &*self.ptr }.ty()
+	}
+
+	/// Attempts to convert the [`AnyTab`] to a [`Tab<T>`].
+	///
+	/// Returns `None` if the types do not match.
+	#[inline]
+	#[must_use]
+	pub fn try_into<T: Tabbed>(self) -> Option<Tab<T>> {
+		if self.ty() != T::TY {
+			return None;
+		}
+
+		// SAFETY: We are calling from a valid `AnyTab`,
+		// SAFETY: so users count is guaranteed to be non-zero.
+		Some(unsafe { Tab::new::<false>(self.id, self.ptr) })
+	}
+}
+
+impl Clone for AnyTab {
+	#[inline(always)]
+	fn clone(&self) -> Self {
+		// SAFETY: We can guarantee that the slot is valid.
+		unsafe { &*self.ptr }.users.fetch_add(1, Relaxed);
+		Self {
+			id:  self.id,
+			ptr: self.ptr,
+		}
+	}
+}
+
+impl Drop for AnyTab {
+	fn drop(&mut self) {
+		// SAFETY: We can guarantee that the slot is valid.
+		let slot = unsafe { &*self.ptr };
+		if slot.users.fetch_sub(1, Relaxed) == 1 {
+			// SAFETY: We have the only owning reference to this slot,
+			// SAFETY: and we control its construction; it's always going to
+			// SAFETY: be the slot pointed to by the tab's ID.
+			unsafe {
+				get().free(self.id, slot);
+			}
+			// SAFETY(qix-): THE SLOT IS NO LONGER OURS TO USE.
+			// SAFETY(qix-): FURTHER ACCESS TO THE SLOT IS UNDEFINED BEHAVIOR.
+		}
+	}
+}
+
 /// A "tab" is essentially an [`oro_mem::alloc::sync::Arc`] that can be indexed
 /// by the global table and given a unique ID that can be shared, safely,
 /// to userspace programs.
@@ -431,25 +573,47 @@ unsafe impl<T: Tabbed> Sync for Tab<T> {}
 
 impl<T: Tabbed> Tab<T> {
 	/// Creates the initial `Tab`, setting its users to 1.
+	///
+	/// # Safety
+	/// If `MUST_BE_FRESH` is `false`, the caller MUST hold a VALID [`Tab`] or
+	/// [`AnyTab`] reference to the same slot throughout the lifetime of this
+	/// function call, until return. The user count is NOT CXC-protected unlike
+	/// in [`AnyTab`].
 	#[inline]
-	fn new(id: u64, ptr: *const Slot) -> Self {
+	unsafe fn new<const MUST_BE_FRESH: bool>(id: u64, ptr: *const Slot) -> Self {
 		// SAFETY: We can guarantee that the slot is valid and the data is valid.
 		let slot = unsafe { &*ptr };
 		#[cfg(debug_assertions)]
 		{
 			debug_assert_eq!(slot.ty(), T::TY);
-			debug_assert_eq!(
-				slot.lock.load(Acquire),
-				0,
-				"precondition failed: slot is locked"
-			);
-			slot.users
-				.compare_exchange(0, 1, Relaxed, Relaxed)
-				.expect("precondition failed: slot users is not 0");
+
+			if MUST_BE_FRESH {
+				debug_assert_eq!(
+					slot.lock.load(Acquire),
+					0,
+					"precondition failed: slot is locked (MUST_BE_FRESH=true)"
+				);
+				slot.users
+					.compare_exchange(0, 1, Relaxed, Relaxed)
+					.expect("precondition failed: slot users is not 0 (MUST_BE_FRESH=true)");
+			} else {
+				// SAFETY(qix-): Not CXC-protected; the caller has been instructed only
+				// SAFETY(qix-): to call this function with `MUST_BE_FRESH=false` if they
+				// SAFETY(qix-): have a valid reference to the slot already (i.e. an `AnyTab`).
+				debug_assert_ne!(
+					slot.users.fetch_add(1, Relaxed),
+					0,
+					"precondition failed: slot users is 0 (MUST_BE_FRESH=false)"
+				);
+			}
 		}
 		#[cfg(not(debug_assertions))]
 		{
-			slot.users.store(1, Relaxed);
+			if MUST_BE_FRESH {
+				slot.users.store(1, Relaxed);
+			} else {
+				slot.users.fetch_add(1, Relaxed);
+			}
 		}
 
 		Self {
@@ -699,6 +863,7 @@ impl Slot {
 			TabType::Free
 				| TabType::Ring
 				| TabType::Thread
+				| TabType::Instance
 				| TabType::Port
 				| TabType::Interface
 				| TabType::Module
