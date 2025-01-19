@@ -15,6 +15,7 @@ use crate::{
 	module::Module,
 	port::Port,
 	ring::Ring,
+	tab::Tab,
 	table::Table,
 	thread::Thread,
 };
@@ -61,7 +62,7 @@ pub struct Instance<A: Arch> {
 	/// The ring on which this instance resides.
 	ring: Weak<ReentrantMutex<Ring<A>>>,
 	/// The thread list for the instance.
-	pub(super) threads: Table<Arc<ReentrantMutex<Thread<A>>>>,
+	pub(super) threads: Table<Tab<Thread<A>>>,
 	/// The port list for the instance.
 	ports: Vec<Arc<ReentrantMutex<Port>>>,
 	/// The instance's architecture handle.
@@ -128,7 +129,7 @@ impl<A: Arch> Instance<A> {
 	}
 
 	/// Gets a handle to the list of threads for this instance.
-	pub fn threads(&self) -> &Table<Arc<ReentrantMutex<Thread<A>>>> {
+	pub fn threads(&self) -> &Table<Tab<Thread<A>>> {
 		&self.threads
 	}
 

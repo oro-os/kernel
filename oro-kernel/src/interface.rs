@@ -11,10 +11,10 @@ use core::{
 };
 
 use oro_mem::alloc::sync::Arc;
-use oro_sync::{Lock, ReentrantMutex};
+use oro_sync::Lock;
 use oro_sysabi::syscall::Error as SysError;
 
-use crate::{arch::Arch, thread::Thread};
+use crate::{arch::Arch, tab::Tab, thread::Thread};
 
 /// Implements an interface, which is a flat namespace of `(index, flay_keyvals)`.
 ///
@@ -36,25 +36,14 @@ pub trait Interface<A: Arch>: Send + Sync {
 	/// System call handling must be quick and non-blocking. Either it can be
 	/// serviced immediately, or can be processed "offline", returning a handle
 	/// that can be polled for completion.
-	fn get(
-		&self,
-		thread: &Arc<ReentrantMutex<Thread<A>>>,
-		index: u64,
-		key: u64,
-	) -> InterfaceResponse;
+	fn get(&self, thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse;
 
 	/// Handles a [`oro_sysabi::syscall::Opcode::Set`] system call request to this interface.
 	///
 	/// System call handling must be quick and non-blocking. Either it can be
 	/// serviced immediately, or can be processed "offline", returning a handle
 	/// that can be polled for completion.
-	fn set(
-		&self,
-		thread: &Arc<ReentrantMutex<Thread<A>>>,
-		index: u64,
-		key: u64,
-		value: u64,
-	) -> InterfaceResponse;
+	fn set(&self, thread: &Tab<Thread<A>>, index: u64, key: u64, value: u64) -> InterfaceResponse;
 }
 
 /// Implements a scoped interface wrapper, which is an [`Interface`] that is only accessible
@@ -85,15 +74,9 @@ impl<A: Arch, I: Interface<A>> Interface<A> for RingInterface<A, I> {
 		self.interface.type_id()
 	}
 
-	fn get(
-		&self,
-		thread: &Arc<ReentrantMutex<Thread<A>>>,
-		index: u64,
-		key: u64,
-	) -> InterfaceResponse {
+	fn get(&self, thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		let ring_id = {
-			let thread_lock = thread.lock();
-			let instance = thread_lock.instance();
+			let instance = thread.with(|t| t.instance());
 			let instance_lock = instance.lock();
 			let ring = instance_lock.ring();
 			if let Some(ring) = ring.upgrade() {
@@ -113,16 +96,9 @@ impl<A: Arch, I: Interface<A>> Interface<A> for RingInterface<A, I> {
 		self.interface.get(thread, index, key)
 	}
 
-	fn set(
-		&self,
-		thread: &Arc<ReentrantMutex<Thread<A>>>,
-		index: u64,
-		key: u64,
-		value: u64,
-	) -> InterfaceResponse {
+	fn set(&self, thread: &Tab<Thread<A>>, index: u64, key: u64, value: u64) -> InterfaceResponse {
 		let ring_id = {
-			let thread_lock = thread.lock();
-			let instance = thread_lock.instance();
+			let instance = thread.with(|t| t.instance());
 			let instance_lock = instance.lock();
 			let ring = instance_lock.ring();
 			if let Some(ring) = ring.upgrade() {

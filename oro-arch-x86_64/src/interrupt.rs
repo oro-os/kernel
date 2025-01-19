@@ -99,7 +99,7 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 		// If this is `None`, then the kernel is currently running.
 		// Otherwise it's a userspace task that we just jumped from.
 		if let Some(user_task) = scheduler_lock.current_thread().as_ref() {
-			user_task.lock().handle_mut().irq_stack_ptr = irq_stack_ptr as usize;
+			user_task.with_mut(|t| t.handle_mut().irq_stack_ptr = irq_stack_ptr as usize);
 		} else {
 			kernel.handle().kernel_irq_stack.get().write(irq_stack_ptr);
 		}
@@ -142,16 +142,15 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 		| Switch::UserToUser(user_ctx, None)
 		| Switch::KernelToUser(user_ctx, None) => {
 			let (thread_cr3_phys, thread_rsp) = unsafe {
-				let ctx_lock = user_ctx.lock();
-
-				let mapper = ctx_lock.mapper();
-				let cr3 = mapper.base_phys;
-				let rsp = ctx_lock.handle().irq_stack_ptr;
-				(*kernel.handle().tss.get())
-					.rsp0
-					.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
-				drop(ctx_lock);
-				(cr3, rsp)
+				user_ctx.with(|ctx_lock| {
+					let mapper = ctx_lock.mapper();
+					let cr3 = mapper.base_phys;
+					let rsp = ctx_lock.handle().irq_stack_ptr;
+					(*kernel.handle().tss.get())
+						.rsp0
+						.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+					(cr3, rsp)
+				})
 			};
 
 			asm! {
@@ -166,16 +165,15 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 		| Switch::UserToUser(user_ctx, Some(syscall_response))
 		| Switch::KernelToUser(user_ctx, Some(syscall_response)) => {
 			let (thread_cr3_phys, thread_rsp) = unsafe {
-				let ctx_lock = user_ctx.lock();
-
-				let mapper = ctx_lock.mapper();
-				let cr3 = mapper.base_phys;
-				let rsp = ctx_lock.handle().irq_stack_ptr;
-				(*kernel.handle().tss.get())
-					.rsp0
-					.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
-				drop(ctx_lock);
-				(cr3, rsp)
+				user_ctx.with(|ctx_lock| {
+					let mapper = ctx_lock.mapper();
+					let cr3 = mapper.base_phys;
+					let rsp = ctx_lock.handle().irq_stack_ptr;
+					(*kernel.handle().tss.get())
+						.rsp0
+						.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+					(cr3, rsp)
+				})
 			};
 
 			asm! {

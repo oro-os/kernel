@@ -24,6 +24,7 @@ use crate::{
 	arch::{Arch, ThreadHandle},
 	instance::Instance,
 	interface::{InFlightState, InFlightSystemCall, InFlightSystemCallHandle, SystemCallResponse},
+	tab::Tab,
 };
 
 /// A thread's run state.
@@ -88,7 +89,7 @@ impl<A: Arch> Thread<A> {
 	pub fn new(
 		instance: &Arc<ReentrantMutex<Instance<A>>>,
 		entry_point: usize,
-	) -> Result<Arc<ReentrantMutex<Thread<A>>>, MapError> {
+	) -> Result<Tab<Thread<A>>, MapError> {
 		let id = crate::id::allocate();
 
 		// Pre-calculate the stack pointer.
@@ -174,24 +175,29 @@ impl<A: Arch> Thread<A> {
 
 		AddressSpace::<A>::free_user_space_handle(thread_mapper);
 
-		let r = Arc::new(ReentrantMutex::new(Self {
+		// Create the thread.
+		// We do this before we create the tab just in case we're OOM
+		// and need to have the thread clean itself up.
+		let this = Self {
 			id,
 			instance: instance.clone(),
 			handle,
 			state: State::default(),
 			run_state: RunState::Running,
 			run_state_transition: None,
-		}));
+		};
 
-		instance.lock().threads.insert(id, r.clone());
+		let tab = crate::tab::get().add(this).ok_or(MapError::OutOfMemory)?;
+
+		instance.lock().threads.insert(id, tab.clone());
 
 		Kernel::<A>::get()
 			.state()
 			.threads()
 			.lock()
-			.push(Arc::downgrade(&r));
+			.push(tab.clone());
 
-		Ok(r)
+		Ok(tab)
 	}
 
 	/// Returns the thread's ID.
@@ -398,13 +404,7 @@ impl<A: Arch> Thread<A> {
 			// TODO(qix-): This is horribly inefficient but it's the best I can do for now
 			// TODO(qix-): until a better data structure for the schedulers is implemented.
 			let mut threads = Kernel::<A>::get().state().threads().lock();
-			threads.retain(|t| {
-				if let Some(t) = t.upgrade() {
-					t.lock().id() != self.id
-				} else {
-					false
-				}
-			});
+			threads.retain(|t| t.with(|t| t.id() != self.id));
 		}
 	}
 

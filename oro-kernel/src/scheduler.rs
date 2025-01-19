@@ -1,13 +1,13 @@
 //! Houses types, traits and functionality for the Oro kernel scheduler.
 
-use oro_mem::alloc::sync::Arc;
-use oro_sync::{Lock, ReentrantMutex};
+use oro_sync::Lock;
 
 use crate::{
 	Kernel,
 	arch::{Arch, CoreHandle},
 	interface::{InFlightSystemCall, InterfaceResponse, SystemCallRequest, SystemCallResponse},
 	registry::Registry,
+	tab::Tab,
 	thread::{RunState, ScheduleAction, Thread},
 };
 
@@ -24,7 +24,7 @@ pub struct Scheduler<A: Arch> {
 	/// A reference to the kernel instance.
 	kernel:     &'static Kernel<A>,
 	/// The current thread, if there is one being executed.
-	current:    Option<Arc<ReentrantMutex<Thread<A>>>>,
+	current:    Option<Tab<Thread<A>>>,
 	/// The index of the next thread to execute.
 	next_index: usize,
 }
@@ -46,7 +46,7 @@ impl<A: Arch> Scheduler<A> {
 
 	/// Returns a handle to the currently processing thread.
 	#[must_use]
-	pub fn current_thread(&self) -> Option<Arc<ReentrantMutex<Thread<A>>>> {
+	pub fn current_thread(&self) -> Option<Tab<Thread<A>>> {
 		self.current.clone()
 	}
 
@@ -67,13 +67,10 @@ impl<A: Arch> Scheduler<A> {
 	/// # Safety
 	/// Interrupts MUST be disabled before calling this function.
 	#[must_use]
-	unsafe fn pick_user_thread(
-		&mut self,
-	) -> Option<(Arc<ReentrantMutex<Thread<A>>>, ScheduleAction)> {
+	unsafe fn pick_user_thread(&mut self) -> Option<(Tab<Thread<A>>, ScheduleAction)> {
 		if let Some(thread) = self.current.take() {
 			thread
-				.lock()
-				.try_pause(self.kernel.id())
+				.with_mut(|t| t.try_pause(self.kernel.id()))
 				.expect("thread pause failed");
 		}
 
@@ -86,15 +83,10 @@ impl<A: Arch> Scheduler<A> {
 			let thread = &thread_list[self.next_index];
 			self.next_index += 1;
 
-			if let Some(thread) = thread.upgrade() {
-				let mut t = thread.lock();
-
-				if let Ok(action) = t.try_schedule(self.kernel.id()) {
-					// Select it for execution.
-					drop(t);
-					self.current = Some(thread.clone());
-					return Some((thread, action));
-				}
+			if let Ok(action) = thread.with_mut(|t| t.try_schedule(self.kernel.id())) {
+				// Select it for execution.
+				self.current = Some(thread.clone());
+				return Some((thread.clone(), action));
 			}
 		}
 
@@ -126,7 +118,7 @@ impl<A: Arch> Scheduler<A> {
 	/// is running.
 	#[must_use]
 	pub unsafe fn event_idle(&mut self) -> Switch<A> {
-		let coming_from_user = self.current.as_ref().map(|t| t.lock().id());
+		let coming_from_user = self.current.as_ref().map(|t| t.with(|t| t.id()));
 		let switch = Switch::from_schedule_action(self.pick_user_thread(), coming_from_user);
 		self.kernel.handle().schedule_timer(1000);
 		switch
@@ -157,7 +149,7 @@ impl<A: Arch> Scheduler<A> {
 	/// is running.
 	#[must_use]
 	pub unsafe fn event_timer_expired(&mut self) -> Switch<A> {
-		let coming_from_user = self.current.as_ref().map(|t| t.lock().id());
+		let coming_from_user = self.current.as_ref().map(|t| t.with(|t| t.id()));
 		let switch = Switch::from_schedule_action(self.pick_user_thread(), coming_from_user);
 		self.kernel.handle().schedule_timer(1000);
 		switch
@@ -202,11 +194,9 @@ impl<A: Arch> Scheduler<A> {
 	#[must_use]
 	pub unsafe fn event_system_call(&mut self, request: &SystemCallRequest) -> Switch<A> {
 		let coming_from_user = if let Some(thread) = self.current.take() {
-			let mut t = thread.lock();
-
 			let response = {
 				// TODO(qix-): use a deeper cache than the ring's
-				if let Some(ring) = t.instance().lock().ring().upgrade() {
+				if let Some(ring) = thread.with(|t| t.instance()).lock().ring().upgrade() {
 					let ring_lock = ring.lock();
 					let registry = ring_lock.registry();
 					let mut registry_lock = registry.lock();
@@ -222,29 +212,29 @@ impl<A: Arch> Scheduler<A> {
 
 			// If the thread was stopped or terminated by the syscall, we need to
 			// handle it specially.
-			match (t.run_state(), response) {
+			match (thread.with(|t| t.run_state()), response) {
 				(RunState::Running, InterfaceResponse::Immediate(response)) => {
-					drop(t);
 					self.current = Some(thread.clone());
-					return Switch::UserResume(thread, Some(response));
+					return Switch::UserResume(thread.clone(), Some(response));
 				}
 				(RunState::Stopped, InterfaceResponse::Immediate(response)) => {
-					let id = t.id();
 					let (sub, handle) = InFlightSystemCall::new();
-					t.await_system_call_response(self.kernel.id(), handle);
-					drop(t);
+					let id = thread.with_mut(|t| {
+						t.await_system_call_response(self.kernel.id(), handle);
+						t.id()
+					});
 					sub.submit(response);
 					Some(id)
 				}
 				(RunState::Terminated, _) => {
-					let id = t.id();
-					drop(t);
+					let id = thread.with(|t| t.id());
 					Some(id)
 				}
 				(RunState::Running | RunState::Stopped, InterfaceResponse::Pending(handle)) => {
-					let id = t.id();
-					t.await_system_call_response(self.kernel.id(), handle);
-					drop(t);
+					let id = thread.with_mut(|t| {
+						t.await_system_call_response(self.kernel.id(), handle);
+						t.id()
+					});
 					Some(id)
 				}
 			}
@@ -272,7 +262,7 @@ pub enum Switch<A: Arch> {
 	///
 	/// If the system call handle is not `None`, the thread had invoked
 	/// a system call and is awaiting a response.
-	KernelToUser(Arc<ReentrantMutex<Thread<A>>>, Option<SystemCallResponse>),
+	KernelToUser(Tab<Thread<A>>, Option<SystemCallResponse>),
 	/// Coming from kernel execution, return back to the kernel.
 	KernelResume,
 	/// Coming from a user thread, return to the same user thread.
@@ -285,12 +275,12 @@ pub enum Switch<A: Arch> {
 	///
 	/// If the system call handle is not `None`, the thread had invoked
 	/// a system call and is awaiting a response.
-	UserResume(Arc<ReentrantMutex<Thread<A>>>, Option<SystemCallResponse>),
+	UserResume(Tab<Thread<A>>, Option<SystemCallResponse>),
 	/// Coming from a user thread, return to the given (different) user thread.
 	///
 	/// If the system call handle is not `None`, the thread had invoked
 	/// a system call and is awaiting a response.
-	UserToUser(Arc<ReentrantMutex<Thread<A>>>, Option<SystemCallResponse>),
+	UserToUser(Tab<Thread<A>>, Option<SystemCallResponse>),
 }
 
 impl<A: Arch> Switch<A> {
@@ -298,13 +288,13 @@ impl<A: Arch> Switch<A> {
 	/// into a switch type.
 	#[must_use]
 	fn from_schedule_action(
-		action: Option<(Arc<ReentrantMutex<Thread<A>>>, ScheduleAction)>,
+		action: Option<(Tab<Thread<A>>, ScheduleAction)>,
 		coming_from_user: Option<u64>,
 	) -> Self {
 		match (action, coming_from_user) {
 			(Some((thread, ScheduleAction::Resume)), None) => Switch::KernelToUser(thread, None),
 			(Some((thread, ScheduleAction::Resume)), Some(old_id)) => {
-				if thread.lock().id() == old_id {
+				if thread.with(|t| t.id()) == old_id {
 					Switch::UserResume(thread, None)
 				} else {
 					Switch::UserToUser(thread, None)
@@ -314,7 +304,7 @@ impl<A: Arch> Switch<A> {
 				Switch::KernelToUser(thread, Some(syscall_res))
 			}
 			(Some((thread, ScheduleAction::SystemCall(syscall_res))), Some(old_id)) => {
-				if thread.lock().id() == old_id {
+				if thread.with(|t| t.id()) == old_id {
 					Switch::UserResume(thread, Some(syscall_res))
 				} else {
 					Switch::UserToUser(thread, Some(syscall_res))

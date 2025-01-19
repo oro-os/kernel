@@ -1116,3 +1116,7 @@ impl Slot {
 		}
 	}
 }
+
+impl<A: Arch> Tabbed for crate::thread::Thread<A> {
+	const TY: TabType = TabType::Thread;
+}

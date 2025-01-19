@@ -130,7 +130,7 @@ unsafe extern "C" fn syscall_enter_noncompat_rust() -> ! {
 		unreachable!();
 	};
 
-	current_thread.lock().handle_mut().irq_stack_ptr = stack_ptr;
+	current_thread.with_mut(|t| t.handle_mut().irq_stack_ptr = stack_ptr);
 
 	let switch = scheduler.event_system_call(&syscall_request);
 
@@ -145,16 +145,15 @@ unsafe extern "C" fn syscall_enter_noncompat_rust() -> ! {
 			let kernel = crate::Kernel::get();
 
 			let (thread_cr3_phys, thread_rsp) = unsafe {
-				let ctx_lock = user_ctx.lock();
-
-				let mapper = ctx_lock.mapper();
-				let cr3 = mapper.base_phys;
-				let rsp = ctx_lock.handle().irq_stack_ptr;
-				(*kernel.handle().tss.get())
-					.rsp0
-					.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
-				drop(ctx_lock);
-				(cr3, rsp)
+				user_ctx.with(|ctx_lock| {
+					let mapper = ctx_lock.mapper();
+					let cr3 = mapper.base_phys;
+					let rsp = ctx_lock.handle().irq_stack_ptr;
+					(*kernel.handle().tss.get())
+						.rsp0
+						.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+					(cr3, rsp)
+				})
 			};
 
 			asm! {
@@ -169,16 +168,15 @@ unsafe extern "C" fn syscall_enter_noncompat_rust() -> ! {
 			let kernel = crate::Kernel::get();
 
 			let (thread_cr3_phys, thread_rsp) = unsafe {
-				let ctx_lock = user_ctx.lock();
-
-				let mapper = ctx_lock.mapper();
-				let cr3 = mapper.base_phys;
-				let rsp = ctx_lock.handle().irq_stack_ptr;
-				(*kernel.handle().tss.get())
-					.rsp0
-					.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
-				drop(ctx_lock);
-				(cr3, rsp)
+				user_ctx.with(|ctx_lock| {
+					let mapper = ctx_lock.mapper();
+					let cr3 = mapper.base_phys;
+					let rsp = ctx_lock.handle().irq_stack_ptr;
+					(*kernel.handle().tss.get())
+						.rsp0
+						.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+					(cr3, rsp)
+				})
 			};
 
 			asm! {

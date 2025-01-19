@@ -1,13 +1,13 @@
 //! Implements version 0 of the thread control interface.
 
-use oro_mem::alloc::sync::Arc;
-use oro_sync::{Lock, ReentrantMutex};
+use oro_sync::Lock;
 use oro_sysabi::{key, syscall::Error as SysError};
 
 use super::KernelInterface;
 use crate::{
 	arch::Arch,
 	interface::{InterfaceResponse, SystemCallResponse},
+	tab::Tab,
 	thread::{ChangeStateError, RunState, Thread},
 };
 
@@ -35,33 +35,34 @@ macro_rules! with_thread_id {
 	($thread:expr, $index:expr, ($source_id:ident, $thr_target:ident) for match $key:ident { $($tt:tt)* }) => {
 		if $index == 0 {
 			{
-				#[allow(unused_mut)]
-				let mut $thr_target = $thread.lock();
-				let $source_id = $thr_target.id();
-				match $key {
-					$( $tt )*
-				}
-			}
-		} else {
-			let thread_lock = $thread.lock();
-			let instance = thread_lock.instance();
-			let instance_lock = instance.lock();
-			let threads = instance_lock.threads();
-			if let Some(other_thread) = threads.get($index){
-				{
-					let $source_id = thread_lock.id();
-					#[allow(unused_mut)]
-					let mut $thr_target = other_thread.lock();
+				$thread.with_mut(|$thr_target| {
+					let $source_id = $thr_target.id();
 					match $key {
 						$( $tt )*
 					}
-				}
-			} else {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::BadIndex,
-					ret:   0,
 				})
 			}
+		} else {
+			$thread.with(|thread_lock| {
+				let instance = thread_lock.instance();
+				let instance_lock = instance.lock();
+				let threads = instance_lock.threads();
+				if let Some(other_thread) = threads.get($index) {
+					{
+						let $source_id = thread_lock.id();
+						other_thread.with_mut(|$thr_target| {
+							match $key {
+								$( $tt )*
+							}
+						})
+					}
+				} else {
+					InterfaceResponse::Immediate(SystemCallResponse {
+						error: SysError::BadIndex,
+						ret:   0,
+					})
+				}
+			})
 		}
 	};
 }
@@ -69,11 +70,7 @@ macro_rules! with_thread_id {
 impl KernelInterface for ThreadV0 {
 	const TYPE_ID: u64 = oro_sysabi::id::iface::KERNEL_THREAD_V0;
 
-	fn get<A: Arch>(
-		thread: &Arc<ReentrantMutex<Thread<A>>>,
-		index: u64,
-		key: u64,
-	) -> InterfaceResponse {
+	fn get<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		with_thread_id!(thread, index, (_caller_id, target) for match key {
 			key!("id") => InterfaceResponse::Immediate(SystemCallResponse {
 				error: SysError::Ok,
@@ -91,7 +88,7 @@ impl KernelInterface for ThreadV0 {
 	}
 
 	fn set<A: Arch>(
-		thread: &oro_mem::alloc::sync::Arc<oro_sync::ReentrantMutex<crate::thread::Thread<A>>>,
+		thread: &Tab<Thread<A>>,
 		index: u64,
 		key: u64,
 		value: u64,

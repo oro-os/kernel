@@ -25,16 +25,17 @@ use core::marker::PhantomData;
 use oro_boot_protocol::{RGBVideoBuffer, VideoBuffersRequest, video_buffers::VideoBuffersKind};
 use oro_debug::{dbg, dbg_warn};
 use oro_mem::{
-	alloc::{sync::Arc, vec::Vec},
+	alloc::vec::Vec,
 	mapper::{AddressSegment, AddressSpace, MapError},
 	phys::{Phys, PhysAddr},
 };
-use oro_sync::{Lock, Mutex, ReentrantMutex};
+use oro_sync::{Lock, Mutex};
 use oro_sysabi::{key, syscall::Error as SysError};
 
 use crate::{
 	arch::Arch,
 	interface::{Interface, InterfaceResponse, SystemCallResponse},
+	tab::Tab,
 	thread::Thread,
 };
 
@@ -132,12 +133,7 @@ impl<A: Arch> Interface<A> for BootVbufV0<A> {
 		oro_sysabi::id::iface::ROOT_BOOT_VBUF_V0
 	}
 
-	fn get(
-		&self,
-		_thread: &Arc<ReentrantMutex<Thread<A>>>,
-		index: u64,
-		key: u64,
-	) -> InterfaceResponse {
+	fn get(&self, _thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		let this = self.0.lock();
 
 		let Some(buffer) = this.buffers.get(index as usize) else {
@@ -178,13 +174,7 @@ impl<A: Arch> Interface<A> for BootVbufV0<A> {
 		})
 	}
 
-	fn set(
-		&self,
-		thread: &Arc<ReentrantMutex<Thread<A>>>,
-		index: u64,
-		key: u64,
-		value: u64,
-	) -> InterfaceResponse {
+	fn set(&self, thread: &Tab<Thread<A>>, index: u64, key: u64, value: u64) -> InterfaceResponse {
 		let this = self.0.lock();
 
 		let Some(buffer) = this.buffers.get(index as usize) else {
@@ -220,77 +210,85 @@ impl<A: Arch> Interface<A> for BootVbufV0<A> {
 
 				let num_pages = ((buffer.row_pitch * buffer.height) + 0xFFF) >> 12;
 
-				let thread_lock = thread.lock();
-				let mapper = thread_lock.mapper();
+				let res = thread.with(|t| {
+					let mapper = t.mapper();
 
-				for i in 0..num_pages {
-					let res: Result<(), InterfaceResponse> = (|| {
-						let vaddr = value.checked_add(i << 12).ok_or_else(|| {
-							InterfaceResponse::Immediate(SystemCallResponse {
-								error: SysError::InterfaceError,
-								ret:   Error::OutOfRange as u64,
-							})
-						})?;
-
-						// NOTE(qix-): Oftentimes you'd map MMIO as Device-nGnRnE (or equivalent), but
-						// NOTE(qix-): video buffers are a bit of a special case in that write combining,
-						// NOTE(qix-): caching, etc. aren't as important as just getting the data out.
-						// NOTE(qix-):
-						// NOTE(qix-): For now, we'll just map the video buffer as normal memory. Might
-						// NOTE(qix-): need to revisit this in the future.
-						<A::AddressSpace as AddressSpace>::user_data()
-							.map(mapper, vaddr as usize, buffer.base + (i << 12))
-							.map_err(|err| {
-								match err {
-									MapError::Exists => {
-										InterfaceResponse::Immediate(SystemCallResponse {
-											error: SysError::InterfaceError,
-											ret:   Error::ConflictingMap as u64,
-										})
-									}
-									MapError::OutOfMemory => {
-										InterfaceResponse::Immediate(SystemCallResponse {
-											error: SysError::InterfaceError,
-											ret:   Error::OutOfMemory as u64,
-										})
-									}
-									MapError::VirtNotAligned => {
-										InterfaceResponse::Immediate(SystemCallResponse {
-											error: SysError::InterfaceError,
-											ret:   Error::Unaligned as u64,
-										})
-									}
-									MapError::VirtOutOfAddressSpaceRange
-									| MapError::VirtOutOfRange => {
-										InterfaceResponse::Immediate(SystemCallResponse {
-											error: SysError::InterfaceError,
-											ret:   Error::OutOfRange as u64,
-										})
-									}
-								}
+					for i in 0..num_pages {
+						let res: Result<(), InterfaceResponse> = (|| {
+							let vaddr = value.checked_add(i << 12).ok_or_else(|| {
+								InterfaceResponse::Immediate(SystemCallResponse {
+									error: SysError::InterfaceError,
+									ret:   Error::OutOfRange as u64,
+								})
 							})?;
 
-						Ok(())
-					})();
-
-					if let Err(err) = res {
-						// Unmap all of the pages we've mapped so far.
-						for j in 0..i {
-							let vaddr = value + (j << 12);
-							// Best effort unmap.
+							// NOTE(qix-): Oftentimes you'd map MMIO as Device-nGnRnE (or equivalent), but
+							// NOTE(qix-): video buffers are a bit of a special case in that write combining,
+							// NOTE(qix-): caching, etc. aren't as important as just getting the data out.
+							// NOTE(qix-):
+							// NOTE(qix-): For now, we'll just map the video buffer as normal memory. Might
+							// NOTE(qix-): need to revisit this in the future.
 							<A::AddressSpace as AddressSpace>::user_data()
-								.unmap(mapper, vaddr as usize)
-								.ok();
+								.map(mapper, vaddr as usize, buffer.base + (i << 12))
+								.map_err(|err| {
+									match err {
+										MapError::Exists => {
+											InterfaceResponse::Immediate(SystemCallResponse {
+												error: SysError::InterfaceError,
+												ret:   Error::ConflictingMap as u64,
+											})
+										}
+										MapError::OutOfMemory => {
+											InterfaceResponse::Immediate(SystemCallResponse {
+												error: SysError::InterfaceError,
+												ret:   Error::OutOfMemory as u64,
+											})
+										}
+										MapError::VirtNotAligned => {
+											InterfaceResponse::Immediate(SystemCallResponse {
+												error: SysError::InterfaceError,
+												ret:   Error::Unaligned as u64,
+											})
+										}
+										MapError::VirtOutOfAddressSpaceRange
+										| MapError::VirtOutOfRange => {
+											InterfaceResponse::Immediate(SystemCallResponse {
+												error: SysError::InterfaceError,
+												ret:   Error::OutOfRange as u64,
+											})
+										}
+									}
+								})?;
+
+							Ok(())
+						})();
+
+						if let Err(err) = res {
+							// Unmap all of the pages we've mapped so far.
+							for j in 0..i {
+								let vaddr = value + (j << 12);
+								// Best effort unmap.
+								<A::AddressSpace as AddressSpace>::user_data()
+									.unmap(mapper, vaddr as usize)
+									.ok();
+							}
+
+							return Err(err);
 						}
-
-						return err;
 					}
-				}
 
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::Ok,
-					ret:   num_pages,
-				})
+					Ok(())
+				});
+
+				match res {
+					Ok(()) => {
+						InterfaceResponse::Immediate(SystemCallResponse {
+							error: SysError::Ok,
+							ret:   num_pages,
+						})
+					}
+					Err(err) => err,
+				}
 			}
 			_ => {
 				InterfaceResponse::Immediate(SystemCallResponse {

@@ -2,10 +2,7 @@
 //!
 //! Always available, regardless of the caller's ring.
 
-use oro_mem::alloc::sync::Arc;
-use oro_sync::ReentrantMutex;
-
-use crate::{arch::Arch, interface::InterfaceResponse, thread::Thread};
+use crate::{arch::Arch, interface::InterfaceResponse, tab::Tab, thread::Thread};
 
 mod thread_v0;
 
@@ -17,19 +14,11 @@ pub trait KernelInterface {
 	const TYPE_ID: u64;
 
 	/// See [`crate::interface::Interface::get`].
-	fn get<A: Arch>(
-		thread: &Arc<ReentrantMutex<Thread<A>>>,
-		index: u64,
-		key: u64,
-	) -> InterfaceResponse;
+	fn get<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse;
 
 	/// See [`crate::interface::Interface::set`].
-	fn set<A: Arch>(
-		thread: &Arc<ReentrantMutex<Thread<A>>>,
-		index: u64,
-		key: u64,
-		value: u64,
-	) -> InterfaceResponse;
+	fn set<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64, value: u64)
+	-> InterfaceResponse;
 }
 
 #[doc(hidden)]
@@ -46,8 +35,9 @@ macro_rules! make_dispatch {
 		///
 		/// If the type ID is not recognized, returns `None`; callers should delegate
 		/// to a registry lookup and dispatch.
+		#[must_use]
 		pub fn try_dispatch_get<A: Arch>(
-			thread: &Arc<ReentrantMutex<Thread<A>>>,
+			thread: &Tab<Thread<A>>,
 			type_id: u64,
 			index: u64,
 			key: u64,
@@ -66,8 +56,9 @@ macro_rules! make_dispatch {
 		///
 		/// If the type ID is not recognized, returns `None`; callers should delegate
 		/// to a registry lookup and dispatch.
+		#[must_use]
 		pub fn try_dispatch_set<A: Arch>(
-			thread: &Arc<ReentrantMutex<Thread<A>>>,
+			thread: &Tab<Thread<A>>,
 			type_id: u64,
 			index: u64,
 			key: u64,

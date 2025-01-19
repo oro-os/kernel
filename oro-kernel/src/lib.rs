@@ -223,7 +223,7 @@ pub struct KernelState<A: Arch> {
 	/// List of all instances.
 	instances: TicketMutex<Vec<Weak<ReentrantMutex<instance::Instance<A>>>>>,
 	/// List of all threads.
-	threads:   TicketMutex<Vec<Weak<ReentrantMutex<thread::Thread<A>>>>>,
+	threads:   TicketMutex<Vec<tab::Tab<thread::Thread<A>>>>,
 
 	/// The root ring.
 	root_ring: Arc<ReentrantMutex<ring::Ring<A>>>,
@@ -295,9 +295,7 @@ impl<A: Arch> KernelState<A> {
 	}
 
 	/// Returns a reference to the mutex-guarded list of threads.
-	pub fn threads(
-		&'static self,
-	) -> &'static impl Lock<Target = Vec<Weak<ReentrantMutex<thread::Thread<A>>>>> {
+	pub fn threads(&'static self) -> &'static impl Lock<Target = Vec<tab::Tab<thread::Thread<A>>>> {
 		&self.threads
 	}
 

@@ -22,6 +22,7 @@ use oro_sysabi::{
 use crate::{
 	arch::Arch,
 	interface::{Interface, InterfaceResponse, SystemCallRequest, SystemCallResponse},
+	tab::Tab,
 	table::Table,
 	thread::Thread,
 };
@@ -66,7 +67,7 @@ pub trait Registry<A: Arch>: Send {
 	/// Handles a system call request to the registry.
 	fn dispatch(
 		&mut self,
-		thread: &Arc<ReentrantMutex<Thread<A>>>,
+		thread: &Tab<Thread<A>>,
 		request: &SystemCallRequest,
 	) -> InterfaceResponse {
 		let error = match request.opcode {

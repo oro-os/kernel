@@ -290,19 +290,18 @@ pub unsafe fn boot() -> ! {
 			}
 			Switch::KernelToUser(user_ctx, None) => {
 				let (thread_cr3_phys, thread_rsp, kernel_rsp, kernel_irq_rsp) = unsafe {
-					let ctx_lock = user_ctx.lock();
+					user_ctx.with(|ctx_lock| {
+						let mapper = ctx_lock.mapper();
 
-					let mapper = ctx_lock.mapper();
-
-					let cr3 = mapper.base_phys;
-					let rsp = ctx_lock.handle().irq_stack_ptr;
-					let kernel_rsp_ptr = kernel.handle().kernel_stack.get() as u64;
-					let kernel_irq_rsp_ptr = kernel.handle().kernel_irq_stack.get() as u64;
-					(*kernel.handle().tss.get())
-						.rsp0
-						.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
-					drop(ctx_lock);
-					(cr3, rsp, kernel_rsp_ptr, kernel_irq_rsp_ptr)
+						let cr3 = mapper.base_phys;
+						let rsp = ctx_lock.handle().irq_stack_ptr;
+						let kernel_rsp_ptr = kernel.handle().kernel_stack.get() as u64;
+						let kernel_irq_rsp_ptr = kernel.handle().kernel_irq_stack.get() as u64;
+						(*kernel.handle().tss.get())
+							.rsp0
+							.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+						(cr3, rsp, kernel_rsp_ptr, kernel_irq_rsp_ptr)
+					})
 				};
 
 				asm! {
@@ -315,19 +314,18 @@ pub unsafe fn boot() -> ! {
 			}
 			Switch::KernelToUser(user_ctx, Some(syscall_response)) => {
 				let (thread_cr3_phys, thread_rsp, kernel_rsp, kernel_irq_rsp) = unsafe {
-					let ctx_lock = user_ctx.lock();
+					user_ctx.with(|ctx_lock| {
+						let mapper = ctx_lock.mapper();
 
-					let mapper = ctx_lock.mapper();
-
-					let cr3 = mapper.base_phys;
-					let rsp = ctx_lock.handle().irq_stack_ptr;
-					let kernel_rsp_ptr = kernel.handle().kernel_stack.get() as u64;
-					let kernel_irq_rsp_ptr = kernel.handle().kernel_irq_stack.get() as u64;
-					(*kernel.handle().tss.get())
-						.rsp0
-						.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
-					drop(ctx_lock);
-					(cr3, rsp, kernel_rsp_ptr, kernel_irq_rsp_ptr)
+						let cr3 = mapper.base_phys;
+						let rsp = ctx_lock.handle().irq_stack_ptr;
+						let kernel_rsp_ptr = kernel.handle().kernel_stack.get() as u64;
+						let kernel_irq_rsp_ptr = kernel.handle().kernel_irq_stack.get() as u64;
+						(*kernel.handle().tss.get())
+							.rsp0
+							.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+						(cr3, rsp, kernel_rsp_ptr, kernel_irq_rsp_ptr)
+					})
 				};
 
 				asm! {

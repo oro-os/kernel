@@ -15,13 +15,14 @@
 
 use core::marker::PhantomData;
 
-use oro_mem::alloc::{sync::Arc, vec::Vec};
-use oro_sync::{Lock, Mutex, ReentrantMutex};
+use oro_mem::alloc::vec::Vec;
+use oro_sync::{Lock, Mutex};
 use oro_sysabi::{key, syscall::Error as SysError};
 
 use crate::{
 	arch::Arch,
 	interface::{Interface, InterfaceResponse, SystemCallResponse},
+	tab::Tab,
 	thread::Thread,
 };
 
@@ -65,12 +66,7 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 		oro_sysabi::id::iface::ROOT_DEBUG_OUT_V0
 	}
 
-	fn get(
-		&self,
-		_thread: &Arc<ReentrantMutex<Thread<A>>>,
-		index: u64,
-		key: u64,
-	) -> InterfaceResponse {
+	fn get(&self, _thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		if index != 0 {
 			return InterfaceResponse::Immediate(SystemCallResponse {
 				error: SysError::BadIndex,
@@ -112,13 +108,7 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 		}
 	}
 
-	fn set(
-		&self,
-		_thread: &Arc<ReentrantMutex<Thread<A>>>,
-		index: u64,
-		key: u64,
-		value: u64,
-	) -> InterfaceResponse {
+	fn set(&self, _thread: &Tab<Thread<A>>, index: u64, key: u64, value: u64) -> InterfaceResponse {
 		if index != 0 {
 			return InterfaceResponse::Immediate(SystemCallResponse {
 				error: SysError::BadIndex,
