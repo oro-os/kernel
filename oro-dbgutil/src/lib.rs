@@ -175,3 +175,71 @@ pub extern "C" fn __oro_dbgutil_lock_release(lock_self_addr_do_not_change_this_p
 		);
 	}
 }
+
+/// Tells the lock tracker that a RW lock reader is about to be acquired.
+#[no_mangle]
+#[link_section = ".text.force_keep"]
+pub extern "C" fn __oro_dbgutil_lock_acquire_reader(
+	lock_self_addr_do_not_change_this_parameter: usize,
+) {
+	unsafe {
+		asm!(
+			"/*{}*/",
+			"nop",
+			in(reg) lock_self_addr_do_not_change_this_parameter,
+			options(nostack, nomem, preserves_flags)
+		);
+	}
+}
+
+/// Tells the lock tracker that a R/W lock reader has been released.
+///
+/// `this` must be the same value as passed to `__oro_dbgutil_lock_acquire_reader`.
+#[no_mangle]
+#[link_section = ".text.force_keep"]
+pub extern "C" fn __oro_dbgutil_lock_release_reader(
+	lock_self_addr_do_not_change_this_parameter: usize,
+) {
+	unsafe {
+		asm!(
+			"/*{}*/",
+			"nop",
+			in(reg) lock_self_addr_do_not_change_this_parameter,
+			options(nostack, nomem, preserves_flags)
+		);
+	}
+}
+
+/// Tells the lock tracker that a RW lock writer is about to be acquired.
+#[no_mangle]
+#[link_section = ".text.force_keep"]
+pub extern "C" fn __oro_dbgutil_lock_acquire_writer(
+	lock_self_addr_do_not_change_this_parameter: usize,
+) {
+	unsafe {
+		asm!(
+			"/*{}*/",
+			"nop",
+			in(reg) lock_self_addr_do_not_change_this_parameter,
+			options(nostack, nomem, preserves_flags)
+		);
+	}
+}
+
+/// Tells the lock tracker that a R/W lock writer has been released.
+///
+/// `this` must be the same value as passed to `__oro_dbgutil_lock_acquire_reader`.
+#[no_mangle]
+#[link_section = ".text.force_keep"]
+pub extern "C" fn __oro_dbgutil_lock_release_writer(
+	lock_self_addr_do_not_change_this_parameter: usize,
+) {
+	unsafe {
+		asm!(
+			"/*{}*/",
+			"nop",
+			in(reg) lock_self_addr_do_not_change_this_parameter,
+			options(nostack, nomem, preserves_flags)
+		);
+	}
+}
