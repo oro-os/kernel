@@ -33,7 +33,7 @@ const MAX_VERSION_BEFORE_TOMBSTONE: u64 = {
 	{
 		255
 	}
-	#[cfg(not(feature = "debug-tombs"))]
+	#[cfg(not(all(debug_assertions, feature = "debug-tombs")))]
 	{
 		(1 << 29) - 1
 	}
