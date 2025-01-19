@@ -22,7 +22,7 @@ static HAS_SET_KERNEL_ID_FN: core::sync::atomic::AtomicBool =
 /// [`oro_sync::ReentrantLock`] implementation.
 #[doc(hidden)]
 #[no_mangle]
-unsafe extern "C" fn oro_sync_current_core_id() -> u32 {
+pub(crate) unsafe extern "C" fn oro_sync_current_core_id() -> u32 {
 	#[cfg(debug_assertions)]
 	{
 		assert!(

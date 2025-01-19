@@ -399,6 +399,7 @@ version = "0.0.0"
 dependencies = [
  "hashbrown",
  "oro-boot-protocol",
+ "oro-dbgutil",
  "oro-debug",
  "oro-id",
  "oro-macro",

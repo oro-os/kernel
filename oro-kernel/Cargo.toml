@@ -13,7 +13,19 @@ license = "MPL-2.0"
 
 [features]
 default = ["boot-vbuf-v0"]
+
+# Enable the root ring boot-time video buffer interface.
 boot-vbuf-v0 = ["dep:oro-boot-protocol"]
+
+# Allow IDs to be reused when they exhaust their version space.
+# Instead of turning into tombstones, they are made alive again and reused.
+# SAFETY(qix-): Enabling this feature may cause ABA issues in some cases.
+# SAFETY(qix-): Therefore, it is disabled by default.
+zombie-tombs = []
+
+# Debugs tombstones in the global table.
+# If enabled, tombstones will occur after 255 frees of a slot.
+debug-tombs = []
 
 [dependencies]
 oro-mem.workspace = true
@@ -23,6 +35,7 @@ oro-debug.workspace = true
 oro-sync.workspace = true
 oro-sysabi.workspace = true
 oro-boot-protocol = { workspace = true, optional = true, features = ["utils"] }
+oro-dbgutil.workspace = true
 
 hashbrown.workspace = true
 

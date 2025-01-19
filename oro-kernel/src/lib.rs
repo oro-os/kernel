@@ -17,6 +17,15 @@
 // SAFETY(qix-): Necessary to make the hashbrown crate wrapper work.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/32838
 #![feature(allocator_api)]
+// SAFETY(qix-): Needed for the global table to initialize arrays of null pointers
+// SAFETY(qix-): safely, in order not to assume that `null == 0` (which is true on
+// SAFETY(qix-): most platforms, but is not specified anywhere). Technically we could
+// SAFETY(qix-): eschew this given that _we're the ones making a platform_ but it's still
+// SAFETY(qix-): a good idea to be explicit.
+#![feature(maybe_uninit_uninit_array)]
+// SAFETY(qix-): To be stabilized soon. Needed for the global table.
+// SAFETY(qix-): https://github.com/rust-lang/rust/issues/96097
+#![feature(maybe_uninit_array_assume_init)]
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 pub mod arch;
@@ -30,6 +39,7 @@ pub mod registry;
 pub mod ring;
 pub mod scheduler;
 pub mod sync;
+pub mod tab;
 pub mod table;
 pub mod thread;
 
