@@ -95,6 +95,7 @@ pub unsafe fn set_global_map_offset(offset: u64) {
 /// > has not yet been called. This isn't the typical case so for
 /// > that reason it's not marked as unsafe.
 #[cfg_attr(debug_assertions, expect(clippy::missing_panics_doc))]
+#[must_use]
 pub fn global_map_offset() -> u64 {
 	#[cfg(debug_assertions)]
 	{

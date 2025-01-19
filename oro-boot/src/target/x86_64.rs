@@ -134,7 +134,6 @@ pub unsafe fn transfer(
 	let stubs_addr: usize = target_address();
 
 	// Tell dbgutil we're about to switch
-	#[cfg(debug_assertions)]
 	oro_dbgutil::__oro_dbgutil_kernel_will_transfer();
 
 	// Jump to stubs.

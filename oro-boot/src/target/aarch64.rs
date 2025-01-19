@@ -189,7 +189,6 @@ pub unsafe fn transfer(
 	);
 
 	// Tell dbgutil we're about to switch
-	#[cfg(debug_assertions)]
 	oro_dbgutil::__oro_dbgutil_kernel_will_transfer();
 
 	// Populate registers and jump to stubs

@@ -823,10 +823,9 @@ impl Drop for SlotWriterGuard<'_> {
 				(loaded >> 31) as u32 == unsafe { crate::sync::oro_sync_current_core_id() },
 				"precondition failed: slot is not locked by this core"
 			);
-			::oro_dbgutil::__oro_dbgutil_lock_release_writer(
-				::core::ptr::from_ref(self.slot).addr(),
-			);
 		}
+
+		::oro_dbgutil::__oro_dbgutil_lock_release_writer(::core::ptr::from_ref(self.slot).addr());
 
 		let prev_value = self.slot.lock.fetch_sub(1, Release);
 		if prev_value & ((1 << 31) - 1) == 1 {
@@ -1044,7 +1043,6 @@ impl Slot {
 		{
 			None
 		} else {
-			#[cfg(debug_assertions)]
 			::oro_dbgutil::__oro_dbgutil_lock_acquire_reader(::core::ptr::from_ref(self).addr());
 			Some(SlotReaderGuard { slot: self })
 		}
@@ -1099,7 +1097,6 @@ impl Slot {
 		{
 			None
 		} else {
-			#[cfg(debug_assertions)]
 			::oro_dbgutil::__oro_dbgutil_lock_acquire_writer(::core::ptr::from_ref(self).addr());
 			Some(SlotWriterGuard { slot: self })
 		}

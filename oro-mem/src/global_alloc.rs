@@ -144,7 +144,6 @@ impl GlobalPfa {
 
 		// SAFETY: We are in a critical section, which is good enough for the requirements
 		// SAFETY: of the dbgutil functions.
-		#[cfg(debug_assertions)]
 		unsafe {
 			oro_dbgutil::__oro_dbgutil_pfa_will_mass_free(1);
 			oro_dbgutil::__oro_dbgutil_pfa_mass_free(aligned_base, aligned_base + length);

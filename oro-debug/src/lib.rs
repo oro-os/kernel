@@ -17,10 +17,13 @@
 #[allow(unused_variables)]
 #[cfg(debug_assertions)]
 pub fn init_with_offset(offset: usize) {
-	#[cfg(all(target_arch = "aarch64", feature = "pl011"))]
-	oro_debug_pl011::init(offset);
-	#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
-	oro_debug_uart16550::init();
+	#[cfg(feature = "kernel-debug")]
+	{
+		#[cfg(all(target_arch = "aarch64", feature = "pl011"))]
+		oro_debug_pl011::init(offset);
+		#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
+		oro_debug_uart16550::init();
+	}
 }
 
 /// Initializes the debug logger with a memory offset of zero.
@@ -36,12 +39,15 @@ pub fn init() {
 /// To be used only by the root-ring kernel debug output interface.
 #[allow(unused_variables, dead_code)]
 pub fn log_debug_bytes(line: &[u8]) {
-	#[doc(hidden)]
-	const PREFIX: &str = "<module>:0:D:";
-	#[cfg(all(target_arch = "aarch64", feature = "pl011"))]
-	oro_debug_pl011::log_debug_bytes(PREFIX, line);
-	#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
-	oro_debug_uart16550::log_debug_bytes(PREFIX, line);
+	#[cfg(feature = "kernel-debug")]
+	{
+		#[doc(hidden)]
+		const PREFIX: &str = "<module>:0:D:";
+		#[cfg(all(target_arch = "aarch64", feature = "pl011"))]
+		oro_debug_pl011::log_debug_bytes(PREFIX, line);
+		#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
+		oro_debug_uart16550::log_debug_bytes(PREFIX, line);
+	}
 }
 
 /// Logs a message to the debug logger.
@@ -49,35 +55,60 @@ pub fn log_debug_bytes(line: &[u8]) {
 /// Shouldn't be used directly; use the `dbg!` macros instead.
 #[allow(unused_variables)]
 pub fn log(message: core::fmt::Arguments) {
-	#[cfg(all(target_arch = "aarch64", feature = "pl011"))]
-	oro_debug_pl011::log(message);
-	#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
-	oro_debug_uart16550::log(message);
+	#[cfg(feature = "kernel-debug")]
+	{
+		#[cfg(all(target_arch = "aarch64", feature = "pl011"))]
+		oro_debug_pl011::log(message);
+		#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
+		oro_debug_uart16550::log(message);
+	}
 }
 
 /// Sends a general debug message to the archiecture-specific debug endpoint.
 #[macro_export]
-#[collapse_debuginfo(yes)]
 macro_rules! dbg {
 	($($arg:tt)*) => {{
-		$crate::log(format_args!("{}:{}:I:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
+		$crate::dbg_noop!(! $($arg)*);
+		#[cfg(feature = "kernel-debug")]
+		{
+			$crate::log(format_args!("{}:{}:I:{}", ::core::file!(), ::core::line!(), format_args!($lit, $($arg)*)));
+		}
 	}};
 }
 
 /// Sends an error debug message to the archiecture-specific debug endpoint.
 #[macro_export]
-#[collapse_debuginfo(yes)]
 macro_rules! dbg_err {
 	($($arg:tt)*) => {{
-		$crate::log(format_args!("{}:{}:E:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
+		$crate::dbg_noop!(! $($arg)*);
+		#[cfg(feature = "kernel-debug")]
+		{
+			$crate::log(format_args!("{}:{}:E:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
+		}
 	}};
 }
 
 /// Sends an error debug message to the archiecture-specific debug endpoint.
 #[macro_export]
-#[collapse_debuginfo(yes)]
 macro_rules! dbg_warn {
 	($($arg:tt)*) => {{
-		$crate::log(format_args!("{}:{}:W:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
+		$crate::dbg_noop!(! $($arg)*);
+		#[cfg(feature = "kernel-debug")]
+		{
+			$crate::log(format_args!("{}:{}:W:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
+		}
+	}};
+}
+
+/// In a no-op `dbg!` macro we still consume the arguments
+/// to avoid unused variable warnings and to allow the compiler
+/// to not elide anything with a side effect.
+#[macro_export]
+macro_rules! dbg_noop {
+	(! $($arg:tt)*) => {{
+		#[cfg(not(feature = "kernel-debug"))]
+		{
+			let _ = format_args!($($arg)*);
+		}
 	}};
 }

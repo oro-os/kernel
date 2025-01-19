@@ -3,9 +3,9 @@
 //! See the `dbgutil` directory in the Oro kernel
 //! repository for more information.
 #![cfg_attr(not(test), no_std)]
-#![cfg(debug_assertions)]
 #![feature(naked_functions)]
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![allow(unused_variables, clippy::inline_always)]
 
 use core::arch::asm;
 
@@ -18,7 +18,12 @@ gdb_autoload_inline!("dbgutil.py");
 /// Transfer marker stub for `gdbutil` that allows the debugger to switch
 /// to the kernel image at an opportune time.
 #[no_mangle]
-#[link_section = ".text.force_keep"]
+#[cfg_attr(
+	any(debug_assertions, feature = "force-hooks"),
+	link_section = ".text.force_keep"
+)]
+#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
+#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
 pub extern "C" fn __oro_dbgutil_kernel_will_transfer() {
 	// SAFETY(qix-): This is a marker function for GDB to switch to the kernel image.
 	unsafe {
@@ -32,6 +37,7 @@ pub extern "C" fn __oro_dbgutil_kernel_will_transfer() {
 ///
 /// Pass the virtual address to translate in `x0`.
 #[cfg(any(doc, target_arch = "aarch64"))]
+#[cfg(any(debug_assertions, feature = "force-hooks"))]
 #[link_section = ".text.force_keep"]
 #[no_mangle]
 #[naked]
@@ -45,8 +51,14 @@ pub extern "C" fn __oro_dbgutil_ATS1E1R() -> ! {
 /// Tells dbgutil page frame tracker that a page frame
 /// has been allocated. Assumes a 4KiB page size.
 #[no_mangle]
-#[link_section = ".text.force_keep"]
+#[cfg_attr(
+	any(debug_assertions, feature = "force-hooks"),
+	link_section = ".text.force_keep"
+)]
+#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
+#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
 pub extern "C" fn __oro_dbgutil_pfa_alloc(address_do_not_change_this_parameter_name: u64) {
+	#[cfg(any(debug_assertions, feature = "force-hooks"))]
 	unsafe {
 		asm!(
 			"/*{}*/",
@@ -60,8 +72,14 @@ pub extern "C" fn __oro_dbgutil_pfa_alloc(address_do_not_change_this_parameter_n
 /// Tells dbgutil page frame tracker that a page frame
 /// has been freed. Assumes a 4KiB page size.
 #[no_mangle]
-#[link_section = ".text.force_keep"]
+#[cfg_attr(
+	any(debug_assertions, feature = "force-hooks"),
+	link_section = ".text.force_keep"
+)]
+#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
+#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
 pub extern "C" fn __oro_dbgutil_pfa_free(address_do_not_change_this_parameter_name: u64) {
+	#[cfg(any(debug_assertions, feature = "force-hooks"))]
 	unsafe {
 		asm!(
 			"/*{}*/",
@@ -87,10 +105,16 @@ pub extern "C" fn __oro_dbgutil_pfa_free(address_do_not_change_this_parameter_na
 /// This function is NOT thread-safe. Mass-free events must only
 /// occur when no other threads are running.
 #[no_mangle]
-#[link_section = ".text.force_keep"]
+#[cfg_attr(
+	any(debug_assertions, feature = "force-hooks"),
+	link_section = ".text.force_keep"
+)]
+#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
+#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
 pub unsafe extern "C" fn __oro_dbgutil_pfa_will_mass_free(
 	is_pfa_populating_do_not_change_this_parameter: u64,
 ) {
+	#[cfg(any(debug_assertions, feature = "force-hooks"))]
 	unsafe {
 		asm!(
 			"/*{}*/",
@@ -112,8 +136,14 @@ pub unsafe extern "C" fn __oro_dbgutil_pfa_will_mass_free(
 /// This function is NOT thread-safe. Mass-free events must only
 /// occur when no other threads are running.
 #[no_mangle]
-#[link_section = ".text.force_keep"]
+#[cfg_attr(
+	any(debug_assertions, feature = "force-hooks"),
+	link_section = ".text.force_keep"
+)]
+#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
+#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
 pub unsafe extern "C" fn __oro_dbgutil_pfa_finished_mass_free() {
+	#[cfg(any(debug_assertions, feature = "force-hooks"))]
 	unsafe {
 		asm!("nop", options(nostack, nomem, preserves_flags));
 	}
@@ -130,11 +160,17 @@ pub unsafe extern "C" fn __oro_dbgutil_pfa_finished_mass_free() {
 /// unless the `free` breakpoint would otherwise be hit, as it
 /// will cause the PFA tracker to warn on a double-free.
 #[no_mangle]
-#[link_section = ".text.force_keep"]
+#[cfg_attr(
+	any(debug_assertions, feature = "force-hooks"),
+	link_section = ".text.force_keep"
+)]
+#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
+#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
 pub extern "C" fn __oro_dbgutil_pfa_mass_free(
 	start_do_not_change_this_parameter: u64,
 	end_exclusive_do_not_change_this_parameter: u64,
 ) {
+	#[cfg(any(debug_assertions, feature = "force-hooks"))]
 	unsafe {
 		asm!(
 			"/*{} {}*/",
@@ -148,8 +184,14 @@ pub extern "C" fn __oro_dbgutil_pfa_mass_free(
 
 /// Tells the lock tracker that a lock is about to be acquired.
 #[no_mangle]
-#[link_section = ".text.force_keep"]
+#[cfg_attr(
+	any(debug_assertions, feature = "force-hooks"),
+	link_section = ".text.force_keep"
+)]
+#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
+#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
 pub extern "C" fn __oro_dbgutil_lock_acquire(lock_self_addr_do_not_change_this_parameter: usize) {
+	#[cfg(any(debug_assertions, feature = "force-hooks"))]
 	unsafe {
 		asm!(
 			"/*{}*/",
@@ -164,8 +206,14 @@ pub extern "C" fn __oro_dbgutil_lock_acquire(lock_self_addr_do_not_change_this_p
 ///
 /// `this` must be the same value as passed to `__oro_dbgutil_lock_acquire`.
 #[no_mangle]
-#[link_section = ".text.force_keep"]
+#[cfg_attr(
+	any(debug_assertions, feature = "force-hooks"),
+	link_section = ".text.force_keep"
+)]
+#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
+#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
 pub extern "C" fn __oro_dbgutil_lock_release(lock_self_addr_do_not_change_this_parameter: usize) {
+	#[cfg(any(debug_assertions, feature = "force-hooks"))]
 	unsafe {
 		asm!(
 			"/*{}*/",
@@ -178,10 +226,16 @@ pub extern "C" fn __oro_dbgutil_lock_release(lock_self_addr_do_not_change_this_p
 
 /// Tells the lock tracker that a RW lock reader is about to be acquired.
 #[no_mangle]
-#[link_section = ".text.force_keep"]
+#[cfg_attr(
+	any(debug_assertions, feature = "force-hooks"),
+	link_section = ".text.force_keep"
+)]
+#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
+#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
 pub extern "C" fn __oro_dbgutil_lock_acquire_reader(
 	lock_self_addr_do_not_change_this_parameter: usize,
 ) {
+	#[cfg(any(debug_assertions, feature = "force-hooks"))]
 	unsafe {
 		asm!(
 			"/*{}*/",
@@ -196,10 +250,16 @@ pub extern "C" fn __oro_dbgutil_lock_acquire_reader(
 ///
 /// `this` must be the same value as passed to `__oro_dbgutil_lock_acquire_reader`.
 #[no_mangle]
-#[link_section = ".text.force_keep"]
+#[cfg_attr(
+	any(debug_assertions, feature = "force-hooks"),
+	link_section = ".text.force_keep"
+)]
+#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
+#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
 pub extern "C" fn __oro_dbgutil_lock_release_reader(
 	lock_self_addr_do_not_change_this_parameter: usize,
 ) {
+	#[cfg(any(debug_assertions, feature = "force-hooks"))]
 	unsafe {
 		asm!(
 			"/*{}*/",
@@ -212,10 +272,16 @@ pub extern "C" fn __oro_dbgutil_lock_release_reader(
 
 /// Tells the lock tracker that a RW lock writer is about to be acquired.
 #[no_mangle]
-#[link_section = ".text.force_keep"]
+#[cfg_attr(
+	any(debug_assertions, feature = "force-hooks"),
+	link_section = ".text.force_keep"
+)]
+#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
+#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
 pub extern "C" fn __oro_dbgutil_lock_acquire_writer(
 	lock_self_addr_do_not_change_this_parameter: usize,
 ) {
+	#[cfg(any(debug_assertions, feature = "force-hooks"))]
 	unsafe {
 		asm!(
 			"/*{}*/",
@@ -230,10 +296,16 @@ pub extern "C" fn __oro_dbgutil_lock_acquire_writer(
 ///
 /// `this` must be the same value as passed to `__oro_dbgutil_lock_acquire_reader`.
 #[no_mangle]
-#[link_section = ".text.force_keep"]
+#[cfg_attr(
+	any(debug_assertions, feature = "force-hooks"),
+	link_section = ".text.force_keep"
+)]
+#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
+#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
 pub extern "C" fn __oro_dbgutil_lock_release_writer(
 	lock_self_addr_do_not_change_this_parameter: usize,
 ) {
+	#[cfg(any(debug_assertions, feature = "force-hooks"))]
 	unsafe {
 		asm!(
 			"/*{}*/",

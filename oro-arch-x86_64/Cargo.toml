@@ -16,7 +16,14 @@ build = "build.rs"
 
 [features]
 default = []
+
+# Forces the kernel to only run on the bootstrap processor,
+# regardless of what's in the ACPI tables.
 force-singlecore = []
+
+# Forces the kernel to use a big IRQ stack, even in release mode.
+# This is the default in debug mode.
+big-irq-stack = []
 
 [lib]
 path = "src/lib.rs"

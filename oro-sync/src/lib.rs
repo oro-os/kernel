@@ -64,7 +64,6 @@ impl<T: ?Sized> Lock for Mutex<T> {
 	fn lock(&self) -> Self::Guard<'_> {
 		loop {
 			if !self.locked.swap(true, Acquire) {
-				#[cfg(debug_assertions)]
 				::oro_dbgutil::__oro_dbgutil_lock_acquire(self.value.get() as *const () as usize);
 				return MutexGuard { lock: self };
 			}
@@ -94,7 +93,6 @@ unsafe impl<T: ?Sized + Sync> Sync for MutexGuard<'_, T> {}
 
 impl<T: ?Sized> Drop for MutexGuard<'_, T> {
 	fn drop(&mut self) {
-		#[cfg(debug_assertions)]
 		::oro_dbgutil::__oro_dbgutil_lock_release(self.lock.value.get() as *const () as usize);
 		self.lock.locked.store(false, Release);
 	}
@@ -171,7 +169,6 @@ impl<T: ?Sized> Lock for TicketMutex<T> {
 				let position = ticket.wrapping_sub(now_serving) as isize;
 
 				if position == 0 && !self.locked.swap(true, AcqRel) {
-					#[cfg(debug_assertions)]
 					::oro_dbgutil::__oro_dbgutil_lock_acquire(
 						self.value.get() as *const () as usize
 					);
@@ -235,7 +232,6 @@ where
 
 impl<T: ?Sized> Drop for TicketMutexGuard<'_, T> {
 	fn drop(&mut self) {
-		#[cfg(debug_assertions)]
 		::oro_dbgutil::__oro_dbgutil_lock_release(self.lock.value.get() as *const () as usize);
 		let _ = self.lock.now_serving.compare_exchange(
 			self.ticket,
@@ -348,7 +344,6 @@ mod reentrant {
 						)
 						.is_ok()
 				{
-					#[cfg(debug_assertions)]
 					if current == 0 {
 						::oro_dbgutil::__oro_dbgutil_lock_acquire(
 							self.value.get() as *const () as usize
@@ -410,7 +405,6 @@ mod reentrant {
 					)
 					.is_ok()
 				{
-					#[cfg(debug_assertions)]
 					if current_count == 1 {
 						::oro_dbgutil::__oro_dbgutil_lock_release(
 							self.lock.value.get() as *const () as usize,

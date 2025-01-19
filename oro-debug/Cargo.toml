@@ -15,7 +15,10 @@ license = "MPL-2.0"
 doctest = false
 
 [features]
-default = []
+default = ["kernel-debug"]
+# If not enabled, disables ALL logging regardless of any backends being enabled.
+# dbg!() macros are no-ops.
+kernel-debug = []
 pl011 = ["dep:oro-debug-pl011"]
 uart16550 = ["dep:oro-debug-uart16550"]
 

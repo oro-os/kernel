@@ -108,7 +108,6 @@ unsafe impl Alloc for FiloPageFrameAllocator {
 					.as_ptr_unchecked::<u64>()
 					.read_volatile()
 			};
-			#[cfg(debug_assertions)]
 			oro_dbgutil::__oro_dbgutil_pfa_alloc(page_frame);
 			Some(page_frame)
 		}
@@ -116,7 +115,6 @@ unsafe impl Alloc for FiloPageFrameAllocator {
 
 	unsafe fn free(&mut self, frame: u64) {
 		assert_eq!(frame % 4096, 0, "frame is not page-aligned");
-		#[cfg(debug_assertions)]
 		oro_dbgutil::__oro_dbgutil_pfa_free(frame);
 		unsafe {
 			Phys::from_address_unchecked(frame)

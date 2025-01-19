@@ -14,6 +14,11 @@ license = "MPL-2.0"
 [lib]
 doctest = false
 
+[features]
+default = []
+# Forces hook functions to remain even in release builds
+force-hooks = []
+
 [dependencies]
 oro-macro.workspace = true
 

@@ -13,12 +13,12 @@ use crate::mem::address_space::{AddressSpaceHandle, AddressSpaceLayout};
 
 /// The number of IRQ stack pages to allocate per thread.
 const IRQ_STACK_PAGES: usize = {
-	#[cfg(not(debug_assertions))]
+	#[cfg(not(any(debug_assertions, feature = "big-irq-stack")))]
 	{
 		1
 	}
 
-	#[cfg(debug_assertions)]
+	#[cfg(any(debug_assertions, feature = "big-irq-stack"))]
 	{
 		4
 	}

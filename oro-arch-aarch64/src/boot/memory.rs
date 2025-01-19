@@ -408,7 +408,6 @@ impl Iterator for MemoryMapPfa<'_> {
 		self.current_entry.base += 4096;
 		self.current_entry.length -= 4096;
 
-		#[cfg(debug_assertions)]
 		oro_dbgutil::__oro_dbgutil_pfa_alloc(result);
 
 		Some(result)
