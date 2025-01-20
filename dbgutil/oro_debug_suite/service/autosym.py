@@ -25,6 +25,10 @@ SYM_PFA_MASS_FREE = "oro_dbgutil::__oro_dbgutil_pfa_mass_free"
 SYM_LOCK_ACQUIRE = "oro_dbgutil::__oro_dbgutil_lock_acquire"
 ## All: Indicates that a lock has been released.
 SYM_LOCK_RELEASE = "oro_dbgutil::__oro_dbgutil_lock_release"
+## All: Indicates that a core ID (function) has been set.
+SYM_CORE_ID_SET = "oro_dbgutil::__oro_dbgutil_core_id_fn_was_set"
+## All: Indicates that the core ID getter function was called.
+SYM_CORE_ID_CALL = "oro_dbgutil::__oro_dbgutil_core_id_fn_was_called"
 
 TRACKED_SYMBOLS = frozenset(
     set(
@@ -38,6 +42,8 @@ TRACKED_SYMBOLS = frozenset(
             ("f", SYM_PFA_MASS_FREE),
             ("f", SYM_LOCK_ACQUIRE),
             ("f", SYM_LOCK_RELEASE),
+            ("f", SYM_CORE_ID_SET),
+            ("f", SYM_CORE_ID_CALL),
         ]
     )
 )

@@ -315,3 +315,46 @@ pub extern "C" fn __oro_dbgutil_lock_release_writer(
 		);
 	}
 }
+
+/// Tells the core ID tracker that a core ID function was set. The tracker will
+/// then track the ID from this point forward.
+#[no_mangle]
+#[cfg_attr(
+	any(debug_assertions, feature = "force-hooks"),
+	link_section = ".text.force_keep"
+)]
+#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
+#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
+pub extern "C" fn __oro_dbgutil_core_id_fn_was_set(core_id_do_not_change_this_parameter: u32) {
+	#[cfg(any(debug_assertions, feature = "force-hooks"))]
+	unsafe {
+		asm!(
+			"/*{}*/",
+			"nop",
+			in(reg) u64::from(core_id_do_not_change_this_parameter),
+			options(nostack, nomem, preserves_flags)
+		);
+	}
+}
+
+/// Tells the core ID tracker that a core ID was retrieved. The tracker will
+/// validate that the ID returned is the same as the one at time of
+/// [`__oro_dbgutil_core_id_fn_was_set`].
+#[no_mangle]
+#[cfg_attr(
+	any(debug_assertions, feature = "force-hooks"),
+	link_section = ".text.force_keep"
+)]
+#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
+#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
+pub extern "C" fn __oro_dbgutil_core_id_fn_was_called(core_id_do_not_change_this_parameter: u32) {
+	#[cfg(any(debug_assertions, feature = "force-hooks"))]
+	unsafe {
+		asm!(
+			"/*{}*/",
+			"nop",
+			in(reg) u64::from(core_id_do_not_change_this_parameter),
+			options(nostack, nomem, preserves_flags)
+		);
+	}
+}

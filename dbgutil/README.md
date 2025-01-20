@@ -67,13 +67,14 @@ invocation, or try running the kernel with a single core. This will reduce the
 likelihood that a breakpoint race condition occurs, assuming the symptom you're
 trying to debug is still replicable with fewer cores.
 
-The lock and PFA trackers are disabled by default and can cause overhead in the
+The lock, PFA and core ID trackers are disabled by default and can cause overhead in the
 kernel's execution when enabled. You can enable some or all of them with the
 following commands in GDB:
 
 ```
 set oro-pfa on
 set oro-lock on
+set oro-core-id on
 ```
 
 ## Problems

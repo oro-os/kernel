@@ -31,7 +31,9 @@ pub(crate) unsafe extern "C" fn oro_sync_current_core_id() -> u32 {
 		);
 	}
 
-	KERNEL_ID_FN.assume_init()()
+	let id = KERNEL_ID_FN.assume_init()();
+	::oro_dbgutil::__oro_dbgutil_core_id_fn_was_called(id);
+	id
 }
 
 /// The generic kernel ID fetcher, based on the [`Arch`] type.
@@ -56,6 +58,7 @@ pub unsafe fn initialize_kernel_id_fn<A: Arch>() {
 	// SAFETY(qix-): We have offloaded safety considerations to the caller here.
 	#[expect(static_mut_refs)]
 	{
+		::oro_dbgutil::__oro_dbgutil_core_id_fn_was_set(get_arch_kernel_id::<A>());
 		KERNEL_ID_FN.write(get_arch_kernel_id::<A>);
 	}
 }
@@ -72,12 +75,13 @@ pub unsafe fn initialize_kernel_id_fn<A: Arch>() {
 pub unsafe fn install_dummy_kernel_id_fn() {
 	#[cfg(debug_assertions)]
 	{
-		HAS_SET_KERNEL_ID_FN.store(true, core::sync::atomic::Ordering::Relaxed);
+		HAS_SET_KERNEL_ID_FN.store(false, core::sync::atomic::Ordering::Relaxed);
 	}
 
 	// SAFETY(qix-): We have offloaded safety considerations to the caller here.
 	#[expect(static_mut_refs)]
 	{
-		KERNEL_ID_FN.write(|| 0);
+		::oro_dbgutil::__oro_dbgutil_core_id_fn_was_set(0xDEAD_DEAD);
+		KERNEL_ID_FN.write(|| 0xDEAD_DEAD);
 	}
 }
