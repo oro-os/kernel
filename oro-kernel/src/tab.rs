@@ -855,18 +855,6 @@ impl Slot {
 		let t = unsafe {
 			::core::mem::transmute::<u8, TabType>((self.ver_ty.load(Relaxed) >> 56) as u8)
 		};
-		// NOTE(qix-): Kind of blunt and verbose but at least we can assure
-		// NOTE(qix-): that in debug modes we're not running into strange bugs.
-		debug_assert!(matches!(
-			t,
-			TabType::Free
-				| TabType::Ring
-				| TabType::Thread
-				| TabType::Instance
-				| TabType::Port
-				| TabType::Interface
-				| TabType::Module
-		));
 		t
 	}
 
