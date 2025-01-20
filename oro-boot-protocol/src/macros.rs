@@ -179,6 +179,7 @@ macro_rules! oro_boot_protocol {
 					#[doc = concat!("The tag for the [`", stringify!($ReqName), "Request`]: equivalent to `", stringify!($TAG), "`")]
 					const TAG: crate::Tag = {
 						::oro_macro::assert::size_of1::<_, 8>($TAG);
+						// SAFETY: The tag is a valid `u64` value.
 						unsafe { ::core::mem::transmute_copy($TAG) }
 					};
 					#[cfg(oro_build_protocol_header)]

@@ -171,10 +171,14 @@ impl MairAttributes {
 	#[must_use]
 	pub fn ty(self) -> AttributesType {
 		if self.0 & 0b1111_0000 == 0 {
+			// SAFETY: We can guarantee the value is valid here as the transmuted
+			// SAFETY: value is always in the range of a valid `MairDeviceAttribute`.
 			AttributesType::Device(unsafe {
 				core::mem::transmute::<u8, MairDeviceAttribute>(self.0)
 			})
 		} else {
+			// SAFETY: We can guarantee the value is valid here as the transmuted
+			// SAFETY: value is always in the range of a valid `MairMemoryAttributes`.
 			AttributesType::Memory(unsafe {
 				core::mem::transmute::<u8, MairMemoryAttributes>(self.0)
 			})
