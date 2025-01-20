@@ -6,6 +6,9 @@ use core::{arch::asm, mem::transmute};
 use crate::syscall;
 
 /// Lowest level system call for x86_64.
+///
+/// # Safety
+/// Do not call from within the `oro-sysabi` crate.
 #[inline(always)]
 pub unsafe fn syscall(
 	opcode: syscall::Opcode,
