@@ -77,12 +77,6 @@ impl<A: Arch> Ring<A> {
 
 		parent.lock().children.push(r.clone());
 
-		Kernel::<A>::get()
-			.state()
-			.rings
-			.lock()
-			.push(Arc::downgrade(&r));
-
 		Ok(r)
 	}
 

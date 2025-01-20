@@ -46,17 +46,13 @@ pub mod thread;
 use core::mem::MaybeUninit;
 
 use oro_macro::assert;
-// NOTE(qix-): Bug in Rustfmt where it keeps treating `vec![]` and the `mod vec`
-// NOTE(qix-): as the same, rearranging imports and breaking code. Super annoying.
-#[rustfmt::skip]
 use oro_mem::{
 	alloc::{
 		sync::{Arc, Weak},
-		vec,
 		vec::Vec,
 	},
 	global_alloc::GlobalPfa,
-	mapper::{AddressSegment, MapError, AddressSpace as _},
+	mapper::{AddressSegment, AddressSpace as _, MapError},
 	pfa::Alloc,
 };
 use oro_sync::{Lock, ReentrantMutex, TicketMutex};
@@ -218,8 +214,6 @@ impl<A: Arch> Kernel<A> {
 pub struct KernelState<A: Arch> {
 	/// List of all modules.
 	modules: TicketMutex<Vec<Weak<ReentrantMutex<module::Module<A>>>>>,
-	/// List of all rings.
-	rings:   TicketMutex<Vec<Weak<ReentrantMutex<ring::Ring<A>>>>>,
 	/// List of all threads.
 	threads: TicketMutex<Vec<tab::Tab<thread::Thread<A>>>>,
 
@@ -252,7 +246,6 @@ impl<A: Arch> KernelState<A> {
 		let registry = Arc::new(ReentrantMutex::new(RootRegistry::new_empty()));
 
 		let root_ring = ring::Ring::<A>::new_root(registry.clone())?;
-		let root_ring_weak = Arc::downgrade(&root_ring);
 
 		// Install root ring interfaces.
 		{
@@ -278,7 +271,6 @@ impl<A: Arch> KernelState<A> {
 		this.write(Self {
 			root_ring,
 			modules: TicketMutex::default(),
-			rings: TicketMutex::new(vec![root_ring_weak]),
 			threads: TicketMutex::default(),
 			registry,
 		});
