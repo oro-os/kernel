@@ -15,8 +15,6 @@ use core::{
 	ptr::{from_mut, from_ref},
 };
 
-use oro_macro::match_nonexhaustive;
-
 /// An accessor around a MAIR register value.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 #[repr(C)]
@@ -245,16 +243,11 @@ pub enum MairDeviceAttribute {
 
 impl fmt::Debug for MairDeviceAttribute {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		unsafe {
-			match_nonexhaustive! {
-				match *self => u8 {
-					Self::DnGnRnE => write!(f, "Device(nGnRnE)"),
-					Self::DnGnRE => write!(f, "Device(nGnRE)"),
-					Self::DnGRE => write!(f, "Device(nGRE)"),
-					Self::DGRE => write!(f, "Device(GRE)"),
-					% unpredictable => write!(f, "Device(UNPREDICTABLE{unpredictable:04b})"),
-				}
-			}
+		match self {
+			Self::DnGnRnE => write!(f, "Device(nGnRnE)"),
+			Self::DnGnRE => write!(f, "Device(nGnRE)"),
+			Self::DnGRE => write!(f, "Device(nGRE)"),
+			Self::DGRE => write!(f, "Device(GRE)"),
 		}
 	}
 }
@@ -287,9 +280,8 @@ pub const INNER: u8 = 0;
 /// Note that this enum is non-exhaustive due to certain
 /// bit sequences representing "UNPREDICTABLE" values according
 /// to the ARM manual, which Oro does not support.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u8)]
-#[non_exhaustive]
 pub enum MairCacheability<const SHIFT: u8> {
 	/// Write-through transient
 	/// with read allocate policy
@@ -351,39 +343,14 @@ impl From<MairMemoryAttributes> for (MairCacheability<OUTER>, MairCacheability<I
 	#[inline(always)]
 	fn from(attrs: MairMemoryAttributes) -> Self {
 		(
+			// SAFEY: We always know that this results in a valid value.
 			unsafe {
 				core::mem::transmute::<u8, MairCacheability<OUTER>>((attrs.0 >> OUTER) & 0b1111)
 			},
+			// SAFEY: We always know that this results in a valid value.
 			unsafe {
 				core::mem::transmute::<u8, MairCacheability<INNER>>((attrs.0 >> INNER) & 0b1111)
 			},
 		)
-	}
-}
-
-impl<const SHIFT: u8> fmt::Debug for MairCacheability<SHIFT> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		unsafe {
-			match_nonexhaustive! {
-				match *self => u8 {
-					Self::WriteThroughTransientR => write!(f, "WriteThroughTransientR"),
-					Self::WriteThroughTransientW => write!(f, "WriteThroughTransientW"),
-					Self::WriteThroughTransientRW => write!(f, "WriteThroughTransientRW"),
-					Self::NonCacheable => write!(f, "NonCacheable"),
-					Self::WriteBackTransientR => write!(f, "WriteBackTransientR"),
-					Self::WriteBackTransientW => write!(f, "WriteBackTransientW"),
-					Self::WriteBackTransientRW => write!(f, "WriteBackTransientRW"),
-					Self::WriteThroughNonTransient => write!(f, "WriteThroughNonTransient"),
-					Self::WriteThroughNonTransientR => write!(f, "WriteThroughNonTransientR"),
-					Self::WriteThroughNonTransientW => write!(f, "WriteThroughNonTransientW"),
-					Self::WriteThroughNonTransientRW => write!(f, "WriteThroughNonTransientRW"),
-					Self::WriteBackNonTransient => write!(f, "WriteBackNonTransient"),
-					Self::WriteBackNonTransientR => write!(f, "WriteBackNonTransientR"),
-					Self::WriteBackNonTransientW => write!(f, "WriteBackNonTransientW"),
-					Self::WriteBackNonTransientRW => write!(f, "WriteBackNonTransientRW"),
-					% unpredictable => write!(f, "UNPREDICTABLE[{:04b}]", unpredictable),
-				}
-			}
-		}
 	}
 }
