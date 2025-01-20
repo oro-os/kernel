@@ -1,10 +1,6 @@
 import gdb  # type: ignore
 from ..log import debug, warn, error, log
 from . import SYMBOLS, QEMU
-from .autosym import (
-    SYM_CORE_ID_SET,
-    SYM_CORE_ID_CALL,
-)
 from .backtrace import get_backtrace, warn_backtrace, log_backtrace, error_backtrace
 
 
@@ -120,8 +116,8 @@ class LockTracker(object):
             debug("core_id_tracker: detached")
 
         if self.enabled:
-            set_sym = SYMBOLS.get_if_tracked(SYM_CORE_ID_SET)
-            call_sym = SYMBOLS.get_if_tracked(SYM_CORE_ID_CALL)
+            set_sym = SYMBOLS.get_if_tracked("core_id_fn_was_set")
+            call_sym = SYMBOLS.get_if_tracked("core_id_fn_was_called")
             if set_sym and call_sym:
                 self._set_breakpoint = CoreIdTrackerSetBreakpoint(set_sym)
                 self._call_breakpoint = CoreIdTrackerCallBreakpoint(call_sym)
@@ -137,7 +133,7 @@ class CoreIdTrackerSetBreakpoint(gdb.Breakpoint):
         )
 
     def stop(self):
-        core_id = int(gdb.parse_and_eval("core_id_do_not_change_this_parameter"))
+        core_id = int(gdb.parse_and_eval("core_id"))
         thread_id = gdb.selected_thread().num
         CORE_ID_TRACKER._track_set(core_id, thread_id)
         return False  # don't stop
@@ -150,7 +146,7 @@ class CoreIdTrackerCallBreakpoint(gdb.Breakpoint):
         )
 
     def stop(self):
-        core_id = int(gdb.parse_and_eval("core_id_do_not_change_this_parameter"))
+        core_id = int(gdb.parse_and_eval("core_id"))
         thread_id = gdb.selected_thread().num
         CORE_ID_TRACKER._track_call(core_id, thread_id)
         return False  # don't stop

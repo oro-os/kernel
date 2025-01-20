@@ -2,13 +2,6 @@ from collections import defaultdict
 import gdb  # type: ignore
 from ..log import debug, warn
 from . import SYMBOLS, QEMU
-from .autosym import (
-    SYM_PAGE_FREE,
-    SYM_PAGE_ALLOC,
-    SYM_PFA_WILL_MASS_FREE,
-    SYM_PFA_FINISHED_MASS_FREE,
-    SYM_PFA_MASS_FREE,
-)
 from .backtrace import get_backtrace, warn_backtrace
 
 
@@ -154,11 +147,11 @@ class PfaTracker(object):
             debug("pfa_tracker: detached")
 
         if self.enabled:
-            free_sym = SYMBOLS.get_if_tracked(SYM_PAGE_FREE)
-            alloc_sym = SYMBOLS.get_if_tracked(SYM_PAGE_ALLOC)
-            will_mass_free_sym = SYMBOLS.get_if_tracked(SYM_PFA_WILL_MASS_FREE)
-            finished_mass_free_sym = SYMBOLS.get_if_tracked(SYM_PFA_FINISHED_MASS_FREE)
-            mass_free_sym = SYMBOLS.get_if_tracked(SYM_PFA_MASS_FREE)
+            free_sym = SYMBOLS.get_if_tracked("pfa_free")
+            alloc_sym = SYMBOLS.get_if_tracked("pfa_alloc")
+            will_mass_free_sym = SYMBOLS.get_if_tracked("pfa_will_mass_free")
+            finished_mass_free_sym = SYMBOLS.get_if_tracked("pfa_finished_mass_free")
+            mass_free_sym = SYMBOLS.get_if_tracked("pfa_mass_free")
             if all(
                 [
                     free_sym,
@@ -189,7 +182,7 @@ class PfaTrackerAllocBreakpoint(gdb.Breakpoint):
         )
 
     def stop(self):
-        arg = int(gdb.parse_and_eval("address_do_not_change_this_parameter_name"))
+        arg = int(gdb.parse_and_eval("address"))
         PFA_TRACKER.track_alloc_4kib(arg)
         return False  # don't stop
 
@@ -201,7 +194,7 @@ class PfaTrackerFreeBreakpoint(gdb.Breakpoint):
         )
 
     def stop(self):
-        arg = int(gdb.parse_and_eval("address_do_not_change_this_parameter_name"))
+        arg = int(gdb.parse_and_eval("address"))
         PFA_TRACKER.track_free_4kib(arg)
         return False  # don't stop
 
@@ -213,9 +206,7 @@ class PfaTrackerWillMassFreeBreakpoint(gdb.Breakpoint):
         )
 
     def stop(self):
-        is_pfa_populating = bool(
-            int(gdb.parse_and_eval("is_pfa_populating_do_not_change_this_parameter"))
-        )
+        is_pfa_populating = bool(int(gdb.parse_and_eval("is_pfa_populating")))
         if PFA_TRACKER.verbose:
             debug(
                 f"pfa_tracker: kernel indicated it will mass free (pfa populating: {is_pfa_populating})"
@@ -254,8 +245,8 @@ class PfaTrackerMassFreeBreakpoint(gdb.Breakpoint):
         )
 
     def stop(self):
-        start = int(gdb.parse_and_eval("start_do_not_change_this_parameter"))
-        end_excl = int(gdb.parse_and_eval("end_exclusive_do_not_change_this_parameter"))
+        start = int(gdb.parse_and_eval("start"))
+        end_excl = int(gdb.parse_and_eval("end_exclusive"))
         PFA_TRACKER.track_mass_free_4kib(start, end_excl)
         return False  # don't stop
 

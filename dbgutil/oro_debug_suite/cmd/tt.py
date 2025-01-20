@@ -1,7 +1,6 @@
 import struct
 import gdb  # type: ignore
 from ..service import QEMU, SYMBOLS
-from ..service.autosym import SYM_AARCH64_ATS1E1R
 from ..log import error, log, warn
 from ..arch import get_arch
 
@@ -623,7 +622,7 @@ class TtCmdAt(gdb.Command):
 
         if arch == "aarch64":
             # Attempt to lookup the `AT` stub.
-            at_sym = SYMBOLS.get(SYM_AARCH64_ATS1E1R)
+            at_sym = SYMBOLS.get("ATS1E1R")
             if not at_sym:
                 warn("tt: AT S1E1R stub not found; cannot perform CPU translation")
             (at_sym, _) = at_sym

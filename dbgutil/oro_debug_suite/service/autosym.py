@@ -1,73 +1,29 @@
 import gdb  # type: ignore
 from ..log import debug
 
-## AArch64: AT S1E1R instruction stub
-SYM_AARCH64_ATS1E1R = "oro_dbgutil::__oro_dbgutil_ATS1E1R"
-## All: Transfer to kernel function hook
-SYM_KERNEL_TRANSFER = "oro_dbgutil::__oro_dbgutil_kernel_will_transfer"
-## All: Page frame allocation hook (4KiB page)
-SYM_PAGE_ALLOC = "oro_dbgutil::__oro_dbgutil_pfa_alloc"
-## All: Page frame free hook (4KiB page)
-SYM_PAGE_FREE = "oro_dbgutil::__oro_dbgutil_pfa_free"
-## All: The kernel is about to free a lot of pages;
-##      the PFA tracker expects that the kernel will then call
-##      SYM_PFA_MASS_FREE zero or more times, followed by
-##      SYM_PFA_FINISHED_MASS_FREE.
-SYM_PFA_WILL_MASS_FREE = "oro_dbgutil::__oro_dbgutil_pfa_will_mass_free"
-## All: The kernel has finished freeing a lot of pages.
-SYM_PFA_FINISHED_MASS_FREE = "oro_dbgutil::__oro_dbgutil_pfa_finished_mass_free"
-## All: Indicates that a region of memory has been freed.
-##      This is used by the kernel when performing the initial
-##      population of the PFA. It'll most likely go away in the future
-##      when the PFA supports regions.
-SYM_PFA_MASS_FREE = "oro_dbgutil::__oro_dbgutil_pfa_mass_free"
-## All: Indicates that a lock has been acquired.
-SYM_LOCK_ACQUIRE = "oro_dbgutil::__oro_dbgutil_lock_acquire"
-## All: Indicates that a lock has been released.
-SYM_LOCK_RELEASE = "oro_dbgutil::__oro_dbgutil_lock_release"
-## All: Indicates that a core ID (function) has been set.
-SYM_CORE_ID_SET = "oro_dbgutil::__oro_dbgutil_core_id_fn_was_set"
-## All: Indicates that the core ID getter function was called.
-SYM_CORE_ID_CALL = "oro_dbgutil::__oro_dbgutil_core_id_fn_was_called"
+DEFAULT_TRACKED_SYMBOLS = frozenset(set(["oro_dbgutil::__oro_dbgutil_ATS1E1R"]))
 
-TRACKED_SYMBOLS = frozenset(
-    set(
-        [
-            ("f", SYM_AARCH64_ATS1E1R),
-            ("f", SYM_KERNEL_TRANSFER),
-            ("f", SYM_PAGE_ALLOC),
-            ("f", SYM_PAGE_FREE),
-            ("f", SYM_PFA_WILL_MASS_FREE),
-            ("f", SYM_PFA_FINISHED_MASS_FREE),
-            ("f", SYM_PFA_MASS_FREE),
-            ("f", SYM_LOCK_ACQUIRE),
-            ("f", SYM_LOCK_RELEASE),
-            ("f", SYM_CORE_ID_SET),
-            ("f", SYM_CORE_ID_CALL),
-        ]
-    )
-)
-
-SYMBOL_FUNCTION_DOMAIN = (
+_SYMBOL_FUNCTION_DOMAIN = (
     gdb.SYMBOL_FUNCTION_DOMAIN
     if hasattr(gdb, "SYMBOL_FUNCTION_DOMAIN")
     else gdb.SYMBOL_FUNCTIONS_DOMAIN
 )
 
-_DOMAINS = {"f": SYMBOL_FUNCTION_DOMAIN, "v": gdb.SYMBOL_VAR_DOMAIN}
-
 
 class SymbolTracker(object):
     def __init__(self):
+        self.__to_track = set(DEFAULT_TRACKED_SYMBOLS)
         self.__symbols = dict()
         self.flush_all_on_new = False
         self.__on_loaded_events = set()
 
     def get(self, sym):
+        sym = f"oro_dbgutil::__oro_dbgutil_{sym}"
         return self.__symbols.get(sym)
 
     def get_if_tracked(self, sym):
-        return sym if self.get(sym) else None
+        sym = f"oro_dbgutil::__oro_dbgutil_{sym}"
+        return sym if self.__symbols.get(sym) else None
 
     def on_loaded(self, callback):
         self.__on_loaded_events.add(callback)
@@ -77,7 +33,7 @@ class SymbolTracker(object):
         self.__on_loaded_events.remove(callback)
 
     def _on_objfile_freed(self, objfile):
-        for _, sym in TRACKED_SYMBOLS:
+        for _, sym in self.__to_track:
             if sym in self.__symbols and self.__symbols[sym][1] == objfile:
                 del self.__symbols[sym]
 
@@ -85,18 +41,15 @@ class SymbolTracker(object):
             callback()
 
     def _on_objfile_loaded(self, objfile):
+        self.read_elf_symbols(objfile.filename)
+
         if self.flush_all_on_new:
             self.__symbols.clear()
 
-        for domain, sym in TRACKED_SYMBOLS:
-            assert bool(
-                _DOMAINS[domain]
-            ), f"invalid domain: {domain} (this is a bug in Oro dbgutil)"
-            domain = _DOMAINS[domain]
-
+        for sym in self.__to_track:
             resolved = objfile.lookup_global_symbol(
-                sym, domain
-            ) or objfile.lookup_static_symbol(sym, domain)
+                sym, _SYMBOL_FUNCTION_DOMAIN
+            ) or objfile.lookup_static_symbol(sym, _SYMBOL_FUNCTION_DOMAIN)
 
             if resolved:
                 address = int(resolved.value().address)
@@ -105,6 +58,24 @@ class SymbolTracker(object):
 
         for callback in self.__on_loaded_events:
             callback()
+
+    def read_elf_symbols(self, elfpath):
+        """Reads the **autosym-specific** hook symbols from the given kernel ELF.
+
+        These symbols exist in the `.oro_dbgutil` section and are a list of null-terminated
+        strings indicating the symbol names to track. Each of these is automatically prepended
+        with `oro_dbgutil::` to form the full symbol name."""
+        import p3elf.reader
+
+        elf = p3elf.reader.ELFReader(elfpath)
+        section = elf.get_section(".oro_dbgutil")
+        new_syms = set(filter(lambda s: len(s) > 0, section.split(b"\0")))
+
+        for new_sym in new_syms:
+            sym = f"oro_dbgutil::{new_sym.decode('utf-8')}"
+            if sym not in self.__to_track:
+                debug(f"autosym: discovered exported hook symbol from ELF: {sym}")
+                self.__to_track.add(sym)
 
 
 SYMBOLS = SymbolTracker()

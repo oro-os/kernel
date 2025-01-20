@@ -46,6 +46,12 @@ SECTIONS {
 
 	. = ALIGN(4096);
 
+	.oro_dbgutil : {
+		KEEP(*(.oro_dbgutil .oro_dbgutil.*))
+	} :data
+
+	. = ALIGN(4096);
+
 	.bss : {
 		*(COMMON)
 		*(.bss .bss.*) /* MUST be last allocated to :data */

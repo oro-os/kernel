@@ -1,10 +1,6 @@
 import gdb  # type: ignore
 from ..log import debug, warn
 from . import SYMBOLS, QEMU
-from .autosym import (
-    SYM_LOCK_ACQUIRE,
-    SYM_LOCK_RELEASE,
-)
 from .backtrace import get_backtrace, warn_backtrace
 
 
@@ -92,8 +88,8 @@ class LockTracker(object):
             debug("lock_tracker: detached")
 
         if self.enabled:
-            acquire_sym = SYMBOLS.get_if_tracked(SYM_LOCK_ACQUIRE)
-            release_sym = SYMBOLS.get_if_tracked(SYM_LOCK_RELEASE)
+            acquire_sym = SYMBOLS.get_if_tracked("lock_acquire")
+            release_sym = SYMBOLS.get_if_tracked("lock_release")
             if acquire_sym and release_sym:
                 self._lock_breakpoint = LockTrackerAcquireBreakpoint(acquire_sym)
                 self._release_breakpoint = LockTrackerReleaseBreakpoint(release_sym)
@@ -109,7 +105,7 @@ class LockTrackerAcquireBreakpoint(gdb.Breakpoint):
         )
 
     def stop(self):
-        arg = int(gdb.parse_and_eval("lock_self_addr_do_not_change_this_parameter"))
+        arg = int(gdb.parse_and_eval("lock_self"))
         LOCK_TRACKER._track_acquire(arg)
         return False  # don't stop
 
@@ -121,7 +117,7 @@ class LockTrackerReleaseBreakpoint(gdb.Breakpoint):
         )
 
     def stop(self):
-        arg = int(gdb.parse_and_eval("lock_self_addr_do_not_change_this_parameter"))
+        arg = int(gdb.parse_and_eval("lock_self"))
         LOCK_TRACKER._track_release(arg)
         return False  # don't stop
 
