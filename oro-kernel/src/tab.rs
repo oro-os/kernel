@@ -752,13 +752,17 @@ impl Drop for SlotReaderGuard<'_> {
 		#[cfg(debug_assertions)]
 		{
 			let loaded = self.slot.lock.load(Acquire);
+			let kernel_id = (loaded >> 31) as u32;
 			debug_assert!(
 				loaded & (1 << 63) == 0,
 				"precondition failed: slot is not locked for reading"
 			);
+			// SAFETY: This is just for debugging.
+			let our_id = unsafe { crate::sync::oro_sync_current_core_id() };
 			debug_assert!(
-				(loaded >> 31) as u32 == unsafe { crate::sync::oro_sync_current_core_id() },
-				"precondition failed: slot is not locked by this core"
+				kernel_id == our_id,
+				"precondition failed: slot is not locked by this core: we are {our_id}, locked on \
+				 {kernel_id}"
 			);
 			::oro_dbgutil::__oro_dbgutil_lock_release_reader(
 				::core::ptr::from_ref(self.slot).addr(),
@@ -790,14 +794,17 @@ impl Drop for SlotWriterGuard<'_> {
 		#[cfg(debug_assertions)]
 		{
 			let loaded = self.slot.lock.load(Acquire);
+			let kernel_id = (loaded >> 31) as u32;
 			debug_assert!(
 				loaded & (1 << 63) != 0,
 				"precondition failed: slot is not locked for writing"
 			);
+			// SAFETY: This is just for debugging.
+			let our_id = unsafe { crate::sync::oro_sync_current_core_id() };
 			debug_assert!(
-				// SAFETY: This is just for debugging.
-				(loaded >> 31) as u32 == unsafe { crate::sync::oro_sync_current_core_id() },
-				"precondition failed: slot is not locked by this core"
+				kernel_id == our_id,
+				"precondition failed: slot is not locked by this core: we are {our_id}, locked on \
+				 {kernel_id}"
 			);
 		}
 
@@ -985,7 +992,7 @@ impl Slot {
 			{
 				panic!(
 					"precondition failed: slot is locked for writing by this core (do not call \
-					 `with()` during a `with_mut()` on the same `Tab` handle)"
+					 `with()` during a `with_mut()` on the same `Tab` handle): core {kernel_id}"
 				);
 			}
 
@@ -1038,7 +1045,7 @@ impl Slot {
 			{
 				panic!(
 					"precondition failed: slot is locked for reading by this core (do not call \
-					 `with_mut()` during a `with()` on the same `Tab` handle)"
+					 `with_mut()` during a `with()` on the same `Tab` handle): core {kernel_id}"
 				);
 			}
 		}
