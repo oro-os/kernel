@@ -86,7 +86,7 @@ pub unsafe fn prepare_transfer<A: Alloc>(
 	// Allocate and map in the transfer stubs
 	let stubs_base = target_address();
 
-	let source = &STUBS[0] as *const u8;
+	let source = &raw const STUBS[0];
 	let dest = stubs_base as *mut u8;
 
 	let current_mapper = AddressSpaceLayout::current_supervisor_space();

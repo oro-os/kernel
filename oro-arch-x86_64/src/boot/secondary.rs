@@ -67,7 +67,6 @@ pub enum BootError {
 /// and the page at physical address 0x9000 as the secondary core's L4 page table.
 ///
 /// Caller must ensure these pages are mapped and accessible.
-#[expect(clippy::missing_docs_in_private_items)]
 pub unsafe fn boot_secondary(
 	primary_handle: &AddressSpaceHandle,
 	lapic: &Lapic,
@@ -375,7 +374,7 @@ const SECONDARY_BOOT_STUB: &[u8] = &asm_buffer! {
 	// Set the PAE and PGE bits in CR4,
 	// as well as any others that the primary
 	// core has set that we're interested in.
-	"mov eax, 10100000b",
+	"mov eax, 0b10100000",
 	"mov ebx, [0x8FF0]",
 	"or eax, ebx",
 	"mov cr4, eax",

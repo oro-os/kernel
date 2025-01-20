@@ -57,7 +57,6 @@ pub unsafe fn boot_secondaries(stack_pages: usize) -> usize {
 	// Get the PSCI method.
 	let mut psci_method: Option<PsciMethod> = None;
 	for tkn in dtb.iter().filter_path(&[c"", c"psci"]) {
-		#[expect(clippy::redundant_guards)] // False positive
 		match tkn {
 			FdtToken::Property { name, value } if name == c"method" => {
 				let Ok(value) = CStr::from_bytes_with_nul(value) else {
@@ -90,7 +89,6 @@ pub unsafe fn boot_secondaries(stack_pages: usize) -> usize {
 	let mut cpu_id: u64 = 0;
 	let mut valid: bool = false;
 	for tkn in dtb.iter().filter_path(&[c"", c"cpus", c"cpu@"]) {
-		#[expect(clippy::redundant_guards)] // False positive
 		match tkn {
 			FdtToken::Node { name } => {
 				is_cpu = true;

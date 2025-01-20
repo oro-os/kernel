@@ -191,7 +191,6 @@ pub enum PageTableEntryTypeMut<'a> {
 #[repr(C, align(8))]
 pub struct PageTableEntry(u64);
 
-#[expect(clippy::missing_docs_in_private_items)]
 const _: () = assert::size_of::<PageTableEntry, 8>();
 
 macro_rules! impl_page_table_entry_type {
@@ -287,7 +286,7 @@ impl PageTableEntry {
 	#[inline(always)]
 	#[must_use]
 	pub fn table(self) -> bool {
-		self.raw() & 0b1 << 1 != 0
+		(self.raw() & (0b1 << 1)) != 0
 	}
 
 	/// Sets the page table entry as a table descriptor.
@@ -317,7 +316,7 @@ impl PageTableEntry {
 	#[inline(always)]
 	#[must_use]
 	pub const fn with_table(self) -> Self {
-		Self(self.0 | 0b1 << 1)
+		Self(self.0 | (0b1 << 1))
 	}
 
 	/// Gets the address of the page table entry.

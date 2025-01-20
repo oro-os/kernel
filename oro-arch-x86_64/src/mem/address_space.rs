@@ -115,7 +115,6 @@ impl AddressSpaceLayout {
 	/// Returns the linear map segment for the supervisor space.
 	#[must_use]
 	pub fn linear_map() -> &'static AddressSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: AddressSpaceLayout::LINEAR_MAP_IDX,
 			entry_template: PageTableEntry::new()
@@ -136,7 +135,6 @@ impl AddressSpaceLayout {
 	/// Returns the kernel syscall stack segment.
 	#[must_use]
 	pub fn kernel_syscall_stack() -> &'static AddressSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: (
 				AddressSpaceLayout::KERNEL_SYSCALL_STACK_IDX,
@@ -170,7 +168,6 @@ impl AddressSpaceLayout {
 	/// Returns a segment for the secondary core boot stub.
 	#[must_use]
 	pub fn secondary_boot_stub_code() -> &'static AddressSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: (
 				AddressSpaceLayout::KERNEL_SECONDARY_BOOT_IDX,
@@ -187,7 +184,6 @@ impl AddressSpaceLayout {
 	/// mapping.
 	#[must_use]
 	pub fn secondary_boot_stub_stack() -> &'static AddressSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: (
 				AddressSpaceLayout::KERNEL_SECONDARY_BOOT_IDX,
@@ -210,7 +206,6 @@ impl AddressSpaceLayout {
 	/// in the user address space). It must also not be executable.
 	#[must_use]
 	pub fn interrupt_stack() -> &'static AddressSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: (
 				AddressSpaceLayout::MODULE_INTERRUPT_STACK_IDX,
@@ -495,7 +490,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn user_thread_stack() -> Self::UserSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: (
 				AddressSpaceLayout::MODULE_THREAD_STACK_IDX,
@@ -513,7 +507,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn user_code() -> Self::UserSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: AddressSpaceLayout::MODULE_EXE_IDX,
 			entry_template: PageTableEntry::new().with_user().with_present(),
@@ -524,7 +517,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn user_data() -> Self::UserSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: AddressSpaceLayout::MODULE_EXE_IDX,
 			entry_template: PageTableEntry::new()
@@ -539,7 +531,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn user_rodata() -> Self::UserSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: AddressSpaceLayout::MODULE_EXE_IDX,
 			entry_template: PageTableEntry::new()
@@ -553,7 +544,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn sysabi() -> Self::UserSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: (AddressSpaceLayout::SYSABI, AddressSpaceLayout::SYSABI),
 			entry_template: PageTableEntry::new()
@@ -567,7 +557,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn kernel_code() -> Self::SupervisorSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: (
 				AddressSpaceLayout::KERNEL_EXE_IDX,
@@ -581,7 +570,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn kernel_data() -> Self::SupervisorSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: (
 				AddressSpaceLayout::KERNEL_EXE_IDX,
@@ -599,7 +587,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn kernel_rodata() -> Self::SupervisorSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: (
 				AddressSpaceLayout::KERNEL_EXE_IDX,
@@ -616,7 +603,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn kernel_stack() -> <Self as AddressSpace>::SupervisorSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: (
 				AddressSpaceLayout::KERNEL_STACK_IDX,
@@ -636,7 +622,6 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 	}
 
 	fn kernel_core_local() -> Self::SupervisorSegment {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const DESCRIPTOR: AddressSegment = AddressSegment {
 			valid_range: (
 				AddressSpaceLayout::KERNEL_CORE_LOCAL_IDX,

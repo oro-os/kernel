@@ -25,7 +25,7 @@ pub fn asm_buffer(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	});
 
 	let mut tokens: Vec<proc_macro::TokenTree> = tokens.into_iter().collect();
-	if tokens.last().map_or(false, |t| t.to_string() == ",") {
+	if tokens.last().is_some_and(|t| t.to_string() == ",") {
 		tokens.pop();
 	}
 	let tokens: proc_macro2::TokenStream = tokens

@@ -80,7 +80,6 @@ impl PageTable {
 #[repr(C, align(8))]
 pub struct PageTableEntry(u64);
 
-#[expect(clippy::missing_docs_in_private_items)]
 const _: () = assert::size_of::<PageTableEntry, 8>();
 
 impl fmt::Debug for PageTableEntry {

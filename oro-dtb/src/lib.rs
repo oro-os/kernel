@@ -352,7 +352,7 @@ impl<'a, I: Iterator<Item = FdtToken<'a>>> Iterator for FdtFilterIter<'a, I> {
 						let leaf = &self.path[self.depth];
 						let checks_id = leaf.to_bytes().contains(&b'@');
 						let checks_exact =
-							!checks_id || leaf.to_bytes().last().map_or(true, |&c| c != b'@');
+							!checks_id || leaf.to_bytes().last().is_none_or(|&c| c != b'@');
 
 						let matches = if checks_exact {
 							leaf == &name

@@ -62,16 +62,19 @@ pub fn log(message: core::fmt::Arguments) {
 		#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
 		oro_debug_uart16550::log(message);
 	}
+
+	#[cfg(not(feature = "kernel-debug"))]
+	{
+		let _ = message;
+	}
 }
 
 /// Sends a general debug message to the archiecture-specific debug endpoint.
 #[macro_export]
 macro_rules! dbg {
 	($($arg:tt)*) => {{
-		$crate::dbg_noop!(! $($arg)*);
-		#[cfg(feature = "kernel-debug")]
 		{
-			$crate::log(format_args!("{}:{}:I:{}", ::core::file!(), ::core::line!(), format_args!($lit, $($arg)*)));
+			$crate::log(format_args!("{}:{}:I:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
 		}
 	}};
 }
@@ -80,8 +83,6 @@ macro_rules! dbg {
 #[macro_export]
 macro_rules! dbg_err {
 	($($arg:tt)*) => {{
-		$crate::dbg_noop!(! $($arg)*);
-		#[cfg(feature = "kernel-debug")]
 		{
 			$crate::log(format_args!("{}:{}:E:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
 		}
@@ -92,23 +93,8 @@ macro_rules! dbg_err {
 #[macro_export]
 macro_rules! dbg_warn {
 	($($arg:tt)*) => {{
-		$crate::dbg_noop!(! $($arg)*);
-		#[cfg(feature = "kernel-debug")]
 		{
 			$crate::log(format_args!("{}:{}:W:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
-		}
-	}};
-}
-
-/// In a no-op `dbg!` macro we still consume the arguments
-/// to avoid unused variable warnings and to allow the compiler
-/// to not elide anything with a side effect.
-#[macro_export]
-macro_rules! dbg_noop {
-	(! $($arg:tt)*) => {{
-		#[cfg(not(feature = "kernel-debug"))]
-		{
-			let _ = format_args!($($arg)*);
 		}
 	}};
 }

@@ -211,7 +211,7 @@ impl<const TY: IdType> Id<TY> {
 		let mut id = Self::new([0; 16]);
 		id.0[..8].copy_from_slice(&high.to_be_bytes());
 		id.0[8..].copy_from_slice(&low.to_be_bytes());
-		id.0[0] = (id.0[0] & 0b0001_1111) | (TY as u8) << 5;
+		id.0[0] = (id.0[0] & 0b0001_1111) | ((TY as u8) << 5);
 		id
 	}
 
@@ -325,7 +325,6 @@ impl AnyId {
 	/// Calling this method with invalid type bytes may result
 	/// in undefined behavior.
 	pub unsafe fn to_str_unchecked<'a>(src: &[u8; 16], buf: &'a mut [u8; 27]) -> &'a str {
-		#[expect(clippy::missing_docs_in_private_items)]
 		const BASE32: [u8; 32] = *b"0123456789ACDEFGHJKMNPQRTUVWXYZ-";
 
 		let ty: IdType = core::mem::transmute(src[0] >> 5);
@@ -357,7 +356,7 @@ impl AnyId {
 				let b1_mask = (1 << b1_total) - 1;
 				let b1 = (src[usize::from(b1_index)] >> b1_end) & b1_mask;
 
-				let b = b0 << b1_total | b1;
+				let b = (b0 << b1_total) | b1;
 				BASE32[usize::from(b)]
 			} else {
 				BASE32[usize::from(b0)]

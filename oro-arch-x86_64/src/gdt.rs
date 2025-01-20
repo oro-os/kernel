@@ -79,38 +79,38 @@ impl GdtEntry {
 	/// Setting this flag will prevents the GDT from
 	/// writing to the segment on first use.
 	pub const fn with_accessed(self) -> Self {
-		Self(self.0 | 1 << 40)
+		Self(self.0 | (1 << 40))
 	}
 
 	/// Setting this flag allows the segment to be
 	/// written to.
 	pub const fn with_writable(self) -> Self {
-		Self(self.0 | 1 << 41)
+		Self(self.0 | (1 << 41))
 	}
 
 	/// Setting this flag allows the segment to be
 	/// executed. Must be set for CS and unset for DS.
 	pub const fn with_executable(self) -> Self {
-		Self(self.0 | 1 << 43)
+		Self(self.0 | (1 << 43))
 	}
 
 	/// Sets the DPL (Data Privilege Level) for the
 	/// descriptor. This corresponds to the ring level
 	/// of the descriptor.
 	pub const fn with_ring(self, ring: Dpl) -> Self {
-		Self(self.0 | (ring as u64) << 45)
+		Self(self.0 | ((ring as u64) << 45))
 	}
 
 	/// Sets the present bit for the descriptor.
 	/// Must be set for all valid descriptors.
 	pub const fn with_present(self) -> Self {
-		Self(self.0 | 1 << 47)
+		Self(self.0 | (1 << 47))
 	}
 
 	/// Sets the long mode bit for the descriptor.
 	/// Must be set for all valid descriptors.
 	pub const fn with_long_mode(self) -> Self {
-		Self(self.0 | 1 << 53)
+		Self(self.0 | (1 << 53))
 	}
 }
 
@@ -201,7 +201,7 @@ impl SysEntry {
 	/// Must be set for all valid descriptors.
 	pub const fn with_present(self) -> Self {
 		Self {
-			low:  self.low | 1 << 47,
+			low:  self.low | (1 << 47),
 			high: self.high,
 		}
 	}
@@ -221,7 +221,7 @@ impl SysEntry {
 	/// Must be set for all valid descriptors.
 	pub const fn with_long_mode(self) -> Self {
 		Self {
-			low:  self.low | 1 << 53,
+			low:  self.low | (1 << 53),
 			high: self.high,
 		}
 	}
@@ -298,7 +298,6 @@ impl<const COUNT: usize> Gdt<COUNT> {
 	///
 	/// Returns the offset (in bytes) of the entry and the new GDT as a tuple.
 	pub const fn with_entry(self, entry: GdtEntry) -> (u16, Gdt<{ COUNT + 1 }>) {
-		#[expect(clippy::missing_docs_in_private_items)]
 		#[repr(C)]
 		#[derive(Copy, Clone)]
 		struct Concat<A, B>(A, B);
@@ -318,7 +317,6 @@ impl<const COUNT: usize> Gdt<COUNT> {
 	///
 	/// Returns the offset (in bytes) of the entry and the new GDT as a tuple.
 	pub const fn with_sys_entry(self, entry: SysEntry) -> (u16, Gdt<{ COUNT + 2 }>) {
-		#[expect(clippy::missing_docs_in_private_items)]
 		#[repr(C)]
 		#[derive(Copy, Clone)]
 		struct Concat<A, B>(A, B);
