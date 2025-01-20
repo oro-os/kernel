@@ -11,7 +11,7 @@ use oro_mem::{
 };
 use oro_sync::{Lock, ReentrantMutex};
 
-use crate::{AddressSpace, Kernel, UserHandle, arch::Arch, instance::Instance};
+use crate::{AddressSpace, UserHandle, arch::Arch, instance::Instance};
 
 /// A singular executable module.
 ///
@@ -55,12 +55,6 @@ impl<A: Arch> Module<A> {
 			mapper,
 			entry_points: Vec::new(),
 		}));
-
-		Kernel::<A>::get()
-			.state()
-			.modules
-			.lock()
-			.push(Arc::downgrade(&r));
 
 		Ok(r)
 	}

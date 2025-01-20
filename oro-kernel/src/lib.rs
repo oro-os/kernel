@@ -47,10 +47,7 @@ use core::mem::MaybeUninit;
 
 use oro_macro::assert;
 use oro_mem::{
-	alloc::{
-		sync::{Arc, Weak},
-		vec::Vec,
-	},
+	alloc::{sync::Arc, vec::Vec},
 	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace as _, MapError},
 	pfa::Alloc,
@@ -212,17 +209,13 @@ impl<A: Arch> Kernel<A> {
 /// Global state shared by all [`Kernel`] instances across
 /// core boot/powerdown/bringup cycles.
 pub struct KernelState<A: Arch> {
-	/// List of all modules.
-	modules: TicketMutex<Vec<Weak<ReentrantMutex<module::Module<A>>>>>,
 	/// List of all threads.
-	threads: TicketMutex<Vec<tab::Tab<thread::Thread<A>>>>,
-
+	threads:   TicketMutex<Vec<tab::Tab<thread::Thread<A>>>>,
 	/// The root ring.
 	root_ring: Arc<ReentrantMutex<ring::Ring<A>>>,
-
 	/// The system-wide registry, loaded at boot with all of the "static" kernel
 	/// interfaces.
-	registry: Arc<ReentrantMutex<RootRegistry<A>>>,
+	registry:  Arc<ReentrantMutex<RootRegistry<A>>>,
 }
 
 impl<A: Arch> KernelState<A> {
@@ -270,7 +263,6 @@ impl<A: Arch> KernelState<A> {
 
 		this.write(Self {
 			root_ring,
-			modules: TicketMutex::default(),
 			threads: TicketMutex::default(),
 			registry,
 		});
