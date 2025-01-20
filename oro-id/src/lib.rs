@@ -322,8 +322,8 @@ impl AnyId {
 	/// ensure that the type is valid before calling this
 	/// method.
 	///
-	/// Calling this method with invalid type bytes may result
-	/// in undefined behavior.
+	/// Calling this method with invalid type bytes will result in
+	/// undefined behavior.
 	pub unsafe fn to_str_unchecked<'a>(src: &[u8; 16], buf: &'a mut [u8; 27]) -> &'a str {
 		const BASE32: [u8; 32] = *b"0123456789ACDEFGHJKMNPQRTUVWXYZ-";
 
