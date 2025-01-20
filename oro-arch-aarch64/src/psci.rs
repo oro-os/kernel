@@ -34,6 +34,7 @@ impl Error {
 		#[expect(clippy::cast_possible_wrap)]
 		let i = e as i32;
 		if i < 0 && i > -10 {
+			// SAFETY: We check the valid range of error codes prior to transmutation.
 			Err(unsafe { core::mem::transmute::<i64, Error>(i.into()) })
 		} else {
 			Ok(T::from(e))
@@ -46,6 +47,7 @@ impl Error {
 		#[expect(clippy::cast_possible_wrap)]
 		let i = e as i64;
 		if i < 0 && i > -10 {
+			// SAFETY: We check the valid range of error codes prior to transmutation.
 			Err(unsafe { core::mem::transmute::<i64, Error>(i) })
 		} else {
 			Ok(T::from(e))

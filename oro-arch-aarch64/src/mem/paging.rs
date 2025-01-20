@@ -678,6 +678,7 @@ macro_rules! impl_page_table_entry_table_descriptor_attr {
 			/// Returns the [`PageTableEntryTableAccessPerm`] of the page table entry.
 			#[inline(always)]
 			#[must_use] pub fn table_access_permissions(&self) -> PageTableEntryTableAccessPerm {
+				// SAFETY: The bits are guaranteed to be valid representations of the enum.
 				unsafe { core::mem::transmute(self.raw() & (0b11 << 61)) }
 			}
 
@@ -900,6 +901,7 @@ macro_rules! impl_page_table_entry_block_descriptor_attr {
 			#[inline(always)]
 			#[must_use]
 			pub fn block_access_permissions(&self) -> PageTableEntryBlockAccessPerm {
+				// SAFETY: The bits are guaranteed to be valid representations of the enum.
 				unsafe { core::mem::transmute(self.raw() & (0b11 << 6)) }
 			}
 
