@@ -1102,3 +1102,7 @@ impl Slot {
 impl<A: Arch> Tabbed for crate::thread::Thread<A> {
 	const TY: TabType = TabType::Thread;
 }
+
+impl<A: Arch> Tabbed for crate::instance::Instance<A> {
+	const TY: TabType = TabType::Instance;
+}

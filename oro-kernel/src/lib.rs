@@ -217,13 +217,11 @@ impl<A: Arch> Kernel<A> {
 /// core boot/powerdown/bringup cycles.
 pub struct KernelState<A: Arch> {
 	/// List of all modules.
-	modules:   TicketMutex<Vec<Weak<ReentrantMutex<module::Module<A>>>>>,
+	modules: TicketMutex<Vec<Weak<ReentrantMutex<module::Module<A>>>>>,
 	/// List of all rings.
-	rings:     TicketMutex<Vec<Weak<ReentrantMutex<ring::Ring<A>>>>>,
-	/// List of all instances.
-	instances: TicketMutex<Vec<Weak<ReentrantMutex<instance::Instance<A>>>>>,
+	rings:   TicketMutex<Vec<Weak<ReentrantMutex<ring::Ring<A>>>>>,
 	/// List of all threads.
-	threads:   TicketMutex<Vec<tab::Tab<thread::Thread<A>>>>,
+	threads: TicketMutex<Vec<tab::Tab<thread::Thread<A>>>>,
 
 	/// The root ring.
 	root_ring: Arc<ReentrantMutex<ring::Ring<A>>>,
@@ -281,7 +279,6 @@ impl<A: Arch> KernelState<A> {
 			root_ring,
 			modules: TicketMutex::default(),
 			rings: TicketMutex::new(vec![root_ring_weak]),
-			instances: TicketMutex::default(),
 			threads: TicketMutex::default(),
 			registry,
 		});

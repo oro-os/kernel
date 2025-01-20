@@ -103,11 +103,6 @@ impl<A: Arch> Instance<A> {
 
 		ring.lock().instances_mut().push(r.clone());
 		module.lock().instances.push(Arc::downgrade(&r));
-		Kernel::<A>::get()
-			.state()
-			.instances
-			.lock()
-			.push(Arc::downgrade(&r));
 
 		Ok(r)
 	}
