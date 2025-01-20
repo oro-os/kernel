@@ -462,7 +462,7 @@ impl AnyTab {
 				// looking up a tab, so we know it should be non-zero.
 				if slot
 					.users
-					.compare_exchange(users, users + 1, Relaxed, Relaxed)
+					.compare_exchange(users, users + 1, Release, Relaxed)
 					.is_ok()
 				{
 					break;
@@ -516,7 +516,7 @@ impl Clone for AnyTab {
 	#[inline(always)]
 	fn clone(&self) -> Self {
 		// SAFETY: We can guarantee that the slot is valid.
-		unsafe { &*self.ptr }.users.fetch_add(1, Relaxed);
+		unsafe { &*self.ptr }.users.fetch_add(1, Release);
 		Self {
 			id:  self.id,
 			ptr: self.ptr,
@@ -528,10 +528,16 @@ impl Drop for AnyTab {
 	fn drop(&mut self) {
 		// SAFETY: We can guarantee that the slot is valid.
 		let slot = unsafe { &*self.ptr };
-		if slot.users.fetch_sub(1, Relaxed) == 1 {
+		if slot.users.fetch_sub(1, Release) == 1 {
 			// SAFETY: We have the only owning reference to this slot,
 			// SAFETY: and we control its construction; it's always going to
 			// SAFETY: be the slot pointed to by the tab's ID.
+
+			debug_assert!(
+				slot.lock.load(Acquire) == 0,
+				"precondition failed: slot is locked during AnyTab free"
+			);
+
 			unsafe {
 				get().free(self.id, slot);
 			}
@@ -590,15 +596,15 @@ impl<T: Tabbed> Tab<T> {
 					"precondition failed: slot is locked (MUST_BE_FRESH=true)"
 				);
 				slot.users
-					.compare_exchange(0, 1, Relaxed, Relaxed)
+					.compare_exchange(0, 1, Release, Relaxed)
 					.expect("precondition failed: slot users is not 0 (MUST_BE_FRESH=true)");
 			} else {
 				// SAFETY(qix-): Not CXC-protected; the caller has been instructed only
 				// SAFETY(qix-): to call this function with `MUST_BE_FRESH=false` if they
 				// SAFETY(qix-): have a valid reference to the slot already (i.e. an `AnyTab`).
+				let last_user_count = slot.users.fetch_add(1, Release);
 				debug_assert_ne!(
-					slot.users.fetch_add(1, Relaxed),
-					0,
+					last_user_count, 0,
 					"precondition failed: slot users is 0 (MUST_BE_FRESH=false)"
 				);
 			}
@@ -606,9 +612,9 @@ impl<T: Tabbed> Tab<T> {
 		#[cfg(not(debug_assertions))]
 		{
 			if MUST_BE_FRESH {
-				slot.users.store(1, Relaxed);
+				slot.users.store(1, Release);
 			} else {
-				slot.users.fetch_add(1, Relaxed);
+				slot.users.fetch_add(1, Release);
 			}
 		}
 
@@ -660,7 +666,7 @@ impl<T: Tabbed> Clone for Tab<T> {
 	fn clone(&self) -> Self {
 		// SAFETY: We can guarantee that the slot is valid and the data is valid.
 		let slot = unsafe { &*self.ptr };
-		slot.users.fetch_add(1, Relaxed);
+		slot.users.fetch_add(1, Release);
 		Self {
 			id:  self.id,
 			ptr: self.ptr,
@@ -673,10 +679,16 @@ impl<T: Tabbed> Drop for Tab<T> {
 	fn drop(&mut self) {
 		// SAFETY: We can guarantee that the slot is valid and the data is valid.
 		let slot = unsafe { &*self.ptr };
-		if slot.users.fetch_sub(1, Relaxed) == 1 {
+		if slot.users.fetch_sub(1, Release) == 1 {
 			// SAFETY: We have the only owning reference to this slot,
 			// SAFETY: and we control its construction; it's always going to
 			// SAFETY: be the slot pointed to by the tab's ID.
+
+			debug_assert!(
+				slot.lock.load(Acquire) == 0,
+				"precondition failed: slot is locked during Tab free"
+			);
+
 			unsafe {
 				get().free(self.id, slot);
 			}
@@ -752,33 +764,27 @@ impl Drop for SlotReaderGuard<'_> {
 		#[cfg(debug_assertions)]
 		{
 			let loaded = self.slot.lock.load(Acquire);
-			let kernel_id = (loaded >> 31) as u32;
+			let is_reader = (loaded & (1 << 63)) == 0;
+			let count = loaded & ((1 << 31) - 1);
 			debug_assert!(
-				loaded & (1 << 63) == 0,
-				"precondition failed: slot is not locked for reading"
-			);
-			// SAFETY: This is just for debugging.
-			let our_id = unsafe { crate::sync::oro_sync_current_core_id() };
-			debug_assert!(
-				kernel_id == our_id,
-				"precondition failed: slot is not locked by this core: we are {our_id}, locked on \
-				 {kernel_id}"
-			);
-			::oro_dbgutil::__oro_dbgutil_lock_release_reader(
-				::core::ptr::from_ref(self.slot).addr(),
+				is_reader && count > 0,
+				"precondition failed: on reader drop: is_reader={is_reader}, count={count}"
 			);
 		}
+
 		let prev_value = self.slot.lock.fetch_sub(1, Release);
+
 		#[cfg(debug_assertions)]
 		{
-			if prev_value & ((1 << 31) - 1) == 1 {
-				self.slot
-					.lock
-					.compare_exchange(prev_value - 1, 0, Release, Relaxed)
-					.expect("precondition failed: slot was modified during reader unlock");
-			}
+			let is_reader = (prev_value & (1 << 63)) == 0;
+			let count = prev_value & ((1 << 31) - 1);
+			debug_assert!(
+				is_reader && count > 0,
+				"precondition failed: on reader drop (after release): is_reader={is_reader}, \
+				 count={count} (race condition detected)"
+			);
 		}
-		#[cfg(not(debug_assertions))]
+
 		let _ = prev_value;
 	}
 }
@@ -794,35 +800,32 @@ impl Drop for SlotWriterGuard<'_> {
 		#[cfg(debug_assertions)]
 		{
 			let loaded = self.slot.lock.load(Acquire);
+			let is_reader = (loaded & (1 << 63)) == 0;
+			let count = loaded & ((1 << 31) - 1);
 			let kernel_id = (loaded >> 31) as u32;
-			debug_assert!(
-				loaded & (1 << 63) != 0,
-				"precondition failed: slot is not locked for writing"
-			);
 			// SAFETY: This is just for debugging.
 			let our_id = unsafe { crate::sync::oro_sync_current_core_id() };
 			debug_assert!(
-				kernel_id == our_id,
-				"precondition failed: slot is not locked by this core: we are {our_id}, locked on \
-				 {kernel_id}"
+				!is_reader && count > 0 && kernel_id == our_id,
+				"precondition failed: on writer guard drop: our_id={our_id}, \
+				 kernel_id={kernel_id}, is_reader={is_reader}, count={count}"
 			);
 		}
 
-		::oro_dbgutil::__oro_dbgutil_lock_release_writer(::core::ptr::from_ref(self.slot).addr());
+		loop {
+			let loaded = self.slot.lock.load(Acquire);
+			let count = loaded & ((1 << 31) - 1);
 
-		let prev_value = self.slot.lock.fetch_sub(1, Release);
-		if prev_value & ((1 << 31) - 1) == 1 {
-			// We were the last writer.
-			#[cfg(not(debug_assertions))]
+			// Were we the last writer?
+			let new_value = if count == 1 { 0 } else { loaded - 1 };
+
+			if self
+				.slot
+				.lock
+				.compare_exchange_weak(loaded, new_value, Release, Relaxed)
+				.is_ok()
 			{
-				self.slot.lock.store(0, Release);
-			}
-			#[cfg(debug_assertions)]
-			{
-				self.slot
-					.lock
-					.compare_exchange(prev_value - 1, 0, Release, Relaxed)
-					.expect("precondition failed: slot was modified during writer unlock");
+				break;
 			}
 		}
 	}
@@ -975,43 +978,21 @@ impl Slot {
 		let loaded = self.lock.load(Acquire);
 
 		let is_reader = loaded & (1 << 63) == 0;
+		let lock_count = loaded & ((1 << 31) - 1);
 
-		#[cfg(not(debug_assertions))]
-		let (new_loaded, kernel_check) = (loaded, false);
+		let is_at_maximum_locks = lock_count == ((1 << 31) - 1);
 
-		#[cfg(debug_assertions)]
-		let (new_loaded, kernel_check) = {
-			let kernel_id = (loaded >> 31) as u32;
-			// SAFETY: There's nothing unsafe about this, it's just an extern prototype.
-			let our_kernel_id = unsafe { crate::sync::oro_sync_current_core_id() };
+		if !is_reader || is_at_maximum_locks {
+			return None;
+		}
 
-			// SAFETY: There's nothing unsafe about this, it's just an extern prototype.
-			if loaded > 0
-				&& !is_reader
-				&& kernel_id == unsafe { crate::sync::oro_sync_current_core_id() }
-			{
-				panic!(
-					"precondition failed: slot is locked for writing by this core (do not call \
-					 `with()` during a `with_mut()` on the same `Tab` handle): core {kernel_id}"
-				);
-			}
-
-			(
-				loaded | (u64::from(our_kernel_id) << 31),
-				loaded != 0 && kernel_id != our_kernel_id,
-			)
-		};
-
-		if !is_reader
-			|| kernel_check
-			|| self
-				.lock
-				.compare_exchange_weak(loaded, new_loaded + 1, Release, Relaxed)
-				.is_err()
+		if self
+			.lock
+			.compare_exchange_weak(loaded, loaded + 1, Release, Relaxed)
+			.is_err()
 		{
 			None
 		} else {
-			::oro_dbgutil::__oro_dbgutil_lock_acquire_reader(::core::ptr::from_ref(self).addr());
 			Some(SlotReaderGuard { slot: self })
 		}
 	}
@@ -1037,35 +1018,30 @@ impl Slot {
 		// for the number of writers.
 		let kernel_id = (loaded >> 31) as u32;
 
-		#[cfg(debug_assertions)]
-		{
-			// SAFETY: There's nothing unsafe about this, it's just an extern prototype.
-			if loaded > 0
-				&& is_reader && kernel_id == unsafe { crate::sync::oro_sync_current_core_id() }
-			{
-				panic!(
-					"precondition failed: slot is locked for reading by this core (do not call \
-					 `with_mut()` during a `with()` on the same `Tab` handle): core {kernel_id}"
-				);
-			}
+		let lock_count = loaded & ((1 << 31) - 1);
+
+		let is_locked_for_reading = loaded > 0 && is_reader;
+		let is_at_maximum_locks = lock_count == ((1 << 31) - 1);
+		// SAFETY: There's nothing unsafe about this, it's just an extern prototype.
+		let is_locked_by_another_core =
+			loaded > 0 && kernel_id != unsafe { crate::sync::oro_sync_current_core_id() };
+
+		if is_locked_for_reading || is_locked_by_another_core || is_at_maximum_locks {
+			return None;
 		}
 
-		if (loaded > 0 && is_reader)
-			// SAFETY: There's nothing unsafe about this, it's just an extern prototype.
-			|| (!is_reader && kernel_id != unsafe { crate::sync::oro_sync_current_core_id() })
-			|| (loaded & ((1 << 31) - 1)) == ((1 << 31) - 1)
-			|| self
-				.lock
-				.compare_exchange_weak(
-					loaded,
-					(1 << 63) | (loaded + 1) | (u64::from(kernel_id) << 31),
-					Release, Relaxed
-				)
-				.is_err()
+		if self
+			.lock
+			.compare_exchange_weak(
+				loaded,
+				(1 << 63) | (u64::from(kernel_id) << 31) | (lock_count + 1),
+				Release,
+				Relaxed,
+			)
+			.is_err()
 		{
 			None
 		} else {
-			::oro_dbgutil::__oro_dbgutil_lock_acquire_writer(::core::ptr::from_ref(self).addr());
 			Some(SlotWriterGuard { slot: self })
 		}
 	}
