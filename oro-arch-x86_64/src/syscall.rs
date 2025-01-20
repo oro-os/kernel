@@ -5,7 +5,6 @@ use core::arch::{asm, naked_asm};
 use oro_kernel::{interface::SystemCallRequest, scheduler::Switch};
 use oro_mem::mapper::AddressSegment;
 use oro_sync::Lock;
-use oro_sysabi::syscall::Opcode;
 
 use crate::{
 	asm::{rdmsr, wrmsr},
@@ -110,8 +109,6 @@ unsafe extern "C" fn syscall_enter_noncompat_rust() -> ! {
 		out("rdx") arg3,
 		out("r9") arg4,
 	};
-
-	let opcode = core::mem::transmute::<u64, Opcode>(opcode);
 
 	let syscall_request = SystemCallRequest {
 		opcode,

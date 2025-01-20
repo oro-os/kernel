@@ -290,7 +290,7 @@ impl Drop for InFlightSystemCallHandle {
 #[derive(Debug, Clone)]
 pub struct SystemCallRequest {
 	/// The opcode.
-	pub opcode: oro_sysabi::syscall::Opcode,
+	pub opcode: u64,
 	/// The first argument.
 	pub arg1:   u64,
 	/// The second argument.

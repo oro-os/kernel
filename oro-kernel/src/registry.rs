@@ -71,7 +71,7 @@ pub trait Registry<A: Arch>: Send {
 		request: &SystemCallRequest,
 	) -> InterfaceResponse {
 		let error = match request.opcode {
-			Opcode::Get => {
+			const { Opcode::Get as u64 } => {
 				if (request.arg1 & oro_sysabi::id::mask::KERNEL_ID) == 0 {
 					if let Some(res) = crate::iface::kernel::try_dispatch_get::<A>(
 						thread,
@@ -92,7 +92,7 @@ pub trait Registry<A: Arch>: Send {
 					}
 				}
 			}
-			Opcode::Set => {
+			const { Opcode::Set as u64 } => {
 				if (request.arg1 & oro_sysabi::id::mask::KERNEL_ID) == 0 {
 					if let Some(res) = crate::iface::kernel::try_dispatch_set::<A>(
 						thread,
