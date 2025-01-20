@@ -1,19 +1,13 @@
 //! Implements Oro rings in the kernel.
 
 use oro_mem::{
-	alloc::{
-		sync::{Arc, Weak},
-		vec::Vec,
-	},
+	alloc::vec::Vec,
 	mapper::{AddressSegment, AddressSpace as _, MapError},
 };
-use oro_sync::{Lock, ReentrantMutex};
 
 use crate::{
-	AddressSpace, Kernel, UserHandle,
-	arch::Arch,
-	instance::Instance,
-	registry::{RegistryView, RootRegistry},
+	AddressSpace, Kernel, UserHandle, arch::Arch, instance::Instance, interface::RingInterface,
+	tab::Tab,
 };
 
 /// A singular ring.
@@ -27,7 +21,7 @@ use crate::{
 /// However, module instances on a ring cannot see 'sibling' or parent
 /// rings, or anything on them, under any circumstance. This is enforced
 /// by the kernel. The resources they have access to are limited to those
-/// explicitly granted to them by the parent ring via [`crate::port::Port`]s.
+/// explicitly granted to them by the parent ring via [`crate::interface::Interface`]s.
 ///
 /// Rings have exactly one parent ring, and can have any number of child
 /// rings. The root ring is the only ring that has no parent ring, and is
@@ -35,49 +29,42 @@ use crate::{
 /// the root ring are effectively at the highest privilege level of the
 /// system, and can interact with the kernel directly. Child rings may
 /// only do so if one of the root ring's module instances has granted
-/// them such access via a port.
+/// them such access via a port or interface.
 #[non_exhaustive]
 pub struct Ring<A: Arch> {
-	/// The resource ID.
-	id:        u64,
 	/// The parent ring handle, or `None` if this is the root ring.
-	parent:    Option<Weak<ReentrantMutex<Ring<A>>>>,
+	parent:     Option<Tab<Ring<A>>>,
 	/// The module [`Instance`]s on the ring.
-	instances: Vec<Arc<ReentrantMutex<Instance<A>>>>,
+	instances:  Vec<Tab<Instance<A>>>,
 	/// The ring's base mapper handle.
-	mapper:    UserHandle<A>,
+	mapper:     UserHandle<A>,
 	/// The ring's child rings.
-	children:  Vec<Arc<ReentrantMutex<Ring<A>>>>,
-	/// The ring's registry.
-	registry:  Arc<ReentrantMutex<RegistryView<A, RootRegistry<A>>>>,
+	children:   Vec<Tab<Ring<A>>>,
+	/// The interfaces exposed to the ring.
+	interfaces: Vec<Tab<RingInterface<A>>>,
 }
 
 impl<A: Arch> Ring<A> {
 	/// Creates a new ring.
-	pub fn new(
-		parent: &Arc<ReentrantMutex<Ring<A>>>,
-	) -> Result<Arc<ReentrantMutex<Self>>, MapError> {
-		let id = crate::id::allocate();
-
+	pub fn new(parent: &Tab<Ring<A>>) -> Result<Tab<Self>, MapError> {
 		let mapper = AddressSpace::<A>::new_user_space(&Kernel::<A>::get().mapper)
 			.ok_or(MapError::OutOfMemory)?;
 
 		AddressSpace::<A>::sysabi().provision_as_shared(&mapper)?;
 
-		let r = Arc::new(ReentrantMutex::new(Self {
-			id,
-			parent: Some(Arc::downgrade(parent)),
-			instances: Vec::new(),
-			mapper,
-			children: Vec::new(),
-			registry: Arc::new(ReentrantMutex::new(RegistryView::new(
-				crate::Kernel::<A>::get().state().registry().clone(),
-			))),
-		}));
+		let tab = crate::tab::get()
+			.add(Self {
+				parent: Some(parent.clone()),
+				instances: Vec::new(),
+				mapper,
+				children: Vec::new(),
+				interfaces: Vec::new(),
+			})
+			.ok_or(MapError::OutOfMemory)?;
 
-		parent.lock().children.push(r.clone());
+		parent.with_mut(|parent| parent.children.push(tab.clone()));
 
-		Ok(r)
+		Ok(tab)
 	}
 
 	/// Creates a new root ring.
@@ -90,9 +77,7 @@ impl<A: Arch> Ring<A> {
 	///
 	/// Caller **must** push the ring onto the kernel state's `rings` list itself;
 	/// this method **will not** do it for you.
-	pub(crate) unsafe fn new_root(
-		registry: Arc<ReentrantMutex<RootRegistry<A>>>,
-	) -> Result<Arc<ReentrantMutex<Self>>, MapError> {
+	pub(crate) unsafe fn new_root() -> Result<Tab<Self>, MapError> {
 		// NOTE(qix-): This method CANNOT call `Kernel::<A>::get()` because
 		// NOTE(qix-): core-local kernels are not guaranteed to be initialized
 		// NOTE(qix-): at this point in the kernel's lifetime.
@@ -109,36 +94,23 @@ impl<A: Arch> Ring<A> {
 
 		AddressSpace::<A>::sysabi().provision_as_shared(&mapper)?;
 
-		let r = Arc::new(ReentrantMutex::new(Self {
-			id: 0,
-			parent: None,
-			instances: Vec::new(),
-			mapper,
-			children: Vec::new(),
-			registry: Arc::new(ReentrantMutex::new(RegistryView::new(registry))),
-		}));
-
-		Ok(r)
-	}
-
-	/// Returns the ring's ID.
-	#[must_use]
-	pub fn id(&self) -> u64 {
-		self.id
+		crate::tab::get()
+			.add(Self {
+				parent: None,
+				instances: Vec::new(),
+				mapper,
+				children: Vec::new(),
+				interfaces: Vec::new(),
+			})
+			.ok_or(MapError::OutOfMemory)
 	}
 
 	/// Returns the ring's parent ring weak handle.
 	///
 	/// If the ring is the root ring, this function will return `None`.
 	#[must_use]
-	pub fn parent(&self) -> Option<Weak<ReentrantMutex<Ring<A>>>> {
-		self.parent.clone()
-	}
-
-	/// Returns a slice of instances on the ring.
-	#[must_use]
-	pub fn instances(&self) -> &[Arc<ReentrantMutex<Instance<A>>>] {
-		&self.instances
+	pub fn parent(&self) -> Option<&Tab<Ring<A>>> {
+		self.parent.as_ref()
 	}
 
 	/// Returns a reference to the ring's mapper.
@@ -147,15 +119,27 @@ impl<A: Arch> Ring<A> {
 		&self.mapper
 	}
 
+	/// Returns a slice of instances on the ring.
+	#[must_use]
+	pub fn instances(&self) -> &[Tab<Instance<A>>] {
+		&self.instances
+	}
+
 	/// Returns a mutable reference to the instances vector.
 	#[must_use]
-	pub fn instances_mut(&mut self) -> &mut Vec<Arc<ReentrantMutex<Instance<A>>>> {
+	pub fn instances_mut(&mut self) -> &mut Vec<Tab<Instance<A>>> {
 		&mut self.instances
 	}
 
-	/// Returns the ring's registry handle.
+	/// Returns a slice of interfaces exposed to the ring.
 	#[must_use]
-	pub fn registry(&self) -> &Arc<ReentrantMutex<RegistryView<A, RootRegistry<A>>>> {
-		&self.registry
+	pub fn interfaces(&self) -> &[Tab<RingInterface<A>>] {
+		&self.interfaces
+	}
+
+	/// Returns a mutable reference to the interfaces vector.
+	#[must_use]
+	pub fn interfaces_mut(&mut self) -> &mut Vec<Tab<RingInterface<A>>> {
+		&mut self.interfaces
 	}
 }

@@ -11,19 +11,19 @@
 
 use oro_macro::AsU64;
 use oro_mem::{
-	alloc::sync::Arc,
 	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace as _, MapError, UnmapError},
 	pfa::Alloc,
 };
-use oro_sync::{Lock, ReentrantMutex};
+use oro_sync::Lock;
 use oro_sysabi::{key, syscall::Error as SysError};
 
 use crate::{
 	AddressSpace, Kernel, UserHandle,
 	arch::{Arch, ThreadHandle},
 	instance::Instance,
-	interface::{InFlightState, InFlightSystemCall, InFlightSystemCallHandle, SystemCallResponse},
+	ring::Ring,
+	syscall::{InFlightState, InFlightSystemCall, InFlightSystemCallHandle, SystemCallResponse},
 	tab::Tab,
 };
 
@@ -67,10 +67,11 @@ enum State {
 /// other OSes, are not nested (i.e. a thread does not
 /// have a parent thread).
 pub struct Thread<A: Arch> {
-	/// The resource ID.
+	/// The tab's ID. Stored here for internal stuff;
+	/// exposed via [`Tab::id()`].
 	id: u64,
 	/// The module instance to which this thread belongs.
-	instance: Arc<ReentrantMutex<Instance<A>>>,
+	instance: Tab<Instance<A>>,
 	/// Architecture-specific thread state.
 	handle: A::ThreadHandle,
 	/// The thread's state (during running).
@@ -87,16 +88,15 @@ impl<A: Arch> Thread<A> {
 	/// Creates a new thread in the given module instance.
 	#[expect(clippy::missing_panics_doc)]
 	pub fn new(
-		instance: &Arc<ReentrantMutex<Instance<A>>>,
+		instance: &Tab<Instance<A>>,
 		entry_point: usize,
 	) -> Result<Tab<Thread<A>>, MapError> {
-		let id = crate::id::allocate();
-
 		// Pre-calculate the stack pointer.
 		// TODO(qix-): If/when we support larger page sizes, this will need to be adjusted.
 		let stack_ptr = AddressSpace::<A>::user_thread_stack().range().1 & !0xFFF;
 
-		let mapper = AddressSpace::<A>::duplicate_user_space_shallow(instance.lock().mapper())
+		let mapper = instance
+			.with(|instance| AddressSpace::<A>::duplicate_user_space_shallow(instance.mapper()))
 			.ok_or(MapError::OutOfMemory)?;
 
 		let handle = A::ThreadHandle::new(mapper, stack_ptr, entry_point)?;
@@ -179,7 +179,7 @@ impl<A: Arch> Thread<A> {
 		// We do this before we create the tab just in case we're OOM
 		// and need to have the thread clean itself up.
 		let this = Self {
-			id,
+			id: 0, // will be set later
 			instance: instance.clone(),
 			handle,
 			state: State::default(),
@@ -189,7 +189,9 @@ impl<A: Arch> Thread<A> {
 
 		let tab = crate::tab::get().add(this).ok_or(MapError::OutOfMemory)?;
 
-		instance.lock().threads.insert(id, tab.clone());
+		tab.with_mut(|t| t.id = tab.id());
+
+		instance.with_mut(|instance| instance.threads.insert(tab.id(), tab.clone()));
 
 		Kernel::<A>::get()
 			.state()
@@ -200,17 +202,10 @@ impl<A: Arch> Thread<A> {
 		Ok(tab)
 	}
 
-	/// Returns the thread's ID.
-	#[must_use]
-	#[inline]
-	pub fn id(&self) -> u64 {
-		self.id
-	}
-
 	/// Returns module instance handle to which this thread belongs.
 	#[inline]
-	pub fn instance(&self) -> Arc<ReentrantMutex<Instance<A>>> {
-		self.instance.clone()
+	pub fn instance(&self) -> &Tab<Instance<A>> {
+		&self.instance
 	}
 
 	/// Returns the thread's address space handle.
@@ -287,6 +282,13 @@ impl<A: Arch> Thread<A> {
 			}
 			RunState::Stopped => Err(ScheduleError::Stopped),
 		}
+	}
+
+	/// Returns the thread's owning ring.
+	///
+	/// **Note:** This will temporarily lock the thread's instance.
+	pub fn ring(&self) -> Tab<Ring<A>> {
+		self.instance.with(|instance| instance.ring().clone())
 	}
 
 	/// Attempts to pause the thread on the given core.
@@ -398,13 +400,14 @@ impl<A: Arch> Thread<A> {
 			self.state = State::Unallocated;
 
 			// Remove the thread from the instance's thread table.
-			self.instance.lock().threads.remove(self.id);
+			self.instance
+				.with_mut(|instance| instance.threads.remove(self.id));
 
 			// Remove the thread from the global thread table.
 			// TODO(qix-): This is horribly inefficient but it's the best I can do for now
 			// TODO(qix-): until a better data structure for the schedulers is implemented.
 			let mut threads = Kernel::<A>::get().state().threads().lock();
-			threads.retain(|t| t.with(|t| t.id() != self.id));
+			threads.retain(|t| t.id() != self.id);
 		}
 	}
 
@@ -464,6 +467,10 @@ pub enum ScheduleAction {
 
 impl<A: Arch> Drop for Thread<A> {
 	fn drop(&mut self) {
+		// SAFETY(qix-): Do NOT rely on `self.id` being valid here.
+		// SAFETY(qix-): There's a chance the thread is dropped during construction,
+		// SAFETY(qix-): before it's registered with the tab registry.
+
 		let old_state = core::mem::replace(&mut self.state, State::Unallocated);
 
 		// Sanity check; make sure the thread is not running on any scheduler,

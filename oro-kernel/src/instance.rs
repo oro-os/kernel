@@ -1,19 +1,11 @@
 //! Module instance types and functionality.
 
-use oro_mem::{
-	alloc::{
-		sync::{Arc, Weak},
-		vec::Vec,
-	},
-	mapper::{AddressSegment, AddressSpace as _, MapError},
-};
-use oro_sync::{Lock, ReentrantMutex};
+use oro_mem::mapper::{AddressSegment, AddressSpace as _, MapError};
 
 use crate::{
 	AddressSpace, Kernel, UserHandle,
 	arch::{Arch, InstanceHandle},
 	module::Module,
-	port::Port,
 	ring::Ring,
 	tab::Tab,
 	table::Table,
@@ -51,20 +43,16 @@ use crate::{
 /// bootstrap the rest of the system as they see fit.
 #[non_exhaustive]
 pub struct Instance<A: Arch> {
-	/// The module instance ID.
-	id: u64,
 	/// The module from which this instance was spawned.
 	///
 	/// Strong reference to prevent the module from being
 	/// deallocated while the instance is still alive, which would
 	/// otherwise reclaim the executable memory pages and wreak havoc.
-	module: Arc<ReentrantMutex<Module<A>>>,
+	module: Tab<Module<A>>,
 	/// The ring on which this instance resides.
-	ring: Weak<ReentrantMutex<Ring<A>>>,
+	ring: Tab<Ring<A>>,
 	/// The thread list for the instance.
 	pub(super) threads: Table<Tab<Thread<A>>>,
-	/// The port list for the instance.
-	ports: Vec<Arc<ReentrantMutex<Port>>>,
 	/// The instance's architecture handle.
 	handle: A::InstanceHandle,
 }
@@ -73,64 +61,50 @@ impl<A: Arch> Instance<A> {
 	/// Creates a new instance, allocating a new mapper.
 	///
 	/// Notably, this does **not** spawn any threads.
-	pub fn new(
-		module: &Arc<ReentrantMutex<Module<A>>>,
-		ring: &Arc<ReentrantMutex<Ring<A>>>,
-	) -> Result<Arc<ReentrantMutex<Self>>, MapError> {
-		let id = crate::id::allocate();
-
+	pub fn new(module: &Tab<Module<A>>, ring: &Tab<Ring<A>>) -> Result<Tab<Self>, MapError> {
 		let mapper = AddressSpace::<A>::new_user_space(Kernel::<A>::get().mapper())
 			.ok_or(MapError::OutOfMemory)?;
 
 		let handle = A::InstanceHandle::new(mapper)?;
 
 		// Apply the ring mapper overlay to the instance.
-		AddressSpace::<A>::sysabi()
-			.apply_user_space_shallow(handle.mapper(), ring.lock().mapper())?;
+		ring.with(|ring| {
+			AddressSpace::<A>::sysabi().apply_user_space_shallow(handle.mapper(), ring.mapper())
+		})?;
 
 		// Apply the module's read-only mapper overlay to the instance.
-		AddressSpace::<A>::user_rodata()
-			.apply_user_space_shallow(handle.mapper(), module.lock().mapper())?;
+		module.with(|module| {
+			AddressSpace::<A>::user_rodata()
+				.apply_user_space_shallow(handle.mapper(), module.mapper())
+		})?;
 
-		let r = Arc::new(ReentrantMutex::new(Self {
-			id,
-			module: module.clone(),
-			ring: Arc::downgrade(ring),
-			threads: Table::new(),
-			ports: Vec::new(),
-			handle,
-		}));
+		let tab = crate::tab::get()
+			.add(Self {
+				module: module.clone(),
+				ring: ring.clone(),
+				threads: Table::new(),
+				handle,
+			})
+			.ok_or(MapError::OutOfMemory)?;
 
-		ring.lock().instances_mut().push(r.clone());
-		module.lock().instances.push(Arc::downgrade(&r));
+		ring.with_mut(|ring| ring.instances_mut().push(tab.clone()));
 
-		Ok(r)
-	}
-
-	/// Returns the instance ID.
-	#[must_use]
-	pub fn id(&self) -> u64 {
-		self.id
+		Ok(tab)
 	}
 
 	/// The handle to the module from which this instance was spawned.
-	pub fn module(&self) -> Arc<ReentrantMutex<Module<A>>> {
-		self.module.clone()
+	pub fn module(&self) -> &Tab<Module<A>> {
+		&self.module
 	}
 
-	/// The weak handle to the ring on which this instance resides.
-	pub fn ring(&self) -> Weak<ReentrantMutex<Ring<A>>> {
-		self.ring.clone()
+	/// The handle to the ring on which this instance resides.
+	pub fn ring(&self) -> &Tab<Ring<A>> {
+		&self.ring
 	}
 
 	/// Gets a handle to the list of threads for this instance.
 	pub fn threads(&self) -> &Table<Tab<Thread<A>>> {
 		&self.threads
-	}
-
-	/// Gets a handle to the list of ports for this instance.
-	pub fn ports(&self) -> &[Arc<ReentrantMutex<Port>>] {
-		&self.ports
 	}
 
 	/// Returns the instance's address space handle.

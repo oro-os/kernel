@@ -3,15 +3,11 @@
 use oro_id::{Id, IdType};
 use oro_macro::assert;
 use oro_mem::{
-	alloc::{
-		sync::{Arc, Weak},
-		vec::Vec,
-	},
+	alloc::vec::Vec,
 	mapper::{AddressSpace as _, MapError},
 };
-use oro_sync::{Lock, ReentrantMutex};
 
-use crate::{AddressSpace, UserHandle, arch::Arch, instance::Instance};
+use crate::{AddressSpace, UserHandle, arch::Arch, tab::Tab};
 
 /// A singular executable module.
 ///
@@ -23,13 +19,9 @@ use crate::{AddressSpace, UserHandle, arch::Arch, instance::Instance};
 /// to populate the module with the executable code and data, which is then
 /// used to create instances of the module.
 pub struct Module<A: Arch> {
-	/// The resource ID.
-	id: u64,
 	/// The module ID. Provided by the ring spawner and used
 	/// to refer to the module during module loading.
 	module_id: Id<{ IdType::Module }>,
-	/// The list of instances spawned from this module.
-	pub(super) instances: Vec<Weak<ReentrantMutex<Instance<A>>>>,
 	/// The module's address space mapper handle.
 	///
 	/// Only uninitialized if the module is in the process of being freed.
@@ -43,37 +35,22 @@ pub struct Module<A: Arch> {
 
 impl<A: Arch> Module<A> {
 	/// Creates a new module.
-	pub fn new(module_id: Id<{ IdType::Module }>) -> Result<Arc<ReentrantMutex<Self>>, MapError> {
-		let id = crate::id::allocate();
-
+	pub fn new(module_id: Id<{ IdType::Module }>) -> Result<Tab<Self>, MapError> {
 		let mapper = AddressSpace::<A>::new_user_space_empty().ok_or(MapError::OutOfMemory)?;
 
-		let r = Arc::new(ReentrantMutex::new(Self {
-			id,
-			module_id,
-			instances: Vec::new(),
-			mapper,
-			entry_points: Vec::new(),
-		}));
-
-		Ok(r)
-	}
-
-	/// Returns the instance ID.
-	#[must_use]
-	pub fn id(&self) -> u64 {
-		self.id
+		crate::tab::get()
+			.add(Self {
+				module_id,
+				mapper,
+				entry_points: Vec::new(),
+			})
+			.ok_or(MapError::OutOfMemory)
 	}
 
 	/// Returns the module ID.
 	#[must_use]
 	pub fn module_id(&self) -> &Id<{ IdType::Module }> {
 		&self.module_id
-	}
-
-	/// Returns a list of weak handles to instances spawned from this module.
-	pub fn instances(&self) -> &[Weak<ReentrantMutex<Instance<A>>>] {
-		&self.instances
 	}
 
 	/// Returns the module's user address space mapper handle.
@@ -97,18 +74,7 @@ impl<A: Arch> Module<A> {
 
 impl<A: Arch> Drop for Module<A> {
 	fn drop(&mut self) {
-		// NOTE(qix-): Do not call assoiated methods on `self` within this method.
-
-		// Make sure all instances have been properly destroyed prior
-		// to dropping the module.
-		for instance in &self.instances {
-			if let Some(instance) = instance.upgrade() {
-				panic!(
-					"module dropped with active instance(s); first found is {:?}",
-					instance.lock().id()
-				);
-			}
-		}
+		// NOTE(qix-): Do not call associated methods on `self` within this method.
 
 		// Statically ensure that handles do not have drop semantics.
 		// Otherwise, the following `unsafe` block would be unsound.

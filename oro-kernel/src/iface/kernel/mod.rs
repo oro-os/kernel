@@ -2,7 +2,7 @@
 //!
 //! Always available, regardless of the caller's ring.
 
-use crate::{arch::Arch, interface::InterfaceResponse, tab::Tab, thread::Thread};
+use crate::{arch::Arch, syscall::InterfaceResponse, tab::Tab, thread::Thread};
 
 mod thread_v0;
 

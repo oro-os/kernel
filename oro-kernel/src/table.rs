@@ -26,21 +26,6 @@ impl<T: Sized, Alloc: Allocator + Default> Table<T, Alloc> {
 		Self(HashMap::default())
 	}
 
-	/// Inserts a value into the table, allocating it a unique ID using the
-	/// system's monotonic ID allocator ([`crate::id::allocate`]).
-	///
-	/// Lock-free.
-	pub fn insert_unique(&mut self, value: T) -> u64 {
-		let id = crate::id::allocate();
-		// SAFETY: This operation is safe if a key does not exist in the map.
-		// SAFETY: Since `id::allocate()` is guaranteed to be unique, this
-		// SAFETY: allows us to avoid a lookup.
-		unsafe {
-			self.0.insert_unique_unchecked(id, value);
-		}
-		id
-	}
-
 	/// Inserts a value into the table with a specific ID.
 	///
 	/// Safely checks for collisions and drops the old value if one exists.

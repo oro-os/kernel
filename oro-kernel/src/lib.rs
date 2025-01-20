@@ -29,33 +29,31 @@
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 pub mod arch;
-pub mod id;
 pub mod iface;
 pub mod instance;
 pub mod interface;
 pub mod module;
-pub mod port;
-pub mod registry;
 pub mod ring;
 pub mod scheduler;
 pub mod sync;
+pub mod syscall;
 pub mod tab;
 pub mod table;
 pub mod thread;
 
 use core::mem::MaybeUninit;
 
+use interface::RingInterface;
 use oro_macro::assert;
 use oro_mem::{
-	alloc::{sync::Arc, vec::Vec},
+	alloc::vec::Vec,
 	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace as _, MapError},
 	pfa::Alloc,
 };
-use oro_sync::{Lock, ReentrantMutex, TicketMutex};
-use registry::{Registry, RootRegistry};
+use oro_sync::{Lock, TicketMutex};
 
-use self::{arch::Arch, interface::RingInterface, scheduler::Scheduler};
+use self::{arch::Arch, scheduler::Scheduler};
 
 /// Core-local instance of the Oro kernel.
 ///
@@ -212,10 +210,7 @@ pub struct KernelState<A: Arch> {
 	/// List of all threads.
 	threads:   TicketMutex<Vec<tab::Tab<thread::Thread<A>>>>,
 	/// The root ring.
-	root_ring: Arc<ReentrantMutex<ring::Ring<A>>>,
-	/// The system-wide registry, loaded at boot with all of the "static" kernel
-	/// interfaces.
-	registry:  Arc<ReentrantMutex<RootRegistry<A>>>,
+	root_ring: tab::Tab<ring::Ring<A>>,
 }
 
 impl<A: Arch> KernelState<A> {
@@ -236,54 +231,58 @@ impl<A: Arch> KernelState<A> {
 		// SAFETY(qix-): Must be first, before anything else happens in the kernel.
 		self::sync::install_dummy_kernel_id_fn();
 
-		let registry = Arc::new(ReentrantMutex::new(RootRegistry::new_empty()));
-
-		let root_ring = ring::Ring::<A>::new_root(registry.clone())?;
+		let root_ring = ring::Ring::<A>::new_root()?;
 
 		// Install root ring interfaces.
 		{
-			let mut registry = registry.lock();
-			let ifaceid = registry.register_interface(Arc::new(RingInterface::new(
-				self::iface::root_ring::debug_out_v0::DebugOutV0::new(),
-				root_ring.lock().id(),
-			)));
+			let ifaceid = tab::get()
+				.add(RingInterface::<A>::new(
+					self::iface::root_ring::debug_out_v0::DebugOutV0::new(),
+					root_ring.id(),
+				))
+				.expect("out of memory");
+
 			// XXX(qix-): DEBUG
-			::oro_debug::dbg!("registered DebugLogV0: {ifaceid}");
+			::oro_debug::dbg!("registered DebugLogV0: {}", ifaceid.id());
+
+			root_ring.with_mut(|root_ring| {
+				root_ring.interfaces_mut().push(ifaceid);
+			});
 
 			#[cfg(feature = "boot-vbuf-v0")]
 			{
-				let ifaceid = registry.register_interface(Arc::new(RingInterface::new(
-					self::iface::root_ring::boot_vbuf_v0::BootVbufV0::new(),
-					root_ring.lock().id(),
-				)));
+				let ifaceid = tab::get()
+					.add(RingInterface::<A>::new(
+						self::iface::root_ring::boot_vbuf_v0::BootVbufV0::new(),
+						root_ring.id(),
+					))
+					.expect("out of memory");
+
 				// XXX(qix-): DEBUG
-				::oro_debug::dbg!("registered BootVbufV0: {ifaceid}");
+				::oro_debug::dbg!("registered BootVbufV0: {}", ifaceid.id());
+
+				root_ring.with_mut(|root_ring| {
+					root_ring.interfaces_mut().push(ifaceid);
+				});
 			}
 		}
 
 		this.write(Self {
 			root_ring,
 			threads: TicketMutex::default(),
-			registry,
 		});
 
 		Ok(())
 	}
 
 	/// Returns a handle to the root ring.
-	pub fn root_ring(&'static self) -> Arc<ReentrantMutex<ring::Ring<A>>> {
-		self.root_ring.clone()
+	pub fn root_ring(&self) -> &tab::Tab<ring::Ring<A>> {
+		&self.root_ring
 	}
 
 	/// Returns a reference to the mutex-guarded list of threads.
-	pub fn threads(&'static self) -> &'static impl Lock<Target = Vec<tab::Tab<thread::Thread<A>>>> {
+	pub fn threads(&self) -> &impl Lock<Target = Vec<tab::Tab<thread::Thread<A>>>> {
 		&self.threads
-	}
-
-	/// Returns a reference to the root registry.
-	#[inline]
-	pub fn registry(&self) -> &Arc<ReentrantMutex<RootRegistry<A>>> {
-		&self.registry
 	}
 }
 

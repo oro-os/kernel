@@ -71,7 +71,7 @@ pub unsafe fn initialize_primary(lapic: Lapic) {
 
 		let root_ring = kernel.state().root_ring();
 
-		'module: while next != 0 {
+		while next != 0 {
 			let Some(module) =
 				Phys::from_address_unchecked(next).as_ref::<oro_boot_protocol::Module>()
 			else {
@@ -107,9 +107,7 @@ pub unsafe fn initialize_primary(lapic: Lapic) {
 
 			let module_handle = Module::new(id.clone()).expect("failed to create root ring module");
 
-			let entry_point = {
-				let module_lock = module_handle.lock();
-
+			let entry_point = module_handle.with(|module_lock| {
 				let mapper = module_lock.mapper();
 
 				let elf_base = Phys::from_address_unchecked(module.base).as_ptr_unchecked::<u8>();
@@ -124,20 +122,20 @@ pub unsafe fn initialize_primary(lapic: Lapic) {
 
 				for segment in elf.segments() {
 					let mapper_segment = match segment.ty() {
-						ElfSegmentType::Ignored => continue 'module,
+						ElfSegmentType::Ignored => return None,
 						ElfSegmentType::Invalid { flags, ptype } => {
 							dbg_err!(
 								"root ring module {id} has invalid segment; skipping: \
 								 ptype={ptype:?} flags={flags:?}",
 							);
-							continue 'module;
+							return None;
 						}
 						ElfSegmentType::ModuleCode => AddressSpaceLayout::user_code(),
 						ElfSegmentType::ModuleData => AddressSpaceLayout::user_data(),
 						ElfSegmentType::ModuleRoData => AddressSpaceLayout::user_rodata(),
 						ty => {
 							dbg_err!("root ring module {id} has invalid segment {ty:?}; skipping",);
-							continue 'module;
+							return None;
 						}
 					};
 
@@ -193,10 +191,14 @@ pub unsafe fn initialize_primary(lapic: Lapic) {
 					}
 				}
 
-				elf.entry_point()
+				Some(elf.entry_point())
+			});
+
+			let Some(entry_point) = entry_point else {
+				continue;
 			};
 
-			let instance = Instance::new(&module_handle, &root_ring)
+			let instance = Instance::new(&module_handle, root_ring)
 				.expect("failed to create root ring instance");
 
 			// Create a thread for the entry point.

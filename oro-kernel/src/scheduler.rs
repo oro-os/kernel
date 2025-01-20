@@ -5,8 +5,7 @@ use oro_sync::Lock;
 use crate::{
 	Kernel,
 	arch::{Arch, CoreHandle},
-	interface::{InFlightSystemCall, InterfaceResponse, SystemCallRequest, SystemCallResponse},
-	registry::Registry,
+	syscall::{InFlightSystemCall, InterfaceResponse, SystemCallRequest, SystemCallResponse},
 	tab::Tab,
 	thread::{RunState, ScheduleAction, Thread},
 };
@@ -118,7 +117,7 @@ impl<A: Arch> Scheduler<A> {
 	/// is running.
 	#[must_use]
 	pub unsafe fn event_idle(&mut self) -> Switch<A> {
-		let coming_from_user = self.current.as_ref().map(|t| t.with(|t| t.id()));
+		let coming_from_user = self.current.as_ref().map(|t| t.id());
 		let switch = Switch::from_schedule_action(self.pick_user_thread(), coming_from_user);
 		self.kernel.handle().schedule_timer(1000);
 		switch
@@ -149,7 +148,7 @@ impl<A: Arch> Scheduler<A> {
 	/// is running.
 	#[must_use]
 	pub unsafe fn event_timer_expired(&mut self) -> Switch<A> {
-		let coming_from_user = self.current.as_ref().map(|t| t.with(|t| t.id()));
+		let coming_from_user = self.current.as_ref().map(|t| t.id());
 		let switch = Switch::from_schedule_action(self.pick_user_thread(), coming_from_user);
 		self.kernel.handle().schedule_timer(1000);
 		switch
@@ -194,21 +193,7 @@ impl<A: Arch> Scheduler<A> {
 	#[must_use]
 	pub unsafe fn event_system_call(&mut self, request: &SystemCallRequest) -> Switch<A> {
 		let coming_from_user = if let Some(thread) = self.current.take() {
-			let response = {
-				// TODO(qix-): use a deeper cache than the ring's
-				if let Some(ring) = thread.with(|t| t.instance()).lock().ring().upgrade() {
-					let ring_lock = ring.lock();
-					let registry = ring_lock.registry();
-					let mut registry_lock = registry.lock();
-					registry_lock.dispatch(&thread, request)
-				} else {
-					// The instance is gone; we can't do anything.
-					// This is a critical error.
-					panic!(
-						"instance is still running but has no ring; kernel is in an invalid state"
-					);
-				}
-			};
+			let response = crate::syscall::dispatch(&thread, request);
 
 			// If the thread was stopped or terminated by the syscall, we need to
 			// handle it specially.
@@ -219,23 +204,14 @@ impl<A: Arch> Scheduler<A> {
 				}
 				(RunState::Stopped, InterfaceResponse::Immediate(response)) => {
 					let (sub, handle) = InFlightSystemCall::new();
-					let id = thread.with_mut(|t| {
-						t.await_system_call_response(self.kernel.id(), handle);
-						t.id()
-					});
+					thread.with_mut(|t| t.await_system_call_response(self.kernel.id(), handle));
 					sub.submit(response);
-					Some(id)
+					Some(thread.id())
 				}
-				(RunState::Terminated, _) => {
-					let id = thread.with(|t| t.id());
-					Some(id)
-				}
+				(RunState::Terminated, _) => Some(thread.id()),
 				(RunState::Running | RunState::Stopped, InterfaceResponse::Pending(handle)) => {
-					let id = thread.with_mut(|t| {
-						t.await_system_call_response(self.kernel.id(), handle);
-						t.id()
-					});
-					Some(id)
+					thread.with_mut(|t| t.await_system_call_response(self.kernel.id(), handle));
+					Some(thread.id())
 				}
 			}
 		} else {
@@ -294,7 +270,7 @@ impl<A: Arch> Switch<A> {
 		match (action, coming_from_user) {
 			(Some((thread, ScheduleAction::Resume)), None) => Switch::KernelToUser(thread, None),
 			(Some((thread, ScheduleAction::Resume)), Some(old_id)) => {
-				if thread.with(|t| t.id()) == old_id {
+				if thread.id() == old_id {
 					Switch::UserResume(thread, None)
 				} else {
 					Switch::UserToUser(thread, None)
@@ -304,7 +280,7 @@ impl<A: Arch> Switch<A> {
 				Switch::KernelToUser(thread, Some(syscall_res))
 			}
 			(Some((thread, ScheduleAction::SystemCall(syscall_res))), Some(old_id)) => {
-				if thread.with(|t| t.id()) == old_id {
+				if thread.id() == old_id {
 					Switch::UserResume(thread, Some(syscall_res))
 				} else {
 					Switch::UserToUser(thread, Some(syscall_res))

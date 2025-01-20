@@ -34,7 +34,8 @@ use oro_sysabi::{key, syscall::Error as SysError};
 
 use crate::{
 	arch::Arch,
-	interface::{Interface, InterfaceResponse, SystemCallResponse},
+	interface::Interface,
+	syscall::{InterfaceResponse, SystemCallResponse},
 	tab::Tab,
 	thread::Thread,
 };

@@ -383,10 +383,6 @@ trait Tabbed {
 	const TY: TabType;
 }
 
-impl<A: Arch> Tabbed for crate::ring::Ring<A> {
-	const TY: TabType = TabType::Ring;
-}
-
 /// A subtable, holding 512 entries to `AtomicPtr<T>`.
 struct SubTable<T: Default + 'static> {
 	/// The table.
@@ -688,26 +684,6 @@ impl<T: Tabbed> Drop for Tab<T> {
 			// SAFETY(qix-): FURTHER ACCESS TO THE SLOT IS UNDEFINED BEHAVIOR.
 		}
 	}
-}
-
-/// The type of value held in the tab slot.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-#[repr(u8)]
-pub enum TabType {
-	/// The tab slot is free.
-	Free = 0,
-	/// A [`crate::ring::Ring`].
-	Ring,
-	/// An [`crate::instance::Instance`].
-	Instance,
-	/// A [`crate::thread::Thread`].
-	Thread,
-	/// A [`crate::port::Port`].
-	Port,
-	/// An [`crate::interface::Interface`].
-	Interface,
-	/// A [`crate::module::Module`].
-	Module,
 }
 
 /// A versioned slot within which to store a [`Tab`]'s data.
@@ -1099,10 +1075,40 @@ impl Slot {
 	}
 }
 
+/// The type of value held in the tab slot.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[repr(u8)]
+pub enum TabType {
+	/// The tab slot is free.
+	Free = 0,
+	/// A [`crate::ring::Ring`].
+	Ring,
+	/// An [`crate::instance::Instance`].
+	Instance,
+	/// A [`crate::thread::Thread`].
+	Thread,
+	/// A [`crate::interface::RingInterface`].
+	RingInterface,
+	/// A [`crate::module::Module`].
+	Module,
+}
+
 impl<A: Arch> Tabbed for crate::thread::Thread<A> {
 	const TY: TabType = TabType::Thread;
 }
 
 impl<A: Arch> Tabbed for crate::instance::Instance<A> {
 	const TY: TabType = TabType::Instance;
+}
+
+impl<A: Arch> Tabbed for crate::module::Module<A> {
+	const TY: TabType = TabType::Module;
+}
+
+impl<A: Arch> Tabbed for crate::ring::Ring<A> {
+	const TY: TabType = TabType::Ring;
+}
+
+impl<A: Arch> Tabbed for crate::interface::RingInterface<A> {
+	const TY: TabType = TabType::RingInterface;
 }
