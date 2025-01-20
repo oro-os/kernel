@@ -852,10 +852,7 @@ impl Slot {
 		// SAFETY: We control all of the punning in this module, so
 		// SAFETY: barring very blatant and bizarre misuse of the global table,
 		// SAFETY: this should be safe.
-		let t = unsafe {
-			::core::mem::transmute::<u8, TabType>((self.ver_ty.load(Relaxed) >> 56) as u8)
-		};
-		t
+		unsafe { ::core::mem::transmute::<u8, TabType>((self.ver_ty.load(Relaxed) >> 56) as u8) }
 	}
 
 	/// Marks the slot as free. Does not modify the version.
