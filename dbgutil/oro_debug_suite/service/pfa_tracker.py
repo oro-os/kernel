@@ -39,7 +39,7 @@ class PfaTracker(OroService):
         events = self.__pfa_allocs[addr]
 
         if len(events) == 0:
-            if self.verbose:
+            if self["verbose"]:
                 self._debug(f"alloc: 0x{addr:016X} (first)")
         elif events[-1]["type"] == "alloc":
             self._warn(f"double alloc: 0x{addr:016X}")
@@ -47,7 +47,7 @@ class PfaTracker(OroService):
             self._warn(f"    previous alloc:")
             self._warn_backtrace(events[-1]["bt"])
         elif events[-1]["type"] == "free":
-            if self.verbose:
+            if self["verbose"]:
                 self._debug(f"alloc: 0x{addr:016X}")
         else:
             assert False, f"unknown allocation type: {events[-1]['type']}"
@@ -62,9 +62,7 @@ class PfaTracker(OroService):
     @hook
     def pfa_free(self, address):
         if self._free_is_pfa_populating:
-            self._warn(
-                "freeing during PFA population event; this should not happen!"
-            )
+            self._warn("freeing during PFA population event; this should not happen!")
             self._warn_backtrace()
             return
 
@@ -105,7 +103,7 @@ class PfaTracker(OroService):
             self._warn(f" freeing never-allocated page: 0x{addr:016X}")
             self._warn_backtrace(bt)
         elif events[-1]["type"] == "alloc":
-            if self.verbose:
+            if self["verbose"]:
                 self._debug(f"free: 0x{addr:016X}")
         else:
             self._warn(f"double free: 0x{addr:016X}")
@@ -122,7 +120,7 @@ class PfaTracker(OroService):
 
     @hook(symbol="pfa_mass_free")
     def track_mass_free_4kib(self, start, end_exclusive):
-        if self.verbose:
+        if self["verbose"]:
             self._debug(
                 f"mass free: 0x{start:016X} - 0x{end_exclusive:016X} (exclusive)"
             )
@@ -145,7 +143,7 @@ class PfaTracker(OroService):
 
     @hook
     def pfa_will_mass_free(self, is_pfa_populating):
-        if self.verbose:
+        if self["verbose"]:
             self._debug(
                 f"kernel indicated it will mass free (pfa populating: {is_pfa_populating})"
             )
@@ -165,7 +163,7 @@ class PfaTracker(OroService):
 
     @hook
     def pfa_finished_mass_free(self):
-        if self.verbose:
+        if self["verbose"]:
             self._debug(f"kernel indicated it finished a mass-free event")
         if not self._free_is_pfa_populating:
             self._warn(
@@ -173,6 +171,10 @@ class PfaTracker(OroService):
             )
         self._free_is_pfa_populating = False
         if not self.enable_breakpoint("pfa_free"):
-            self._error("couldn't re-enable the free breakpoint after a mass free event")
+            self._error(
+                "couldn't re-enable the free breakpoint after a mass free event"
+            )
             for _ in range(3):
-                self._error("!!! THE PFA TRACKER IS NO LONGER RELIABLE. PLEASE FIX THIS ISSUE. !!!")
+                self._error(
+                    "!!! THE PFA TRACKER IS NO LONGER RELIABLE. PLEASE FIX THIS ISSUE. !!!"
+                )

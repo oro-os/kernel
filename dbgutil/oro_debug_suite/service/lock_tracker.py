@@ -67,7 +67,7 @@ class LockTracker(OroService):
                 self._warn(f"    previous acquire:")
                 self._warn_backtrace(self._active_locks[lock_self])
 
-            if self.verbose:
+            if self["verbose"]:
                 self._debug(f"release: 0x{lock_self:016X}")
 
             del self._active_locks[lock_self]
