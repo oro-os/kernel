@@ -4,6 +4,7 @@
 
 use crate::{arch::Arch, syscall::InterfaceResponse, tab::Tab, thread::Thread};
 
+mod iface_query_by_type_v0;
 mod thread_v0;
 
 /// Small helper trait for kernel interfaces, which are always
@@ -23,7 +24,7 @@ pub trait KernelInterface {
 
 #[doc(hidden)]
 macro_rules! make_dispatch {
-	($($iface:ty),*) => {
+	($($iface:ty),* $(,)?) => {
 		const _: () = const {
 			$(assert!(
 				(<$iface as KernelInterface>::TYPE_ID & ::oro_sysabi::id::mask::KERNEL_ID) == 0,
@@ -77,5 +78,6 @@ macro_rules! make_dispatch {
 }
 
 make_dispatch! {
-	thread_v0::ThreadV0
+	thread_v0::ThreadV0,
+	iface_query_by_type_v0::IfaceQueryByTypeV0,
 }

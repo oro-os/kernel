@@ -52,6 +52,16 @@ impl<T: Sized, Alloc: Allocator + Default> Table<T, Alloc> {
 		self.0.get(&id)
 	}
 
+	/// Gets a mutable reference to the value associated with the given ID,
+	/// inserting it via `Default` if it doesn't exist before returning it.
+	#[inline]
+	pub fn get_or_insert_mut(&mut self, id: u64) -> &mut T
+	where
+		T: Default,
+	{
+		self.0.entry(id).or_default()
+	}
+
 	/// Removes a value given its key. Returns `None` if the value didn't exist.
 	#[inline]
 	pub fn remove(&mut self, id: u64) -> Option<T> {

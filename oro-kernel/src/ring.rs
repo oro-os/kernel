@@ -6,8 +6,12 @@ use oro_mem::{
 };
 
 use crate::{
-	AddressSpace, Kernel, UserHandle, arch::Arch, instance::Instance, interface::RingInterface,
+	AddressSpace, Kernel, UserHandle,
+	arch::Arch,
+	instance::Instance,
+	interface::{Interface, RingInterface},
 	tab::Tab,
+	table::Table,
 };
 
 /// A singular ring.
@@ -33,15 +37,15 @@ use crate::{
 #[non_exhaustive]
 pub struct Ring<A: Arch> {
 	/// The parent ring handle, or `None` if this is the root ring.
-	parent:     Option<Tab<Ring<A>>>,
+	parent: Option<Tab<Ring<A>>>,
 	/// The module [`Instance`]s on the ring.
-	instances:  Vec<Tab<Instance<A>>>,
+	instances: Vec<Tab<Instance<A>>>,
 	/// The ring's base mapper handle.
-	mapper:     UserHandle<A>,
+	mapper: UserHandle<A>,
 	/// The ring's child rings.
-	children:   Vec<Tab<Ring<A>>>,
-	/// The interfaces exposed to the ring.
-	interfaces: Vec<Tab<RingInterface<A>>>,
+	children: Vec<Tab<Ring<A>>>,
+	/// The interfaces exposed to the ring, grouped by type.
+	interfaces_by_type: Table<Vec<Tab<RingInterface<A>>>>,
 }
 
 impl<A: Arch> Ring<A> {
@@ -58,7 +62,7 @@ impl<A: Arch> Ring<A> {
 				instances: Vec::new(),
 				mapper,
 				children: Vec::new(),
-				interfaces: Vec::new(),
+				interfaces_by_type: Table::new(),
 			})
 			.ok_or(MapError::OutOfMemory)?;
 
@@ -100,7 +104,7 @@ impl<A: Arch> Ring<A> {
 				instances: Vec::new(),
 				mapper,
 				children: Vec::new(),
-				interfaces: Vec::new(),
+				interfaces_by_type: Table::new(),
 			})
 			.ok_or(MapError::OutOfMemory)
 	}
@@ -131,15 +135,29 @@ impl<A: Arch> Ring<A> {
 		&mut self.instances
 	}
 
-	/// Returns a slice of interfaces exposed to the ring.
+	/// Returns a slice of interfaces exposed to the ring, grouped by type.
 	#[must_use]
-	pub fn interfaces(&self) -> &[Tab<RingInterface<A>>] {
-		&self.interfaces
+	pub fn interfaces_by_type(&self) -> &Table<Vec<Tab<RingInterface<A>>>> {
+		&self.interfaces_by_type
 	}
 
-	/// Returns a mutable reference to the interfaces vector.
+	/// Returns a mutable reference to the interfaces table, grouped by type.
 	#[must_use]
-	pub fn interfaces_mut(&mut self) -> &mut Vec<Tab<RingInterface<A>>> {
-		&mut self.interfaces
+	pub fn interfaces_by_type_mut(&mut self) -> &mut Table<Vec<Tab<RingInterface<A>>>> {
+		&mut self.interfaces_by_type
+	}
+
+	/// Convience function for registering an interface with the global tab
+	/// system as well as the ring.
+	///
+	/// Returns `None` if the addition to the tab registry failed.
+	/// See [`crate::tab::GlobalTable::add`] for more information.
+	pub fn register_interface(&mut self, iface: RingInterface<A>) -> Option<Tab<RingInterface<A>>> {
+		let type_id = iface.type_id();
+		let tab = crate::tab::get().add(iface)?;
+		self.interfaces_by_type
+			.get_or_insert_mut(type_id)
+			.push(tab.clone());
+		Some(tab)
 	}
 }

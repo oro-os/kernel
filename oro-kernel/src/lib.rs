@@ -145,35 +145,25 @@ impl<A: Arch> Kernel<A> {
 			.write(TicketMutex::new(Scheduler::new(&*kernel_ptr)));
 
 		if !global_state.has_initialized_root.swap(true, SeqCst) {
-			let ifaceid = tab::get()
-				.add(RingInterface::<A>::new(
-					self::iface::root_ring::debug_out_v0::DebugOutV0::new(),
-					global_state.root_ring.id(),
-				))
-				.ok_or(MapError::OutOfMemory)?;
-
-			// XXX(qix-): DEBUG
-			::oro_debug::dbg!("registered DebugLogV0: {}", ifaceid.id());
-
 			global_state.root_ring.with_mut(|root_ring| {
-				root_ring.interfaces_mut().push(ifaceid);
-			});
+				root_ring
+					.register_interface(RingInterface::<A>::new(
+						self::iface::root_ring::debug_out_v0::DebugOutV0::new(),
+						global_state.root_ring.id(),
+					))
+					.ok_or(MapError::OutOfMemory)
+			})?;
 
 			#[cfg(feature = "boot-vbuf-v0")]
 			{
-				let ifaceid = tab::get()
-					.add(RingInterface::<A>::new(
-						self::iface::root_ring::boot_vbuf_v0::BootVbufV0::new(),
-						global_state.root_ring.id(),
-					))
-					.ok_or(MapError::OutOfMemory)?;
-
-				// XXX(qix-): DEBUG
-				::oro_debug::dbg!("registered BootVbufV0: {}", ifaceid.id());
-
 				global_state.root_ring.with_mut(|root_ring| {
-					root_ring.interfaces_mut().push(ifaceid);
-				});
+					root_ring
+						.register_interface(RingInterface::<A>::new(
+							self::iface::root_ring::boot_vbuf_v0::BootVbufV0::new(),
+							global_state.root_ring.id(),
+						))
+						.ok_or(MapError::OutOfMemory)
+				})?;
 			}
 		}
 
