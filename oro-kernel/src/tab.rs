@@ -1120,7 +1120,7 @@ impl Slot {
 			.lock
 			.compare_exchange_weak(
 				loaded,
-				(1 << 63) | (u64::from(kernel_id) << 31) | (lock_count + 1),
+				(1 << 63) | (u64::from(our_core) << 31) | (lock_count + 1),
 				Release,
 				Relaxed,
 			)
