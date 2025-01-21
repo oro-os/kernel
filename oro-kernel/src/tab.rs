@@ -529,7 +529,14 @@ impl Clone for AnyTab {
 	#[inline(always)]
 	fn clone(&self) -> Self {
 		// SAFETY: We can guarantee that the slot is valid.
-		unsafe { &*self.ptr }.users.fetch_add(1, Release);
+		let slot = unsafe { &*self.ptr };
+		let old_value = slot.users.fetch_add(1, Release);
+		::oro_dbgutil::__oro_dbgutil_tab_user_add(
+			self.id,
+			slot.ty() as u64,
+			self.ptr.addr(),
+			old_value,
+		);
 		Self {
 			id:  self.id,
 			ptr: self.ptr,
@@ -620,8 +627,6 @@ impl<T: Tabbed> Tab<T> {
 					"precondition failed: slot is locked (MUST_BE_FRESH=true)"
 				);
 
-				::oro_dbgutil::__oro_dbgutil_tab_user_add(id, slot.ty() as u64, ptr.addr(), 0);
-
 				slot.users
 					.compare_exchange(0, 1, Release, Relaxed)
 					.expect("precondition failed: slot users is not 0 (MUST_BE_FRESH=true)");
@@ -708,7 +713,13 @@ impl<T: Tabbed> Clone for Tab<T> {
 	fn clone(&self) -> Self {
 		// SAFETY: We can guarantee that the slot is valid and the data is valid.
 		let slot = unsafe { &*self.ptr };
-		slot.users.fetch_add(1, Release);
+		let old_value = slot.users.fetch_add(1, Release);
+		::oro_dbgutil::__oro_dbgutil_tab_user_add(
+			self.id,
+			slot.ty() as u64,
+			self.ptr.addr(),
+			old_value,
+		);
 		Self {
 			id:  self.id,
 			ptr: self.ptr,
