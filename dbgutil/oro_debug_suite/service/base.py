@@ -7,14 +7,22 @@ from ..log import warn, debug, error, log
 from .backtrace import get_backtrace, log_backtrace, warn_backtrace, error_backtrace
 
 
-def param(method: Callable[[object, bool], None]):
+def param(_func=None, *, value=None):
     """
     Decorator that marks the method as defining a GDB boolean parameter.
     The method's docstring is used for the set_doc/show_doc,
     and the method's name is the name of the parameter (e.g. "enabled", "verbose").
     """
-    method._is_service_param = True
-    return method
+
+    def decorator(func):
+        func._is_service_param = True
+        func._service_param_value_map = value or bool
+        return func
+
+    if _func is not None and callable(_func):
+        return decorator(_func)
+
+    return decorator
 
 
 def hook(_func=None, *, symbol=None):
@@ -79,8 +87,8 @@ class OroService:
                 )
             )
         else:
-            param_obj.value = bool(new_value)
-            param_obj.handle_value_changed(bool(new_value))
+            param_obj.value = new_value
+            param_obj.get_set_string()
 
     def disable_breakpoint(self, sym):
         """Disables the given breakpoint by its symbol name."""
@@ -178,20 +186,45 @@ class ServiceParam(gdb.Parameter):
     def __init__(
         self, service: OroService, param_name: str, full_param_name: str, doc: str
     ):
-        super().__init__(full_param_name, gdb.COMMAND_DATA, gdb.PARAM_BOOLEAN)
         self._service = service
         self._param_name = param_name
         self.set_doc = doc
         self.show_doc = doc
-        self.value = False  # default
+        # self.value = False  # default
         self.__doc__ = doc
 
+        param_type = gdb.PARAM_BOOLEAN
+        method = getattr(service, param_name, None)
+        enum_values = []
+        if callable(method) and getattr(method, "_is_service_param", False):
+            value_enum = getattr(method, "_service_param_value_map", None)
+            if value_enum is not None and type(value_enum) is dict:
+                param_type = gdb.PARAM_ENUM
+                enum_values = list(value_enum.keys())
+
+        if param_type == gdb.PARAM_ENUM:
+            enum_values = [enum_values]
+        else:
+            enum_values = []
+
+        super().__init__(full_param_name, gdb.COMMAND_DATA, param_type, *enum_values)
+
     def get_set_string(self):
-        new_val = bool(self.value)
-        self.handle_value_changed(new_val)
+        value = self.value
+        method = getattr(self._service, self._param_name, None)
+        if callable(method) and getattr(method, "_is_service_param", False):
+            value_enum = getattr(method, "_service_param_value_map", None)
+            if value_enum is None:
+                value = bool(value)
+            elif callable(value_enum):
+                value = value_enum(value)
+            else:
+                value = value_enum.get(value, bool(value))
+
+        self.handle_value_changed(value)
         return ""
 
-    def handle_value_changed(self, new_val: bool):
+    def handle_value_changed(self, new_val):
         self._service._param_values[self._param_name] = new_val
         method = getattr(self._service, self._param_name, None)
         if callable(method) and getattr(method, "_is_service_param", False):

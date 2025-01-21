@@ -178,6 +178,8 @@ impl GlobalTable {
 		// Replace the version in the ID.
 		let id = (id & !((1 << 29) - 1)) | new_version;
 
+		::oro_dbgutil::__oro_dbgutil_tab_add(id, T::TY as u64, ::core::ptr::from_ref(slot).addr());
+
 		// SAFETY: We're passing `MUST_BE_FRESH=true`, so the tab constructor has
 		// SAFETY: no additional preconditions here.
 		Some(unsafe { Tab::new::<true>(id, slot) })
@@ -234,6 +236,11 @@ impl GlobalTable {
 				.compare_exchange(last_free, id, Release, Relaxed)
 				.is_ok()
 			{
+				::oro_dbgutil::__oro_dbgutil_tab_free(
+					id,
+					slot.ty() as u64,
+					::core::ptr::from_ref(slot).addr(),
+				);
 				break;
 			}
 		}
@@ -280,16 +287,16 @@ impl GlobalTable {
 		debug_assert_ne!(counter, 0);
 		debug_assert_ne!(counter, !0);
 
-		let Encoded::Live(l0) = self.l0.get_or_alloc_default()? else {
+		let Encoded::Live(l0) = self.l0.get_or_alloc_default::<0>()? else {
 			unreachable!();
 		};
-		let Encoded::Live(l1) = l0.table[(counter >> 54) & 511].get_or_alloc_default()? else {
+		let Encoded::Live(l1) = l0.table[(counter >> 54) & 511].get_or_alloc_default::<1>()? else {
 			unreachable!();
 		};
-		let Encoded::Live(l2) = l1.table[(counter >> 45) & 511].get_or_alloc_default()? else {
+		let Encoded::Live(l2) = l1.table[(counter >> 45) & 511].get_or_alloc_default::<2>()? else {
 			unreachable!();
 		};
-		let Encoded::Live(sl) = l2.table[(counter >> 36) & 511].get_or_alloc_default()? else {
+		let Encoded::Live(sl) = l2.table[(counter >> 36) & 511].get_or_alloc_default::<3>()? else {
 			unreachable!();
 		};
 
@@ -325,7 +332,9 @@ impl<T: Default + 'static> EncodedAtomicPtr<T> {
 	///
 	/// Always returns either [`Encoded::Tomb`] or [`Encoded::Live`].
 	/// Never returns [`Encoded::Null`].
-	fn get_or_alloc_default(&self) -> Option<Encoded<T>> {
+	///
+	/// The `LEVEL` constant is just for debugging.
+	fn get_or_alloc_default<const LEVEL: usize>(&self) -> Option<Encoded<T>> {
 		assert::size_of::<T, 4096>();
 
 		let mut ptr = self.0.load(Relaxed);
@@ -347,8 +356,10 @@ impl<T: Default + 'static> EncodedAtomicPtr<T> {
 				unsafe {
 					::oro_mem::global_alloc::GlobalPfa.free(p_raw);
 				}
+				::oro_dbgutil::__oro_dbgutil_tab_page_already_allocated(p_raw, LEVEL);
 				ptr = new_ptr;
 			} else {
+				::oro_dbgutil::__oro_dbgutil_tab_page_alloc(p_raw, LEVEL);
 				ptr = new_ptr;
 			}
 		}
@@ -431,14 +442,12 @@ unsafe impl Sync for AnyTab {}
 
 impl AnyTab {
 	/// Creates a new [`AnyTab`].
-	///
-	/// Returns `None` if the slot is no longer valid, or if it is [`TabType::Free`].
 	#[inline(always)]
 	fn try_new(id: u64, ptr: *const Slot) -> Option<Self> {
 		// SAFETY: We can guarantee that the slot is valid.
 		let slot = unsafe { &*ptr };
 
-		loop {
+		let user_count = loop {
 			let users = slot.users.load(Relaxed);
 			if users == 0 {
 				// The slot is no longer valid (we've successfully avoided a race condition!)
@@ -465,14 +474,18 @@ impl AnyTab {
 					.compare_exchange(users, users + 1, Release, Relaxed)
 					.is_ok()
 				{
-					break;
+					break users;
 				}
 			}
-		}
+		};
 
 		let this = Self { id, ptr };
 
+		::oro_dbgutil::__oro_dbgutil_tab_user_add(id, slot.ty() as u64, ptr.addr(), user_count);
+
 		// We are now a valid user. Check the type.
+		// We do this here since `this` will get dropped and the user
+		// count will decrease if the type is not valid.
 		if this.ty() == TabType::Free {
 			// The slot is free.
 			return None;
@@ -528,7 +541,17 @@ impl Drop for AnyTab {
 	fn drop(&mut self) {
 		// SAFETY: We can guarantee that the slot is valid.
 		let slot = unsafe { &*self.ptr };
-		if slot.users.fetch_sub(1, Release) == 1 {
+
+		let old_user_count = slot.users.fetch_sub(1, Release);
+
+		::oro_dbgutil::__oro_dbgutil_tab_user_remove(
+			self.id,
+			slot.ty() as u64,
+			self.ptr.addr(),
+			old_user_count,
+		);
+
+		if old_user_count == 1 {
 			// SAFETY: We have the only owning reference to this slot,
 			// SAFETY: and we control its construction; it's always going to
 			// SAFETY: be the slot pointed to by the tab's ID.
@@ -585,6 +608,7 @@ impl<T: Tabbed> Tab<T> {
 	unsafe fn new<const MUST_BE_FRESH: bool>(id: u64, ptr: *const Slot) -> Self {
 		// SAFETY: We can guarantee that the slot is valid and the data is valid.
 		let slot = unsafe { &*ptr };
+
 		#[cfg(debug_assertions)]
 		{
 			debug_assert_eq!(slot.ty(), T::TY);
@@ -595,6 +619,9 @@ impl<T: Tabbed> Tab<T> {
 					0,
 					"precondition failed: slot is locked (MUST_BE_FRESH=true)"
 				);
+
+				::oro_dbgutil::__oro_dbgutil_tab_user_add(id, slot.ty() as u64, ptr.addr(), 0);
+
 				slot.users
 					.compare_exchange(0, 1, Release, Relaxed)
 					.expect("precondition failed: slot users is not 0 (MUST_BE_FRESH=true)");
@@ -603,6 +630,14 @@ impl<T: Tabbed> Tab<T> {
 				// SAFETY(qix-): to call this function with `MUST_BE_FRESH=false` if they
 				// SAFETY(qix-): have a valid reference to the slot already (i.e. an `AnyTab`).
 				let last_user_count = slot.users.fetch_add(1, Release);
+
+				::oro_dbgutil::__oro_dbgutil_tab_user_add(
+					id,
+					slot.ty() as u64,
+					ptr.addr(),
+					last_user_count,
+				);
+
 				debug_assert_ne!(
 					last_user_count, 0,
 					"precondition failed: slot users is 0 (MUST_BE_FRESH=false)"
@@ -612,9 +647,16 @@ impl<T: Tabbed> Tab<T> {
 		#[cfg(not(debug_assertions))]
 		{
 			if MUST_BE_FRESH {
+				::oro_dbgutil::__oro_dbgutil_tab_user_add(id, slot.ty() as u64, ptr.addr(), 0);
 				slot.users.store(1, Release);
 			} else {
-				slot.users.fetch_add(1, Release);
+				let old_user_count = slot.users.fetch_add(1, Release);
+				::oro_dbgutil::__oro_dbgutil_tab_user_add(
+					id,
+					slot.ty() as u64,
+					ptr.addr(),
+					old_user_count,
+				);
 			}
 		}
 
@@ -679,7 +721,17 @@ impl<T: Tabbed> Drop for Tab<T> {
 	fn drop(&mut self) {
 		// SAFETY: We can guarantee that the slot is valid and the data is valid.
 		let slot = unsafe { &*self.ptr };
-		if slot.users.fetch_sub(1, Release) == 1 {
+
+		let old_user_count = slot.users.fetch_sub(1, Release);
+
+		::oro_dbgutil::__oro_dbgutil_tab_user_remove(
+			self.id,
+			slot.ty() as u64,
+			self.ptr.addr(),
+			old_user_count,
+		);
+
+		if old_user_count == 1 {
 			// SAFETY: We have the only owning reference to this slot,
 			// SAFETY: and we control its construction; it's always going to
 			// SAFETY: be the slot pointed to by the tab's ID.
@@ -774,6 +826,14 @@ impl Drop for SlotReaderGuard<'_> {
 
 		let prev_value = self.slot.lock.fetch_sub(1, Release);
 
+		// SAFETY: There's nothing unsafe about this, just an extern prototype.
+		::oro_dbgutil::__oro_dbgutil_tab_lock_read_release(
+			self.slot.ty() as u64,
+			::core::ptr::from_ref(self.slot).addr(),
+			(prev_value & ((1 << 31) - 1)) - 1,
+			unsafe { crate::sync::oro_sync_current_core_id() },
+		);
+
 		#[cfg(debug_assertions)]
 		{
 			let is_reader = (prev_value & (1 << 63)) == 0;
@@ -825,6 +885,14 @@ impl Drop for SlotWriterGuard<'_> {
 				.compare_exchange_weak(loaded, new_value, Release, Relaxed)
 				.is_ok()
 			{
+				// SAFETY: There's nothing unsafe about this, just an extern prototype.
+				::oro_dbgutil::__oro_dbgutil_tab_lock_write_release(
+					self.slot.ty() as u64,
+					::core::ptr::from_ref(self.slot).addr(),
+					new_value & ((1 << 31) - 1),
+					(loaded >> 31) as u32,
+					unsafe { crate::sync::oro_sync_current_core_id() },
+				);
 				break;
 			}
 		}
@@ -993,6 +1061,13 @@ impl Slot {
 		{
 			None
 		} else {
+			// SAFETY: There's nothing unsafe about this, it's just an extern prototype.
+			::oro_dbgutil::__oro_dbgutil_tab_lock_read_acquire(
+				self.ty() as u64,
+				::core::ptr::from_ref(self).addr(),
+				lock_count + 1,
+				unsafe { crate::sync::oro_sync_current_core_id() },
+			);
 			Some(SlotReaderGuard { slot: self })
 		}
 	}
@@ -1023,8 +1098,8 @@ impl Slot {
 		let is_locked_for_reading = loaded > 0 && is_reader;
 		let is_at_maximum_locks = lock_count == ((1 << 31) - 1);
 		// SAFETY: There's nothing unsafe about this, it's just an extern prototype.
-		let is_locked_by_another_core =
-			loaded > 0 && kernel_id != unsafe { crate::sync::oro_sync_current_core_id() };
+		let our_core = unsafe { crate::sync::oro_sync_current_core_id() };
+		let is_locked_by_another_core = loaded > 0 && kernel_id != our_core;
 
 		if is_locked_for_reading || is_locked_by_another_core || is_at_maximum_locks {
 			return None;
@@ -1042,6 +1117,13 @@ impl Slot {
 		{
 			None
 		} else {
+			::oro_dbgutil::__oro_dbgutil_tab_lock_write_acquire(
+				self.ty() as u64,
+				::core::ptr::from_ref(self).addr(),
+				lock_count + 1,
+				kernel_id,
+				our_core,
+			);
 			Some(SlotWriterGuard { slot: self })
 		}
 	}
@@ -1059,21 +1141,22 @@ impl Slot {
 }
 
 /// The type of value held in the tab slot.
+// NOTE(qix-): Please keep this in sync with the enum in `tab_tracker.py`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u8)]
 pub enum TabType {
 	/// The tab slot is free.
-	Free = 0,
+	Free          = 0,
 	/// A [`crate::ring::Ring`].
-	Ring,
+	Ring          = 1,
 	/// An [`crate::instance::Instance`].
-	Instance,
+	Instance      = 2,
 	/// A [`crate::thread::Thread`].
-	Thread,
+	Thread        = 3,
 	/// A [`crate::interface::RingInterface`].
-	RingInterface,
+	RingInterface = 4,
 	/// A [`crate::module::Module`].
-	Module,
+	Module        = 5,
 }
 
 impl<A: Arch> Tabbed for crate::thread::Thread<A> {
