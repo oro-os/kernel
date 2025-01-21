@@ -33,7 +33,7 @@ class SymbolTracker(object):
         self.__on_loaded_events.remove(callback)
 
     def _on_objfile_freed(self, objfile):
-        for _, sym in self.__to_track:
+        for sym in self.__to_track:
             if sym in self.__symbols and self.__symbols[sym][1] == objfile:
                 del self.__symbols[sym]
 
@@ -67,9 +67,13 @@ class SymbolTracker(object):
         with `oro_dbgutil::` to form the full symbol name."""
         import p3elf.reader
 
-        elf = p3elf.reader.ELFReader(elfpath)
-        section = elf.get_section(".oro_dbgutil")
-        new_syms = set(filter(lambda s: len(s) > 0, section.split(b"\0")))
+        try:
+            elf = p3elf.reader.ELFReader(elfpath)
+            section = elf.get_section(".oro_dbgutil")
+            new_syms = set(filter(lambda s: len(s) > 0, section.split(b"\0")))
+        except p3elf.misc.NoSection as e:
+            debug(f"autosym: no .oro_dbgutil section found in {elfpath}")
+            return
 
         for new_sym in new_syms:
             sym = f"oro_dbgutil::{new_sym.decode('utf-8')}"

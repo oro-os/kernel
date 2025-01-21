@@ -1,6 +1,6 @@
 import gdb  # type: ignore
 from ..log import log, error, warn
-from ..service.lock_tracker import LOCK_TRACKER
+from ..service import LockTracker
 from ..service.backtrace import log_backtrace
 
 
@@ -43,10 +43,10 @@ class LockCmdStatus(gdb.Command):
         lock_expr = args[0]
         lock_addr = int(gdb.parse_and_eval(lock_expr))
 
-        maybe_lock = LOCK_TRACKER.get(lock_addr)
+        maybe_lock = LockTracker.get(lock_addr)
 
         if maybe_lock is None:
-            if LOCK_TRACKER.seen(lock_addr):
+            if LockTracker.seen(lock_addr):
                 log(
                     f"lock_tracker: lock at 0x{lock_addr:016X} is \x1b[1mreleased\x1b[22m"
                 )
