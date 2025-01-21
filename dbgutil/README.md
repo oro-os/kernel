@@ -86,3 +86,12 @@ A few common problems:
 Go into `gdb` and run `python print(sys.executable)`. This will print the
 Python installation that `gdb` is using. If it's not the same as the one you
 installed `pip` to, make sure to install `pip` using that version.
+
+### Dbgutil is raising an exception, but GDB isn't showing the trace.
+
+```
+set python print-stack full
+```
+
+If you're running into this often (i.e. when developing on the utilities), you
+can add this to your `~/.gdbinit` file.
