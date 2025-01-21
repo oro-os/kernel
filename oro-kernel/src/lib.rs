@@ -41,7 +41,10 @@ pub mod tab;
 pub mod table;
 pub mod thread;
 
-use core::mem::MaybeUninit;
+use core::{
+	mem::MaybeUninit,
+	sync::atomic::{AtomicBool, Ordering::SeqCst},
+};
 
 use interface::RingInterface;
 use oro_macro::assert;
@@ -141,6 +144,39 @@ impl<A: Arch> Kernel<A> {
 			.scheduler
 			.write(TicketMutex::new(Scheduler::new(&*kernel_ptr)));
 
+		if !global_state.has_initialized_root.swap(true, SeqCst) {
+			let ifaceid = tab::get()
+				.add(RingInterface::<A>::new(
+					self::iface::root_ring::debug_out_v0::DebugOutV0::new(),
+					global_state.root_ring.id(),
+				))
+				.ok_or(MapError::OutOfMemory)?;
+
+			// XXX(qix-): DEBUG
+			::oro_debug::dbg!("registered DebugLogV0: {}", ifaceid.id());
+
+			global_state.root_ring.with_mut(|root_ring| {
+				root_ring.interfaces_mut().push(ifaceid);
+			});
+
+			#[cfg(feature = "boot-vbuf-v0")]
+			{
+				let ifaceid = tab::get()
+					.add(RingInterface::<A>::new(
+						self::iface::root_ring::boot_vbuf_v0::BootVbufV0::new(),
+						global_state.root_ring.id(),
+					))
+					.ok_or(MapError::OutOfMemory)?;
+
+				// XXX(qix-): DEBUG
+				::oro_debug::dbg!("registered BootVbufV0: {}", ifaceid.id());
+
+				global_state.root_ring.with_mut(|root_ring| {
+					root_ring.interfaces_mut().push(ifaceid);
+				});
+			}
+		}
+
 		Ok(&*kernel_ptr)
 	}
 
@@ -208,9 +244,15 @@ impl<A: Arch> Kernel<A> {
 /// core boot/powerdown/bringup cycles.
 pub struct KernelState<A: Arch> {
 	/// List of all threads.
-	threads:   TicketMutex<Vec<tab::Tab<thread::Thread<A>>>>,
+	threads: TicketMutex<Vec<tab::Tab<thread::Thread<A>>>>,
 	/// The root ring.
 	root_ring: tab::Tab<ring::Ring<A>>,
+	/// Whether or not the root ring has been initialized.
+	///
+	/// We have to do this on a per-core basis because allocators
+	/// and the local core mappings haven't been set up at the time
+	/// the global kernel state is initialized.
+	has_initialized_root: AtomicBool,
 }
 
 impl<A: Arch> KernelState<A> {
@@ -233,43 +275,10 @@ impl<A: Arch> KernelState<A> {
 
 		let root_ring = ring::Ring::<A>::new_root()?;
 
-		// Install root ring interfaces.
-		{
-			let ifaceid = tab::get()
-				.add(RingInterface::<A>::new(
-					self::iface::root_ring::debug_out_v0::DebugOutV0::new(),
-					root_ring.id(),
-				))
-				.expect("out of memory");
-
-			// XXX(qix-): DEBUG
-			::oro_debug::dbg!("registered DebugLogV0: {}", ifaceid.id());
-
-			root_ring.with_mut(|root_ring| {
-				root_ring.interfaces_mut().push(ifaceid);
-			});
-
-			#[cfg(feature = "boot-vbuf-v0")]
-			{
-				let ifaceid = tab::get()
-					.add(RingInterface::<A>::new(
-						self::iface::root_ring::boot_vbuf_v0::BootVbufV0::new(),
-						root_ring.id(),
-					))
-					.expect("out of memory");
-
-				// XXX(qix-): DEBUG
-				::oro_debug::dbg!("registered BootVbufV0: {}", ifaceid.id());
-
-				root_ring.with_mut(|root_ring| {
-					root_ring.interfaces_mut().push(ifaceid);
-				});
-			}
-		}
-
 		this.write(Self {
 			root_ring,
 			threads: TicketMutex::default(),
+			has_initialized_root: AtomicBool::new(false),
 		});
 
 		Ok(())
