@@ -148,4 +148,27 @@ hook_functions! {
 	/// validate that the ID returned is the same as the one at time of
 	/// [`__oro_dbgutil_core_id_fn_was_set`].
 	__oro_dbgutil_core_id_fn_was_called(core_id: u32);
+	/// Tells the tab tracker that a page is being allocated during an addition.
+	__oro_dbgutil_tab_page_alloc(page: u64, level: usize, index: usize);
+	/// Tells the tab tracker that we lost as race condition with allocating a page
+	/// and that we're freeing the page back to the system.
+	__oro_dbgutil_tab_page_already_allocated(page: u64, level: usize, index: usize);
+	/// Tells the tab tracker that we committed a page to the global tab (allocated + one the race).
+	__oro_dbgutil_tab_page_commit(page: u64, level: usize, index: usize);
+	/// Tells the tab tracker that a tab was added.
+	__oro_dbgutil_tab_add(id: u64, ty: u64, slot_addr: usize);
+	/// Tells the tab tracker that a tab has a new user.
+	__oro_dbgutil_tab_user_add(id: u64, ty: u64, slot_addr: usize);
+	/// Tells the tab tracker that a tab has lost a user.
+	__oro_dbgutil_tab_user_remove(id: u64, ty: u64, slot_addr: usize);
+	/// Tells the tab tracker that a tab was dropped.
+	__oro_dbgutil_tab_drop(id: u64, ty: u64, slot_addr: usize);
+	/// Tells the tab tracker that a tab was locked for reading.
+	__oro_dbgutil_tab_lock_read_acquire(id: u64, ty: u64, slot_addr: usize, count: usize, locked_core: usize, our_core: usize);
+	/// Tells the tab tracker that a tab was unlocked for reading.
+	__oro_dbgutil_tab_lock_read_release(id: u64, ty: u64, slot_addr: usize, count: usize, locked_core: usize, our_core: usize);
+	/// Tells the tab tracker that a tab was locked for writing.
+	__oro_dbgutil_tab_lock_write_acquire(id: u64, ty: u64, slot_addr: usize, count: usize, locked_core: usize, our_core: usize);
+	/// Tells the tab tracker that a tab was unlocked for writing.
+	__oro_dbgutil_tab_lock_write_release(id: u64, ty: u64, slot_addr: usize, count: usize, locked_core: usize, our_core: usize);
 }
