@@ -56,7 +56,7 @@ class OroService:
         instance._service_name: Optional[str] = None  # set by @service
         instance._param_objects = {}
         instance._param_values = {}
-        instance._breakpoints = []
+        instance._breakpoints = {}
         for param_name, method in param_methods:
             full_name = f"{service_name}-{param_name}"
             doc = method.__doc__ or "No documentation provided."
@@ -81,6 +81,22 @@ class OroService:
         else:
             param_obj.value = bool(new_value)
             param_obj.handle_value_changed(bool(new_value))
+
+    def disable_breakpoint(self, sym):
+        """Disables the given breakpoint by its symbol name."""
+        bp = self._breakpoints.get(sym)
+        if bp is not None:
+            bp.enabled = False
+            return True
+        return False
+
+    def enable_breakpoint(self, sym):
+        """Enables the given breakpoint by its symbol name."""
+        bp = self._breakpoints.get(sym)
+        if bp is not None:
+            bp.enabled = True
+            return True
+        return False
 
     def _log(self, *args, **kwargs):
         """Log a message with the service's name as the prefix."""
@@ -131,17 +147,17 @@ class OroService:
                 if sym is None:
                     self._warn(f"attach failed; missing symbol: {symbol_name}")
                     return
-                found_symbols.append((sym, method))
+                found_symbols.append((symbol_name, sym, method))
 
-        for sym, method in found_symbols:
-            bp = _ServiceMethodBreakpoint(self, method, sym)
-            self._breakpoints.append(bp)
+        for sym, canon_sym, method in found_symbols:
+            bp = _ServiceMethodBreakpoint(self, method, canon_sym)
+            self._breakpoints[sym] = bp
 
         self._debug("attached")
 
     def detach(self):
         """Detach all breakpoints. Called, e.g., when 'enabled' goes False."""
-        for bp in self._breakpoints:
+        for bp in self._breakpoints.values():
             bp.delete()
         self._breakpoints.clear()
 
@@ -237,7 +253,6 @@ class _ServiceMethodBreakpoint(gdb.Breakpoint):
         super().__init__(location, internal=True, qualified=True)
         self._service = service_obj
         self._method = method
-
         self._arg_names = getattr(method, "_breakpoint_param_names", [])
 
     def stop(self):
@@ -248,7 +263,7 @@ class _ServiceMethodBreakpoint(gdb.Breakpoint):
                 arg_values.append(int(val))
             except gdb.error:
                 self._service._warn(
-                    f"could not parse hook expression '{name}' during breakpoint"
+                    f"could not parse hook expression '{name}' during breakpoint for symbol: {self.location}"
                 )
                 arg_values.append(None)
 

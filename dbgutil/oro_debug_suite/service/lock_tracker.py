@@ -1,7 +1,6 @@
 import gdb  # type: ignore
-from ..log import debug, warn
 from . import SYMBOLS, QEMU
-from .backtrace import get_backtrace, warn_backtrace
+from .backtrace import get_backtrace
 from .base import OroService, param, hook, service
 
 

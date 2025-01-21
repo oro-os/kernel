@@ -133,7 +133,7 @@ hook_functions! {
 	/// The `will_free`/`finished_free` hints do not need to be used
 	/// unless the `free` breakpoint would otherwise be hit, as it
 	/// will cause the PFA tracker to warn on a double-free.
-	__oro_dbgutil_pfa_mass_free(start_: u64, end_exclusive: u64);
+	__oro_dbgutil_pfa_mass_free(start: u64, end_exclusive: u64);
 	/// Tells the lock tracker that a lock is about to be acquired.
 	__oro_dbgutil_lock_acquire(lock_self: usize);
 	/// Tells the lock tracker that a lock has been released.
