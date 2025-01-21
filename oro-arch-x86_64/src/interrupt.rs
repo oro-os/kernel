@@ -153,6 +153,8 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 				})
 			};
 
+			drop(user_ctx);
+
 			asm! {
 				"jmp oro_x86_64_user_to_user",
 				in("rax") thread_cr3_phys,
@@ -175,6 +177,8 @@ unsafe extern "C" fn isr_sys_timer_rust() -> ! {
 					(cr3, rsp)
 				})
 			};
+
+			drop(user_ctx);
 
 			asm! {
 				"jmp oro_x86_64_user_to_user_sysret",
