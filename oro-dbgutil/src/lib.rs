@@ -7,8 +7,6 @@
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 #![allow(unused_variables, clippy::inline_always)]
 
-use core::arch::asm;
-
 #[cfg(debug_assertions)]
 use oro_macro::gdb_autoload_inline;
 
@@ -75,7 +73,7 @@ macro_rules! hook_functions {
 			pub extern "C" fn $name($($param: $ty),*) {
 				#[cfg(any(debug_assertions, feature = "force-hooks"))]
 				unsafe {
-					asm!(
+					::core::arch::asm!(
 						$(concat!("/*{}", stringify!($param), "*/"), )*
 						"nop",
 						$(in(reg) $param as u64,)*
