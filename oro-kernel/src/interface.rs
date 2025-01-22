@@ -1,7 +1,5 @@
 //! Types and traits for Oro interfaces, exposed by modules and the kernel.
 
-use core::marker::PhantomData;
-
 use oro_mem::alloc::boxed::Box;
 use oro_sysabi::syscall::Error as SysError;
 
@@ -49,8 +47,6 @@ pub struct RingInterface<A: Arch> {
 	interface: Box<dyn Interface<A>>,
 	/// The ring ID.
 	ring_id:   u64,
-	#[doc(hidden)]
-	_arch:     PhantomData<A>,
 }
 
 impl<A: Arch> RingInterface<A> {
@@ -59,7 +55,6 @@ impl<A: Arch> RingInterface<A> {
 		Self {
 			interface: Box::new(interface),
 			ring_id,
-			_arch: PhantomData,
 		}
 	}
 }
