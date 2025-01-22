@@ -176,13 +176,14 @@ pub mod root_ring {
 		///   where possible.
 		/// - Newlines (`\n`, `0x0A`) are treated as line breaks, and flush
 		///   the buffer.
-		/// - The interface is **not thread safe**; multiple threads writing
-		///   to the debug output interface will result in interleaved output,
-		///   potentially flushing the buffer at unexpected times.
 		/// - The buffer has a per-line minimum and maximum before a line
 		///   is force-flushed.
 		/// - There is no `flush` command; simply send a newline to flush.
-		/// - Data is sent up in 8-byte increments over synchronous syscalls.
+		/// - Data is sent to the buffer in 8-byte increments over
+		///   synchronous syscalls. **It is therefore not performant to use
+		///   this interface for high volumes of data.**
+		/// - This data is not visible to the user in any case, especially
+		///   after boot; **do not use this for important messages.**
 		pub fn write_bytes(bytes: &[u8]) {
 			if bytes.is_empty() {
 				return;
@@ -215,6 +216,8 @@ pub mod root_ring {
 		///
 		/// **Important:** Failures are _silent_; if no root ring debug output
 		/// exists, the data will be silently dropped.
+		///
+		/// See [`write_bytes`] for more information.
 		pub struct DebugV0Write;
 
 		impl ::core::fmt::Write for DebugV0Write {
@@ -229,6 +232,8 @@ pub mod root_ring {
 		///
 		/// **Important:** Failures are _silent_; if no root ring debug output
 		/// exists, the data will be silently dropped.
+		///
+		/// See [`write_bytes`] for more information.
 		#[macro_export]
 		macro_rules! debug_v0_println {
 			($($arg:tt)*) => {
@@ -245,6 +250,8 @@ pub mod root_ring {
 		///
 		/// **Important:** Failures are _silent_; if no root ring debug output
 		/// exists, the data will be silently dropped.
+		///
+		/// See [`write_bytes`] for more information.
 		#[macro_export]
 		macro_rules! debug_v0_print {
 			($($arg:tt)*) => {
