@@ -3,12 +3,7 @@
 use oro_sysabi::{key, syscall::Error as SysError};
 
 use super::KernelInterface;
-use crate::{
-	arch::Arch,
-	syscall::{InterfaceResponse, SystemCallResponse},
-	tab::Tab,
-	thread::Thread,
-};
+use crate::{arch::Arch, syscall::InterfaceResponse, tab::Tab, thread::Thread};
 
 /// Version 0 of the thread control kernel interface.
 #[repr(transparent)]
@@ -25,24 +20,11 @@ impl KernelInterface for IfaceQueryTypeMetaV0 {
 
 			if let Some(iface_list) = interfaces.get(index) {
 				match key {
-					key!("icount") => {
-						InterfaceResponse::Immediate(SystemCallResponse {
-							error: SysError::Ok,
-							ret:   iface_list.len() as u64,
-						})
-					}
-					_ => {
-						InterfaceResponse::Immediate(SystemCallResponse {
-							error: SysError::BadKey,
-							ret:   0,
-						})
-					}
+					key!("icount") => InterfaceResponse::ok(iface_list.len() as u64),
+					_ => InterfaceResponse::immediate(SysError::BadKey, 0),
 				}
 			} else {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::BadIndex,
-					ret:   0,
-				})
+				InterfaceResponse::immediate(SysError::BadIndex, 0)
 			}
 		})
 	}
@@ -53,9 +35,6 @@ impl KernelInterface for IfaceQueryTypeMetaV0 {
 		_key: u64,
 		_value: u64,
 	) -> InterfaceResponse {
-		InterfaceResponse::Immediate(SystemCallResponse {
-			error: SysError::ReadOnly,
-			ret:   0,
-		})
+		InterfaceResponse::immediate(SysError::ReadOnly, 0)
 	}
 }

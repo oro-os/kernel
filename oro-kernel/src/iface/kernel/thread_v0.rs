@@ -5,7 +5,7 @@ use oro_sysabi::{key, syscall::Error as SysError};
 use super::KernelInterface;
 use crate::{
 	arch::Arch,
-	syscall::{InterfaceResponse, SystemCallResponse},
+	syscall::InterfaceResponse,
 	tab::Tab,
 	thread::{ChangeStateError, RunState, Thread},
 };
@@ -38,19 +38,13 @@ macro_rules! resolve_target {
 			match crate::tab::get().lookup::<Thread<A>>(index) {
 				Some(t) => {
 					if t.with(|t| t.ring().id()) != thread.with(|t| t.ring().id()) {
-						return InterfaceResponse::Immediate(SystemCallResponse {
-							error: SysError::BadIndex,
-							ret:   0,
-						});
+						return InterfaceResponse::immediate(SysError::BadIndex, 0);
 					}
 
 					t
 				}
 				None => {
-					return InterfaceResponse::Immediate(SystemCallResponse {
-						error: SysError::BadIndex,
-						ret:   0,
-					});
+					return InterfaceResponse::immediate(SysError::BadIndex, 0);
 				}
 			}
 		}
@@ -64,24 +58,9 @@ impl KernelInterface for ThreadV0 {
 		let target = resolve_target!(thread, index);
 
 		match key {
-			key!("id") => {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::Ok,
-					ret:   target.id(),
-				})
-			}
-			key!("status") => {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::Ok,
-					ret:   target.with(|t| t.run_state()) as u64,
-				})
-			}
-			_ => {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::BadKey,
-					ret:   0,
-				})
-			}
+			key!("id") => InterfaceResponse::ok(target.id()),
+			key!("status") => InterfaceResponse::ok(target.with(|t| t.run_state()) as u64),
+			_ => InterfaceResponse::immediate(SysError::BadKey, 0),
 		}
 	}
 
@@ -94,45 +73,30 @@ impl KernelInterface for ThreadV0 {
 		let target = resolve_target!(thread, index);
 
 		match key {
-			key!("id") => {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::ReadOnly,
-					ret:   0,
-				})
-			}
+			key!("id") => InterfaceResponse::immediate(SysError::ReadOnly, 0),
 			key!("status") => {
 				let Ok(new_state) = RunState::try_from(value) else {
-					return InterfaceResponse::Immediate(SystemCallResponse {
-						error: SysError::InterfaceError,
-						ret:   Error::InvalidState as u64,
-					});
+					return InterfaceResponse::immediate(
+						SysError::InterfaceError,
+						Error::InvalidState as u64,
+					);
 				};
 
 				match target.with_mut(|t| t.transition_to(thread.id(), new_state)) {
-					Ok(None) => {
-						InterfaceResponse::Immediate(SystemCallResponse {
-							error: SysError::Ok,
-							ret:   0,
-						})
-					}
+					Ok(None) => InterfaceResponse::ok(0),
 					Ok(Some(transition)) => InterfaceResponse::Pending(transition),
 					Err(e) => {
-						InterfaceResponse::Immediate(SystemCallResponse {
-							error: SysError::InterfaceError,
-							ret:   match e {
+						InterfaceResponse::immediate(
+							SysError::InterfaceError,
+							match e {
 								ChangeStateError::Race => Error::Race,
 								ChangeStateError::Terminated => Error::Terminated,
 							} as u64,
-						})
+						)
 					}
 				}
 			}
-			_ => {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::BadKey,
-					ret:   0,
-				})
-			}
+			_ => InterfaceResponse::immediate(SysError::BadKey, 0),
 		}
 	}
 }

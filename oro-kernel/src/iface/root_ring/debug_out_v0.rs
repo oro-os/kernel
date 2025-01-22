@@ -20,11 +20,7 @@ use oro_sync::{Lock, Mutex};
 use oro_sysabi::{key, syscall::Error as SysError};
 
 use crate::{
-	arch::Arch,
-	interface::Interface,
-	syscall::{InterfaceResponse, SystemCallResponse},
-	tab::Tab,
-	thread::Thread,
+	arch::Arch, interface::Interface, syscall::InterfaceResponse, tab::Tab, thread::Thread,
 };
 
 /// The hard-coded maximum line buffer size.
@@ -69,52 +65,21 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 
 	fn get(&self, _thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		if index != 0 {
-			return InterfaceResponse::Immediate(SystemCallResponse {
-				error: SysError::BadIndex,
-				ret:   0,
-			});
+			return InterfaceResponse::immediate(SysError::BadIndex, 0);
 		}
 
 		match key {
-			key!("write") => {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::WriteOnly,
-					ret:   0,
-				})
-			}
-			key!("line_max") => {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::Ok,
-					ret:   self.0.lock().line_buffer as u64,
-				})
-			}
-			key!("hard_max") => {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::Ok,
-					ret:   HARD_MAXIMUM,
-				})
-			}
-			key!("hard_min") => {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::Ok,
-					ret:   HARD_MINIMUM,
-				})
-			}
-			_ => {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::BadKey,
-					ret:   0,
-				})
-			}
+			key!("write") => InterfaceResponse::immediate(SysError::WriteOnly, 0),
+			key!("line_max") => InterfaceResponse::ok(self.0.lock().line_buffer as u64),
+			key!("hard_max") => InterfaceResponse::ok(HARD_MAXIMUM),
+			key!("hard_min") => InterfaceResponse::ok(HARD_MINIMUM),
+			_ => InterfaceResponse::immediate(SysError::BadKey, 0),
 		}
 	}
 
 	fn set(&self, _thread: &Tab<Thread<A>>, index: u64, key: u64, value: u64) -> InterfaceResponse {
 		if index != 0 {
-			return InterfaceResponse::Immediate(SystemCallResponse {
-				error: SysError::BadIndex,
-				ret:   0,
-			});
+			return InterfaceResponse::immediate(SysError::BadIndex, 0);
 		}
 
 		match key {
@@ -123,10 +88,7 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 
 				self.0.lock().line_buffer = value as usize;
 
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::Ok,
-					ret:   0,
-				})
+				InterfaceResponse::ok(0)
 			}
 			key!("write") => {
 				// The value itself holds the bytes; we consume each of the 8 bytes
@@ -151,23 +113,12 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 					}
 				}
 
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::Ok,
-					ret:   0,
-				})
+				InterfaceResponse::ok(0)
 			}
 			key!("hard_max") | key!("hard_min") => {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::ReadOnly,
-					ret:   0,
-				})
+				InterfaceResponse::immediate(SysError::ReadOnly, 0)
 			}
-			_ => {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::BadKey,
-					ret:   0,
-				})
-			}
+			_ => InterfaceResponse::immediate(SysError::BadKey, 0),
 		}
 	}
 }

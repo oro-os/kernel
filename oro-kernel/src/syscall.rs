@@ -73,7 +73,7 @@ pub fn dispatch<A: Arch>(
 		_ => Error::BadOpcode,
 	};
 
-	InterfaceResponse::Immediate(SystemCallResponse { error, ret: 0 })
+	InterfaceResponse::immediate(error, 0)
 }
 
 /// Response from an interface after handling a system call.
@@ -86,6 +86,22 @@ pub enum InterfaceResponse {
 	Immediate(SystemCallResponse),
 	/// The interface has received the request, but the response is not ready yet.
 	Pending(InFlightSystemCallHandle),
+}
+
+impl InterfaceResponse {
+	/// Convience function for creating an immediate response.
+	#[inline]
+	#[must_use]
+	pub fn immediate(error: Error, ret: u64) -> Self {
+		Self::Immediate(SystemCallResponse { error, ret })
+	}
+
+	/// Convence function for creating an [`Error::Ok`] immediate response.
+	#[inline]
+	#[must_use]
+	pub fn ok(ret: u64) -> Self {
+		Self::immediate(Error::Ok, ret)
+	}
 }
 
 /// The producer side of an in-flight system call.

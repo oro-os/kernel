@@ -33,11 +33,7 @@ use oro_sync::{Lock, Mutex};
 use oro_sysabi::{key, syscall::Error as SysError};
 
 use crate::{
-	arch::Arch,
-	interface::Interface,
-	syscall::{InterfaceResponse, SystemCallResponse},
-	tab::Tab,
-	thread::Thread,
+	arch::Arch, interface::Interface, syscall::InterfaceResponse, tab::Tab, thread::Thread,
 };
 
 /// The video buffer kernel request.
@@ -138,10 +134,7 @@ impl<A: Arch> Interface<A> for BootVbufV0<A> {
 		let this = self.0.lock();
 
 		let Some(buffer) = this.buffers.get(index as usize) else {
-			return InterfaceResponse::Immediate(SystemCallResponse {
-				error: SysError::BadIndex,
-				ret:   0,
-			});
+			return InterfaceResponse::immediate(SysError::BadIndex, 0);
 		};
 
 		let value = match key {
@@ -156,33 +149,21 @@ impl<A: Arch> Interface<A> for BootVbufV0<A> {
 			key!("grn_shft") => buffer.green_shift.into(),
 			key!("blu_shft") => buffer.blue_shift.into(),
 			key!("!vmbase!") => {
-				return InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::WriteOnly,
-					ret:   0,
-				});
+				return InterfaceResponse::immediate(SysError::WriteOnly, 0);
 			}
 			_ => {
-				return InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::BadKey,
-					ret:   0,
-				});
+				return InterfaceResponse::immediate(SysError::BadKey, 0);
 			}
 		};
 
-		InterfaceResponse::Immediate(SystemCallResponse {
-			error: SysError::Ok,
-			ret:   value,
-		})
+		InterfaceResponse::ok(value)
 	}
 
 	fn set(&self, thread: &Tab<Thread<A>>, index: u64, key: u64, value: u64) -> InterfaceResponse {
 		let this = self.0.lock();
 
 		let Some(buffer) = this.buffers.get(index as usize) else {
-			return InterfaceResponse::Immediate(SystemCallResponse {
-				error: SysError::BadIndex,
-				ret:   0,
-			});
+			return InterfaceResponse::immediate(SysError::BadIndex, 0);
 		};
 
 		match key {
@@ -195,18 +176,13 @@ impl<A: Arch> Interface<A> for BootVbufV0<A> {
 			| key!("blu_size")
 			| key!("red_shft")
 			| key!("grn_shft")
-			| key!("blu_shft") => {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::ReadOnly,
-					ret:   0,
-				})
-			}
+			| key!("blu_shft") => InterfaceResponse::immediate(SysError::ReadOnly, 0),
 			key!("!vmbase!") => {
 				if value & 0xFFF != 0 {
-					return InterfaceResponse::Immediate(SystemCallResponse {
-						error: SysError::InterfaceError,
-						ret:   Error::Unaligned as u64,
-					});
+					return InterfaceResponse::immediate(
+						SysError::InterfaceError,
+						Error::Unaligned as u64,
+					);
 				}
 
 				let num_pages = ((buffer.row_pitch * buffer.height) + 0xFFF) >> 12;
@@ -217,10 +193,10 @@ impl<A: Arch> Interface<A> for BootVbufV0<A> {
 					for i in 0..num_pages {
 						let res: Result<(), InterfaceResponse> = (|| {
 							let vaddr = value.checked_add(i << 12).ok_or_else(|| {
-								InterfaceResponse::Immediate(SystemCallResponse {
-									error: SysError::InterfaceError,
-									ret:   Error::OutOfRange as u64,
-								})
+								InterfaceResponse::immediate(
+									SysError::InterfaceError,
+									Error::OutOfRange as u64,
+								)
 							})?;
 
 							// NOTE(qix-): Oftentimes you'd map MMIO as Device-nGnRnE (or equivalent), but
@@ -234,29 +210,29 @@ impl<A: Arch> Interface<A> for BootVbufV0<A> {
 								.map_err(|err| {
 									match err {
 										MapError::Exists => {
-											InterfaceResponse::Immediate(SystemCallResponse {
-												error: SysError::InterfaceError,
-												ret:   Error::ConflictingMap as u64,
-											})
+											InterfaceResponse::immediate(
+												SysError::InterfaceError,
+												Error::ConflictingMap as u64,
+											)
 										}
 										MapError::OutOfMemory => {
-											InterfaceResponse::Immediate(SystemCallResponse {
-												error: SysError::InterfaceError,
-												ret:   Error::OutOfMemory as u64,
-											})
+											InterfaceResponse::immediate(
+												SysError::InterfaceError,
+												Error::OutOfMemory as u64,
+											)
 										}
 										MapError::VirtNotAligned => {
-											InterfaceResponse::Immediate(SystemCallResponse {
-												error: SysError::InterfaceError,
-												ret:   Error::Unaligned as u64,
-											})
+											InterfaceResponse::immediate(
+												SysError::InterfaceError,
+												Error::Unaligned as u64,
+											)
 										}
 										MapError::VirtOutOfAddressSpaceRange
 										| MapError::VirtOutOfRange => {
-											InterfaceResponse::Immediate(SystemCallResponse {
-												error: SysError::InterfaceError,
-												ret:   Error::OutOfRange as u64,
-											})
+											InterfaceResponse::immediate(
+												SysError::InterfaceError,
+												Error::OutOfRange as u64,
+											)
 										}
 									}
 								})?;
@@ -281,22 +257,9 @@ impl<A: Arch> Interface<A> for BootVbufV0<A> {
 					Ok(())
 				});
 
-				match res {
-					Ok(()) => {
-						InterfaceResponse::Immediate(SystemCallResponse {
-							error: SysError::Ok,
-							ret:   num_pages,
-						})
-					}
-					Err(err) => err,
-				}
+				res.map_or_else(|e| e, |()| InterfaceResponse::ok(num_pages))
 			}
-			_ => {
-				InterfaceResponse::Immediate(SystemCallResponse {
-					error: SysError::BadKey,
-					ret:   0,
-				})
-			}
+			_ => InterfaceResponse::immediate(SysError::BadKey, 0),
 		}
 	}
 }
