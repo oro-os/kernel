@@ -235,7 +235,7 @@ pub mod root_ring {
 		///
 		/// See [`write_bytes`] for more information.
 		#[macro_export]
-		macro_rules! debug_v0_println {
+		macro_rules! debug_out_v0_println {
 			($($arg:tt)*) => {
 				{
 					use $crate::root_ring::debug_out_v0::DebugV0Write;
@@ -253,7 +253,7 @@ pub mod root_ring {
 		///
 		/// See [`write_bytes`] for more information.
 		#[macro_export]
-		macro_rules! debug_v0_print {
+		macro_rules! debug_out_v0_print {
 			($($arg:tt)*) => {
 				{
 					use $crate::root_ring::debug_out_v0::DebugV0Write;
