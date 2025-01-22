@@ -13,7 +13,7 @@
 //! **Streams are not interpreted as UTF-8.** They are
 //! outputted to the debug stream as-is.
 
-use core::marker::PhantomData;
+use core::{cmp::Ordering, marker::PhantomData};
 
 use oro_mem::alloc::vec::Vec;
 use oro_sysabi::{key, syscall::Error as SysError};
@@ -44,6 +44,51 @@ impl Default for BufferState {
 			line_buffer: DEFAULT_LINE_BUFFER,
 			buffer:      Vec::new(),
 		}
+	}
+}
+
+impl BufferState {
+	/// Writes a single byte to the buffer.
+	///
+	/// Automatically flushes the buffer if a newline
+	/// is encountered or if `line_buffer` bytes are
+	/// written.
+	fn write(&mut self, b: u8) {
+		match b {
+			0 => (),
+			b'\n' => self.flush(),
+			_ => {
+				if self.buffer.len() >= self.line_buffer {
+					self.flush();
+				}
+				self.buffer.push(b);
+			}
+		}
+	}
+
+	/// Flushes the buffer immediately.
+	fn flush(&mut self) {
+		::oro_debug::log_debug_bytes(&self.buffer);
+		self.buffer.clear();
+	}
+
+	/// Sets the buffer's max size to `size`.
+	///
+	/// The buffer is truncated if it is larger than
+	/// `size`, and if the populated bytes exceed
+	/// `size`, the buffer is flushed.
+	fn set_max(&mut self, size: usize) {
+		if self.buffer.len() > size {
+			self.flush();
+		}
+
+		match self.buffer.capacity().cmp(&size) {
+			Ordering::Greater => self.buffer.shrink_to(size),
+			Ordering::Less => self.buffer.reserve(size - self.buffer.capacity()),
+			Ordering::Equal => {}
+		}
+
+		self.line_buffer = size;
 	}
 }
 
@@ -92,7 +137,7 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 		match key {
 			key!("line_max") => {
 				let value = value.clamp(HARD_MINIMUM, HARD_MAXIMUM);
-				thread.with_mut(|t| t.data_mut().get::<BufferState>().line_buffer = value as usize);
+				thread.with_mut(|t| t.data_mut().get::<BufferState>().set_max(value as usize));
 				InterfaceResponse::ok(0)
 			}
 			key!("write") => {
@@ -104,19 +149,7 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 					let inner = t.data_mut().get::<BufferState>();
 
 					for b in bytes {
-						let flush = match b {
-							0 => continue,
-							b'\n' => true,
-							_ => {
-								inner.buffer.push(b);
-								inner.buffer.len() >= inner.line_buffer
-							}
-						};
-
-						if flush {
-							::oro_debug::log_debug_bytes(&inner.buffer);
-							inner.buffer.clear();
-						}
+						inner.write(b);
 					}
 				});
 
