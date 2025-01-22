@@ -16,20 +16,21 @@
 use core::marker::PhantomData;
 
 use oro_mem::alloc::vec::Vec;
-use oro_sync::{Lock, Mutex};
 use oro_sysabi::{key, syscall::Error as SysError};
 
 use crate::{
 	arch::Arch, interface::Interface, syscall::InterfaceResponse, tab::Tab, thread::Thread,
 };
 
+/// The default line buffer size.
+const DEFAULT_LINE_BUFFER: usize = 256;
 /// The hard-coded maximum line buffer size.
 const HARD_MAXIMUM: u64 = 1024;
 /// The hard-coded minimum line buffer size.
 const HARD_MINIMUM: u64 = 1;
 
 /// Inner state of the debug output stream.
-struct Inner {
+struct BufferState {
 	/// The number of bytes to line buffer before
 	/// forcing a flush.
 	line_buffer: usize,
@@ -37,10 +38,10 @@ struct Inner {
 	buffer:      Vec<u8>,
 }
 
-impl Default for Inner {
+impl Default for BufferState {
 	fn default() -> Self {
 		Self {
-			line_buffer: 256,
+			line_buffer: DEFAULT_LINE_BUFFER,
 			buffer:      Vec::new(),
 		}
 	}
@@ -48,13 +49,13 @@ impl Default for Inner {
 
 /// See the module level documentation for information about
 /// the debug output stream interface.
-pub struct DebugOutV0<A: Arch>(Mutex<Inner>, PhantomData<A>);
+pub struct DebugOutV0<A: Arch>(PhantomData<A>);
 
 impl<A: Arch> DebugOutV0<A> {
 	/// Creates a new `DebugOutV0` instance.
 	#[must_use]
 	pub fn new() -> Self {
-		Self(Mutex::new(Inner::default()), PhantomData)
+		Self(PhantomData)
 	}
 }
 
@@ -63,21 +64,27 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 		oro_sysabi::id::iface::ROOT_DEBUG_OUT_V0
 	}
 
-	fn get(&self, _thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
+	fn get(&self, thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		if index != 0 {
 			return InterfaceResponse::immediate(SysError::BadIndex, 0);
 		}
 
 		match key {
 			key!("write") => InterfaceResponse::immediate(SysError::WriteOnly, 0),
-			key!("line_max") => InterfaceResponse::ok(self.0.lock().line_buffer as u64),
+			key!("line_max") => {
+				InterfaceResponse::ok(thread.with(|t| {
+					t.data()
+						.try_get::<BufferState>()
+						.map_or_else(|| DEFAULT_LINE_BUFFER, |b| b.line_buffer) as u64
+				}))
+			}
 			key!("hard_max") => InterfaceResponse::ok(HARD_MAXIMUM),
 			key!("hard_min") => InterfaceResponse::ok(HARD_MINIMUM),
 			_ => InterfaceResponse::immediate(SysError::BadKey, 0),
 		}
 	}
 
-	fn set(&self, _thread: &Tab<Thread<A>>, index: u64, key: u64, value: u64) -> InterfaceResponse {
+	fn set(&self, thread: &Tab<Thread<A>>, index: u64, key: u64, value: u64) -> InterfaceResponse {
 		if index != 0 {
 			return InterfaceResponse::immediate(SysError::BadIndex, 0);
 		}
@@ -85,9 +92,7 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 		match key {
 			key!("line_max") => {
 				let value = value.clamp(HARD_MINIMUM, HARD_MAXIMUM);
-
-				self.0.lock().line_buffer = value as usize;
-
+				thread.with_mut(|t| t.data_mut().get::<BufferState>().line_buffer = value as usize);
 				InterfaceResponse::ok(0)
 			}
 			key!("write") => {
@@ -95,23 +100,25 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 				// from `value` until we encounter a `0` byte, after which we ignore
 				// the rest.
 				let bytes = value.to_be_bytes();
-				let mut inner = self.0.lock();
+				thread.with_mut(|t| {
+					let inner = t.data_mut().get::<BufferState>();
 
-				for b in bytes {
-					let flush = match b {
-						0 => continue,
-						b'\n' => true,
-						_ => {
-							inner.buffer.push(b);
-							inner.buffer.len() >= inner.line_buffer
+					for b in bytes {
+						let flush = match b {
+							0 => continue,
+							b'\n' => true,
+							_ => {
+								inner.buffer.push(b);
+								inner.buffer.len() >= inner.line_buffer
+							}
+						};
+
+						if flush {
+							::oro_debug::log_debug_bytes(&inner.buffer);
+							inner.buffer.clear();
 						}
-					};
-
-					if flush {
-						::oro_debug::log_debug_bytes(&inner.buffer);
-						inner.buffer.clear();
 					}
-				}
+				});
 
 				InterfaceResponse::ok(0)
 			}

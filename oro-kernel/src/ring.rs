@@ -11,7 +11,7 @@ use crate::{
 	instance::Instance,
 	interface::{Interface, RingInterface},
 	tab::Tab,
-	table::Table,
+	table::{Table, TypeTable},
 };
 
 /// A singular ring.
@@ -46,6 +46,8 @@ pub struct Ring<A: Arch> {
 	children: Vec<Tab<Ring<A>>>,
 	/// The interfaces exposed to the ring, grouped by type.
 	interfaces_by_type: Table<Vec<Tab<RingInterface<A>>>>,
+	/// Associated ring data.
+	data: TypeTable,
 }
 
 impl<A: Arch> Ring<A> {
@@ -63,6 +65,7 @@ impl<A: Arch> Ring<A> {
 				mapper,
 				children: Vec::new(),
 				interfaces_by_type: Table::new(),
+				data: TypeTable::new(),
 			})
 			.ok_or(MapError::OutOfMemory)?;
 
@@ -105,6 +108,7 @@ impl<A: Arch> Ring<A> {
 				mapper,
 				children: Vec::new(),
 				interfaces_by_type: Table::new(),
+				data: TypeTable::new(),
 			})
 			.ok_or(MapError::OutOfMemory)
 	}
@@ -159,5 +163,17 @@ impl<A: Arch> Ring<A> {
 			.get_or_insert_mut(type_id)
 			.push(tab.clone());
 		Some(tab)
+	}
+
+	/// Returns a reference to the ring's data.
+	#[must_use]
+	pub fn data(&self) -> &TypeTable {
+		&self.data
+	}
+
+	/// Returns a mutable reference to the ring's data.
+	#[must_use]
+	pub fn data_mut(&mut self) -> &mut TypeTable {
+		&mut self.data
 	}
 }

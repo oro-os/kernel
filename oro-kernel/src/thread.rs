@@ -25,6 +25,7 @@ use crate::{
 	ring::Ring,
 	syscall::{InFlightState, InFlightSystemCall, InFlightSystemCallHandle, SystemCallResponse},
 	tab::Tab,
+	table::TypeTable,
 };
 
 /// A thread's run state.
@@ -82,6 +83,8 @@ pub struct Thread<A: Arch> {
 	/// If `Some`, another thread has requested a `run_state`
 	/// change and should be notified when it occurs.
 	run_state_transition: Option<(RunState, InFlightSystemCall)>,
+	/// Associated thread data.
+	data: TypeTable,
 }
 
 impl<A: Arch> Thread<A> {
@@ -185,6 +188,7 @@ impl<A: Arch> Thread<A> {
 			state: State::default(),
 			run_state: RunState::Running,
 			run_state_transition: None,
+			data: TypeTable::new(),
 		};
 
 		let tab = crate::tab::get().add(this).ok_or(MapError::OutOfMemory)?;
@@ -422,6 +426,18 @@ impl<A: Arch> Thread<A> {
 		} else {
 			panic!("thread is not running on the given core");
 		}
+	}
+
+	/// Returns a reference to the thread's data table.
+	#[inline]
+	pub fn data(&self) -> &TypeTable {
+		&self.data
+	}
+
+	/// Returns a mutable reference to the thread's data table.
+	#[inline]
+	pub fn data_mut(&mut self) -> &mut TypeTable {
+		&mut self.data
 	}
 }
 

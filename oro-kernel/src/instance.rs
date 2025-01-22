@@ -8,7 +8,7 @@ use crate::{
 	module::Module,
 	ring::Ring,
 	tab::Tab,
-	table::Table,
+	table::{Table, TypeTable},
 	thread::Thread,
 };
 
@@ -55,6 +55,8 @@ pub struct Instance<A: Arch> {
 	pub(super) threads: Table<Tab<Thread<A>>>,
 	/// The instance's architecture handle.
 	handle: A::InstanceHandle,
+	/// The instance's associated data.
+	data: TypeTable,
 }
 
 impl<A: Arch> Instance<A> {
@@ -84,6 +86,7 @@ impl<A: Arch> Instance<A> {
 				ring: ring.clone(),
 				threads: Table::new(),
 				handle,
+				data: TypeTable::new(),
 			})
 			.ok_or(MapError::OutOfMemory)?;
 
@@ -111,5 +114,17 @@ impl<A: Arch> Instance<A> {
 	#[must_use]
 	pub fn mapper(&self) -> &UserHandle<A> {
 		self.handle.mapper()
+	}
+
+	/// Returns a reference to the instance's data.
+	#[inline]
+	pub fn data(&self) -> &TypeTable {
+		&self.data
+	}
+
+	/// Returns a mutable reference to the instance's data.
+	#[inline]
+	pub fn data_mut(&mut self) -> &mut TypeTable {
+		&mut self.data
 	}
 }
