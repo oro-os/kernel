@@ -5,11 +5,12 @@
 
 use core::{
 	alloc::Allocator,
+	any::{Any, TypeId},
 	hash::{BuildHasher, Hasher},
 };
 
 use hashbrown::HashMap;
-use oro_mem::alloc::alloc::Global;
+use oro_mem::alloc::{alloc::Global, boxed::Box};
 
 /// A table of values indexed by a unique ID.
 ///
@@ -66,6 +67,65 @@ impl<T: Sized, Alloc: Allocator + Default> Table<T, Alloc> {
 	#[inline]
 	pub fn remove(&mut self, id: u64) -> Option<T> {
 		self.0.remove(&id)
+	}
+}
+
+/// A [`Table`] wrapper that allows for artibtrary singleton values
+/// by type, usually for per-(entity, interface) associated data.
+// NOTE(qix-): `TypeId` uses a split `u128` under the hood, so we can't
+// NOTE(qix-): use the default hasher here. We eat a little bit of
+// NOTE(qix-): micro-performance to avoid complicating things.
+#[repr(transparent)]
+pub struct TypeTable<Alloc: Allocator + Default = Global>(
+	HashMap<TypeId, Box<dyn Any>, foldhash::fast::FixedState, Alloc>,
+);
+
+impl<Alloc: Allocator + Default> TypeTable<Alloc> {
+	/// Creates a new empty type table.
+	#[must_use]
+	#[inline]
+	pub fn new() -> Self {
+		Self(HashMap::default())
+	}
+
+	/// Gets the given type from the table, creating it if it doesn't exist.
+	#[inline]
+	pub fn get<T: Default + Any>(&mut self) -> &mut T {
+		// SAFETY: We know that the type is `T` because we're passing it in.
+		// SAFETY: Therefore we can guarantee we're getting the right type.
+		unsafe {
+			self.0
+				.entry(TypeId::of::<T>())
+				.or_insert_with(|| Box::new(T::default()))
+				.downcast_mut_unchecked()
+		}
+	}
+
+	/// Gets the given type from the table, inserting the given value if it doesn't exist.
+	#[inline]
+	pub fn get_or_insert<T: Any>(&mut self, value: T) -> &mut T {
+		self.get_or_insert_with(move || value)
+	}
+
+	/// Gets the given type from the table, inserting the value from the given closure if it doesn't exist.
+	#[inline]
+	pub fn get_or_insert_with<T: Any, F: FnOnce() -> T>(&mut self, f: F) -> &mut T {
+		// SAFETY: We know that the type is `T` because we're passing it in.
+		// SAFETY: Therefore we can guarantee we're getting the right type.
+		unsafe {
+			self.0
+				.entry(TypeId::of::<T>())
+				.or_insert_with(|| Box::new(f()))
+				.downcast_mut_unchecked()
+		}
+	}
+
+	/// Attempts to get the given type from the table, returning `None` if it doesn't exist.
+	#[inline]
+	pub fn try_get<T: Any>(&self) -> Option<&T> {
+		self.0
+			.get(&TypeId::of::<T>())
+			.and_then(|v| v.downcast_ref())
 	}
 }
 

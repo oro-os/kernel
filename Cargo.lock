@@ -163,6 +163,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "foldhash"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0d2fde1f7b3d48b8395d5f2de76c18a528bd6a9cdde438df747bfcba3e05d6f"
+
+[[package]]
 name = "glob"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -397,6 +403,7 @@ version = "0.0.0"
 name = "oro-kernel"
 version = "0.0.0"
 dependencies = [
+ "foldhash",
  "hashbrown",
  "oro-boot-protocol",
  "oro-dbgutil",

@@ -38,6 +38,7 @@ oro-boot-protocol = { workspace = true, optional = true, features = ["utils"] }
 oro-dbgutil.workspace = true
 
 hashbrown.workspace = true
+foldhash = { workspace = true, default-features = false }
 
 [lints]
 workspace = true

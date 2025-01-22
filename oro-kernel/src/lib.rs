@@ -27,6 +27,11 @@
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/96097
 #![feature(maybe_uninit_array_assume_init)]
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+// SAFETY(qix-): This is either going to be stabilized, or the workaround
+// SAFETY(qix-): for it to be pulled will have a trivial workaround that
+// SAFETY(qix-): has equally good codegen. Either, way this is zero risk.
+// SAFETY(qix-): https://github.com/rust-lang/rust/issues/90850
+#![feature(downcast_unchecked)]
 
 pub mod arch;
 pub mod iface;
