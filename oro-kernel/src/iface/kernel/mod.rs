@@ -5,6 +5,7 @@
 use crate::{arch::Arch, syscall::InterfaceResponse, tab::Tab, thread::Thread};
 
 mod iface_query_by_type_v0;
+mod iface_query_type_meta_v0;
 mod thread_v0;
 
 /// Small helper trait for kernel interfaces, which are always
@@ -80,4 +81,5 @@ macro_rules! make_dispatch {
 make_dispatch! {
 	thread_v0::ThreadV0,
 	iface_query_by_type_v0::IfaceQueryByTypeV0,
+	iface_query_type_meta_v0::IfaceQueryTypeMetaV0,
 }

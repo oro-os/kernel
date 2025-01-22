@@ -1,7 +1,6 @@
-//! Kernel interface for querying the ring's interfaces
-//! based on the interface type.
+//! Allows the querying of interface metdata given an interface type ID.
 
-use oro_sysabi::syscall::Error as SysError;
+use oro_sysabi::{key, syscall::Error as SysError};
 
 use super::KernelInterface;
 use crate::{
@@ -11,12 +10,12 @@ use crate::{
 	thread::Thread,
 };
 
-/// Version 0 of interface ID query by type kernel interface.
+/// Version 0 of the thread control kernel interface.
 #[repr(transparent)]
-pub struct IfaceQueryByTypeV0;
+pub struct IfaceQueryTypeMetaV0;
 
-impl KernelInterface for IfaceQueryByTypeV0 {
-	const TYPE_ID: u64 = oro_sysabi::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0;
+impl KernelInterface for IfaceQueryTypeMetaV0 {
+	const TYPE_ID: u64 = oro_sysabi::id::iface::KERNEL_IFACE_QUERY_TYPE_META_V0;
 
 	fn get<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		let ring = thread.with(|t| t.ring());
@@ -25,16 +24,19 @@ impl KernelInterface for IfaceQueryByTypeV0 {
 			let interfaces = ring.interfaces_by_type();
 
 			if let Some(iface_list) = interfaces.get(index) {
-				if let Some(iface) = iface_list.get(key as usize) {
-					InterfaceResponse::Immediate(SystemCallResponse {
-						error: SysError::Ok,
-						ret:   iface.id(),
-					})
-				} else {
-					InterfaceResponse::Immediate(SystemCallResponse {
-						error: SysError::BadKey,
-						ret:   0,
-					})
+				match key {
+					key!("icount") => {
+						InterfaceResponse::Immediate(SystemCallResponse {
+							error: SysError::Ok,
+							ret:   iface_list.len() as u64,
+						})
+					}
+					_ => {
+						InterfaceResponse::Immediate(SystemCallResponse {
+							error: SysError::BadKey,
+							ret:   0,
+						})
+					}
 				}
 			} else {
 				InterfaceResponse::Immediate(SystemCallResponse {
