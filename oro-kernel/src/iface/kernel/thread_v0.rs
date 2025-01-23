@@ -10,46 +10,23 @@ use crate::{
 	thread::{ChangeStateError, RunState, Thread},
 };
 
+include!("macro/resolve_target.rs");
+
 /// Error codes specific to the thread control interface.
 #[derive(Debug, Clone, Copy)]
 #[repr(u64)]
 pub enum Error {
 	/// Invalid run state when setting `status`.
-	InvalidState = 1,
+	InvalidState = key!("invlst"),
 	/// Another thread is waiting to change the target thread's state; try again.
-	Race         = 2,
+	Race         = key!("race"),
 	/// Cannot change state; thread is terminated.
-	Terminated   = 3,
+	Terminated   = key!("term"),
 }
 
 /// Version 0 of the thread control kernel interface.
 #[repr(transparent)]
 pub struct ThreadV0;
-
-/// Resolves the target thread from the given index,
-/// checking that the caller has permission to access it.
-macro_rules! resolve_target {
-	($thread:expr, $index:expr) => {{
-		let thread = $thread;
-		let index = $index;
-		if index == 0 || index == thread.id() {
-			thread.clone()
-		} else {
-			match crate::tab::get().lookup::<Thread<A>>(index) {
-				Some(t) => {
-					if t.with(|t| t.ring().id()) != thread.with(|t| t.ring().id()) {
-						return InterfaceResponse::immediate(SysError::BadIndex, 0);
-					}
-
-					t
-				}
-				None => {
-					return InterfaceResponse::immediate(SysError::BadIndex, 0);
-				}
-			}
-		}
-	}};
-}
 
 impl KernelInterface for ThreadV0 {
 	const TYPE_ID: u64 = oro_sysabi::id::iface::KERNEL_THREAD_V0;

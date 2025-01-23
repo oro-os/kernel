@@ -10,6 +10,7 @@ use crate::{
 	tab::Tab,
 	table::{Table, TypeTable},
 	thread::Thread,
+	token::Token,
 };
 
 /// A singular module instance.
@@ -57,6 +58,11 @@ pub struct Instance<A: Arch> {
 	handle: A::InstanceHandle,
 	/// The instance's associated data.
 	data: TypeTable,
+	/// Memory tokens owned by this instance.
+	///
+	/// If a token is here, the instance is allowed to map it
+	/// into its address space.
+	tokens: Table<Tab<Token>>,
 }
 
 impl<A: Arch> Instance<A> {
@@ -87,6 +93,7 @@ impl<A: Arch> Instance<A> {
 				threads: Table::new(),
 				handle,
 				data: TypeTable::new(),
+				tokens: Table::new(),
 			})
 			.ok_or(MapError::OutOfMemory)?;
 
@@ -110,7 +117,33 @@ impl<A: Arch> Instance<A> {
 		&self.threads
 	}
 
+	/// Attempts to return a [`Token`] from the instance's token list.
+	///
+	/// Returns `None` if the token is not present.
+	#[inline]
+	#[must_use]
+	pub fn token(&self, id: u64) -> Option<Tab<Token>> {
+		self.tokens.get(id).cloned()
+	}
+
+	/// "Forgets" a [`Token`] from the instance's token list.
+	///
+	/// Returns the forgotten token, or `None` if the token is not present.
+	#[inline]
+	pub fn forget_token(&mut self, id: u64) -> Option<Tab<Token>> {
+		self.tokens.remove(id)
+	}
+
+	/// Inserts a [`Token`] into the instance's token list.
+	///
+	/// Returns the ID of the token.
+	#[inline]
+	pub fn insert_token(&mut self, token: Tab<Token>) -> u64 {
+		self.tokens.insert_tab(token)
+	}
+
 	/// Returns the instance's address space handle.
+	#[inline]
 	#[must_use]
 	pub fn mapper(&self) -> &UserHandle<A> {
 		self.handle.mapper()

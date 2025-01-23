@@ -6,7 +6,19 @@ use crate::{arch::Arch, syscall::InterfaceResponse, tab::Tab, thread::Thread};
 
 mod iface_query_by_type_v0;
 mod iface_query_type_meta_v0;
+mod mem_token_v0;
+mod page_alloc_v0;
 mod thread_v0;
+
+include!("macro/make_dispatch.rs");
+
+make_dispatch! {
+	thread_v0::ThreadV0,
+	iface_query_by_type_v0::IfaceQueryByTypeV0,
+	iface_query_type_meta_v0::IfaceQueryTypeMetaV0,
+	mem_token_v0::MemTokenV0,
+	page_alloc_v0::PageAllocV0,
+}
 
 /// Small helper trait for kernel interfaces, which are always
 /// available, use no state themselves, and are simple gateways
@@ -21,65 +33,4 @@ pub trait KernelInterface {
 	/// See [`crate::interface::Interface::set`].
 	fn set<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64, value: u64)
 	-> InterfaceResponse;
-}
-
-#[doc(hidden)]
-macro_rules! make_dispatch {
-	($($iface:ty),* $(,)?) => {
-		const _: () = const {
-			$(assert!(
-				(<$iface as KernelInterface>::TYPE_ID & ::oro_sysabi::id::mask::KERNEL_ID) == 0,
-				concat!("kernel interface specifies non-kernel ID: ", stringify!($ty))
-			);)*
-		};
-
-		/// Attempts to dispatch a [`oro_sysabi::syscall::Opcode::Get`] system call to a kernel interface.
-		///
-		/// If the type ID is not recognized, returns `None`; callers should delegate
-		/// to a registry lookup and dispatch.
-		#[must_use]
-		pub fn try_dispatch_get<A: Arch>(
-			thread: &Tab<Thread<A>>,
-			type_id: u64,
-			index: u64,
-			key: u64,
-		) -> Option<InterfaceResponse> {
-			match type_id {
-				$(
-					<$iface as KernelInterface>::TYPE_ID => {
-						Some(<$iface as KernelInterface>::get::<A>(thread, index, key))
-					}
-				)*
-				_ => None,
-			}
-		}
-
-		/// Attempts to dispatch a [`oro_sysabi::syscall::Opcode::Set`] system call to a kernel interface.
-		///
-		/// If the type ID is not recognized, returns `None`; callers should delegate
-		/// to a registry lookup and dispatch.
-		#[must_use]
-		pub fn try_dispatch_set<A: Arch>(
-			thread: &Tab<Thread<A>>,
-			type_id: u64,
-			index: u64,
-			key: u64,
-			value: u64,
-		) -> Option<InterfaceResponse> {
-			match type_id {
-				$(
-					<$iface as KernelInterface>::TYPE_ID => {
-						Some(<$iface as KernelInterface>::set::<A>(thread, index, key, value))
-					}
-				)*
-				_ => None,
-			}
-		}
-	};
-}
-
-make_dispatch! {
-	thread_v0::ThreadV0,
-	iface_query_by_type_v0::IfaceQueryByTypeV0,
-	iface_query_type_meta_v0::IfaceQueryTypeMetaV0,
 }

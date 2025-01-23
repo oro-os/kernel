@@ -12,6 +12,8 @@ use core::{
 use hashbrown::HashMap;
 use oro_mem::alloc::{alloc::Global, boxed::Box};
 
+use crate::tab::TabId;
+
 /// A table of values indexed by a unique ID.
 ///
 /// Allows the insertion of values with an automatically guaranteed system-wide unique ID.
@@ -25,6 +27,33 @@ impl<T: Sized, Alloc: Allocator + Default> Table<T, Alloc> {
 	#[must_use]
 	pub fn new() -> Self {
 		Self(HashMap::default())
+	}
+
+	/// Convenience function for inserting [`crate::tab::Tab`]s into the table.
+	#[inline]
+	pub fn insert_tab(&mut self, tab: T) -> u64
+	where
+		T: TabId,
+	{
+		let id = tab.id();
+		self.insert(id, tab);
+		id
+	}
+
+	/// Convenience function for inserting a [`crate::tab::Tab`] into the table
+	/// without checking for collisions. Slightly faster than [`Self::insert_tab`].
+	///
+	/// # Safety
+	/// Caller must ensure that `tab.id()` does not already exist in the table.
+	#[inline]
+	pub unsafe fn insert_tab_unchecked(&mut self, tab: T) -> u64
+	where
+		T: TabId,
+	{
+		let id = tab.id();
+		// SAFETY: We've offloaded the responsibility to the caller.
+		unsafe { self.insert_unique_unchecked(id, tab) };
+		id
 	}
 
 	/// Inserts a value into the table with a specific ID.

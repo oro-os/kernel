@@ -35,6 +35,10 @@ pub mod iface {
 	pub const KERNEL_IFACE_QUERY_BY_TYPE_V0: u64 = KERNEL_ID_TYPE_IFACE | 0x00_0002;
 	/// The ID of the kernel interface metadata query by type ID interface (version 0).
 	pub const KERNEL_IFACE_QUERY_TYPE_META_V0: u64 = KERNEL_ID_TYPE_IFACE | 0x00_0003;
+	/// The ID of the kernel memory token query interface (version 0).
+	pub const KERNEL_MEM_TOKEN_V0: u64 = KERNEL_ID_TYPE_IFACE | 0x00_0004;
+	/// The ID of the kernel page allocation interface (version 0).
+	pub const KERNEL_PAGE_ALLOC_V0: u64 = KERNEL_ID_TYPE_IFACE | 0x00_0005;
 
 	/// The ID of the root ring debug output interface (version 0).
 	pub const ROOT_DEBUG_OUT_V0: u64 = 1736981805247;

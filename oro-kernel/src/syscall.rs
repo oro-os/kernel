@@ -92,14 +92,14 @@ impl InterfaceResponse {
 	/// Convience function for creating an immediate response.
 	#[inline]
 	#[must_use]
-	pub fn immediate(error: Error, ret: u64) -> Self {
+	pub const fn immediate(error: Error, ret: u64) -> Self {
 		Self::Immediate(SystemCallResponse { error, ret })
 	}
 
 	/// Convence function for creating an [`Error::Ok`] immediate response.
 	#[inline]
 	#[must_use]
-	pub fn ok(ret: u64) -> Self {
+	pub const fn ok(ret: u64) -> Self {
 		Self::immediate(Error::Ok, ret)
 	}
 }

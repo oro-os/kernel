@@ -1151,6 +1151,26 @@ impl Slot {
 	}
 }
 
+/// Generic tab trait for retrieving the ID of a tab.
+pub trait TabId {
+	/// The ID of the tab.
+	fn id(&self) -> u64;
+}
+
+impl<T: Tabbed> TabId for Tab<T> {
+	#[inline(always)]
+	fn id(&self) -> u64 {
+		self.id
+	}
+}
+
+impl TabId for AnyTab {
+	#[inline(always)]
+	fn id(&self) -> u64 {
+		self.id
+	}
+}
+
 /// The type of value held in the tab slot.
 // NOTE(qix-): Please keep this in sync with the enum in `tab_tracker.py`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -1168,6 +1188,8 @@ pub enum TabType {
 	RingInterface = 4,
 	/// A [`crate::module::Module`].
 	Module        = 5,
+	/// A [`crate::token::Token`].
+	Token         = 6,
 }
 
 impl<A: Arch> Tabbed for crate::thread::Thread<A> {
@@ -1188,4 +1210,8 @@ impl<A: Arch> Tabbed for crate::ring::Ring<A> {
 
 impl<A: Arch> Tabbed for crate::interface::RingInterface<A> {
 	const TY: TabType = TabType::RingInterface;
+}
+
+impl Tabbed for crate::token::Token {
+	const TY: TabType = TabType::Token;
 }
