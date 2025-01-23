@@ -33,6 +33,14 @@
 //! ```
 #![cfg_attr(not(feature = "build"), no_std)]
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+// SAFETY(qix-): This is for the `runtime::Key` debug helper, and purely for
+// SAFETY(qix-): ergonomics and strict adherence to the intention of the
+// SAFETY(qix-): `Key` type. It is not used in any unsafe context.
+#![cfg_attr(feature = "nightly", feature(negative_impls))]
+// SAFETY(qix-): Seems to be reasonably accepted. It also allows `Key` to
+// SAFETY(qix-): infallibly write a format string in a single call.
+// SAFETY(qix-): https://github.com/rust-lang/rust/issues/110998
+#![cfg_attr(feature = "nightly", feature(ascii_char))]
 
 #[cfg(feature = "build")]
 mod build;

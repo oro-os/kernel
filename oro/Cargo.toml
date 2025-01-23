@@ -19,6 +19,7 @@ workspace = true
 
 [features]
 default = ["panic_handler"]
+nightly = []
 runtime = []
 build = []
 panic_handler = []

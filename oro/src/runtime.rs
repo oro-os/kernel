@@ -264,3 +264,95 @@ pub mod root_ring {
 		}
 	}
 }
+
+#[doc(hidden)]
+#[cfg(feature = "nightly")]
+mod nightly {
+	use core::{ascii::Char, fmt};
+
+	/// Debug output wrapper for keys and errors that use a `key!("...")`-like
+	/// encoding.
+	///
+	/// **Do not use this for anything other than debug logging.** This type is
+	/// made intentionally restrictive to prevent misuse.
+	///
+	/// # Example
+	/// ```
+	/// use oro::{Key, syscall::key};
+	///
+	/// let k = key!("hello");
+	/// println!("{:?}", Key(&k)); // hello
+	/// println!("{:#?}", Key(&k)); // Key("hello\0\0\0\0")
+	/// ```
+	pub struct Key<'a>(pub &'a u64)
+	where
+		Self: 'a;
+
+	impl !Send for Key<'_> {}
+	impl !Sync for Key<'_> {}
+
+	impl fmt::Debug for Key<'_> {
+		fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+			#[doc(hidden)]
+			macro_rules! c {
+				($l:literal) => {
+					// SAFETY: We only emit valid ASCII characters in this function.
+					unsafe { Char::from_u8_unchecked($l) }
+				};
+			}
+
+			let mut buf = [c!(b'\0'); (8 * b"\\xBB".len()) + "Key(\"\")".len()];
+			let mut i = 0;
+			let bytes = self.0.to_be_bytes();
+
+			let limit = if f.alternate() {
+				8
+			} else {
+				bytes.iter().position(|&b| b == 0).unwrap_or(8)
+			};
+
+			let quote = f.alternate()
+				|| bytes
+					.iter()
+					.take(limit)
+					.any(|&b| b == b' ' || !b.is_ascii_graphic());
+
+			if f.alternate() {
+				buf[i] = c!(b'K');
+				buf[i + 1] = c!(b'e');
+				buf[i + 2] = c!(b'y');
+				buf[i + 3] = c!(b'(');
+				i += 4;
+			}
+
+			if quote {
+				buf[i] = c!(b'"');
+				i += 1;
+			}
+
+			for b in bytes.iter().take(limit) {
+				for b in core::ascii::escape_default(*b) {
+					// SAFETY: We only emit valid ASCII characters in this function.
+					buf[i] = unsafe { Char::from_u8_unchecked(b) };
+					i += 1;
+				}
+			}
+
+			if quote {
+				buf[i] = c!(b'"');
+				i += 1;
+			}
+
+			if f.alternate() {
+				buf[i] = c!(b')');
+				i += 1;
+			}
+
+			let s: &str = (&buf[..i]).as_str();
+			f.write_str(s)
+		}
+	}
+}
+
+#[cfg(feature = "nightly")]
+pub use self::nightly::*;
