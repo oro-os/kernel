@@ -23,6 +23,7 @@ nightly = []
 runtime = []
 build = []
 panic_handler = []
+panic_debug_out_v0 = []
 
 # NOTE(qix-): This crate MUST NOT have any workspace (only) dependencies
 # NOTE(qix-): as it is published publicly.
