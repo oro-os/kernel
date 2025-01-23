@@ -37,6 +37,7 @@ members = [
 	"examples/no-std/spin",
 	"examples/no-std/hello-world",
 	"examples/no-std/root-vbuf-demo",
+	"examples/no-std/page-alloc",
 	"examples/std/noop",
 	"examples/std/noop-nightly",
 	"examples/std/spin",

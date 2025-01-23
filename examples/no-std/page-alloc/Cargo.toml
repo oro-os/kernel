@@ -1,0 +1,17 @@
+[package]
+name = "example-page-alloc"
+description = "Example module that demonstrates allocating a page and mapping it into the process."
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+build = "build.rs"
+
+[dependencies.oro]
+path = "../../../oro"
+features = ["runtime", "nightly"]
+
+[build-dependencies.oro]
+path = "../../../oro"
+features = ["build"]
+default-features = false

@@ -125,6 +125,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "example-page-alloc"
+version = "0.0.0"
+dependencies = [
+ "oro",
+]
+
+[[package]]
 name = "example-root-vbuf-demo"
 version = "0.0.0"
 dependencies = [
