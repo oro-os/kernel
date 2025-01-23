@@ -21,15 +21,15 @@ pub fn map_kernel_to_supervisor_space<
 >(
 	pfa: &mut crate::pfa::PrebootPfa<M, I>,
 	supervisor_space: &<crate::target::AddressSpace as AddressSpace>::SupervisorHandle,
-	kernel_module: oro_boot_protocol::Module,
+	kernel: &crate::Kernel,
 ) -> crate::Result<(usize, oro_boot_protocol::util::RequestScanner)> {
 	// Parse the kernel ELF module.
 	// SAFETY(qix-): We can assume the kernel module is valid given that it's
 	// SAFETY(qix-): been loaded by the bootloader.
 	let kernel_elf = unsafe {
 		Elf::parse(
-			Phys::from_address_unchecked(kernel_module.base).as_ptr_unchecked(),
-			usize::try_from(kernel_module.length).unwrap(),
+			Phys::from_address_unchecked(kernel.base).as_ptr_unchecked(),
+			usize::try_from(kernel.length).unwrap(),
 			ELF_ENDIANNESS,
 			ELF_CLASS,
 			ELF_MACHINE,

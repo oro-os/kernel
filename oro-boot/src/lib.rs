@@ -126,11 +126,12 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 	///
 	/// # Safety
 	/// Can only be used once per boot.
+	#[expect(clippy::needless_pass_by_value)]
 	pub unsafe fn bootstrap(
 		linear_offset: u64,
 		stack_pages: usize,
 		iter: I,
-		kernel_module: oro_boot_protocol::Module,
+		kernel: Kernel,
 	) -> Result<Self> {
 		// Tell the memory subsystem where our linear offset is.
 		// SAFETY: We indicate in the safety requirements of this method that
@@ -142,7 +143,7 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 			.ok_or(Error::MapError(MapError::OutOfMemory))?;
 
 		let (kernel_entry, scanner) =
-			self::map::map_kernel_to_supervisor_space(&mut pfa, &supervisor_space, kernel_module)?;
+			self::map::map_kernel_to_supervisor_space(&mut pfa, &supervisor_space, &kernel)?;
 
 		// Map in a stack
 		let stack_addr = self::map::map_kernel_stack(&mut pfa, &supervisor_space, stack_pages)?;
@@ -289,4 +290,12 @@ where
 			);
 		}
 	}
+}
+
+/// Represents the kernel, loaded into memory as an ELF.
+pub struct Kernel {
+	/// The kernel module's base physical address.
+	pub base:   u64,
+	/// The kernel module's size, in bytes.
+	pub length: u64,
 }

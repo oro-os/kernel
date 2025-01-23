@@ -3,7 +3,7 @@
 
 use core::{arch::asm, cell::UnsafeCell, mem::MaybeUninit};
 
-use oro_debug::{dbg, dbg_err, dbg_warn};
+use oro_debug::{dbg, dbg_err};
 use oro_elf::{ElfSegment, ElfSegmentType};
 use oro_kernel::{
 	KernelState, instance::Instance, module::Module, scheduler::Switch, thread::Thread,
@@ -84,28 +84,9 @@ pub unsafe fn initialize_primary(lapic: Lapic) {
 
 			next = core::ptr::read_volatile(&module.next);
 
-			let id = oro_id::AnyId::from_high_low(module.id_high, module.id_low);
+			dbg!("loading module: {:016X} ({})", module.base, module.length);
 
-			let Ok(id) = oro_id::Id::<{ oro_id::IdType::Module }>::try_from(id) else {
-				dbg_warn!(
-					"skipping module; not a valid module ID: {:?}",
-					id.as_bytes()
-				);
-				continue;
-			};
-
-			if id.is_internal() {
-				dbg_warn!("skipping module; internal module ID: {:?}", id.as_bytes());
-				continue;
-			}
-
-			dbg!(
-				"loading module: {id} @ {:016X} ({})",
-				module.base,
-				module.length
-			);
-
-			let module_handle = Module::new(id.clone()).expect("failed to create root ring module");
+			let module_handle = Module::new().expect("failed to create root ring module");
 
 			let entry_point = module_handle.with(|module_lock| {
 				let mapper = module_lock.mapper();
@@ -125,8 +106,8 @@ pub unsafe fn initialize_primary(lapic: Lapic) {
 						ElfSegmentType::Ignored => return None,
 						ElfSegmentType::Invalid { flags, ptype } => {
 							dbg_err!(
-								"root ring module {id} has invalid segment; skipping: \
-								 ptype={ptype:?} flags={flags:?}",
+								"root ring module has invalid segment; skipping: ptype={ptype:?} \
+								 flags={flags:?}",
 							);
 							return None;
 						}
@@ -134,13 +115,13 @@ pub unsafe fn initialize_primary(lapic: Lapic) {
 						ElfSegmentType::ModuleData => AddressSpaceLayout::user_data(),
 						ElfSegmentType::ModuleRoData => AddressSpaceLayout::user_rodata(),
 						ty => {
-							dbg_err!("root ring module {id} has invalid segment {ty:?}; skipping",);
+							dbg_err!("root ring module has invalid segment {ty:?}; skipping",);
 							return None;
 						}
 					};
 
 					dbg!(
-						"{id}: loading {:?} segment: {:016X} {:016X} -> {:016X} ({})",
+						"loading {:?} segment: {:016X} {:016X} -> {:016X} ({})",
 						segment.ty(),
 						segment.load_address(),
 						segment.load_size(),

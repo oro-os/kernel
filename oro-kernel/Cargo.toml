@@ -30,7 +30,6 @@ debug-tombs = []
 [dependencies]
 oro-mem.workspace = true
 oro-macro.workspace = true
-oro-id.workspace = true
 oro-debug.workspace = true
 oro-sync.workspace = true
 oro-sysabi.workspace = true

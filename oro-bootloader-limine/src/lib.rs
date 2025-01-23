@@ -8,7 +8,7 @@
 #![no_std]
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
-use core::{ffi::CStr, str::FromStr};
+use core::ffi::CStr;
 
 #[cfg(debug_assertions)]
 use limine::request::StackSizeRequest;
@@ -34,7 +34,10 @@ const KERNEL_STACK_PAGES: usize = 16;
 /// The path to where the Oro kernel is expected.
 /// The bootloader does **not** expect it to be listed
 /// as a module (but it can be).
-const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel");
+#[cfg(target_arch = "x86_64")]
+const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel-x86_64");
+#[cfg(target_arch = "aarch64")]
+const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel-aarch64");
 
 /// The path to where the DeviceTree blob is expected,
 /// if provided. The bootloader does **not** expect it to be
@@ -160,8 +163,6 @@ pub unsafe fn init() -> ! {
 					})
 				},
 				{
-					use oro_boot_protocol::Module;
-
 					let module_response = get_response!(REQ_MODULES, "module listing");
 					let kernel_module = module_response
 						.modules()
@@ -172,13 +173,9 @@ pub unsafe fn init() -> ! {
 						panic!("failed to find kernel module: {KERNEL_PATH:?}");
 					};
 
-					Module {
-						id_high: 0,
-						id_low:  0,
-						base:    u64::try_from(kernel_module.addr() as usize).unwrap()
-							- hhdm_offset,
-						length:  kernel_module.size(),
-						next:    0,
+					oro_boot::Kernel {
+						base:   u64::try_from(kernel_module.addr() as usize).unwrap() - hhdm_offset,
+						length: kernel_module.size(),
 					}
 				},
 			)?;
@@ -232,43 +229,20 @@ pub unsafe fn init() -> ! {
 								return None;
 							};
 
-							let any_id = match oro_id::AnyId::from_str(id_str) {
-								Ok(id) => id,
-								Err(err) => {
-									dbg_err!(
-										"failed to parse module path as Oro ID: {err:?}: \
-										 {id_str:?}"
-									);
-									return None;
-								}
-							};
-
-							if any_id.ty() != Some(oro_id::IdType::Module) {
-								dbg_err!(
-									"failed to parse module path as Oro ID (not a module ID): \
-									 {id_str:?}"
-								);
+							if id_str.len() > 128 {
+								dbg_err!("module path too long: {id_str:?}");
 								return None;
-							};
+							}
 
-							if any_id.is_internal() {
-								dbg_err!(
-									"failed to parse module path as Oro ID (internal module ID): \
-									 {id_str:?}"
-								);
-								return None;
-							};
-
-							let high = any_id.high_bits();
-							let low = any_id.low_bits();
+							let mut path_bytes = [0; 128];
+							path_bytes[..id_str.len()].copy_from_slice(id_str.as_bytes());
 
 							Some(oro_boot_protocol::Module {
-								id_high: high,
-								id_low:  low,
-								base:    u64::try_from(module.addr() as usize).unwrap()
+								path:   path_bytes,
+								base:   u64::try_from(module.addr() as usize).unwrap()
 									- hhdm_offset,
-								length:  module.size(),
-								next:    0, // will be written by the serializer
+								length: module.size(),
+								next:   0, // will be written by the serializer
 							})
 						}),
 				)?;

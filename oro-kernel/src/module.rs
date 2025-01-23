@@ -1,6 +1,5 @@
 //! Implements Oro module instances in the kernel.
 
-use oro_id::{Id, IdType};
 use oro_macro::assert;
 use oro_mem::{
 	alloc::vec::Vec,
@@ -19,13 +18,10 @@ use crate::{AddressSpace, UserHandle, arch::Arch, tab::Tab};
 /// to populate the module with the executable code and data, which is then
 /// used to create instances of the module.
 pub struct Module<A: Arch> {
-	/// The module ID. Provided by the ring spawner and used
-	/// to refer to the module during module loading.
-	module_id: Id<{ IdType::Module }>,
 	/// The module's address space mapper handle.
 	///
 	/// Only uninitialized if the module is in the process of being freed.
-	pub(super) mapper: UserHandle<A>,
+	pub(super) mapper:       UserHandle<A>,
 	/// A list of entry points for the module.
 	///
 	/// When modules are spawned as instances on a ring, each of the
@@ -35,22 +31,15 @@ pub struct Module<A: Arch> {
 
 impl<A: Arch> Module<A> {
 	/// Creates a new module.
-	pub fn new(module_id: Id<{ IdType::Module }>) -> Result<Tab<Self>, MapError> {
+	pub fn new() -> Result<Tab<Self>, MapError> {
 		let mapper = AddressSpace::<A>::new_user_space_empty().ok_or(MapError::OutOfMemory)?;
 
 		crate::tab::get()
 			.add(Self {
-				module_id,
 				mapper,
 				entry_points: Vec::new(),
 			})
 			.ok_or(MapError::OutOfMemory)
-	}
-
-	/// Returns the module ID.
-	#[must_use]
-	pub fn module_id(&self) -> &Id<{ IdType::Module }> {
-		&self.module_id
 	}
 
 	/// Returns the module's user address space mapper handle.

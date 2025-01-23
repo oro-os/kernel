@@ -28,7 +28,6 @@ doc = false
 oro-boot.workspace = true
 oro-boot-protocol.workspace = true
 oro-debug.workspace = true
-oro-id.workspace = true
 limine.workspace = true
 
 [lints]

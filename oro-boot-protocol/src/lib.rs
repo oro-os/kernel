@@ -202,30 +202,31 @@ macros::oro_boot_protocol! {
 
 /// A module to load into the kernel on the root ring.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct Module {
-	/// The highest 64 bits of the module 128 bit ID.
-	///
-	/// The module ID **must not** be reserved, or
-	/// the kernel will reject loading it.
-	///
-	/// See the `oro-id` crate for more information.
-	pub id_high: u64,
-	/// The lowest 64 bits of the module 128 bit ID.
-	///
-	/// The module ID **must not** be reserved, or
-	/// the kernel will reject loading it.
-	///
-	/// See the `oro-id` crate for more information.
-	/// The physical base address of the module.
-	pub id_low:  u64,
+	/// The path to the module from the boot medium.
+	/// This may not be a "path" per se, but rather a unique
+	/// identifier for the module. The kernel does not
+	/// interpret this value beyond storing it.
+	pub path:   [u8; 128],
 	/// The physical start address of the module.
-	pub base:    u64,
+	pub base:   u64,
 	/// The length of the module.
-	pub length:  u64,
+	pub length: u64,
 	/// The physical address of the next module in the list,
 	/// or `0` if this is the last module.
-	pub next:    u64,
+	pub next:   u64,
+}
+
+impl Default for Module {
+	fn default() -> Self {
+		Self {
+			path:   [0; 128],
+			base:   0,
+			length: 0,
+			next:   0,
+		}
+	}
 }
 
 #[cfg(feature = "utils")]

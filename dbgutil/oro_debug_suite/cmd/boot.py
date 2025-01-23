@@ -72,31 +72,6 @@ class BootCmdLimine(gdb.Command):
         with the `-m` command line option (described above), or they can be
         listed in the `ORO_ROOT_MODULES` environment variable as a semi-colon
         separated list of module specifications.
-
-        A module must arrive at the kernel with an Oro ID (see the `oro-id` crate).
-        These are 128-bit IDs - the 3 upper bits indicate the ID type (currently,
-        1=module, 2=port_type, all others reserved), and the remaining 125 bits
-        are the ID itself, encoded in a human-friendly base32 format (5 bits per
-        character).
-
-        Bits [60:32] must be something other than 0x0, as IDs with those bits
-        cleared are reserved for kernel modules, and will be rejected by
-        either the kernel or the bootloader (whichever sees it first).
-
-        An example module ID:    M-6397GTPH5MWJH6P0P4JGAGPAZ
-        An example port type ID: P-M33FKEGA218J0G1VPMK3800UV
-
-        You can generate random module/port IDs using a script in the `oro-id` crate:
-
-            ./oro-id/script/randgen.rs --help
-            ./oro-id/script/randgen.rs --module
-            ./oro-id/script/randgen.rs --port-type
-            ./oro-id/script/randgen.rs -m --internal
-            ./oro-id/script/randgen.rs -m -n 10
-
-        When specifying modules, you can use either the `id=path` form, where `id`
-        is the module ID and `path` is a path to the module file, or just `path`
-        on its own, in which case the module ID is the basename (and must be valid).
     """
 
     def __init__(self):
@@ -356,15 +331,15 @@ class BootCmdLimine(gdb.Command):
 
                 /Oro Operating System
                 protocol: limine
-                path: boot():/oro-limine
+                path: boot():/oro-limine-{kernel_arch}
                 serial: yes
                 kasler: no
                 {module_config}
                 """
             )
 
-        copyfile(kernel_path, path.join(iso_dir, "oro-kernel"))
-        copyfile(limine_path, path.join(iso_dir, "oro-limine"))
+        copyfile(kernel_path, path.join(iso_dir, f"oro-kernel-{kernel_arch}"))
+        copyfile(limine_path, path.join(iso_dir, f"oro-limine-{kernel_arch}"))
 
         if efi_basename:
             copyfile(
