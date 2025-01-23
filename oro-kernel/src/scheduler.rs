@@ -200,6 +200,7 @@ impl<A: Arch> Scheduler<A> {
 			match (thread.with(|t| t.run_state()), response) {
 				(RunState::Running, InterfaceResponse::Immediate(response)) => {
 					self.current = Some(thread.clone());
+					// No timer scheduling necessary.
 					return Switch::UserResume(thread.clone(), Some(response));
 				}
 				(RunState::Stopped, InterfaceResponse::Immediate(response)) => {

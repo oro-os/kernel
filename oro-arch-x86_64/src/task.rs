@@ -213,7 +213,6 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user_sysret() {
 		"xor rdx, rdx",
 		"xor r8, r8",
 		"xor r10, r10",
-		"xor r11, r11",
 		"xor rdi, rdi",
 		"xor rsi, rsi",
 		// Return to userspace.
@@ -282,7 +281,6 @@ pub unsafe extern "C" fn oro_x86_64_user_to_user_sysret() {
 		"xor rdx, rdx",
 		"xor r8, r8",
 		"xor r10, r10",
-		"xor r11, r11",
 		"xor rdi, rdi",
 		"xor rsi, rsi",
 		// Return to userspace.
