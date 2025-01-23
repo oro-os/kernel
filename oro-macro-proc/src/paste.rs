@@ -100,7 +100,7 @@ pub fn paste(input: proc_macro::TokenStream) -> syn::Result<proc_macro::TokenStr
 
 					iter = iter_branch;
 
-					output.extend([TokenTree::Ident(Ident::new_raw(
+					output.extend([TokenTree::Ident(Ident::new(
 						&idents
 							.iter()
 							.map(|(ident, _)| ident.clone())
