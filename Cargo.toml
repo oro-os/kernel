@@ -26,7 +26,6 @@ members = [
 	"oro-type",
 	"oro-dtb",
 	"oro-dbgutil",
-	"oro-id",
 	"oro-sync",
 	"oro-sysabi",
 	"oro-std",
@@ -61,7 +60,6 @@ oro-debug-uart16550.path = "oro-debug-uart16550"
 oro-type.path = "oro-type"
 oro-dtb.path = "oro-dtb"
 oro-dbgutil.path = "oro-dbgutil"
-oro-id.path = "oro-id"
 oro-sync.path = "oro-sync"
 oro-sysabi.path = "oro-sysabi"
 
