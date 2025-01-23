@@ -47,6 +47,12 @@ impl Default for BufferState {
 	}
 }
 
+impl Drop for BufferState {
+	fn drop(&mut self) {
+		self.flush();
+	}
+}
+
 impl BufferState {
 	/// Writes a single byte to the buffer.
 	///
