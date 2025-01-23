@@ -1,5 +1,10 @@
 //! Page frame allocator traits and implementations.
 
+use core::sync::atomic::{
+	AtomicU64,
+	Ordering::{Acquire, Relaxed, Release},
+};
+
 use crate::phys::{Phys, PhysAddr};
 
 /// A page frame allocator allocates physical memory in units of "page frames".
@@ -22,7 +27,7 @@ use crate::phys::{Phys, PhysAddr};
 pub unsafe trait Alloc {
 	/// Allocates a new page frame, returning the physical address of the page frame
 	/// that was allocated. If `None` is returned, the system is out of memory.
-	fn allocate(&mut self) -> Option<u64>;
+	fn allocate(&self) -> Option<u64>;
 
 	/// Frees a page frame.
 	///
@@ -36,7 +41,7 @@ pub unsafe trait Alloc {
 	///    memory region.
 	///
 	/// 3. Callers **must** ensure the frame is page-aligned.
-	unsafe fn free(&mut self, frame: u64);
+	unsafe fn free(&self, frame: u64);
 }
 
 /// First in, last out (FILO) page frame allocator.
@@ -66,7 +71,7 @@ pub unsafe trait Alloc {
 /// physical frame pointer.
 pub struct FiloPageFrameAllocator {
 	/// The last-free page frame address.
-	last_free: u64,
+	last_free: AtomicU64,
 }
 
 impl FiloPageFrameAllocator {
@@ -75,7 +80,7 @@ impl FiloPageFrameAllocator {
 	#[must_use]
 	pub const fn new() -> Self {
 		Self {
-			last_free: u64::MAX,
+			last_free: AtomicU64::new(u64::MAX),
 		}
 	}
 
@@ -84,43 +89,66 @@ impl FiloPageFrameAllocator {
 	#[inline]
 	#[must_use]
 	pub fn with_last_free(last_free: u64) -> Self {
-		Self { last_free }
-	}
-
-	/// Returns the last-free page frame address.
-	#[inline]
-	#[must_use]
-	pub fn last_free(&self) -> u64 {
-		self.last_free
+		Self {
+			last_free: AtomicU64::new(last_free),
+		}
 	}
 }
 
 unsafe impl Alloc for FiloPageFrameAllocator {
-	fn allocate(&mut self) -> Option<u64> {
-		if self.last_free == u64::MAX {
-			// We're out of memory
-			None
-		} else {
-			// Bring in the last-free page frame.
-			let page_frame = self.last_free;
-			self.last_free = unsafe {
-				Phys::from_address_unchecked(page_frame)
+	fn allocate(&self) -> Option<u64> {
+		let mut loaded = self.last_free.load(Acquire);
+		loop {
+			if loaded == u64::MAX {
+				// We're out of memory
+				return None;
+			}
+
+			// SAFETY: This might read garbage data. That's fine;
+			// SAFETY: in the event that it does, it also means
+			// SAFETY: that `self.last_free` was changed, and the
+			// SAFETY: CXC will just try again.
+			let new_free = unsafe {
+				Phys::from_address_unchecked(loaded)
 					.as_ptr_unchecked::<u64>()
 					.read_volatile()
 			};
-			oro_dbgutil::__oro_dbgutil_pfa_alloc(page_frame);
-			Some(page_frame)
+
+			if let Err(err) = self
+				.last_free
+				.compare_exchange(loaded, new_free, Release, Relaxed)
+			{
+				loaded = err;
+			} else {
+				oro_dbgutil::__oro_dbgutil_pfa_alloc(loaded);
+				return Some(loaded);
+			}
 		}
 	}
 
-	unsafe fn free(&mut self, frame: u64) {
+	unsafe fn free(&self, frame: u64) {
 		assert_eq!(frame % 4096, 0, "frame is not page-aligned");
-		oro_dbgutil::__oro_dbgutil_pfa_free(frame);
-		unsafe {
-			Phys::from_address_unchecked(frame)
-				.as_mut_ptr_unchecked::<u64>()
-				.write_volatile(self.last_free);
+
+		let mut loaded = self.last_free.load(Acquire);
+		loop {
+			// Write first; we might have to write multiple times.
+			// SAFETY: We assume control of this frame; the caller must
+			// SAFETY: ensure that's the case.
+			unsafe {
+				Phys::from_address_unchecked(frame)
+					.as_mut_ptr_unchecked::<u64>()
+					.write_volatile(loaded);
+			}
+
+			if let Err(err) = self
+				.last_free
+				.compare_exchange(loaded, frame, Release, Relaxed)
+			{
+				loaded = err;
+			} else {
+				oro_dbgutil::__oro_dbgutil_pfa_free(frame);
+				return;
+			}
 		}
-		self.last_free = frame;
 	}
 }

@@ -19,7 +19,7 @@ pub fn map_kernel_to_supervisor_space<
 	M: Into<oro_boot_protocol::MemoryMapEntry> + Clone,
 	I: Iterator<Item = M> + Clone,
 >(
-	pfa: &mut crate::pfa::PrebootPfa<M, I>,
+	pfa: &crate::pfa::UnsafePrebootPfa<M, I>,
 	supervisor_space: &<crate::target::AddressSpace as AddressSpace>::SupervisorHandle,
 	kernel: &crate::Kernel,
 ) -> crate::Result<(usize, oro_boot_protocol::util::RequestScanner)> {
@@ -62,7 +62,8 @@ pub fn map_kernel_to_supervisor_space<
 		// NOTE(qix-): There will probably be some better machinery for
 		// NOTE(qix-): mapping ranges of memory in the future.
 		for page in 0..(segment.target_size().saturating_add(0xFFF) >> 12) {
-			let phys_addr = pfa
+			// SAFETY: We're only accessing the inner PFA for a short period.
+			let phys_addr = unsafe { pfa.get_mut() }
 				.allocate_page()
 				.ok_or(crate::Error::MapError(MapError::OutOfMemory))?;
 
@@ -143,7 +144,7 @@ pub fn map_kernel_stack<
 	M: Into<oro_boot_protocol::MemoryMapEntry> + Clone,
 	I: Iterator<Item = M> + Clone,
 >(
-	pfa: &mut crate::pfa::PrebootPfa<M, I>,
+	pfa: &crate::pfa::UnsafePrebootPfa<M, I>,
 	supervisor_space: &<crate::target::AddressSpace as AddressSpace>::SupervisorHandle,
 	stack_pages: usize,
 ) -> crate::Result<usize> {
@@ -170,7 +171,8 @@ pub fn map_kernel_stack<
 	for _ in 0..stack_pages {
 		bottom_stack_page_virt -= 4096;
 
-		let stack_phys = pfa
+		// SAFETY: We're only accessing the PFA for a short moment.
+		let stack_phys = unsafe { pfa.get_mut() }
 			.allocate_page()
 			.ok_or(crate::Error::MapError(MapError::OutOfMemory))?;
 

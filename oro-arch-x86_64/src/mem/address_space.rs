@@ -247,7 +247,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		}
 	}
 
-	fn new_supervisor_space_in<A>(alloc: &mut A) -> Option<Self::SupervisorHandle>
+	fn new_supervisor_space_in<A>(alloc: &A) -> Option<Self::SupervisorHandle>
 	where
 		A: Alloc,
 	{
@@ -265,10 +265,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		})
 	}
 
-	fn new_user_space_in<A>(
-		space: &Self::SupervisorHandle,
-		alloc: &mut A,
-	) -> Option<Self::UserHandle>
+	fn new_user_space_in<A>(space: &Self::SupervisorHandle, alloc: &A) -> Option<Self::UserHandle>
 	where
 		A: Alloc,
 	{
@@ -286,7 +283,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		Some(duplicated)
 	}
 
-	fn new_user_space_empty_in<A>(alloc: &mut A) -> Option<Self::UserHandle>
+	fn new_user_space_empty_in<A>(alloc: &A) -> Option<Self::UserHandle>
 	where
 		A: Alloc,
 	{
@@ -306,7 +303,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 
 	fn duplicate_supervisor_space_shallow_in<A: Alloc>(
 		space: &Self::SupervisorHandle,
-		alloc: &mut A,
+		alloc: &A,
 	) -> Option<Self::SupervisorHandle> {
 		let base_phys = alloc.allocate()?;
 
@@ -328,7 +325,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 
 	fn duplicate_user_space_shallow_in<A>(
 		space: &Self::UserHandle,
-		alloc: &mut A,
+		alloc: &A,
 	) -> Option<Self::UserHandle>
 	where
 		A: Alloc,
@@ -337,7 +334,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		Self::duplicate_supervisor_space_shallow_in(space, alloc)
 	}
 
-	fn free_user_space_handle_in<A>(space: Self::UserHandle, alloc: &mut A)
+	fn free_user_space_handle_in<A>(space: Self::UserHandle, alloc: &A)
 	where
 		A: Alloc,
 	{
@@ -349,7 +346,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		}
 	}
 
-	fn free_user_space_deep_in<A>(space: Self::UserHandle, alloc: &mut A)
+	fn free_user_space_deep_in<A>(space: Self::UserHandle, alloc: &A)
 	where
 		A: Alloc,
 	{

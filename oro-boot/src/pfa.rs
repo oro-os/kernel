@@ -2,7 +2,10 @@
 //! to be used to write variable length Oro kernel request
 //! structures to memory.
 
-use core::mem::MaybeUninit;
+use core::{
+	cell::{RefCell, RefMut},
+	mem::MaybeUninit,
+};
 
 use oro_boot_protocol::{MemoryMapEntry as OroMemRe, MemoryMapEntryType as OroMemTy};
 
@@ -201,14 +204,49 @@ impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> PrebootPfa<M, I> 
 	}
 }
 
-unsafe impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> oro_mem::pfa::Alloc
-	for PrebootPfa<M, I>
-{
-	fn allocate(&mut self) -> Option<u64> {
-		self.allocate_page()
+/// **Unsafe** wrapper around the preboot PFA that allows for
+/// immutable access to the PFA.
+///
+/// **Only to be used by the primary core during preboot.**
+pub struct UnsafePrebootPfa<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> {
+	/// Inner, `RefCell`-guarded PFA.
+	inner: RefCell<PrebootPfa<M, I>>,
+}
+
+impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> UnsafePrebootPfa<M, I> {
+	/// Creates a new unsafe preboot PFA from a memory map iterator.
+	#[must_use]
+	pub fn new(iter: I, linear_offset: u64) -> Self {
+		Self {
+			inner: RefCell::new(PrebootPfa::new(iter, linear_offset)),
+		}
 	}
 
-	unsafe fn free(&mut self, _frame: u64) {
+	/// **Unsafely** gets a reference to the inner PFA.
+	///
+	/// # Safety
+	/// This method is unsafe because it allows for mutable access to the
+	/// inner PFA, which could lead to undefined behavior if used incorrectly.
+	#[must_use]
+	pub unsafe fn get_mut(&self) -> RefMut<PrebootPfa<M, I>> {
+		self.inner.borrow_mut()
+	}
+
+	/// Unwraps the inner PFA.
+	#[must_use]
+	pub fn into_inner(self) -> PrebootPfa<M, I> {
+		self.inner.into_inner()
+	}
+}
+
+unsafe impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> oro_mem::pfa::Alloc
+	for UnsafePrebootPfa<M, I>
+{
+	fn allocate(&self) -> Option<u64> {
+		self.inner.borrow_mut().allocate_page()
+	}
+
+	unsafe fn free(&self, _frame: u64) {
 		panic!("preboot PFA cannot free frames");
 	}
 }

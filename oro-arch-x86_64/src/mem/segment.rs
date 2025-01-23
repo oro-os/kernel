@@ -67,7 +67,7 @@ impl AddressSegment {
 	unsafe fn entry<'a, A, Handle: MapperHandle>(
 		&'a self,
 		space: &'a Handle,
-		alloc: &'a mut A,
+		alloc: &'a A,
 		virt: usize,
 	) -> Result<&'a mut PageTableEntry, MapError>
 	where
@@ -137,7 +137,7 @@ impl AddressSegment {
 	unsafe fn try_unmap_l4<A, Handle: MapperHandle>(
 		&self,
 		space: &Handle,
-		alloc: &mut A,
+		alloc: &A,
 		virt: usize,
 	) -> Result<Option<u64>, UnmapError>
 	where
@@ -229,7 +229,7 @@ impl AddressSegment {
 	unsafe fn try_unmap_l5<A, Handle: MapperHandle>(
 		&self,
 		space: &Handle,
-		alloc: &mut A,
+		alloc: &A,
 		virt: usize,
 	) -> Result<Option<u64>, UnmapError>
 	where
@@ -340,12 +340,8 @@ impl AddressSegment {
 	/// that the entry itself is reclaimable, and that none of the reclaimed pages
 	/// are still being used.
 	#[expect(clippy::only_used_in_recursion)] // false positive
-	unsafe fn unmap_and_reclaim_entry<A>(
-		&self,
-		entry: &mut PageTableEntry,
-		alloc: &mut A,
-		level: usize,
-	) where
+	unsafe fn unmap_and_reclaim_entry<A>(&self, entry: &mut PageTableEntry, alloc: &A, level: usize)
+	where
 		A: Alloc,
 	{
 		if entry.present() {
@@ -445,7 +441,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		}
 	}
 
-	unsafe fn unmap_all_and_reclaim_in<A>(&self, space: &AddressSpaceHandle, alloc: &mut A)
+	unsafe fn unmap_all_and_reclaim_in<A>(&self, space: &AddressSpaceHandle, alloc: &A)
 	where
 		A: Alloc,
 	{
@@ -463,7 +459,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 	fn provision_as_shared_in<A>(
 		&self,
 		space: &AddressSpaceHandle,
-		alloc: &mut A,
+		alloc: &A,
 	) -> Result<(), MapError>
 	where
 		A: Alloc,
@@ -492,7 +488,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 	fn map_in<A>(
 		&self,
 		space: &AddressSpaceHandle,
-		alloc: &mut A,
+		alloc: &A,
 		virt: usize,
 		phys: u64,
 	) -> Result<(), MapError>
@@ -507,7 +503,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 	fn map_nofree_in<A>(
 		&self,
 		space: &AddressSpaceHandle,
-		alloc: &mut A,
+		alloc: &A,
 		virt: usize,
 		phys: u64,
 	) -> Result<(), MapError>
@@ -528,7 +524,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 	fn unmap_in<A>(
 		&self,
 		space: &AddressSpaceHandle,
-		alloc: &mut A,
+		alloc: &A,
 		virt: usize,
 	) -> Result<u64, UnmapError>
 	where
@@ -546,7 +542,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 	fn remap_in<A>(
 		&self,
 		space: &AddressSpaceHandle,
-		alloc: &mut A,
+		alloc: &A,
 		virt: usize,
 		phys: u64,
 	) -> Result<Option<u64>, MapError>

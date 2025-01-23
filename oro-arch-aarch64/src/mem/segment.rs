@@ -57,7 +57,7 @@ impl Segment {
 	pub(crate) fn entry<'a, A, Handle>(
 		&'a self,
 		space: &'a Handle,
-		alloc: &'a mut A,
+		alloc: &'a A,
 		virt: usize,
 	) -> Result<&'a mut PageTableEntry, MapError>
 	where
@@ -185,7 +185,7 @@ impl Segment {
 	unsafe fn try_unmap<A, Handle>(
 		&self,
 		space: &Handle,
-		alloc: &mut A,
+		alloc: &A,
 		virt: usize,
 	) -> Result<Option<u64>, UnmapError>
 	where
@@ -300,7 +300,7 @@ impl Segment {
 }
 
 unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
-	unsafe fn unmap_all_and_reclaim_in<A>(&self, _space: &Handle, _alloc: &mut A)
+	unsafe fn unmap_all_and_reclaim_in<A>(&self, _space: &Handle, _alloc: &A)
 	where
 		A: Alloc,
 	{
@@ -327,7 +327,7 @@ unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
 		(start, end)
 	}
 
-	fn provision_as_shared_in<A>(&self, space: &Handle, alloc: &mut A) -> Result<(), MapError>
+	fn provision_as_shared_in<A>(&self, space: &Handle, alloc: &A) -> Result<(), MapError>
 	where
 		A: Alloc,
 	{
@@ -352,13 +352,7 @@ unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
 		Ok(())
 	}
 
-	fn map_in<A>(
-		&self,
-		space: &Handle,
-		alloc: &mut A,
-		virt: usize,
-		phys: u64,
-	) -> Result<(), MapError>
+	fn map_in<A>(&self, space: &Handle, alloc: &A, virt: usize, phys: u64) -> Result<(), MapError>
 	where
 		A: Alloc,
 	{
@@ -370,7 +364,7 @@ unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
 	fn map_nofree_in<A>(
 		&self,
 		space: &Handle,
-		alloc: &mut A,
+		alloc: &A,
 
 		virt: usize,
 		phys: u64,
@@ -401,7 +395,7 @@ unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
 		Ok(())
 	}
 
-	fn unmap_in<A>(&self, space: &Handle, alloc: &mut A, virt: usize) -> Result<u64, UnmapError>
+	fn unmap_in<A>(&self, space: &Handle, alloc: &A, virt: usize) -> Result<u64, UnmapError>
 	where
 		A: Alloc,
 	{
@@ -413,7 +407,7 @@ unsafe impl<Handle: TtbrHandle> AddressSegment<Handle> for &'static Segment {
 	fn remap_in<A>(
 		&self,
 		space: &Handle,
-		alloc: &mut A,
+		alloc: &A,
 		virt: usize,
 		phys: u64,
 	) -> Result<Option<u64>, MapError>

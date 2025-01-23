@@ -72,7 +72,7 @@ pub struct OroBootstrapper<
 	I: Iterator<Item = M> + Clone,
 > {
 	/// The PFA used to write variable length bootloader protocol structures to memory.
-	pfa: pfa::PrebootPfa<M, I>,
+	pfa: pfa::UnsafePrebootPfa<M, I>,
 	/// The supervisor space
 	supervisor_space: self::target::SupervisorHandle,
 	/// The mapped kernel's request section scanner.
@@ -125,7 +125,7 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 	/// `stack_pages` is zero.
 	///
 	/// # Safety
-	/// Can only be used once per boot.
+	/// Can only be used once per boot. **Must be called by the primary core.**
 	#[expect(clippy::needless_pass_by_value)]
 	pub unsafe fn bootstrap(
 		linear_offset: u64,
@@ -138,15 +138,15 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 		// SAFETY: this is only to be called once.
 		unsafe { oro_mem::translate::set_global_map_offset(linear_offset) };
 
-		let mut pfa = pfa::PrebootPfa::new(iter, linear_offset);
-		let supervisor_space = target::AddressSpace::new_supervisor_space_in(&mut pfa)
+		let pfa = pfa::UnsafePrebootPfa::new(iter, linear_offset);
+		let supervisor_space = target::AddressSpace::new_supervisor_space_in(&pfa)
 			.ok_or(Error::MapError(MapError::OutOfMemory))?;
 
 		let (kernel_entry, scanner) =
-			self::map::map_kernel_to_supervisor_space(&mut pfa, &supervisor_space, &kernel)?;
+			self::map::map_kernel_to_supervisor_space(&pfa, &supervisor_space, &kernel)?;
 
 		// Map in a stack
-		let stack_addr = self::map::map_kernel_stack(&mut pfa, &supervisor_space, stack_pages)?;
+		let stack_addr = self::map::map_kernel_stack(&pfa, &supervisor_space, stack_pages)?;
 
 		Ok(Self {
 			pfa,
@@ -210,8 +210,8 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 		let mut last_phys = 0;
 
 		for mut item in iter {
-			let (phys, data) = self
-				.pfa
+			// SAFETY: We're only accessing the inner PFA for a short moment.
+			let (phys, data) = unsafe { self.pfa.get_mut() }
 				.allocate::<T>()
 				.ok_or(Error::MapError(MapError::OutOfMemory))?;
 			item.set_next(last_phys);
@@ -234,8 +234,9 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 			unsafe { self::target::prepare_transfer(&mut self.supervisor_space, &mut self.pfa)? };
 
 		// Consume the PFA and write out the memory map.
-		let first_entry = self
-			.pfa
+		// SAFETY: We're only accessing the PFA for a short moment.
+		let pfa = self.pfa.into_inner();
+		let first_entry = pfa
 			.write_memory_map()
 			.ok_or(Error::MapError(MapError::OutOfMemory))?;
 
@@ -246,8 +247,8 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 		);
 
 		// Perform the transfer
-		// SAFETY(qix-): We can assume the kernel entry point is valid given that it's
-		// SAFETY(qix-): coming from the ELF and validated by the mapper.
+		// SAFETY: We can assume the kernel entry point is valid given that it's
+		// SAFETY: coming from the ELF and validated by the mapper.
 		unsafe {
 			self::target::transfer(
 				&mut self.supervisor_space,

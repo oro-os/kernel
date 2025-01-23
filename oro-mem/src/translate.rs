@@ -53,10 +53,12 @@
 // NOTE(qix-): So, like I said, this is actually the refined and evolved, conscious
 // NOTE(qix-): evolution of this subsystem, despite it being simplistic.
 
+use core::sync::atomic::{AtomicU64, Ordering::Relaxed};
+
 /// Holds the linear map offset for the entire system. The resulting
 /// value (when added to the physical address in question) must result
 /// in a valid virtual address (which also means fitting within a `usize`).
-static mut LINEAR_MAP_OFFSET: u64 = 0;
+static LINEAR_MAP_OFFSET: AtomicU64 = AtomicU64::new(0);
 
 /// Debug flag for whether or not the linear map offset has been populated.
 /// Very slow (using `SeqCst`), so only enabled in debug builds.
@@ -81,11 +83,8 @@ pub unsafe fn set_global_map_offset(offset: u64) {
 		);
 	}
 
-	// SAFETY: Safety requirements of this function indicate this should
-	// SAFETY: only be written to once before any other threads access it.
-	unsafe {
-		LINEAR_MAP_OFFSET = offset;
-	}
+	let old = LINEAR_MAP_OFFSET.swap(offset, Relaxed);
+	assert_eq!(old, 0, "global linear map offset already set");
 }
 
 /// Gets the global (kernel-wide) offset for all mapped memory.
@@ -94,19 +93,15 @@ pub unsafe fn set_global_map_offset(offset: u64) {
 /// > that this may return `0` in release builds where [`set_global_map_offset`]
 /// > has not yet been called. This isn't the typical case so for
 /// > that reason it's not marked as unsafe.
-#[cfg_attr(debug_assertions, expect(clippy::missing_panics_doc))]
 #[must_use]
 pub fn global_map_offset() -> u64 {
 	#[cfg(debug_assertions)]
-	{
-		assert!(
-			LINEAR_MAP_SET.load(::core::sync::atomic::Ordering::SeqCst),
-			"global_map_offset() called but has not yet been set"
-		);
-	}
+	debug_assert!(
+		LINEAR_MAP_SET.load(::core::sync::atomic::Ordering::SeqCst),
+		"global_map_offset() called but has not yet been set"
+	);
 
-	// SAFETY: We only ever write once and then return it here.
-	unsafe { LINEAR_MAP_OFFSET }
+	LINEAR_MAP_OFFSET.load(Relaxed)
 }
 
 /// Translates a physical address to a virtual address.

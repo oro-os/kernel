@@ -14,20 +14,11 @@ use crate::{
 /// Alias for a [`buddy_system_allocator::Heap`] with a pre-defined order.
 type Heap = buddy_system_allocator::Heap<64>;
 
-/// The global PFA.
-///
-/// Note that this is **not** locked behind a mutex.
+/// The lock-free global PFA.
 ///
 /// We instead use the global `ALLOCATOR` mutex to synchronize access to the heap
 /// in order to avoid double-mutex deadlocking.
-// NOTE(qix-): THIS IS INCREDIBLY UNSAFE. Since it's contained to this module,
-// NOTE(qix-): it's only *slightly* less unsafe. This module will definitely
-// NOTE(qix-): be refactored in the future, at which point some of this safety
-// NOTE(qix-): will be improved. I'm in a crunch moment and just need to get
-// NOTE(qix-): this working, and the surface area for improper access is small.
-// TODO(qix-): Put both the PFA and global allocator behind a mutex in a shared
-// TODO(qix-): structure.
-static mut PFA: FiloPageFrameAllocator = FiloPageFrameAllocator::new();
+static PFA: FiloPageFrameAllocator = FiloPageFrameAllocator::new();
 
 /// The global heap allocator for the Oro kernel.
 #[cfg_attr(all(not(feature = "std-alloc"), not(test)), global_allocator)]
@@ -80,10 +71,7 @@ where
 {
 	// If there are no pages available, we can't do anything;
 	// the allocation will fail on return.
-	// SAFETY: We're in a critical section, so we can safely access the global PFA.
-	// SAFETY: By eschewing a second lock, we can avoid deadlocks.
-	#[expect(static_mut_refs)]
-	let Some(page) = unsafe { &mut PFA }.allocate() else {
+	let Some(page) = PFA.allocate() else {
 		return;
 	};
 
@@ -132,10 +120,6 @@ impl GlobalPfa {
 		// which could potentially deadlock with the global allocator.
 		let lock = ALLOCATOR.0.lock();
 
-		// SAFETY: We're in a critical section, so we can safely access the global PFA.
-		#[expect(static_mut_refs)]
-		let pfa = unsafe { &mut PFA };
-
 		let aligned_base = (base + 4095) & !4095;
 		let length = length.saturating_sub(aligned_base - base);
 
@@ -148,7 +132,7 @@ impl GlobalPfa {
 		oro_dbgutil::__oro_dbgutil_pfa_mass_free(aligned_base, aligned_base + length);
 
 		for page in (aligned_base..(aligned_base + length)).step_by(4096) {
-			pfa.free(page);
+			PFA.free(page);
 		}
 
 		// SAFETY: We are in a critical section, which is good enough for the requirements
@@ -162,38 +146,17 @@ impl GlobalPfa {
 }
 
 unsafe impl Alloc for GlobalPfa {
-	fn allocate(&mut self) -> Option<u64> {
+	fn allocate(&self) -> Option<u64> {
 		// Synthesize a lock from the global allocator,
 		// effectively synchronizing access to the PFA.
 		//
 		// This isn't the best way to do this, but it's the
 		// most obvious way to do it without introducing a new mutex
 		// which could potentially deadlock with the global allocator.
-		let lock = ALLOCATOR.0.lock();
-
-		// SAFETY: We're in a critical section, so we can safely access the global PFA.
-		#[expect(static_mut_refs)]
-		let r = unsafe { PFA.allocate() };
-
-		// Forcefully drop the lock (keep the spaceship flying).
-		drop(lock);
-
-		r
+		PFA.allocate()
 	}
 
-	unsafe fn free(&mut self, frame: u64) {
-		// Synthesize a lock from the global allocator,
-		// effectively synchronizing access to the PFA.
-		//
-		// This isn't the best way to do this, but it's the
-		// most obvious way to do it without introducing a new mutex
-		// which could potentially deadlock with the global allocator.
-		let _lock = ALLOCATOR.0.lock();
-
-		// SAFETY: We're in a critical section, so we can safely access the global PFA.
-		#[expect(static_mut_refs)]
-		unsafe {
-			PFA.free(frame);
-		}
+	unsafe fn free(&self, frame: u64) {
+		PFA.free(frame);
 	}
 }
