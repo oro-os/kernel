@@ -1,5 +1,6 @@
 //! Houses types, traits and functionality for the Oro kernel scheduler.
 
+use oro_mem::alloc::vec::Vec;
 use oro_sync::Lock;
 
 use crate::{
@@ -7,7 +8,7 @@ use crate::{
 	arch::{Arch, CoreHandle},
 	syscall::{InFlightSystemCall, InterfaceResponse, SystemCallRequest, SystemCallResponse},
 	tab::Tab,
-	thread::{RunState, ScheduleAction, Thread},
+	thread::{RunState, ScheduleAction, ScheduleError, Thread},
 };
 
 /// Main scheduler state machine.
@@ -76,17 +77,37 @@ impl<A: Arch> Scheduler<A> {
 		// XXX(qix-): This is a terrible design but gets the job done for now.
 		// XXX(qix-): Every single core will be competing for a list of the same threads
 		// XXX(qix-): until a thread migration system is implemented.
-		let thread_list = self.kernel.state().threads().lock();
+		let mut thread_list = self.kernel.state().threads().lock();
+
+		// XXX(qix-): An even worse design, but it's a temporary workaround
+		// XXX(qix-): to deal with a deadlock. The scheduling algorithm will
+		// XXX(qix-): get a huge refactor at some point in the near future.
+		let mut dead_threads = Vec::new();
 
 		while self.next_index < thread_list.len() {
 			let thread = &thread_list[self.next_index];
 			self.next_index += 1;
 
-			if let Ok(action) = thread.with_mut(|t| t.try_schedule(self.kernel.id())) {
-				// Select it for execution.
-				self.current = Some(thread.clone());
-				return Some((thread.clone(), action));
+			match thread.with_mut(|t| t.try_schedule(self.kernel.id())) {
+				Ok(action) => {
+					// Select it for execution.
+					self.current = Some(thread.clone());
+					return Some((thread.clone(), action));
+				}
+				Err(ScheduleError::Terminated) => {
+					dead_threads.push(self.next_index - 1);
+				}
+				_ => {}
 			}
+		}
+
+		// For any dead threads we found, remove them from the thread list.
+		for thread_idx in dead_threads {
+			// XXX(qix-): This will inevitably screw up the schedule order
+			// XXX(qix-): for all schedulers in the system but it works for
+			// XXX(qix-): now. The scheduler will get a huge refactor at some
+			// XXX(qix-): point in the near future.
+			thread_list.swap_remove(thread_idx);
 		}
 
 		drop(thread_list);

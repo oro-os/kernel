@@ -406,12 +406,6 @@ impl<A: Arch> Thread<A> {
 			// Remove the thread from the instance's thread table.
 			self.instance
 				.with_mut(|instance| instance.threads.remove(self.id));
-
-			// Remove the thread from the global thread table.
-			// TODO(qix-): This is horribly inefficient but it's the best I can do for now
-			// TODO(qix-): until a better data structure for the schedulers is implemented.
-			let mut threads = Kernel::<A>::get().state().threads().lock();
-			threads.retain(|t| t.id() != self.id);
 		}
 	}
 
