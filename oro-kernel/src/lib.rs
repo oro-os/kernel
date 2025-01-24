@@ -52,17 +52,20 @@ use core::{
 	sync::atomic::{AtomicBool, Ordering::SeqCst},
 };
 
-use interface::RingInterface;
+use nolock::queues::{
+	DequeueError,
+	mpmc::bounded::scq::{Receiver, Sender},
+};
 use oro_macro::assert;
 use oro_mem::{
-	alloc::vec::Vec,
 	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace as _, MapError},
 	pfa::Alloc,
 };
-use oro_sync::{Lock, TicketMutex};
+use oro_sync::TicketMutex;
+use tab::Tab;
 
-use self::{arch::Arch, scheduler::Scheduler};
+use self::{arch::Arch, interface::RingInterface, scheduler::Scheduler, thread::Thread};
 
 /// Core-local instance of the Oro kernel.
 ///
@@ -239,8 +242,10 @@ impl<A: Arch> Kernel<A> {
 /// Global state shared by all [`Kernel`] instances across
 /// core boot/powerdown/bringup cycles.
 pub struct KernelState<A: Arch> {
-	/// List of all threads.
-	threads: TicketMutex<Vec<tab::Tab<thread::Thread<A>>>>,
+	/// Unclaimed thread deque sender.
+	thread_tx: Sender<Tab<Thread<A>>>,
+	/// Unclaimed thread deque receiver.
+	thread_rx: Receiver<Tab<Thread<A>>>,
 	/// The root ring.
 	root_ring: tab::Tab<ring::Ring<A>>,
 	/// Whether or not the root ring has been initialized.
@@ -271,9 +276,12 @@ impl<A: Arch> KernelState<A> {
 
 		let root_ring = ring::Ring::<A>::new_root()?;
 
+		let (thread_rx, thread_tx) = nolock::queues::mpmc::bounded::scq::queue(128);
+
 		this.write(Self {
+			thread_tx,
+			thread_rx,
 			root_ring,
-			threads: TicketMutex::default(),
 			has_initialized_root: AtomicBool::new(false),
 		});
 
@@ -285,9 +293,37 @@ impl<A: Arch> KernelState<A> {
 		&self.root_ring
 	}
 
-	/// Returns a reference to the mutex-guarded list of threads.
-	pub fn threads(&self) -> &impl Lock<Target = Vec<tab::Tab<thread::Thread<A>>>> {
-		&self.threads
+	/// Submits a thread to the kernel state to be claimed by
+	/// the next 'free' scheduler.
+	///
+	/// # Panics
+	/// This function panics if the unclaimed thread queue is full.
+	///
+	/// For now, this is acceptable, but will be relaxed in the future
+	/// as the scheduler is fleshed out a bit more.
+	pub fn submit_unclaimed_thread(&self, thread: Tab<Thread<A>>) {
+		// Tell the thread it's been deallocated.
+		unsafe {
+			Thread::<A>::deallocate(&thread);
+		}
+
+		match self.thread_tx.try_enqueue(thread) {
+			Ok(t) => t,
+			Err((err, _)) => panic!("thread queue full or disconnected: {err:?}"),
+		};
+	}
+
+	/// Tries to take the next unclaimed thread.
+	#[expect(clippy::missing_panics_doc)]
+	pub fn try_claim_thread(&self) -> Option<Tab<Thread<A>>> {
+		match self.thread_rx.try_dequeue() {
+			Ok(thread) => Some(thread),
+			Err(DequeueError::Closed) => {
+				// NOTE(qix-): Should never happen.
+				panic!("thread queue disconnected");
+			}
+			Err(DequeueError::Empty) => None,
+		}
 	}
 }
 

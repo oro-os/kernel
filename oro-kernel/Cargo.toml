@@ -38,6 +38,7 @@ oro-dbgutil.workspace = true
 
 hashbrown.workspace = true
 foldhash = { workspace = true, default-features = false }
+nolock = { workspace = true, default-features = false, features = ["queues"] }
 
 [lints]
 workspace = true

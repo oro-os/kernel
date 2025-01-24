@@ -15,11 +15,10 @@ use oro_mem::{
 	mapper::{AddressSegment, AddressSpace as _, MapError, UnmapError},
 	pfa::Alloc,
 };
-use oro_sync::Lock;
 use oro_sysabi::{key, syscall::Error as SysError};
 
 use crate::{
-	AddressSpace, Kernel, UserHandle,
+	AddressSpace, UserHandle,
 	arch::{Arch, ThreadHandle},
 	instance::Instance,
 	ring::Ring,
@@ -196,12 +195,6 @@ impl<A: Arch> Thread<A> {
 		tab.with_mut(|t| t.id = tab.id());
 
 		instance.with_mut(|instance| instance.threads.insert(tab.id(), tab.clone()));
-
-		Kernel::<A>::get()
-			.state()
-			.threads()
-			.lock()
-			.push(tab.clone());
 
 		Ok(tab)
 	}
@@ -420,6 +413,25 @@ impl<A: Arch> Thread<A> {
 		} else {
 			panic!("thread is not running on the given core");
 		}
+	}
+
+	/// Spawns the thread. If the thread has already been spawned,
+	/// this function does nothing.
+	#[inline]
+	pub fn spawn(this: Tab<Thread<A>>) {
+		if this.with(|t| matches!(t.state, State::Unallocated)) {
+			crate::Kernel::<A>::get()
+				.state()
+				.submit_unclaimed_thread(this);
+		}
+	}
+
+	/// Tells the thread it's been deallocated by a scheduler.
+	///
+	/// # Safety
+	/// The caller must ensure that the thread is not actively running on any core.
+	pub(crate) unsafe fn deallocate(this: &Tab<Thread<A>>) {
+		this.with_mut(|t| t.state = State::Unallocated);
 	}
 
 	/// Returns a reference to the thread's data table.

@@ -1,14 +1,17 @@
 //! Houses types, traits and functionality for the Oro kernel scheduler.
 
-use oro_mem::alloc::vec::Vec;
-use oro_sync::Lock;
+use nolock::queues::{
+	DequeueError,
+	spsc::unbounded::{UnboundedReceiver as Receiver, UnboundedSender as Sender},
+};
+use oro_debug::dbg_warn;
 
 use crate::{
 	Kernel,
 	arch::{Arch, CoreHandle},
 	syscall::{InFlightSystemCall, InterfaceResponse, SystemCallRequest, SystemCallResponse},
 	tab::Tab,
-	thread::{RunState, ScheduleAction, ScheduleError, Thread},
+	thread::{RunState, ScheduleAction, Thread},
 };
 
 /// Main scheduler state machine.
@@ -22,11 +25,13 @@ use crate::{
 /// itself.
 pub struct Scheduler<A: Arch> {
 	/// A reference to the kernel instance.
-	kernel:     &'static Kernel<A>,
+	kernel:    &'static Kernel<A>,
 	/// The current thread, if there is one being executed.
-	current:    Option<Tab<Thread<A>>>,
-	/// The index of the next thread to execute.
-	next_index: usize,
+	current:   Option<Tab<Thread<A>>>,
+	/// The thread queue transfer side.
+	thread_tx: Sender<Tab<Thread<A>>>,
+	/// The thread queue receive side.
+	thread_rx: Receiver<Tab<Thread<A>>>,
 }
 
 // XXX(qix-): Temporary workaround to make things compile
@@ -37,10 +42,13 @@ unsafe impl<A: Arch> Sync for Scheduler<A> {}
 impl<A: Arch> Scheduler<A> {
 	/// Creates a new scheduler instance.
 	pub(crate) fn new(kernel: &'static Kernel<A>) -> Self {
+		let (thread_rx, thread_tx) = nolock::queues::spsc::unbounded::queue();
+
 		Self {
 			kernel,
 			current: None,
-			next_index: 0,
+			thread_tx,
+			thread_rx,
 		}
 	}
 
@@ -72,48 +80,39 @@ impl<A: Arch> Scheduler<A> {
 			thread
 				.with_mut(|t| t.try_pause(self.kernel.id()))
 				.expect("thread pause failed");
-		}
 
-		// XXX(qix-): This is a terrible design but gets the job done for now.
-		// XXX(qix-): Every single core will be competing for a list of the same threads
-		// XXX(qix-): until a thread migration system is implemented.
-		let mut thread_list = self.kernel.state().threads().lock();
-
-		// XXX(qix-): An even worse design, but it's a temporary workaround
-		// XXX(qix-): to deal with a deadlock. The scheduling algorithm will
-		// XXX(qix-): get a huge refactor at some point in the near future.
-		let mut dead_threads = Vec::new();
-
-		while self.next_index < thread_list.len() {
-			let thread = &thread_list[self.next_index];
-			self.next_index += 1;
-
-			match thread.with_mut(|t| t.try_schedule(self.kernel.id())) {
-				Ok(action) => {
-					// Select it for execution.
-					self.current = Some(thread.clone());
-					return Some((thread.clone(), action));
-				}
-				Err(ScheduleError::Terminated) => {
-					dead_threads.push(self.next_index - 1);
-				}
-				_ => {}
+			if let Err((thread, err)) = self.thread_tx.enqueue(thread) {
+				// We failed to schedule the thread.
+				dbg_warn!(
+					"scheduler {} failed to requeue thread {:#016X}: {err:?}",
+					self.kernel.id(),
+					thread.id()
+				);
+				self.kernel.state().submit_unclaimed_thread(thread);
 			}
 		}
 
-		// For any dead threads we found, remove them from the thread list.
-		for thread_idx in dead_threads {
-			// XXX(qix-): This will inevitably screw up the schedule order
-			// XXX(qix-): for all schedulers in the system but it works for
-			// XXX(qix-): now. The scheduler will get a huge refactor at some
-			// XXX(qix-): point in the near future.
-			thread_list.swap_remove(thread_idx);
+		loop {
+			let selected = match self.kernel.state().try_claim_thread() {
+				Some(thread) => thread,
+				None => {
+					match self.thread_rx.try_dequeue() {
+						Ok(thread) => thread,
+						Err(DequeueError::Closed) => panic!("thread queue closed"),
+						Err(DequeueError::Empty) => {
+							return None;
+						}
+					}
+				}
+			};
+
+			// Take action if needed, otherwise skip the thread; it'll be re-queued when
+			// it needs to be.
+			if let Ok(action) = selected.with_mut(|t| t.try_schedule(self.kernel.id())) {
+				self.current = Some(selected.clone());
+				return Some((selected, action));
+			}
 		}
-
-		drop(thread_list);
-
-		self.next_index = 0;
-		None
 	}
 
 	/// Called whenever the architecture has reached a codepath
@@ -243,6 +242,15 @@ impl<A: Arch> Scheduler<A> {
 		let switch = Switch::from_schedule_action(self.pick_user_thread(), coming_from_user);
 		self.kernel.handle().schedule_timer(1000);
 		switch
+	}
+}
+
+impl<A: Arch> Drop for Scheduler<A> {
+	fn drop(&mut self) {
+		// Drain the thread queue.
+		while let Ok(thread) = self.thread_rx.try_dequeue() {
+			self.kernel.state().submit_unclaimed_thread(thread);
+		}
 	}
 }
 

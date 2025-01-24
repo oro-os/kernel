@@ -183,9 +183,11 @@ pub unsafe fn initialize_primary(lapic: Lapic) {
 				.expect("failed to create root ring instance");
 
 			// Create a thread for the entry point.
-			// TODO(qix-): Allow stack size to be passed in via module command line.
-			let _thread = Thread::new(&instance, entry_point)
+			let thread = Thread::new(&instance, entry_point)
 				.expect("failed to create root ring instance thread");
+
+			// Spawn it.
+			Thread::spawn(thread);
 		}
 	}
 }
