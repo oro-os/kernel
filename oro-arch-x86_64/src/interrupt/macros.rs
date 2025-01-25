@@ -72,14 +72,25 @@ macro_rules! isr_table {
 /// when the corresponding interrupt is triggered.
 #[macro_export]
 macro_rules! isr {
-	($(#[$meta:meta])* unsafe fn $isr_name:ident($kernel:ident, $user_task:ident) -> Option<Switch> { $($stmt:stmt);* }) => {
+	// NOTE(qix-): "@" prefixed match patterns are PRIVATE. Do not use them publicly.
+	(@ $isr_name:ident, $err_code:ident) => {
+		::oro_macro::paste! {
+			$crate::isr_store_task_and_jmp_err!($isr_name %% _rust);
+		}
+	};
+
+	(@ $isr_name:ident) => {
+		::oro_macro::paste! {
+			$crate::isr_store_task_and_jmp!($isr_name %% _rust);
+		}
+	};
+
+	($(#[$meta:meta])* unsafe fn $isr_name:ident($kernel:ident, $user_task:ident $(, $err_code:ident)?) -> Option<Switch> $blk:block) => {
 		#[doc = concat!("The ISR (Interrupt Service Routine) trampoline stub for [`", stringify!($isr_name), "_rust`].")]
 		#[naked]
 		#[no_mangle]
 		pub unsafe extern "C" fn $isr_name() -> ! {
-			::oro_macro::paste! {
-				$crate::isr_store_task_and_jmp!($isr_name %% _rust);
-			}
+			$crate::isr!(@ $isr_name $(, $err_code)?);
 		}
 
 		::oro_macro::paste! {
@@ -90,6 +101,14 @@ macro_rules! isr {
 				// Must be first.
 				let irq_stack_ptr: u64;
 				::core::arch::asm!("", out("rcx") irq_stack_ptr, options(nostack, preserves_flags));
+
+				$(
+					let $err_code = {
+						let err_code: u64;
+						::core::arch::asm!("", out("rdx") err_code, options(nostack, preserves_flags));
+						err_code
+					};
+				)?
 
 				let $kernel = $crate::Kernel::get();
 
@@ -110,9 +129,7 @@ macro_rules! isr {
 					}
 				};
 
-				let switch: Option<::oro_kernel::scheduler::Switch<$crate::Arch>> = {
-					$($stmt);*
-				};
+				let switch: Option<::oro_kernel::scheduler::Switch<$crate::Arch>> = $blk;
 
 				let switch = match (switch, $user_task) {
 					(Some(s), _) => s,

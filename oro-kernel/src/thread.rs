@@ -402,6 +402,16 @@ impl<A: Arch> Thread<A> {
 		}
 	}
 
+	/// Terminates the thread immediately.
+	///
+	/// # Safety
+	/// Caller must be ready to switch to a different thread.
+	pub(crate) unsafe fn terminate(&mut self) {
+		// TODO(qix-): This isn't very fleshed out for now; the bigger
+		// TODO(qix-): goal is to get it working.
+		self.set_run_state_unchecked(RunState::Terminated);
+	}
+
 	/// Tells the thread it's waiting for an in-flight system call response.
 	///
 	/// # Panics

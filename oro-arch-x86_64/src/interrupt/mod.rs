@@ -9,6 +9,7 @@ mod macros;
 crate::isr_table! {
 	/// The IDT (Interrupt Descriptor Table) for the kernel.
 	static IDT = {
+		PAGE_FAULT[14] => isr_page_fault,
 		TIMER_VECTOR[32] => isr_sys_timer,
 		APIC_SVR_VECTOR[255] => isr_apic_svr,
 	};

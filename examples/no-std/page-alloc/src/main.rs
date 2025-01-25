@@ -41,6 +41,15 @@ fn main() {
 
 	println!("token type: {:?}", Key(&ty));
 
+	const TARGET_ADDR: usize = 0x400_0000_0000;
+
 	// Map it in.
 	// TODO: This is not yet implemented.
+
+	// Try to read and write from it.
+	unsafe {
+		*(TARGET_ADDR as *mut u64) = 0x1234_5678_9ABC_DEF0;
+		let value = *(TARGET_ADDR as *const u64);
+		println!("value: {value:#016X}");
+	}
 }

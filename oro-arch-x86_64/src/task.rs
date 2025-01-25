@@ -39,8 +39,6 @@ pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64, stack
 	write_u64(0); // r13
 	write_u64(0); // r14
 	write_u64(0); // r15
-	// Not needed, technically, but kept so that interrupts can be entered from
-	// either the kernel or a user task (since kernel rflags must be saved).
 	write_u64(0); // rflags
 
 	written
@@ -388,8 +386,6 @@ pub unsafe extern "C" fn oro_x86_64_user_to_user() {
 		"mov es, ax",
 		"mov fs, ax",
 		"mov gs, ax",
-		// Not needed, technically, but kept so that interrupts can be entered from
-		// either the kernel or a user task.
 		"popfq",
 		"pop r15",
 		"pop r14",
@@ -448,8 +444,46 @@ macro_rules! isr_store_task_and_jmp {
 			"push r13",
 			"push r14",
 			"push r15",
-			// Not needed, technically, but kept so that interrupts can be entered from
-			// either the kernel or a user task.
+			"pushfq",
+			"mov rcx, rsp",
+			concat!("jmp ", stringify!($jmp_to)),
+			"ud2",
+		);
+	};
+}
+
+/// [`isr_store_task_and_jmp`] but with an error code stored to `rdx`.
+///
+/// All the same rules apply.
+#[macro_export]
+macro_rules! isr_store_task_and_jmp_err {
+	($jmp_to:ident) => {
+		::core::arch::naked_asm!(
+			"cli",
+			// RDX is what we're using for the error code.
+			// However, it currently holds an application's value.
+			// We need to save it before we clobber it.
+			"push rdx",
+			// Now we can load the error code into RDX.
+			"mov rdx, [rsp + 8]",
+			// We can't pop twice, and a sub is needless here,
+			// so for the two first "pushes", we store directly
+			// to the stack.
+			"mov [rsp + 8], rax",
+			"mov [rsp], rbx",
+			"push rcx",
+			"push rdx",
+			"push rsi",
+			"push rdi",
+			"push rbp",
+			"push r8",
+			"push r9",
+			"push r10",
+			"push r11",
+			"push r12",
+			"push r13",
+			"push r14",
+			"push r15",
 			"pushfq",
 			"mov rcx, rsp",
 			concat!("jmp ", stringify!($jmp_to)),

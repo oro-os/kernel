@@ -206,40 +206,70 @@ impl<A: Arch> Scheduler<A> {
 	/// disabled before calling this function.** At no point
 	/// can other scheduler methods be invoked while this function
 	/// is running.
-	///
-	/// # Panics
-	/// Will panic if the kernel ever gets into an invalid state
-	/// (indicating a bug in the scheduler logic / thread state machine).
+	#[expect(clippy::missing_panics_doc)]
 	#[must_use]
 	pub unsafe fn event_system_call(&mut self, request: &SystemCallRequest) -> Switch<A> {
-		let coming_from_user = if let Some(thread) = self.current.take() {
-			let response = crate::syscall::dispatch(&thread, request);
-
-			// If the thread was stopped or terminated by the syscall, we need to
-			// handle it specially.
-			match (thread.with(|t| t.run_state()), response) {
-				(RunState::Running, InterfaceResponse::Immediate(response)) => {
-					self.current = Some(thread.clone());
-					// No timer scheduling necessary.
-					return Switch::UserResume(thread.clone(), Some(response));
-				}
-				(RunState::Stopped, InterfaceResponse::Immediate(response)) => {
-					let (sub, handle) = InFlightSystemCall::new();
-					thread.with_mut(|t| t.await_system_call_response(self.kernel.id(), handle));
-					sub.submit(response);
-					Some(thread.id())
-				}
-				(RunState::Terminated, _) => Some(thread.id()),
-				(RunState::Running | RunState::Stopped, InterfaceResponse::Pending(handle)) => {
-					thread.with_mut(|t| t.await_system_call_response(self.kernel.id(), handle));
-					Some(thread.id())
-				}
-			}
-		} else {
-			None
+		let Some(thread) = self.current.take() else {
+			panic!("event_system_call() called with no current thread");
 		};
 
-		let switch = Switch::from_schedule_action(self.pick_user_thread(), coming_from_user);
+		let response = crate::syscall::dispatch(&thread, request);
+
+		// If the thread was stopped or terminated by the syscall, we need to
+		// handle it specially.
+		match (thread.with(|t| t.run_state()), response) {
+			(RunState::Running, InterfaceResponse::Immediate(response)) => {
+				self.current = Some(thread.clone());
+				// No timer scheduling necessary.
+				return Switch::UserResume(thread.clone(), Some(response));
+			}
+			(RunState::Stopped, InterfaceResponse::Immediate(response)) => {
+				let (sub, handle) = InFlightSystemCall::new();
+				thread.with_mut(|t| t.await_system_call_response(self.kernel.id(), handle));
+				sub.submit(response);
+			}
+			(RunState::Terminated, _) => {}
+			(RunState::Running | RunState::Stopped, InterfaceResponse::Pending(handle)) => {
+				thread.with_mut(|t| t.await_system_call_response(self.kernel.id(), handle));
+			}
+		}
+
+		let switch = Switch::from_schedule_action(self.pick_user_thread(), Some(thread.id()));
+		self.kernel.handle().schedule_timer(1000);
+		switch
+	}
+
+	/// Indicates to the kernel that a page fault has occurred.
+	///
+	/// # Safety
+	/// Calling architectures **must** treat "return back to same task"
+	/// [`Switch`]es as to mean "retry the faulting memory operation". The
+	/// kernel will NOT attempt to recover from fatal or unexpected page faults.
+	///
+	/// **Interrupts or any other asynchronous events must be disabled before
+	/// calling this function.** At no point can other scheduler methods be
+	/// invoked while this function is running.
+	#[expect(clippy::missing_panics_doc)]
+	#[must_use]
+	pub unsafe fn event_page_fault(
+		&mut self,
+		fault_type: PageFaultType,
+		vaddr: usize,
+	) -> Switch<A> {
+		// TODO(qix-): For now, we terminate the thread.
+		// TODO(qix-): This will be fleshed out much more in the future.
+		let Some(thread) = self.current.take() else {
+			panic!("event_page_fault() called with no current thread");
+		};
+		let id = thread.id();
+		unsafe {
+			thread.with_mut(|t| t.terminate());
+		}
+		dbg_warn!(
+			"thread {:#016X} terminated due to page fault: {fault_type:?} at {vaddr:016X}",
+			id
+		);
+		let switch = Switch::from_schedule_action(self.pick_user_thread(), Some(id));
 		self.kernel.handle().schedule_timer(1000);
 		switch
 	}
@@ -320,4 +350,15 @@ impl<A: Arch> Switch<A> {
 			(None, Some(_)) => Switch::UserToKernel,
 		}
 	}
+}
+
+/// The type of page fault that is being handled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PageFaultType {
+	/// A read is being performed.
+	Read,
+	/// A write is being performed.
+	Write,
+	/// Instructions are being fetched for execution.
+	Execute,
 }
