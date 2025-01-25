@@ -289,7 +289,6 @@ impl<A: Arch> Scheduler<A> {
 	/// free up any task- or memory-related locks before calling this function.
 	/// The exception, of course, is the scheduler lock itself, which is held
 	/// by the architecture.
-	#[expect(clippy::missing_panics_doc)]
 	#[must_use]
 	pub unsafe fn event_page_fault_token(
 		&mut self,
