@@ -431,7 +431,7 @@ pub unsafe extern "C" fn oro_x86_64_user_to_user() {
 #[macro_export]
 macro_rules! isr_store_task_and_jmp {
 	($jmp_to:ident) => {
-		naked_asm!(
+		::core::arch::naked_asm!(
 			"cli",
 			"push rax",
 			"push rbx",
