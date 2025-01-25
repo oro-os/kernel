@@ -142,6 +142,16 @@ impl AddressSegment {
 		space: &AddressSpaceHandle,
 		virt: usize,
 	) -> Option<u64> {
+		{
+			let root_index = match space.paging_level() {
+				PagingLevel::Level4 => (virt >> 39) & 0x1FF,
+				PagingLevel::Level5 => (virt >> 48) & 0x1FF,
+			};
+			if unlikely!(root_index < self.valid_range.0 || root_index > self.valid_range.1) {
+				return None;
+			}
+		}
+
 		// SAFETY: We know that the base physical address is a valid page table.
 		let mut current_page_table = unsafe { space.base_phys().as_ref_unchecked::<PageTable>() };
 
