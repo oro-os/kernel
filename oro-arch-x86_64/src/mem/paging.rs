@@ -117,6 +117,10 @@ impl PageTableEntry {
 	/// Resets the entry to its default state.
 	#[inline]
 	pub fn reset(&mut self) {
+		// NOTE(qix-): It is IMPERATIVE that this is set to 0 and not some other
+		// NOTE(qix-): value, even if it's not marked "present". We use non-present
+		// NOTE(qix-): page table entries as a way to mark lazy-allocated pages, the
+		// NOTE(qix-): unused bits referring to a token ID.
 		self.0 = 0;
 	}
 

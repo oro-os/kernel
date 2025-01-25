@@ -273,6 +273,37 @@ impl<A: Arch> Scheduler<A> {
 		self.kernel.handle().schedule_timer(1000);
 		switch
 	}
+
+	/// Indicates to the kernel that a page fault has occurred whereby a reserved
+	/// page table entry token was used.
+	///
+	/// If the token is valid, the kernel will handle issuing mapping requests
+	/// or other asynchronous operations to (eventually) resolve the fault.
+	///
+	/// # Safety
+	/// Calling architectures **must** treat "return back to same task"
+	/// [`Switch`]es as to mean "retry the faulting memory operation". The
+	/// kernel will NOT attempt to recover from fatal or unexpected page faults.
+	///
+	/// **No locks may be held at this boundary.** The architecture **MUST**
+	/// free up any task- or memory-related locks before calling this function.
+	/// The exception, of course, is the scheduler lock itself, which is held
+	/// by the architecture.
+	#[expect(clippy::missing_panics_doc)]
+	#[must_use]
+	pub unsafe fn event_page_fault_token(
+		&mut self,
+		fault_type: PageFaultType,
+		vaddr: usize,
+		token_id: u64,
+	) -> Switch<A> {
+		if let Some(_token) = crate::tab::get().lookup::<crate::token::Token>(token_id) {
+			todo!("handle page fault token: {token_id:#016X}");
+		} else {
+			// Normal page fault; forward it on.
+			self.event_page_fault(fault_type, vaddr)
+		}
+	}
 }
 
 impl<A: Arch> Drop for Scheduler<A> {
