@@ -39,8 +39,9 @@ pub(super) struct Aligned16<T: Sized>(pub T);
 /// The ISR functions must have been created with the [`crate::isr!`] macro.
 #[macro_export]
 macro_rules! isr_table {
-	($(#[$meta:meta])* static $isr_table:ident = { $($isr_const:ident[$isr_num:expr] => $isr_name:ident),* $(,)? };) => {
+	($(#[$meta:meta])* static $isr_table:ident = { $($isr_const:ident[$isr_num:expr] => $isr_name:ident),* , _ => $def_isr_name:ident $(,)? };) => {
 		$(mod $isr_name;)*
+		mod $def_isr_name;
 
 		$(
 			#[doc = concat!("The ISR number for the ", stringify!($isr_name), " ISR.")]
@@ -54,7 +55,13 @@ macro_rules! isr_table {
 				$crate::interrupt::macros::Aligned16<
 				[$crate::interrupt::IdtEntry; 256]
 		>>> = $crate::interrupt::macros::UnsafeSync::new(::core::cell::LazyCell::new(|| {
-			let mut arr = [$crate::interrupt::IdtEntry::new(); 256];
+			let mut arr = [
+				$crate::interrupt::IdtEntry::new()
+					.with_kernel_cs()
+					.with_attributes(0x8E)
+					.with_isr($def_isr_name::$def_isr_name);
+				256
+			];
 
 			$(
 				arr[$isr_num as usize] = $crate::interrupt::IdtEntry::new()
