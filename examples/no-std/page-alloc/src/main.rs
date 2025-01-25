@@ -41,10 +41,22 @@ fn main() {
 
 	println!("token type: {:?}", Key(&ty));
 
-	const TARGET_ADDR: usize = 0x400_0000_0000;
+	const TARGET_ADDR: u64 = 0x400_0000_0000;
 
 	// Map it in.
-	// TODO: This is not yet implemented.
+	match syscall::set!(
+		KERNEL_MEM_TOKEN_V0,
+		KERNEL_MEM_TOKEN_V0,
+		token,
+		syscall::key!("base"),
+		TARGET_ADDR
+	) {
+		Ok(_) => (),
+		Err((e, ex)) => {
+			println!("error mapping in token: {e:?}[{ex}]");
+			return;
+		}
+	}
 
 	// Try to read and write from it.
 	unsafe {

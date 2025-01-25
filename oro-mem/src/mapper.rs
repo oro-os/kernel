@@ -321,7 +321,7 @@ pub unsafe trait AddressSegment<Handle: Sized>: Send + 'static {
 
 	/// Makes the segment shared across all address spaces. Uses the given allocator.
 	///
-	/// Returns an error if the segment is not empty.
+	/// **Skips any checks for emptiness;** must not return [`MapError::Exists`].
 	fn provision_as_shared_in<A>(&self, space: &Handle, alloc: &A) -> Result<(), MapError>
 	where
 		A: Alloc;

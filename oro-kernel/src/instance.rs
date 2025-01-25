@@ -86,6 +86,15 @@ impl<A: Arch> Instance<A> {
 				.apply_user_space_shallow(handle.mapper(), module.mapper())
 		})?;
 
+		// Make the entire memory space shared.
+		// TODO(qix-): This is a gross waste of memory, and will be addressed
+		// TODO(qix-): in the future to be more fine-grained. I don't have a good
+		// TODO(qix-): data structure written for random page fault fetches, so
+		// TODO(qix-): instead we share all memory between all threads
+		// TODO(qix-): in the instance, which requires around (255 * 4096) = 1MiB
+		// TODO(qix-): of memory per instance. This isn't ideal, but it works for now.
+		AddressSpace::<A>::user_data().provision_as_shared(handle.mapper())?;
+
 		let tab = crate::tab::get()
 			.add(Self {
 				module: module.clone(),
@@ -140,6 +149,13 @@ impl<A: Arch> Instance<A> {
 	#[inline]
 	pub fn insert_token(&mut self, token: Tab<Token>) -> u64 {
 		self.tokens.insert_tab(token)
+	}
+
+	/// Maps a [`Token`] into the instance's address space.
+	///
+	/// Returns the address segment of the mapping.
+	pub fn map_token(&self, token: &Tab<Token>, virt: usize) -> Result<(), MapError> {
+		todo!("map token: {:016X} -> {virt:016X}", token.id());
 	}
 
 	/// Returns the instance's address space handle.

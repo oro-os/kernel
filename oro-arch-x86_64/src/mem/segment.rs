@@ -519,7 +519,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 			let entry = &mut top_level[idx];
 
 			if entry.present() {
-				return Err(MapError::Exists);
+				continue;
 			}
 
 			let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
