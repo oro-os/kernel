@@ -404,7 +404,8 @@ impl<const COUNT: usize> Gdt<COUNT> {
 			"mov fs, ax",
 			"mov gs, ax",
 			"mov ss, ax",
-			in(reg) &gdt_descriptor
+			in(reg) &gdt_descriptor,
+			out("rax") _,
 		};
 	}
 }
