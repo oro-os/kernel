@@ -128,55 +128,6 @@ impl AddressSegment {
 		Ok(entry)
 	}
 
-	/// Attempts to fetch the token data for the given virtual address.
-	///
-	/// If the page table entry is not present, returns the non-present bits
-	/// of the entry. If the entry is present, or if any intermediate page table
-	/// entries are missing, returns `None`.
-	///
-	/// Also returns `None` if the virtual address falls outside of the segment.
-	///
-	/// **Does not allocate** anything for intermediate page tables.
-	pub(crate) fn try_get_nonpresent_bits(
-		&self,
-		space: &AddressSpaceHandle,
-		virt: usize,
-	) -> Option<u64> {
-		{
-			let root_index = match space.paging_level() {
-				PagingLevel::Level4 => (virt >> 39) & 0x1FF,
-				PagingLevel::Level5 => (virt >> 48) & 0x1FF,
-			};
-			if unlikely!(root_index < self.valid_range.0 || root_index > self.valid_range.1) {
-				return None;
-			}
-		}
-
-		// SAFETY: We know that the base physical address is a valid page table.
-		let mut current_page_table = unsafe { space.base_phys().as_ref_unchecked::<PageTable>() };
-
-		for level in (1..space.paging_level().as_usize()).rev() {
-			let index = (virt >> (12 + level * 9)) & 0x1FF;
-			let entry = &current_page_table[index];
-
-			if !entry.present() {
-				return None;
-			}
-
-			// SAFETY: Barring a bug, we know that the physical address is valid.
-			current_page_table =
-				unsafe { Phys::from_address_unchecked(entry.address()).as_ref_unchecked() };
-		}
-
-		let entry = (*current_page_table)[(virt >> 12) & 0x1FF];
-
-		if entry.present() {
-			None
-		} else {
-			Some(entry.into())
-		}
-	}
-
 	/// Attempts to unmap a virtual address from the segment, returning the
 	/// physical address that was previously mapped. Assumes that the CPU
 	/// is in a 4-level paging mode.
