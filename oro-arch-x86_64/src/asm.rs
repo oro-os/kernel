@@ -76,6 +76,7 @@ pub fn disable_8259() {
 			"mov al, 0xFF",
 			"out 0x21, al",
 			"out 0xA1, al",
+			out("al") _,
 			options(nostack, preserves_flags)
 		);
 	}
