@@ -207,21 +207,21 @@ pub trait AcpiTable: Sized {
 	/// # Safety
 	/// Caller must treat any and all multibyte fields fetched
 	/// from within this header as little endian.
-	unsafe fn header_ref(sys_table: &Self::SysTable) -> &sys::acpi_table_header;
+	unsafe fn header_ref(sys_table: &'static Self::SysTable) -> &'static sys::acpi_table_header;
 
 	/// Returns a reference to this table's header.
 	///
 	/// # Safety
 	/// Caller must treat any and all multibyte fields fetched
 	/// from within this header as little endian.
-	unsafe fn header(&self) -> &sys::acpi_table_header;
+	unsafe fn header(&self) -> &'static sys::acpi_table_header;
 
 	/// Returns a slice of the table's data (after the header).
 	///
 	/// # Safety
 	/// Caller must treat any and all multibyte fields fetched
 	/// from within this data as little endian.
-	unsafe fn data(&self) -> &[u8] {
+	unsafe fn data(&self) -> &'static [u8] {
 		// SAFETY(qix-): We can assume that the data is valid since
 		// SAFETY(qix-): this object only exists if it was validated.
 		// SAFETY(qix-): If it is not valid, it's a bug in the ACPI table implementation.
@@ -241,7 +241,7 @@ pub trait AcpiTable: Sized {
 	///
 	/// # Safety
 	/// Caller must access all multi-byte fields as little endian.
-	unsafe fn inner_ref(&self) -> &Self::SysTable {
+	unsafe fn inner_ref(&self) -> &'static Self::SysTable {
 		// SAFETY(qix-): The header reference always marks the start of the table.
 		unsafe { &*::core::ptr::from_ref(self.header()).cast::<Self::SysTable>() }
 	}
@@ -282,11 +282,11 @@ macro_rules! impl_tables {
 				Self { ptr }
 			}
 
-			unsafe fn header_ref(sys_table: &Self::SysTable) -> &sys::acpi_table_header {
+			unsafe fn header_ref(sys_table: &'static Self::SysTable) -> &'static sys::acpi_table_header {
 				&sys_table.Header
 			}
 
-			unsafe fn header(&self) -> &sys::acpi_table_header {
+			unsafe fn header(&self) -> &'static sys::acpi_table_header {
 				&self.ptr.Header
 			}
 		}

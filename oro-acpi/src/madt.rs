@@ -25,7 +25,7 @@ impl crate::Madt {
 
 	/// Returns an iterator over all of the MADT entries.
 	#[must_use]
-	pub fn entries(&self) -> MadtIterator<'_> {
+	pub fn entries(&self) -> MadtIterator {
 		MadtIterator::new(
 			// SAFETY(qix-): We're guaranteed to be creating a valid slice,
 			// SAFETY(qix-): assuming ACPI has reported the correct length.
@@ -45,23 +45,23 @@ impl crate::Madt {
 /// MADT entry type and `Err` indicates an unknown entry,
 /// providing the raw bytes of the entry (including
 /// header and length bytes).
-pub struct MadtIterator<'a> {
+pub struct MadtIterator {
 	/// The current position in the iterator.
 	pos:   usize,
 	/// The slice of the MADT table.
-	slice: &'a [u8],
+	slice: &'static [u8],
 }
 
-impl<'a> MadtIterator<'a> {
+impl MadtIterator {
 	/// Creates a new iterator over the MADT entries.
 	#[must_use]
-	pub fn new(slice: &'a [u8]) -> Self {
+	pub fn new(slice: &'static [u8]) -> Self {
 		Self { pos: 44, slice }
 	}
 }
 
-impl<'a> Iterator for MadtIterator<'a> {
-	type Item = Result<MadtEntry<'a>, &'a [u8]>;
+impl Iterator for MadtIterator {
+	type Item = Result<MadtEntry, &'static [u8]>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		if self.pos >= self.slice.len() {
@@ -89,14 +89,14 @@ macro_rules! madt_entries {
 			#[expect(missing_docs)]
 			#[allow(non_camel_case_types)]
 			#[non_exhaustive]
-			pub enum MadtEntry<'a> {
+			pub enum MadtEntry {
 				$(
 					$(#[$meta])*
-					%<title_case:$name>%(&'a sys::acpi_madt_%%$name),
+					%<title_case:$name>%(&'static sys::acpi_madt_%%$name),
 				)*
 			}
 
-			impl<'a> core::fmt::Debug for MadtEntry<'a> {
+			impl core::fmt::Debug for MadtEntry {
 				fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 					match self {
 						$(
@@ -106,8 +106,8 @@ macro_rules! madt_entries {
 				}
 			}
 
-			impl<'a> From<&'a MadtData> for Option<MadtEntry<'a>> {
-				fn from(data: &'a MadtData) -> Option<MadtEntry<'a>> {
+			impl From<&'static MadtData> for Option<MadtEntry> {
+				fn from(data: &'static MadtData) -> Option<MadtEntry> {
 					Some(match unsafe { data.header.Type.read() } {
 						$(
 							$tyid => MadtEntry::%<title_case:$name>%(unsafe { &data.$name }),
