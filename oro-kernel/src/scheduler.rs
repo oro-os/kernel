@@ -261,15 +261,25 @@ impl<A: Arch> Scheduler<A> {
 		let Some(thread) = self.current.take() else {
 			panic!("event_page_fault() called with no current thread");
 		};
+
 		let id = thread.id();
-		unsafe {
-			thread.with_mut(|t| t.terminate());
-		}
-		dbg_warn!(
-			"thread {:#016X} terminated due to page fault: {fault_type:?} at {vaddr:016X}",
-			id
-		);
-		let switch = Switch::from_schedule_action(self.pick_user_thread(), Some(id));
+
+		let instance = thread.with(|t| t.instance().clone());
+
+		let switch = if instance.with_mut(|i| i.try_commit_token_at(vaddr)).is_err() {
+			unsafe {
+				thread.with_mut(|t| t.terminate());
+			}
+			dbg_warn!(
+				"thread {:#016X} terminated due to page fault: {fault_type:?} at {vaddr:016X}",
+				id
+			);
+			Switch::from_schedule_action(self.pick_user_thread(), Some(id))
+		} else {
+			self.current = Some(thread.clone());
+			Switch::UserResume(thread, None)
+		};
+
 		self.kernel.handle().schedule_timer(1000);
 		switch
 	}

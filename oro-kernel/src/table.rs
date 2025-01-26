@@ -97,6 +97,12 @@ impl<T: Sized, Alloc: Allocator + Default> Table<T, Alloc> {
 	pub fn remove(&mut self, id: u64) -> Option<T> {
 		self.0.remove(&id)
 	}
+
+	/// Returns whether or not the given key exists in the table.
+	#[inline]
+	pub fn contains(&self, key: u64) -> bool {
+		self.0.contains_key(&key)
+	}
 }
 
 /// A [`Table`] wrapper that allows for artibtrary singleton values

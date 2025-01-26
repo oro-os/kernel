@@ -1,23 +1,37 @@
 //! Allows for querying information about memory tokens.
+//!
+//! # ⚠️ Stability Note ⚠️
+//! **This interface is incomplete.** Mappings that work now may not work in the future.
+//!
+//! The interface currently **does not** check for executable mapping conflicts -
+//! i.e. code, data, and rodata program segments mapped in as part of the module.
+//!
+//! Mapping operations to set the base of a token that overlaps with those regions
+//! **will not fail**, but also **will not be mapped**, as there will be no page
+//! fault for accesses to those regions.
+//!
+//! In the future, setting a `base` that *does* conflict **will** fail. Please be
+//! extra careful about your base addresses and spans when using this interface
+//! in order to be future-proof.
 
-use oro_mem::mapper::MapError;
 use oro_sysabi::{key, syscall::Error as SysError};
 
 use super::KernelInterface;
-use crate::{arch::Arch, syscall::InterfaceResponse, tab::Tab, thread::Thread, token::Token};
+use crate::{
+	arch::Arch, instance::TokenMapError, syscall::InterfaceResponse, tab::Tab, thread::Thread,
+	token::Token,
+};
 
 /// Interface specific errors.
 #[derive(Debug, Clone, Copy)]
 #[repr(u64)]
 pub enum Error {
 	/// An address conflict (existing mapping) was encountered when mapping a token.
-	Conflict    = key!("conflict"),
+	Conflict   = key!("conflict"),
 	/// The requested address is not aligned to the page size.
-	NotAligned  = key!("align"),
+	NotAligned = key!("align"),
 	/// The requested address is out of the address space range.
-	OutOfRange  = key!("range"),
-	/// The system ran out of memory trying to service the request.
-	OutOfMemory = key!("oom"),
+	OutOfRange = key!("range"),
 }
 
 /// Version 0 of the memory token query interface.
@@ -83,16 +97,16 @@ impl KernelInterface for MemTokenV0 {
 						);
 					};
 
-					i.map_token(&token, virt).map_or_else(
+					i.try_map_token_at(&token, virt).map_or_else(
 						|err| {
 							InterfaceResponse::immediate(
 								SysError::InterfaceError,
 								match err {
-									MapError::Exists => Error::Conflict as u64,
-									MapError::OutOfMemory => Error::OutOfMemory as u64,
-									MapError::VirtNotAligned => Error::NotAligned as u64,
-									MapError::VirtOutOfRange
-									| MapError::VirtOutOfAddressSpaceRange => Error::OutOfRange as u64,
+									TokenMapError::Conflict => Error::Conflict as u64,
+									TokenMapError::VirtNotAligned => Error::NotAligned as u64,
+									TokenMapError::VirtOutOfRange => Error::OutOfRange as u64,
+									// NOTE(qix-): We already handled this at the beginning of the match.
+									TokenMapError::BadToken => unreachable!(),
 								},
 							)
 						},

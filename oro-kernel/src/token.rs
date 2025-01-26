@@ -75,7 +75,11 @@ impl NormalToken {
 	pub(crate) fn new_4kib(pages: usize) -> Self {
 		Self {
 			page_size:  4096,
-			phys_addrs: Vec::with_capacity(pages),
+			phys_addrs: {
+				let mut v = Vec::with_capacity(pages);
+				v.resize_with(pages, || None);
+				v
+			},
 			committed:  0,
 		}
 	}
