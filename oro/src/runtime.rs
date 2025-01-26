@@ -99,13 +99,13 @@ pub unsafe fn force_crash() -> ! {
 	// (x86_64) Try to read from cr3.
 	#[cfg(target_arch = "x86_64")]
 	{
-		core::arch::asm!("mov rax, cr3");
+		core::arch::asm!("mov rax, cr3", out("rax") _);
 	}
 
 	// (aarch64) Try to read from spsr_el1.
 	#[cfg(target_arch = "aarch64")]
 	{
-		core::arch::asm!("mrs x0, spsr_el1");
+		core::arch::asm!("mrs x0, spsr_el1", out("x0") _);
 	}
 
 	// Otherwise, spin loop. We should never get here.
