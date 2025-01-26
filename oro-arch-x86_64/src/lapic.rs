@@ -27,29 +27,6 @@ impl Lapic {
 	/// # Safety
 	/// The caller must ensure that the LAPIC base address is valid and aligned.
 	pub unsafe fn new(base: *mut u8) -> Self {
-		// FIXME(qix-): I have no idea why this works. I have gone down the
-		// FIXME(qix-): rabbit hole of even rewriting literally everything
-		// FIXME(qix-): as volatile reads to a painstaking amount and
-		// FIXME(qix-): Rust still miscompiles this. For some reason, this
-		// FIXME(qix-): black box solves the problem.
-		// FIXME(qix-):
-		// FIXME(qix-): From what I can tell, without this, the compiler does some
-		// FIXME(qix-): incredibly aggressive optimization to even the caller that
-		// FIXME(qix-): completely breaks not only the pointer value but also how
-		// FIXME(qix-): ACPI tables are read in general. It doesn't (seemingly)
-		// FIXME(qix-): appear to be a volatility issue, despite my inclinations.
-		// FIXME(qix-):
-		// FIXME(qix-): I'm almost definitely invoking some undefined behavior here,
-		// FIXME(qix-): but given that I've gone to great lengths to make this "safe"
-		// FIXME(qix-): without any success, I'm at a loss. At the time of writing,
-		// FIXME(qix-): this only happens in release mode, when the debug logging macros
-		// FIXME(qix-): are disabled (I assume since there's one in the panic handler).
-		// FIXME(qix-):
-		// FIXME(qix-): If you have any idea what's happening, PLEASE let me know.
-		// FIXME(qix-):
-		// FIXME(qix-): Time spent on this: 8 hours.
-		::core::hint::black_box(&base);
-
 		assert!(!base.is_null(), "LAPIC base is null");
 		assert_eq!(
 			base.align_offset(16),
