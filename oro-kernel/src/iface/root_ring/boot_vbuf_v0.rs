@@ -58,7 +58,7 @@ pub enum Error {
 	OutOfMemory    = key!("oom"),
 }
 
-/// Inner state of the debug output stream.
+/// Inner state of video buffers interface.
 struct Inner {
 	/// A list of all of the buffers available to the system.
 	buffers: Vec<RGBVideoBuffer>,
@@ -118,7 +118,7 @@ impl Default for Inner {
 pub struct BootVbufV0<A: Arch>(Mutex<Inner>, PhantomData<A>);
 
 impl<A: Arch> BootVbufV0<A> {
-	/// Creates a new `DebugOutV0` instance.
+	/// Creates a new `RootVbufV0` instance.
 	#[must_use]
 	pub fn new() -> Self {
 		Self(Mutex::new(Inner::default()), PhantomData)
