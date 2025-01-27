@@ -9,6 +9,51 @@ pub mod syscall;
 #[cfg(feature = "module")]
 mod module_rt;
 
+use core::sync::atomic::{AtomicU64, Ordering::Relaxed};
+
+/// Lazily fetches an interface's ID on first use.
+pub struct LazyIfaceId<const TYPE_ID: u64>(AtomicU64);
+
+impl<const TYPE_ID: u64> LazyIfaceId<TYPE_ID> {
+	/// Creates a new `LazyIfaceId` instance.
+	#[must_use]
+	pub const fn new() -> Self {
+		Self(AtomicU64::new(
+			if (TYPE_ID & id::mask::KERNEL_ID) == 0 {
+				// It's a kernel ID, which is always resolved.
+				TYPE_ID
+			} else {
+				0
+			},
+		))
+	}
+
+	/// Returns the interface ID, resolving it if necessary.
+	///
+	/// Returns `None` if the interface could not be resolved.
+	pub fn get(&self) -> Option<u64> {
+		let id = self.0.load(Relaxed);
+		if id == 0 {
+			let iface = crate::syscall_get!(
+				crate::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0,
+				crate::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0,
+				TYPE_ID,
+				0
+			)
+			.ok()?;
+
+			if let Err(other_id) = self.0.compare_exchange(0, iface, Relaxed, Relaxed) {
+				// Another thread resolved the ID first; use that.
+				Some(other_id)
+			} else {
+				Some(iface)
+			}
+		} else {
+			Some(id)
+		}
+	}
+}
+
 /// Common root ring interfaces.
 pub mod root_ring {
 	/// Debug output (version 0) interface abstraction.
