@@ -38,7 +38,7 @@ extern "C" fn _oro_start() -> ! {
 ///
 /// # Safety
 /// This function is inherently unsafe as it immediately terminates the current thread.
-pub(crate) unsafe fn terminate() -> ! {
+pub unsafe fn terminate() -> ! {
 	// SAFETY(qix-): MUST NOT PANIC.
 	let _ = crate::syscall::set_raw(
 		crate::id::iface::KERNEL_THREAD_V0,

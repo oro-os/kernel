@@ -11,6 +11,9 @@ mod module_rt;
 
 use core::sync::atomic::{AtomicU64, Ordering::Relaxed};
 
+#[cfg(feature = "module")]
+pub use module_rt::terminate;
+
 /// Lazily fetches an interface's ID on first use.
 pub struct LazyIfaceId<const TYPE_ID: u64>(AtomicU64);
 
