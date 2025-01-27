@@ -95,3 +95,29 @@ set python print-stack full
 
 If you're running into this often (i.e. when developing on the utilities), you
 can add this to your `~/.gdbinit` file.
+
+### GDB keeps prompting about pagination (e.g. "press 'C' to continue without paging")
+
+Add this to your `~/.gdbinit` file:
+
+```
+set pagination off
+```
+
+### It's hard to debug the assembly in the kernel vs gdb due to syntax.
+
+Add this to your `~/.gdbinit` file or run it manually:
+
+```
+set disassembly-flavor intel
+```
+
+### I want to run the kernel from the CLI in one command.
+
+You can append `-ex <cmd>` to the command line, multiple times if need be,
+to run the command after the inferior (kernel) and `~/.gdbinit` have been
+loaded:
+
+```
+gdb path/to/kernel -ex 'oro boot limine'
+```
