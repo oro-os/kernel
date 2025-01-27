@@ -16,13 +16,13 @@
 //! This allows some flexibility, but can be used unsafely.
 //! **Please exercise extreme caution when using tokens.**
 
+use oro::key;
 use oro_mem::{
 	alloc::vec::Vec,
 	global_alloc::GlobalPfa,
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
-use oro_sysabi::key;
 
 /// A singular memory token. See module level documentation for more information.
 // SAFETY(qix-): Do not change discriminant values. Only add new ones.

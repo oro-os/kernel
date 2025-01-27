@@ -22,6 +22,7 @@
 
 use core::marker::PhantomData;
 
+use oro::{key, syscall::Error as SysError};
 use oro_boot_protocol::{RGBVideoBuffer, VideoBuffersRequest, video_buffers::VideoBuffersKind};
 use oro_debug::{dbg, dbg_warn};
 use oro_mem::{
@@ -30,7 +31,6 @@ use oro_mem::{
 	phys::{Phys, PhysAddr},
 };
 use oro_sync::{Lock, Mutex};
-use oro_sysabi::{key, syscall::Error as SysError};
 
 use crate::{
 	arch::Arch, interface::Interface, syscall::InterfaceResponse, tab::Tab, thread::Thread,
@@ -127,7 +127,7 @@ impl<A: Arch> BootVbufV0<A> {
 
 impl<A: Arch> Interface<A> for BootVbufV0<A> {
 	fn type_id(&self) -> u64 {
-		oro_sysabi::id::iface::ROOT_BOOT_VBUF_V0
+		oro::id::iface::ROOT_BOOT_VBUF_V0
 	}
 
 	fn get(&self, _thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {

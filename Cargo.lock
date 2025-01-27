@@ -348,9 +348,6 @@ checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
 [[package]]
 name = "oro"
 version = "0.0.0"
-dependencies = [
- "oro-sysabi",
-]
 
 [[package]]
 name = "oro-acpi"
@@ -385,7 +382,6 @@ dependencies = [
  "oro-macro",
  "oro-mem",
  "oro-sync",
- "oro-sysabi",
  "oro-type",
 ]
 
@@ -393,6 +389,7 @@ dependencies = [
 name = "oro-arch-x86_64"
 version = "0.0.0"
 dependencies = [
+ "oro",
  "oro-acpi",
  "oro-boot-protocol",
  "oro-dbgutil",
@@ -402,7 +399,6 @@ dependencies = [
  "oro-macro",
  "oro-mem",
  "oro-sync",
- "oro-sysabi",
 ]
 
 [[package]]
@@ -490,13 +486,13 @@ dependencies = [
  "foldhash",
  "hashbrown",
  "nolock",
+ "oro",
  "oro-boot-protocol",
  "oro-dbgutil",
  "oro-debug",
  "oro-macro",
  "oro-mem",
  "oro-sync",
- "oro-sysabi",
 ]
 
 [[package]]
@@ -541,10 +537,6 @@ version = "0.0.0"
 dependencies = [
  "oro-dbgutil",
 ]
-
-[[package]]
-name = "oro-sysabi"
-version = "0.0.0"
 
 [[package]]
 name = "oro-type"

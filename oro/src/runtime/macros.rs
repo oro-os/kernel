@@ -73,12 +73,9 @@ macro_rules! key {
 ///
 /// # Linker Section
 /// Note that this macro generates a static array that is placed
-/// into `.oro.uses` linker section. The `oro-sysabi` crate does
-/// **not** provide a linker script to automatically include this
-/// section.
-///
-/// It is recommended to use the `oro` crate as it's higher level
-/// and handles much of this for you.
+/// into `.oro.uses` linker section. If not using the `oro` crate
+/// to build the module, you'll need to ensure that this section
+/// is included in the linker script.
 #[macro_export]
 macro_rules! uses {
 	($iface:expr, $key:expr) => {{
@@ -99,12 +96,9 @@ macro_rules! uses {
 ///
 /// # Linker Section
 /// Note that this macro generates a static array that is placed
-/// into `.oro.uses` linker section. The `oro-sysabi` crate does
-/// **not** provide a linker script to automatically include this
-/// section.
-///
-/// It is recommended to use the `oro` crate as it's higher level
-/// and handles much of this for you.
+/// into `.oro.uses` linker section. If not using the `oro` crate
+/// to build the module, you'll need to ensure that this section
+/// is included in the linker script.
 #[macro_export]
 macro_rules! interface_slot {
 	($iface:expr) => {

@@ -8,7 +8,9 @@ use crate::syscall;
 /// Lowest level system call for x86_64.
 ///
 /// # Safety
-/// Do not call from within the `oro-sysabi` crate.
+/// Inherently unsafe; this function call can do anything
+/// from nothing, to shutting the machine down, to completely
+/// changing the memory map from under you.
 #[inline(always)]
 pub unsafe fn syscall(
 	opcode: syscall::Opcode,

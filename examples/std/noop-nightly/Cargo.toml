@@ -12,7 +12,7 @@ std = { version = "0.0.0", package = "oro-std", path = "../../../oro-std", featu
 
 [dependencies.oro]
 path = "../../../oro"
-features = ["runtime"]
+features = ["module", "panic_debug_out_v0"]
 
 [build-dependencies.oro]
 path = "../../../oro"

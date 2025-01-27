@@ -25,7 +25,6 @@ nightly = []
 # `std` features
 thread_id_value = []
 
-# NOTE(qix-): This crate MUST NOT have any workspace (only) dependencies
-# NOTE(qix-): as it is published publicly.
+# NOTE(qix-): This crate MUST NOT have any workspace (only) dependencies.
 [dependencies]
 oro = { version = "0.0.0", path = "../oro" }

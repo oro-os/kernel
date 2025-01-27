@@ -1,6 +1,6 @@
 //! Implements version 0 of the thread control interface.
 
-use oro_sysabi::{key, syscall::Error as SysError};
+use oro::{key, syscall::Error as SysError};
 
 use super::KernelInterface;
 use crate::{
@@ -29,7 +29,7 @@ pub enum Error {
 pub struct ThreadV0;
 
 impl KernelInterface for ThreadV0 {
-	const TYPE_ID: u64 = oro_sysabi::id::iface::KERNEL_THREAD_V0;
+	const TYPE_ID: u64 = oro::id::iface::KERNEL_THREAD_V0;
 
 	fn get<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		let target = resolve_target!(thread, index);

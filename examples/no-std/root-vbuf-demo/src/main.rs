@@ -2,8 +2,8 @@
 #![no_main]
 
 use oro::{
-	id::kernel::iface::{ROOT_BOOT_VBUF_V0, ROOT_DEBUG_OUT_V0},
-	syscall,
+	id::iface::{ROOT_BOOT_VBUF_V0, ROOT_DEBUG_OUT_V0},
+	key, syscall_get, syscall_set,
 };
 
 fn write_bytes(bytes: &[u8]) {
@@ -18,14 +18,7 @@ fn write_bytes(bytes: &[u8]) {
 		}
 
 		// XXX(qix-): Hard coding the ID for a moment, bear with.
-		syscall::set!(
-			ROOT_DEBUG_OUT_V0,
-			4294967296,
-			0,
-			syscall::key!("write"),
-			word
-		)
-		.unwrap();
+		syscall_set!(ROOT_DEBUG_OUT_V0, 4294967296, 0, key!("write"), word).unwrap();
 	}
 }
 
@@ -41,15 +34,15 @@ struct Vbuf {
 	data:           *mut u8,
 }
 
-fn find_video_buffer(idx: u64) -> Result<Vbuf, (oro::sysabi::syscall::Error, u64)> {
+fn find_video_buffer(idx: u64) -> Result<Vbuf, (oro::syscall::Error, u64)> {
 	macro_rules! get_vbuf_field {
 		($field:literal) => {{
-			syscall::get!(
+			syscall_get!(
 				ROOT_BOOT_VBUF_V0,
 				// XXX(qix-): Hardcoding the ID for now, bear with.
 				4294967297,
 				idx,
-				syscall::key!($field),
+				key!($field),
 			)?
 		}};
 	}
@@ -62,12 +55,12 @@ fn find_video_buffer(idx: u64) -> Result<Vbuf, (oro::sysabi::syscall::Error, u64
 		stride:         get_vbuf_field!("pitch"),
 		bits_per_pixel: get_vbuf_field!("bit_pp"),
 		data:           {
-			syscall::set!(
+			syscall_set!(
 				ROOT_BOOT_VBUF_V0,
 				// XXX(qix-): Hardcoding the ID for now, bear with.
 				4294967297,
 				idx,
-				syscall::key!("!vmbase!"),
+				key!("!vmbase!"),
 				vbuf_addr
 			)?;
 

@@ -18,14 +18,10 @@ doctest = false
 workspace = true
 
 [features]
-default = ["panic_handler"]
+default = []
 nightly = []
 runtime = []
+module = ["runtime"]
 build = []
 panic_handler = []
-panic_debug_out_v0 = []
-
-# NOTE(qix-): This crate MUST NOT have any workspace (only) dependencies
-# NOTE(qix-): as it is published publicly.
-[dependencies]
-oro-sysabi = { version = "0.0.0", path = "../oro-sysabi" }
+panic_debug_out_v0 = ["panic_handler"]

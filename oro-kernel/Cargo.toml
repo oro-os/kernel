@@ -32,7 +32,7 @@ oro-mem.workspace = true
 oro-macro.workspace = true
 oro-debug.workspace = true
 oro-sync.workspace = true
-oro-sysabi.workspace = true
+oro = { workspace = true, default-features = false, features = ["runtime"] }
 oro-boot-protocol = { workspace = true, optional = true, features = ["utils"] }
 oro-dbgutil.workspace = true
 

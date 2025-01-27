@@ -10,7 +10,7 @@
 //! Userspace applications should not rely on the behavior of
 //! allocations, and should instead treat them as opaque tokens.
 
-use oro_sysabi::{key, syscall::Error as SysError};
+use oro::{key, syscall::Error as SysError};
 
 use super::KernelInterface;
 use crate::{
@@ -38,7 +38,7 @@ pub enum Error {
 pub struct PageAllocV0;
 
 impl KernelInterface for PageAllocV0 {
-	const TYPE_ID: u64 = oro_sysabi::id::iface::KERNEL_PAGE_ALLOC_V0;
+	const TYPE_ID: u64 = oro::id::iface::KERNEL_PAGE_ALLOC_V0;
 
 	fn get<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		if key == 0 {

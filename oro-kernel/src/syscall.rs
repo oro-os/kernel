@@ -9,8 +9,8 @@ use core::{
 	},
 };
 
+use oro::syscall::{Error, Opcode};
 use oro_mem::alloc::sync::Arc;
-use oro_sysabi::syscall::{Error, Opcode};
 
 use crate::{
 	arch::Arch,
@@ -27,7 +27,7 @@ pub fn dispatch<A: Arch>(
 ) -> InterfaceResponse {
 	let error = match request.opcode {
 		const { Opcode::Get as u64 } => {
-			if (request.arg1 & oro_sysabi::id::mask::KERNEL_ID) == 0 {
+			if (request.arg1 & oro::id::mask::KERNEL_ID) == 0 {
 				if let Some(res) = crate::iface::kernel::try_dispatch_get::<A>(
 					thread,
 					request.arg1,
@@ -48,7 +48,7 @@ pub fn dispatch<A: Arch>(
 			}
 		}
 		const { Opcode::Set as u64 } => {
-			if (request.arg1 & oro_sysabi::id::mask::KERNEL_ID) == 0 {
+			if (request.arg1 & oro::id::mask::KERNEL_ID) == 0 {
 				if let Some(res) = crate::iface::kernel::try_dispatch_set::<A>(
 					thread,
 					request.arg1,
@@ -278,7 +278,7 @@ pub struct SystemCallRequest {
 #[derive(Debug, Clone, Copy)]
 pub struct SystemCallResponse {
 	/// The error code.
-	pub error: oro_sysabi::syscall::Error,
+	pub error: oro::syscall::Error,
 	/// The return value.
 	pub ret:   u64,
 }

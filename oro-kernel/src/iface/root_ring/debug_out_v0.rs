@@ -15,8 +15,8 @@
 
 use core::{cmp::Ordering, marker::PhantomData};
 
+use oro::{key, syscall::Error as SysError};
 use oro_mem::alloc::vec::Vec;
-use oro_sysabi::{key, syscall::Error as SysError};
 
 use crate::{
 	arch::Arch, interface::Interface, syscall::InterfaceResponse, tab::Tab, thread::Thread,
@@ -112,7 +112,7 @@ impl<A: Arch> DebugOutV0<A> {
 
 impl<A: Arch> Interface<A> for DebugOutV0<A> {
 	fn type_id(&self) -> u64 {
-		oro_sysabi::id::iface::ROOT_DEBUG_OUT_V0
+		oro::id::iface::ROOT_DEBUG_OUT_V0
 	}
 
 	fn get(&self, thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {

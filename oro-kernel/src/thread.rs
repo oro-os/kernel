@@ -9,13 +9,13 @@
 // TODO(qix-): I'm well aware of them. Trying to get things working first, then make
 // TODO(qix-): them better.
 
+use oro::{key, syscall::Error as SysError};
 use oro_macro::AsU64;
 use oro_mem::{
 	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace as _, MapError, UnmapError},
 	pfa::Alloc,
 };
-use oro_sysabi::{key, syscall::Error as SysError};
 
 use crate::{
 	AddressSpace, UserHandle,

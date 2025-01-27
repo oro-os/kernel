@@ -14,7 +14,7 @@
 //! extra careful about your base addresses and spans when using this interface
 //! in order to be future-proof.
 
-use oro_sysabi::{key, syscall::Error as SysError};
+use oro::{key, syscall::Error as SysError};
 
 use super::KernelInterface;
 use crate::{
@@ -39,7 +39,7 @@ pub enum Error {
 pub struct MemTokenV0;
 
 impl KernelInterface for MemTokenV0 {
-	const TYPE_ID: u64 = oro_sysabi::id::iface::KERNEL_MEM_TOKEN_V0;
+	const TYPE_ID: u64 = oro::id::iface::KERNEL_MEM_TOKEN_V0;
 
 	fn get<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		let instance = thread.with(|t| t.instance().clone());

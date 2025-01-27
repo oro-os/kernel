@@ -1,7 +1,7 @@
 //! Kernel interface for querying the ring's interfaces
 //! based on the interface type.
 
-use oro_sysabi::syscall::Error as SysError;
+use oro::syscall::Error as SysError;
 
 use super::KernelInterface;
 use crate::{arch::Arch, syscall::InterfaceResponse, tab::Tab, thread::Thread};
@@ -11,7 +11,7 @@ use crate::{arch::Arch, syscall::InterfaceResponse, tab::Tab, thread::Thread};
 pub struct IfaceQueryByTypeV0;
 
 impl KernelInterface for IfaceQueryByTypeV0 {
-	const TYPE_ID: u64 = oro_sysabi::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0;
+	const TYPE_ID: u64 = oro::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0;
 
 	fn get<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		let ring = thread.with(|t| t.ring());

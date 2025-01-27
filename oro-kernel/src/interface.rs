@@ -1,7 +1,7 @@
 //! Types and traits for Oro interfaces, exposed by modules and the kernel.
 
+use oro::syscall::Error as SysError;
 use oro_mem::alloc::boxed::Box;
-use oro_sysabi::syscall::Error as SysError;
 
 use crate::{
 	arch::Arch,
@@ -25,14 +25,14 @@ pub trait Interface<A: Arch>: Send + Sync {
 	/// cleared are reserved for kernel usage.
 	fn type_id(&self) -> u64;
 
-	/// Handles a [`oro_sysabi::syscall::Opcode::Get`] system call request to this interface.
+	/// Handles a [`oro::syscall::Opcode::Get`] system call request to this interface.
 	///
 	/// System call handling must be quick and non-blocking. Either it can be
 	/// serviced immediately, or can be processed "offline", returning a handle
 	/// that can be polled for completion.
 	fn get(&self, thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse;
 
-	/// Handles a [`oro_sysabi::syscall::Opcode::Set`] system call request to this interface.
+	/// Handles a [`oro::syscall::Opcode::Set`] system call request to this interface.
 	///
 	/// System call handling must be quick and non-blocking. Either it can be
 	/// serviced immediately, or can be processed "offline", returning a handle

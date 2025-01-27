@@ -3,19 +3,14 @@
 
 use oro::{
 	Key, debug_out_v0_println as println,
-	id::kernel::iface::{KERNEL_MEM_TOKEN_V0, KERNEL_PAGE_ALLOC_V0},
-	syscall,
+	id::iface::{KERNEL_MEM_TOKEN_V0, KERNEL_PAGE_ALLOC_V0},
+	key, syscall_get, syscall_set,
 };
 
 #[no_mangle]
 fn main() {
 	// Allocate a single 4KiB page.
-	let token = match syscall::get!(
-		KERNEL_PAGE_ALLOC_V0,
-		KERNEL_PAGE_ALLOC_V0,
-		syscall::key!("4kib"),
-		1
-	) {
+	let token = match syscall_get!(KERNEL_PAGE_ALLOC_V0, KERNEL_PAGE_ALLOC_V0, key!("4kib"), 1) {
 		Ok(token) => token,
 		Err((e, ex)) => {
 			println!("error: {e:?}[{ex}]");
@@ -26,11 +21,11 @@ fn main() {
 	println!("allocated token: {token:#X}");
 
 	// Confirm its type.
-	let ty = match syscall::get!(
+	let ty = match syscall_get!(
 		KERNEL_MEM_TOKEN_V0,
 		KERNEL_MEM_TOKEN_V0,
 		token,
-		syscall::key!("type")
+		key!("type")
 	) {
 		Ok(ty) => ty,
 		Err((e, ex)) => {
@@ -44,11 +39,11 @@ fn main() {
 	const TARGET_ADDR: u64 = 0x400_0000_0000;
 
 	// Map it in.
-	match syscall::set!(
+	match syscall_set!(
 		KERNEL_MEM_TOKEN_V0,
 		KERNEL_MEM_TOKEN_V0,
 		token,
-		syscall::key!("base"),
+		key!("base"),
 		TARGET_ADDR
 	) {
 		Ok(_) => (),

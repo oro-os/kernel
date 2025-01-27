@@ -1,6 +1,6 @@
 //! Allows the querying of interface metdata given an interface type ID.
 
-use oro_sysabi::{key, syscall::Error as SysError};
+use oro::{key, syscall::Error as SysError};
 
 use super::KernelInterface;
 use crate::{arch::Arch, syscall::InterfaceResponse, tab::Tab, thread::Thread};
@@ -10,7 +10,7 @@ use crate::{arch::Arch, syscall::InterfaceResponse, tab::Tab, thread::Thread};
 pub struct IfaceQueryTypeMetaV0;
 
 impl KernelInterface for IfaceQueryTypeMetaV0 {
-	const TYPE_ID: u64 = oro_sysabi::id::iface::KERNEL_IFACE_QUERY_TYPE_META_V0;
+	const TYPE_ID: u64 = oro::id::iface::KERNEL_IFACE_QUERY_TYPE_META_V0;
 
 	fn get<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		let ring = thread.with(|t| t.ring());
