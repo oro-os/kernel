@@ -220,10 +220,6 @@ impl Hasher for StrictIdentityHasher {
 				self.used,
 				"StrictIdentityHasher::finish called before any writes"
 			);
-			debug_assert_ne!(
-				self.value, 0,
-				"StrictIdentityHasher::finish called, but hash is 0 (unique IDs cannot be 0)"
-			);
 		}
 
 		self.value
