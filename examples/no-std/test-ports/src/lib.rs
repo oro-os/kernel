@@ -1,6 +1,8 @@
 //! Common functionality for the test-ports example.
 #![no_std]
 
+pub use oro::Key;
+
 pub const TEST_PORTS_IFACE_ID: u64 = 1737937612428;
 pub static TEST_PORTS_IFACE: ::oro::LazyIfaceId<TEST_PORTS_IFACE_ID> = ::oro::LazyIfaceId::new();
 

@@ -13,6 +13,12 @@ fn main() {
 	let token = test_ports_iface!(get "cnsmtkn");
 	println!("got token... {token:#016X}");
 
+	let ty = mapper_iface!(get token, "type");
+	println!("token type is: {:?}", Key(&ty));
+
+	let subty = mapper_iface!(get token, "subtype");
+	println!("token subtype is: {:?}", Key(&subty));
+
 	mapper_iface!(set token, "base" => PORT_BASE as u64);
 	println!("mapped token to base: {PORT_BASE:#016X}");
 }
