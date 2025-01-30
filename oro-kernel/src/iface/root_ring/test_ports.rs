@@ -50,15 +50,13 @@ impl<A: Arch> Interface<A> for RootTestPorts<A> {
 			key!("prodtkn") => {
 				// Mark it owned by the current thread's instead.
 				let tkn = self.0.with(|p| p.producer());
-				let instance = thread.with(|t| t.instance().clone());
-				instance.with_mut(|i| i.insert_token(tkn.clone()));
+				thread.with_mut(|t| t.insert_token(tkn.clone()));
 				InterfaceResponse::ok(tkn.id())
 			}
 			key!("cnsmtkn") => {
 				// Mark it owned by the current thread's instead.
 				let tkn = self.0.with(|p| p.consumer());
-				let instance = thread.with(|t| t.instance().clone());
-				instance.with_mut(|i| i.insert_token(tkn.clone()));
+				thread.with_mut(|t| t.insert_token(tkn.clone()));
 				InterfaceResponse::ok(tkn.id())
 			}
 			_ => InterfaceResponse::immediate(SysError::BadKey, 0),

@@ -63,11 +63,7 @@ impl KernelInterface for PageAllocV0 {
 									)
 								},
 								|tab| {
-									InterfaceResponse::ok(
-										thread
-											.with(|t| t.instance().clone())
-											.with_mut(|i| i.insert_token(tab)),
-									)
+									InterfaceResponse::ok(thread.with_mut(|t| t.insert_token(tab)))
 								},
 							)
 					},

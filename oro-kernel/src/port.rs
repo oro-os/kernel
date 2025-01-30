@@ -1,5 +1,7 @@
 //! Implements Oro ports.
 
+use oro_mem::phys::PhysAddr;
+
 use crate::{
 	tab::Tab,
 	token::{NormalToken, Token},
@@ -11,6 +13,22 @@ pub struct Port {
 	producer_token: Tab<Token>,
 	/// The consumer side memory token.
 	consumer_token: Tab<Token>,
+	/// The base address of the producer page.
+	///
+	/// This is a *volatile* page, exactly 4096 bytes in size (512 `u64`s).
+	/// This pointer is guaranteed to be valid for the lifetime
+	/// of this `Port`.
+	///
+	/// **This may be the same as `consumer_page`!**
+	producer_page:  *mut u64,
+	/// The base address of the consumer page.
+	///
+	/// This is a *volatile* page, exactly 4096 bytes in size (512 `u64`s).
+	/// This pointer is guaranteed to be valid for the lifetime
+	/// of this `Port`.
+	///
+	/// **This may be the same as `producer_page`!**
+	consumer_page:  *mut u64,
 }
 
 impl Port {
@@ -19,9 +37,29 @@ impl Port {
 	/// Returns `None` if the system is out of memory.
 	#[must_use]
 	pub fn new() -> Option<Self> {
+		let (producer_phys, producer_tab) = {
+			let mut t = NormalToken::new_4kib(1);
+			let phys = t.get_or_allocate(0)?;
+			let t = Token::SlotMap(t);
+			let tab = crate::tab::get().add(t)?;
+			(phys, tab)
+		};
+
+		let (consumer_phys, consumer_tab) = {
+			let mut t = NormalToken::new_4kib(1);
+			let phys = t.get_or_allocate(0)?;
+			let t = Token::SlotMap(t);
+			let tab = crate::tab::get().add(t)?;
+			(phys, tab)
+		};
+
 		Some(Self {
-			producer_token: crate::tab::get().add(Token::SlotMap(NormalToken::new_4kib(1)))?,
-			consumer_token: crate::tab::get().add(Token::SlotMap(NormalToken::new_4kib(1)))?,
+			producer_token: producer_tab,
+			consumer_token: consumer_tab,
+			// SAFETY: We just allocated these pages, and they're guaranteed aligned to a u64, so they are valid.
+			producer_page:  unsafe { producer_phys.as_mut_ptr_unchecked::<u64>() },
+			// SAFETY: We just allocated these pages, and they're guaranteed aligned to a u64, so they are valid.
+			consumer_page:  unsafe { consumer_phys.as_mut_ptr_unchecked::<u64>() },
 		})
 	}
 
@@ -35,5 +73,12 @@ impl Port {
 	#[must_use]
 	pub fn consumer(&self) -> Tab<Token> {
 		self.consumer_token.clone()
+	}
+
+	/// Advances the consumer and producer pages.
+	pub fn advance(&self) {
+		let _ = self.producer_page;
+		let _ = self.consumer_page;
+		todo!("advance");
 	}
 }

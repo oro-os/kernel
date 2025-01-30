@@ -264,14 +264,13 @@ impl<A: Arch> Scheduler<A> {
 
 		let id = thread.id();
 
-		let instance = thread.with(|t| t.instance().clone());
-
-		let switch = if instance.with_mut(|i| i.try_commit_token_at(vaddr)).is_err() {
+		let switch = if let Err(err) = thread.with_mut(|t| t.on_page_fault(vaddr, fault_type)) {
 			unsafe {
 				thread.with_mut(|t| t.terminate());
 			}
 			dbg_warn!(
-				"thread {:#016X} terminated due to page fault: {fault_type:?} at {vaddr:016X}",
+				"thread {:#016X} terminated due to page fault: {fault_type:?} at {vaddr:016X}: \
+				 {err:?}",
 				id
 			);
 			Switch::from_schedule_action(self.pick_user_thread(), Some(id))

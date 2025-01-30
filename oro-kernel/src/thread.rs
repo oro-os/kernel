@@ -15,6 +15,7 @@ use oro_mem::{
 	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace as _, MapError, UnmapError},
 	pfa::Alloc,
+	phys::PhysAddr,
 };
 
 use crate::{
@@ -22,9 +23,11 @@ use crate::{
 	arch::{Arch, ThreadHandle},
 	instance::Instance,
 	ring::Ring,
+	scheduler::PageFaultType,
 	syscall::{InFlightState, InFlightSystemCall, InFlightSystemCallHandle, SystemCallResponse},
 	tab::Tab,
-	table::TypeTable,
+	table::{Table, TypeTable},
+	token::Token,
 };
 
 /// A thread's run state.
@@ -84,6 +87,15 @@ pub struct Thread<A: Arch> {
 	run_state_transition: Option<(RunState, InFlightSystemCall)>,
 	/// Associated thread data.
 	data: TypeTable,
+	/// The virtual memory mappings of virtual addresses to tokens,
+	/// covering the thread-local segments.
+	///
+	/// Values are `(token, page_id)` pairs.
+	// TODO(qix-): This assumes a 4096 byte page size, and is also
+	// TODO(qix-): not a very efficient data structure. It will be
+	// TODO(qix-): replaced with a more efficient data structure
+	// TODO(qix-): in the future.
+	tls_token_vmap: Table<(Tab<Token>, usize)>,
 }
 
 impl<A: Arch> Thread<A> {
@@ -188,6 +200,7 @@ impl<A: Arch> Thread<A> {
 			run_state: RunState::Running,
 			run_state_transition: None,
 			data: TypeTable::new(),
+			tls_token_vmap: Table::new(),
 		};
 
 		let tab = crate::tab::get().add(this).ok_or(MapError::OutOfMemory)?;
@@ -455,6 +468,220 @@ impl<A: Arch> Thread<A> {
 	pub fn data_mut(&mut self) -> &mut TypeTable {
 		&mut self.data
 	}
+
+	/// Handles a fault by the thread.
+	///
+	/// **The `maybe_unaligned_virt` parameter is not guaranteed to be aligned
+	/// to any page boundary.** In most cases, it is coming directly from a
+	/// userspace application.
+	///
+	/// The `Token` must have been previously mapped via [`Thread::try_map_token_at`],
+	/// or else this method will fail.
+	///
+	/// Will attempt to commit, change memory permissions, etc. as necessary, or fail.
+	/// Upon failure, it's up to the caller to decide what to do.
+	pub fn on_page_fault(
+		&mut self,
+		maybe_unaligned_virt: usize,
+		_fault_type: PageFaultType,
+	) -> Result<(), PageFaultError> {
+		// TODO(qix-): We always assume a 4096 page boundary. This might change in the future.
+		let virt = maybe_unaligned_virt & !0xFFF;
+
+		let Some(virt_key) = u64::try_from(virt).ok() else {
+			return Err(PageFaultError::BadVirt);
+		};
+
+		let (token, page_idx) = self
+			.tls_token_vmap
+			.get(virt_key)
+			.cloned()
+			.or_else(|| self.instance.with(|i| i.token_vmap.get(virt_key).cloned()))
+			.ok_or(PageFaultError::BadVirt)?;
+
+		token.with_mut(|t| {
+			match t {
+				Token::Normal(t) => {
+					debug_assert!(page_idx < t.page_count());
+					debug_assert!(
+						t.page_size() == 4096,
+						"page size != 4096 is not implemented"
+					);
+					let page_base = virt + (page_idx * t.page_size());
+					let segment = AddressSpace::<A>::user_data();
+					let phys = t
+						.get_or_allocate(page_idx)
+						.ok_or(PageFaultError::MapError(MapError::OutOfMemory))?;
+					segment
+						.map(self.handle.mapper(), page_base, phys.address_u64())
+						.map_err(PageFaultError::MapError)?;
+					Ok(())
+				}
+				Token::SlotMap(t) => {
+					debug_assert!(
+						page_idx == 0,
+						"slot map tokens must be exactly one page; attempt was made to commit \
+						 page index >0"
+					);
+					debug_assert!(
+						t.page_size() == 4096,
+						"page size != 4096 is not implemented"
+					);
+					debug_assert!(
+						t.page_count() == 1,
+						"slot map tokens must be exactly one page"
+					);
+					let segment = AddressSpace::<A>::user_thread_local_data();
+					let phys = t
+						.get_or_allocate(0)
+						// NOTE(qix-): Should never happen as we don't allocate on the fly, but enforce
+						// NOTE(qix-): that the token is already allocated.
+						.ok_or(PageFaultError::MapError(MapError::OutOfMemory))?;
+					segment
+						.map(self.handle.mapper(), virt, phys.address_u64())
+						.map_err(PageFaultError::MapError)?;
+					Ok(())
+				}
+			}
+		})
+	}
+
+	/// Maps (sets the base of and reserves) a [`Token`] into the instance's address space.
+	///
+	/// **This does not immediately map in any memory.** It only marks the range
+	/// in the _internal kernel_ address space as reserved for the token, to be
+	/// committed later (typically via a page fault calling [`Thread::on_page_fault`]).
+	pub fn try_map_token_at(
+		&mut self,
+		token: &Tab<Token>,
+		virt: usize,
+	) -> Result<(), TokenMapError> {
+		token.with(|t| {
+			match t {
+				Token::Normal(t) => {
+					debug_assert!(
+						t.page_size() == 4096,
+						"page size != 4096 is not implemented"
+					);
+					debug_assert!(
+						t.page_size().is_power_of_two(),
+						"page size is not a power of 2"
+					);
+
+					if (virt & (t.page_size() - 1)) != 0 {
+						return Err(TokenMapError::VirtNotAligned);
+					}
+
+					let segment = AddressSpace::<A>::user_data();
+
+					// Make sure that none of the tokens exist in the vmap.
+					self.instance.with_mut(|instance| {
+						if !instance.tokens.contains(token.id()) {
+							return Err(TokenMapError::BadToken);
+						}
+
+						for page_idx in 0..t.page_count() {
+							let page_base = virt + (page_idx * t.page_size());
+
+							if !virt_resides_within::<A>(&segment, page_base)
+								|| !virt_resides_within::<A>(
+									&segment,
+									page_base + t.page_size() - 1,
+								) {
+								return Err(TokenMapError::VirtOutOfRange);
+							}
+
+							let virt = u64::try_from(page_base)
+								.map_err(|_| TokenMapError::VirtOutOfRange)?;
+							if instance.token_vmap.contains(virt) {
+								return Err(TokenMapError::Conflict);
+							}
+						}
+
+						// Everything's okay, map them into the vmap now.
+						for page_idx in 0..t.page_count() {
+							let page_base = virt + (page_idx * t.page_size());
+							// NOTE(qix-): We can use `as` here since we already check the page base above.
+							instance
+								.token_vmap
+								.insert(page_base as u64, (token.clone(), page_idx));
+						}
+
+						Ok(())
+					})
+				}
+				Token::SlotMap(t) => {
+					debug_assert!(
+						t.page_size() == 4096,
+						"page size != 4096 is not implemented"
+					);
+					debug_assert!(
+						t.page_size().is_power_of_two(),
+						"page size is not a power of 2"
+					);
+					debug_assert!(
+						t.page_count() == 1,
+						"slot map tokens must be exactly one page"
+					);
+
+					if (virt & (t.page_size() - 1)) != 0 {
+						return Err(TokenMapError::VirtNotAligned);
+					}
+
+					let segment = AddressSpace::<A>::user_thread_local_data();
+
+					if !self.instance.with(|i| i.tokens.contains(token.id())) {
+						return Err(TokenMapError::BadToken);
+					}
+
+					// Make sure that no other token exists in the vmap.
+					if !virt_resides_within::<A>(&segment, virt)
+						|| !virt_resides_within::<A>(&segment, virt + t.page_size() - 1)
+					{
+						return Err(TokenMapError::VirtOutOfRange);
+					}
+
+					if self
+						.tls_token_vmap
+						.contains(u64::try_from(virt).map_err(|_| TokenMapError::VirtOutOfRange)?)
+					{
+						return Err(TokenMapError::Conflict);
+					}
+
+					// Everything's okay, map them into the vmap now.
+					// NOTE(qix-): We can use `as` here since we already check the page base above.
+					self.tls_token_vmap.insert(virt as u64, (token.clone(), 0));
+
+					Ok(())
+				}
+			}
+		})
+	}
+
+	/// Attempts to return a [`Token`] from the instance's token list.
+	///
+	/// Returns `None` if the token is not present.
+	#[inline]
+	#[must_use]
+	pub fn token(&self, id: u64) -> Option<Tab<Token>> {
+		self.instance.with(|i| i.tokens.get(id).cloned())
+	}
+
+	/// "Forgets" a [`Token`] from the instance's token list.
+	///
+	/// Returns the forgotten token, or `None` if the token is not present.
+	#[inline]
+	pub fn forget_token(&mut self, id: u64) -> Option<Tab<Token>> {
+		self.instance.with_mut(|i| i.tokens.remove(id))
+	}
+
+	/// Inserts a [`Token`] into the instance's token list.
+	///
+	/// Returns the ID of the token.
+	#[inline]
+	pub fn insert_token(&mut self, token: Tab<Token>) -> u64 {
+		self.instance.with_mut(|i| i.tokens.insert_tab(token))
+	}
 }
 
 /// Error type for thread scheduling.
@@ -530,4 +757,38 @@ pub enum ChangeStateError {
 	/// Another thread is already waiting for a response. Try again
 	/// later.
 	Race       = 1,
+}
+
+/// An error returned by [`Thread::on_page_fault`].
+#[derive(Debug, Clone, Copy)]
+pub enum PageFaultError {
+	/// The virtual address was not found in the virtual map.
+	BadVirt,
+	/// Mapping a token failed.
+	MapError(MapError),
+}
+
+/// An error returned by [`Thread::try_map_token_at`].
+#[derive(Debug, Clone, Copy)]
+pub enum TokenMapError {
+	/// The virtual address is not aligned.
+	VirtNotAligned,
+	/// The virtual address is out of range for the
+	/// thread's address space.
+	VirtOutOfRange,
+	/// The token was not found for the instance.
+	BadToken,
+	/// The mapping conflicts (overlaps) with another mapping.
+	Conflict,
+}
+
+/// Checks if the given virtual address resides within the given address segment.
+#[inline]
+fn virt_resides_within<A: Arch>(
+	segment: &<AddressSpace<A> as ::oro_mem::mapper::AddressSpace>::UserSegment,
+	virt: usize,
+) -> bool {
+	// NOTE(qix-): Range is *inclusive*.
+	let (first, last) = segment.range();
+	virt >= first && virt <= last
 }

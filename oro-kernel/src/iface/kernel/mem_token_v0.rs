@@ -18,7 +18,10 @@ use oro::{key, syscall::Error as SysError};
 
 use super::KernelInterface;
 use crate::{
-	arch::Arch, instance::TokenMapError, syscall::InterfaceResponse, tab::Tab, thread::Thread,
+	arch::Arch,
+	syscall::InterfaceResponse,
+	tab::Tab,
+	thread::{Thread, TokenMapError},
 	token::Token,
 };
 
@@ -42,8 +45,7 @@ impl KernelInterface for MemTokenV0 {
 	const TYPE_ID: u64 = oro::id::iface::KERNEL_MEM_TOKEN_V0;
 
 	fn get<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
-		let instance = thread.with(|t| t.instance().clone());
-		let Some(token) = instance.with(|i| i.token(index)) else {
+		let Some(token) = thread.with(|t| t.token(index)) else {
 			return InterfaceResponse::immediate(SysError::BadIndex, 0);
 		};
 
@@ -77,16 +79,14 @@ impl KernelInterface for MemTokenV0 {
 	) -> InterfaceResponse {
 		match key {
 			key!("forget") => {
-				let instance = thread.with(|t| t.instance().clone());
-				instance.with_mut(|i| i.forget_token(index)).map_or_else(
+				thread.with_mut(|t| t.forget_token(index)).map_or_else(
 					|| InterfaceResponse::immediate(SysError::BadIndex, 0),
 					|_| InterfaceResponse::ok(0),
 				)
 			}
 			key!("base") => {
-				let instance = thread.with(|t| t.instance().clone());
-				instance.with_mut(|i| {
-					let Some(token) = i.token(index) else {
+				thread.with_mut(|t| {
+					let Some(token) = t.token(index) else {
 						return InterfaceResponse::immediate(SysError::BadIndex, 0);
 					};
 
@@ -97,7 +97,7 @@ impl KernelInterface for MemTokenV0 {
 						);
 					};
 
-					i.try_map_token_at(&token, virt).map_or_else(
+					t.try_map_token_at(&token, virt).map_or_else(
 						|err| {
 							InterfaceResponse::immediate(
 								SysError::InterfaceError,
