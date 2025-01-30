@@ -9,6 +9,14 @@ pub static TEST_PORTS_IFACE: ::oro::LazyIfaceId<TEST_PORTS_IFACE_ID> = ::oro::La
 pub static mut TAG: &'static str = "unknown";
 
 pub const PORT_BASE: usize = 0x20000000000;
+pub const FIELD_COUNT: usize = 2;
+pub const ENTRY_COUNT: usize = 4096 / (FIELD_COUNT * 8);
+pub const OFFSET_MASK: usize = ENTRY_COUNT - 1;
+
+const _: () = {
+	assert!(FIELD_COUNT.is_power_of_two());
+	assert!(ENTRY_COUNT.is_power_of_two());
+};
 
 pub fn set_consumer() {
 	unsafe {

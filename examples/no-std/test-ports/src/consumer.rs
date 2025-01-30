@@ -25,38 +25,29 @@ fn main() {
 	let base = PORT_BASE as *mut u64;
 	let mut counter = 0;
 
-	// NOTE(qix-): We configured the port to have 2 fields. Therefore there are
-	// NOTE(qix-): 256 entries of 2 u64's. In the future we'll be able to
-	// NOTE(qix-): confirm this, as well as enforce compatibility at the kernel level.
-
 	loop {
-		let offset = counter & 0xFF;
+		let offset = counter & OFFSET_MASK;
+		let entry_base = unsafe { base.add(FIELD_COUNT * offset) };
 
-		if unsafe { base.add(2 * offset).read_volatile() } == 0 {
-			println!("drained; waiting");
-		}
-
-		while unsafe { base.add(2 * offset).read_volatile() } == 0 {
+		while unsafe { entry_base.read_volatile() } == 0 {
 			::core::hint::spin_loop();
 		}
 
 		unsafe {
-			let tag = base.add(2 * offset).read_volatile();
-			let value = base.add(2 * offset + 1).read_volatile();
-			println!("read entry {counter} with tag {tag:#016X} and value {value}");
-
-			for _ in 0..10000 {
-				::core::hint::spin_loop();
+			let tag = entry_base.read_volatile();
+			::core::hint::black_box(tag);
+			for i in 1..FIELD_COUNT {
+				let value = entry_base.add(i).read_volatile();
+				::core::hint::black_box(value);
 			}
 
-			base.add(2 * offset).write_volatile(0);
-			println!("acknowledged entry {counter}");
+			entry_base.write_volatile(0);
 		}
 
 		counter += 1;
 
-		for _ in 0..350_000 {
-			::core::hint::spin_loop();
+		if counter % 10_000_000 == 0 {
+			println!("acknowledged {counter} entries");
 		}
 	}
 }
