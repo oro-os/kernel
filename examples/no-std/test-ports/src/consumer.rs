@@ -46,7 +46,7 @@ fn main() {
 
 		counter += 1;
 
-		if counter % 10_000_000 == 0 {
+		if counter % 100_000 == 0 {
 			println!("acknowledged {counter} entries");
 		}
 	}
