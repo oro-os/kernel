@@ -9,15 +9,28 @@ use core::marker::PhantomData;
 use oro::{key, syscall::Error as SysError};
 
 use crate::{
-	arch::Arch, interface::Interface, port::Port, syscall::InterfaceResponse, tab::Tab,
+	arch::Arch,
+	interface::Interface,
+	port::{PortEnd, PortState},
+	syscall::InterfaceResponse,
+	tab::Tab,
 	thread::Thread,
 };
+
+/// Interface specific errors
+#[repr(u64)]
+pub enum Error {
+	/// The endpoint is already claimed.
+	Claimed     = key!("claimed"),
+	/// The system is out of memory.
+	OutOfMemory = key!("oom"),
+}
 
 /// Temporary interface for testing ports.
 ///
 /// # Do not use!
 /// Do not use this interface. It's just here to test ports.
-pub struct RootTestPorts<A: Arch>(Tab<Port>, PhantomData<A>);
+pub struct RootTestPorts<A: Arch>(Tab<PortState>, PhantomData<A>);
 
 impl<A: Arch> RootTestPorts<A> {
 	/// Creates a new `RootTestPorts` instance.
@@ -26,12 +39,7 @@ impl<A: Arch> RootTestPorts<A> {
 	/// Panics if the system is out of memory.
 	#[must_use]
 	pub fn new() -> Self {
-		Self(
-			Port::new()
-				.and_then(|p| crate::tab::get().add(p))
-				.expect("out of memory"),
-			PhantomData,
-		)
+		Self(PortState::new().expect("out of memory"), PhantomData)
 	}
 }
 
@@ -47,17 +55,36 @@ impl<A: Arch> Interface<A> for RootTestPorts<A> {
 
 		match key {
 			key!("health") => InterfaceResponse::ok(1337),
-			key!("prodtkn") => {
-				// Mark it owned by the current thread's instead.
-				let tkn = self.0.with(|p| p.producer());
-				thread.with_mut(|t| t.insert_token(tkn.clone()));
-				InterfaceResponse::ok(tkn.id())
-			}
-			key!("cnsmtkn") => {
-				// Mark it owned by the current thread's instead.
-				let tkn = self.0.with(|p| p.consumer());
-				thread.with_mut(|t| t.insert_token(tkn.clone()));
-				InterfaceResponse::ok(tkn.id())
+			key!("prodtkn") | key!("cnsmtkn") => {
+				match PortState::endpoint(
+					&self.0,
+					if key == key!("prodtkn") {
+						PortEnd::Producer
+					} else {
+						PortEnd::Consumer
+					},
+				)
+				.map(|r| {
+					r.map_err(|_| {
+						InterfaceResponse::immediate(
+							SysError::InterfaceError,
+							Error::Claimed as u64,
+						)
+					})
+				})
+				.ok_or(InterfaceResponse::immediate(
+					SysError::InterfaceError,
+					Error::OutOfMemory as u64,
+				))
+				.flatten()
+				.map(|tkn| {
+					let id = tkn.id();
+					thread.with_mut(|t| t.insert_token(tkn));
+					InterfaceResponse::ok(id)
+				}) {
+					Ok(r) => r,
+					Err(e) => e,
+				}
 			}
 			_ => InterfaceResponse::immediate(SysError::BadKey, 0),
 		}

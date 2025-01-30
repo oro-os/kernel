@@ -10,8 +10,10 @@
 // TODO(qix-): them better.
 
 use oro::{key, syscall::Error as SysError};
+use oro_debug::dbg_warn;
 use oro_macro::AsU64;
 use oro_mem::{
+	alloc::vec::Vec,
 	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace as _, MapError, UnmapError},
 	pfa::Alloc,
@@ -22,6 +24,7 @@ use crate::{
 	AddressSpace, UserHandle,
 	arch::{Arch, ThreadHandle},
 	instance::Instance,
+	port::PortEnd,
 	ring::Ring,
 	scheduler::PageFaultType,
 	syscall::{InFlightState, InFlightSystemCall, InFlightSystemCallHandle, SystemCallResponse},
@@ -96,6 +99,10 @@ pub struct Thread<A: Arch> {
 	// TODO(qix-): replaced with a more efficient data structure
 	// TODO(qix-): in the future.
 	tls_token_vmap: Table<(Tab<Token>, usize)>,
+	/// A list of active port endpoint page virtual bases for the current time slice.
+	///
+	/// Unmapped when the thread is paused.
+	active_ports: Vec<usize>,
 }
 
 impl<A: Arch> Thread<A> {
@@ -201,6 +208,7 @@ impl<A: Arch> Thread<A> {
 			run_state_transition: None,
 			data: TypeTable::new(),
 			tls_token_vmap: Table::new(),
+			active_ports: Vec::new(),
 		};
 
 		let tab = crate::tab::get().add(this).ok_or(MapError::OutOfMemory)?;
@@ -317,6 +325,22 @@ impl<A: Arch> Thread<A> {
 		match &self.state {
 			State::Running(core) => {
 				if *core == core_id {
+					// For each active port endpoint, unmap it.
+					for virt in &self.active_ports {
+						let segment = AddressSpace::<A>::user_thread_local_data();
+						if let Err(err) = segment.unmap(self.handle.mapper(), *virt) {
+							dbg_warn!(
+								"failed to unmap port endpoint at {virt:#016X} for thread \
+								 {:#016X}: {err:?} (port may misbehave)",
+								self.id
+							);
+						}
+					}
+
+					// Clear the active ports list
+					self.active_ports.clear();
+
+					// We're paused now.
 					self.state = State::Paused(core_id);
 					Ok(())
 				} else {
@@ -517,27 +541,24 @@ impl<A: Arch> Thread<A> {
 						.map_err(PageFaultError::MapError)?;
 					Ok(())
 				}
-				Token::SlotMap(t, _side) => {
+				Token::PortEndpoint(ep) => {
 					debug_assert!(
 						page_idx == 0,
 						"slot map tokens must be exactly one page; attempt was made to commit \
 						 page index >0"
 					);
-					debug_assert!(
-						t.page_size() == 4096,
-						"page size != 4096 is not implemented"
-					);
-					debug_assert!(
-						t.page_count() == 1,
-						"slot map tokens must be exactly one page"
-					);
 					let segment = AddressSpace::<A>::user_thread_local_data();
-					let Some(phys) = t.get(0) else {
-						unreachable!("slot map token must be allocated before use");
-					};
+
 					segment
-						.map(self.handle.mapper(), virt, phys.address_u64())
+						.map(self.handle.mapper(), virt, ep.phys().address_u64())
 						.map_err(PageFaultError::MapError)?;
+
+					ep.advance();
+
+					if ep.side() == PortEnd::Consumer {
+						self.active_ports.push(virt);
+					}
+
 					Ok(())
 				}
 			}
@@ -608,21 +629,8 @@ impl<A: Arch> Thread<A> {
 						Ok(())
 					})
 				}
-				Token::SlotMap(t, _side) => {
-					debug_assert!(
-						t.page_size() == 4096,
-						"page size != 4096 is not implemented"
-					);
-					debug_assert!(
-						t.page_size().is_power_of_two(),
-						"page size is not a power of 2"
-					);
-					debug_assert!(
-						t.page_count() == 1,
-						"slot map tokens must be exactly one page"
-					);
-
-					if (virt & (t.page_size() - 1)) != 0 {
+				Token::PortEndpoint(_) => {
+					if (virt & 4095) != 0 {
 						return Err(TokenMapError::VirtNotAligned);
 					}
 
@@ -634,7 +642,7 @@ impl<A: Arch> Thread<A> {
 
 					// Make sure that no other token exists in the vmap.
 					if !virt_resides_within::<A>(&segment, virt)
-						|| !virt_resides_within::<A>(&segment, virt + t.page_size() - 1)
+						|| !virt_resides_within::<A>(&segment, virt + 4095)
 					{
 						return Err(TokenMapError::VirtOutOfRange);
 					}

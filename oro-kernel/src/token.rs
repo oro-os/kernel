@@ -24,6 +24,8 @@ use oro_mem::{
 	phys::{Phys, PhysAddr},
 };
 
+use crate::port::PortEndpointToken;
+
 /// A singular memory token. See module level documentation for more information.
 // SAFETY(qix-): Do not change discriminant values. Only add new ones.
 // SAFETY(qix-): Further, this enum MUST be `repr(u64)` to ensure that the
@@ -34,9 +36,9 @@ pub enum Token {
 	// NOTE(qix-): as a sentinel value.
 	/// A [`NormalToken`] memory token. Represents one or more physical pages.
 	Normal(NormalToken) = key!("normal"),
-	/// A slot map token, which is a [`NormalToken`] that is enforced to be mapped
-	/// to a TLS segment and only take up a single page.
-	SlotMap(NormalToken, SlotMapEndpoint) = key!("portslot"),
+	/// A [`PortEndpointToken`] memory token. Represents a port endpoint created
+	/// by [`crate::port::PortState::endpoint()`].
+	PortEndpoint(PortEndpointToken) = key!("port"),
 }
 
 impl Token {
@@ -163,14 +165,4 @@ impl NormalToken {
 			Some(phys)
 		}
 	}
-}
-
-/// A slot map endpoint - either producer or consumer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u64)]
-pub enum SlotMapEndpoint {
-	/// The producer side of the slot map.
-	Producer = key!("producer"),
-	/// The consumer side of the slot map.
-	Consumer = key!("consumer"),
 }

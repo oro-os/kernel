@@ -1190,8 +1190,8 @@ pub enum TabType {
 	Module        = 5,
 	/// A [`crate::token::Token`].
 	Token         = 6,
-	/// A [`crate::port::Port`].
-	Port          = 7,
+	/// A [`crate::port::PortState`].
+	PortState     = 7,
 }
 
 impl<A: Arch> Tabbed for crate::thread::Thread<A> {
@@ -1218,6 +1218,6 @@ impl Tabbed for crate::token::Token {
 	const TY: TabType = TabType::Token;
 }
 
-impl Tabbed for crate::port::Port {
-	const TY: TabType = TabType::Port;
+impl Tabbed for crate::port::PortState {
+	const TY: TabType = TabType::PortState;
 }

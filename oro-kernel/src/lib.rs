@@ -32,6 +32,9 @@
 // SAFETY(qix-): has equally good codegen. Either, way this is zero risk.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/90850
 #![feature(downcast_unchecked)]
+// SAFETY(qix-): This is almost stabilized.
+// SAFETY(qix-): https://github.com/rust-lang/rust/issues/70142
+#![feature(result_flattening)]
 
 pub mod arch;
 pub mod iface;
