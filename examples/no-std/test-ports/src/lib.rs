@@ -6,7 +6,7 @@ pub static TEST_PORTS_IFACE: ::oro::LazyIfaceId<TEST_PORTS_IFACE_ID> = ::oro::La
 
 pub static mut TAG: &'static str = "unknown";
 
-pub const PORT_BASE: usize = 0x60000000000;
+pub const PORT_BASE: usize = 0x20000000000;
 
 pub fn set_consumer() {
 	unsafe {
