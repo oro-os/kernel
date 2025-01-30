@@ -1,38 +1,62 @@
 //! Macros for generating ISRs.
 
-use core::cell::UnsafeCell;
+use core::{cell::UnsafeCell, mem::MaybeUninit};
 
-/// An incredibly stupid, unsafe type that forces `Sync` on a type.
-///
-/// **This is a very unsafe type. Do not use it liberally.**
-#[repr(transparent)]
-pub(super) struct UnsafeSync<T>(UnsafeCell<T>);
+use oro_sync::{Lock, Mutex};
 
-// SAFETY: There isn't any. This isn't safe. We at least try to enforce it
-// SAFETY: through an `unsafe` block.
-unsafe impl<T> Sync for UnsafeSync<T> {}
-
-impl<T> UnsafeSync<T> {
-	/// Creates a new `UnsafeSync` with the given value.
-	pub const fn new(value: T) -> Self {
-		Self(UnsafeCell::new(value))
-	}
-
-	/// Gets a reference to the inner value.
-	///
-	/// # Safety
-	/// **Do not call this from multiple threads under any circumstances.**
-	/// Doing so is immediate UB. This is already toeing the line with UB,
-	/// but there's not much else we can do here since this is used for
-	/// the IDT.
-	pub unsafe fn get(&self) -> &T {
-		&*self.0.get()
-	}
-}
+use super::IdtEntry;
 
 /// Aligns a `T` value to 16 bytes.
 #[repr(C, align(16))]
 pub(super) struct Aligned16<T: Sized>(pub T);
+
+/// ISR Table; wrapper around various structures to make it
+/// safely initializable and aligned.
+pub(super) struct IsrTable<Init: FnOnce() -> Aligned16<[IdtEntry; 256]>>(
+	Mutex<(
+		UnsafeCell<MaybeUninit<Aligned16<[IdtEntry; 256]>>>,
+		Option<Init>,
+	)>,
+);
+
+impl<Init: FnOnce() -> Aligned16<[IdtEntry; 256]>> IsrTable<Init> {
+	pub const fn new(initializer: Init) -> Self {
+		Self(Mutex::new((
+			UnsafeCell::new(MaybeUninit::uninit()),
+			Some(initializer),
+		)))
+	}
+
+	/// Returns a pointer to the ISR table.
+	///
+	/// Do not call in hot paths.
+	#[cold]
+	pub fn get(&'static self) -> &'static [IdtEntry; 256] {
+		let mut lock = self.0.lock();
+		if let Some(init) = lock.1.take() {
+			// SAFETY: We have exclusive access to the `MaybeUninit`.
+			unsafe {
+				lock.0.get().write(MaybeUninit::new(init()));
+			}
+		}
+
+		// SAFETY: We can guarantee it's initialized here and is only being read.
+		let ptr = unsafe {
+			lock.0
+				.get()
+				.as_mut()
+				.expect("failed to fetch ISR pointer")
+				.as_ptr()
+				.cast()
+		};
+
+		drop(lock);
+
+		// SAFETY: It's only ever being read beyond this point, therefore
+		// SAFETY: no locking is necessary.
+		unsafe { &*ptr }
+	}
+}
 
 /// Defines the given ISRs in an IDT.
 ///
@@ -50,11 +74,8 @@ macro_rules! isr_table {
 
 		// BEG(qix-): Forgive me for this astrocity.
 		$(#[$meta])* static $isr_table:
-				$crate::interrupt::macros::UnsafeSync<
-				::core::cell::LazyCell<
-				$crate::interrupt::macros::Aligned16<
-				[$crate::interrupt::IdtEntry; 256]
-		>>> = $crate::interrupt::macros::UnsafeSync::new(::core::cell::LazyCell::new(|| {
+				$crate::interrupt::macros::IsrTable<fn() -> $crate::interrupt::macros::Aligned16<[IdtEntry; 256]>> =
+			$crate::interrupt::macros::IsrTable::new(|| {
 			let mut arr = [
 				$crate::interrupt::IdtEntry::new()
 					.with_kernel_cs()
@@ -71,7 +92,7 @@ macro_rules! isr_table {
 			)*
 
 			$crate::interrupt::macros::Aligned16(arr)
-		}));
+		});
 	}
 }
 
