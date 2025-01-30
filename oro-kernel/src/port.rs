@@ -20,8 +20,8 @@ impl Port {
 	#[must_use]
 	pub fn new() -> Option<Self> {
 		Some(Self {
-			producer_token: crate::tab::get().add(Token::Normal(NormalToken::new_4kib(1)))?,
-			consumer_token: crate::tab::get().add(Token::Normal(NormalToken::new_4kib(1)))?,
+			producer_token: crate::tab::get().add(Token::SlotMap(NormalToken::new_4kib(1)))?,
+			consumer_token: crate::tab::get().add(Token::SlotMap(NormalToken::new_4kib(1)))?,
 		})
 	}
 
