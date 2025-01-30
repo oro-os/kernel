@@ -216,6 +216,46 @@ impl<A: Arch> Instance<A> {
 
 					Ok(())
 				}
+				Token::SlotMap(t) => {
+					debug_assert!(
+						t.page_size() == 4096,
+						"page size != 4096 is not implemented"
+					);
+					debug_assert!(
+						t.page_size().is_power_of_two(),
+						"page size is not a power of 2"
+					);
+					debug_assert!(
+						t.page_count() == 1,
+						"slot map tokens must be exactly one page"
+					);
+
+					if (virt & (t.page_size() - 1)) != 0 {
+						return Err(TokenMapError::VirtNotAligned);
+					}
+
+					let segment = AddressSpace::<A>::user_thread_local_data();
+
+					// Make sure that no other token exists in the vmap.
+					if !virt_resides_within::<A>(&segment, virt)
+						|| !virt_resides_within::<A>(&segment, virt + t.page_size() - 1)
+					{
+						return Err(TokenMapError::VirtOutOfRange);
+					}
+
+					if self
+						.token_vmap
+						.contains(u64::try_from(virt).map_err(|_| TokenMapError::VirtOutOfRange)?)
+					{
+						return Err(TokenMapError::Conflict);
+					}
+
+					// Everything's okay, map them into the vmap now.
+					// NOTE(qix-): We can use `as` here since we already check the page base above.
+					self.token_vmap.insert(virt as u64, (token.clone(), 0));
+
+					Ok(())
+				}
 			}
 		})
 	}
@@ -253,6 +293,31 @@ impl<A: Arch> Instance<A> {
 							.ok_or(TryCommitError::MapError(MapError::OutOfMemory))?;
 						segment
 							.map(self.handle.mapper(), page_base, phys.address_u64())
+							.map_err(TryCommitError::MapError)?;
+						Ok(())
+					}
+					Token::SlotMap(t) => {
+						debug_assert!(
+							*page_idx == 0,
+							"slot map tokens must be exactly one page; attempt was made to commit \
+							 page index >0"
+						);
+						debug_assert!(
+							t.page_size() == 4096,
+							"page size != 4096 is not implemented"
+						);
+						debug_assert!(
+							t.page_count() == 1,
+							"slot map tokens must be exactly one page"
+						);
+						let segment = AddressSpace::<A>::user_thread_local_data();
+						let phys = t
+							.get_or_allocate(0)
+							// NOTE(qix-): Should never happen as we don't allocate on the fly, but enforce
+							// NOTE(qix-): that the token is already allocated.
+							.ok_or(TryCommitError::MapError(MapError::OutOfMemory))?;
+						segment
+							.map(self.handle.mapper(), virt, phys.address_u64())
 							.map_err(TryCommitError::MapError)?;
 						Ok(())
 					}

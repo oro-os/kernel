@@ -30,10 +30,13 @@ use oro_mem::{
 // SAFETY(qix-): discriminant is a `u64` and can be read as such.
 #[repr(u64)]
 pub enum Token {
-	/// A [`NormalToken`] memory token. Represents one or more physical pages.
-	// NOTE(qix-): Do not use `0` here, as it's used by the interfaces
+	// NOTE(qix-): Do not use `0` discriminators here, as `0` used by the interfaces
 	// NOTE(qix-): as a sentinel value.
+	/// A [`NormalToken`] memory token. Represents one or more physical pages.
 	Normal(NormalToken) = key!("normal"),
+	/// A slot map token, which is a [`NormalToken`] that is enforced to be mapped
+	/// to a TLS segment and only take up a single page.
+	SlotMap(NormalToken) = key!("portslot"),
 }
 
 impl Token {
