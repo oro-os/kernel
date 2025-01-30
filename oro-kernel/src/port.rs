@@ -53,14 +53,23 @@ impl Port {
 			(phys, tab)
 		};
 
-		Some(Self {
+		let this = Self {
 			producer_token: producer_tab,
 			consumer_token: consumer_tab,
 			// SAFETY: We just allocated these pages, and they're guaranteed aligned to a u64, so they are valid.
 			producer_page:  unsafe { producer_phys.as_mut_ptr_unchecked::<u64>() },
 			// SAFETY: We just allocated these pages, and they're guaranteed aligned to a u64, so they are valid.
 			consumer_page:  unsafe { consumer_phys.as_mut_ptr_unchecked::<u64>() },
-		})
+		};
+
+		// Zero out the pages.
+		// SAFETY: We just allocated these pages, so they're guaranteed to exist.
+		unsafe {
+			this.producer_page.cast::<u8>().write_bytes(0, 4096);
+			this.consumer_page.cast::<u8>().write_bytes(0, 4096);
+		}
+
+		Some(this)
 	}
 
 	/// Gets the producer side memory token for this port.
