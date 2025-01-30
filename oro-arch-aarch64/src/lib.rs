@@ -64,6 +64,11 @@ impl oro_kernel::arch::Arch for Arch {
 	type CoreHandle = self::core_local::CoreHandle;
 	type InstanceHandle = self::instance::InstanceHandle;
 	type ThreadHandle = self::thread::ThreadHandle;
+
+	fn fence() {
+		// TODO(qix-): This may be too strong for what we need.
+		asm::strong_memory_barrier();
+	}
 }
 
 /// Type alias for the Oro kernel core-local instance type.

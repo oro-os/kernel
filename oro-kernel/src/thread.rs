@@ -553,10 +553,13 @@ impl<A: Arch> Thread<A> {
 						.map(self.handle.mapper(), virt, ep.phys().address_u64())
 						.map_err(PageFaultError::MapError)?;
 
-					ep.advance();
-
 					if ep.side() == PortEnd::Consumer {
+						// `true` since we're calling it from the consumer thread.
+						ep.advance::<A, true>();
 						self.active_ports.push(virt);
+					} else {
+						// `false` since we're calling it from the producer thread.
+						ep.advance::<A, false>();
 					}
 
 					Ok(())

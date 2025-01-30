@@ -12,6 +12,9 @@ pub trait Arch: Sized + Send + Sync + 'static {
 	type InstanceHandle: InstanceHandle<Self>;
 	/// The architecture-specific core handle.
 	type CoreHandle: CoreHandle;
+
+	/// Performs a memory fence.
+	fn fence();
 }
 
 /// An architecture-specific thread handle.

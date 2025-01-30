@@ -39,7 +39,9 @@ impl<A: Arch> RootTestPorts<A> {
 	/// Panics if the system is out of memory.
 	#[must_use]
 	pub fn new() -> Self {
-		Self(PortState::new().expect("out of memory"), PhantomData)
+		// NOTE(qix-): The field count here must match that in the examples (minus one).
+		// NOTE(qix-): The test cases don't query the field count or anything.
+		Self(PortState::new(1).expect("out of memory"), PhantomData)
 	}
 }
 

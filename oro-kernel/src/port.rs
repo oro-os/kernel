@@ -9,30 +9,57 @@ use oro_mem::{
 	phys::{Phys, PhysAddr},
 };
 
-use crate::{tab::Tab, token::Token};
+use crate::{arch::Arch, tab::Tab, token::Token};
 
 /// "Internal" state of a port.
 pub struct PortState {
 	/// The physical page belonging to the producer.
 	///
 	/// **This may be the same as `consumer_page`!**
-	producer_phys:  Phys,
+	producer_phys:         Phys,
 	/// The physical page belonging to the consumer.
 	///
 	/// **This may be the same as `producer_page`!**
-	consumer_phys:  Phys,
+	consumer_phys:         Phys,
 	/// The producer's current tab index, or `0` if the producer is not active.
-	producer_index: AtomicU64,
+	producer_tab_index:    AtomicU64,
 	/// The consumer's current tab index, or `0` if the consumer is not active.
-	consumer_index: AtomicU64,
+	consumer_tab_index:    AtomicU64,
+	/// The current tracked offset of the producer's messages.
+	producer_offset:       usize,
+	/// The current tracked offset of the consumer's messages.
+	consumer_offset:       usize,
+	/// The number of fields in a slot, minus one.
+	///
+	/// The "minus one" is because the tag is always the first field.
+	field_count_minus_one: u16,
 }
 
 impl PortState {
 	/// Creates a new port.
 	///
+	/// Ports always have at least one field, thus `field_count_minus_one` is effectively
+	/// the number of additional, non-tag fields in a slot. A value of `0` indicates
+	/// that a port slot only contains a tag field.
+	///
+	/// A slot can have a maximum of 512 total fields (including the tag). Thus, the maximum
+	/// number passable to `field_count_minus_one` is `511`. Further, the total number of fields
+	/// (including the tag) must be a power of two.
+	///
 	/// Returns `None` if the system is out of memory.
+	///
+	/// # Panics
+	/// Panics in debug mode if `field_count_minus_one` is greater than `511`. Callers must ensure this
+	/// does not happen.
+	///
+	/// In release mode, returns `None` if `field_count_minus_one` is greater than `511`.
 	#[must_use]
-	pub fn new() -> Option<Tab<Self>> {
+	pub fn new(field_count_minus_one: u16) -> Option<Tab<Self>> {
+		if field_count_minus_one > 511 || !(field_count_minus_one + 1).is_power_of_two() {
+			debug_assert!(false, "field_count_minus_one > 511");
+			return None;
+		}
+
 		// SAFETY: We're allocating the page right as we're constructing the `Phys`.
 		let producer_phys = unsafe { Phys::from_address_unchecked(GlobalPfa.allocate()?) };
 		// SAFETY: We're allocating the page right as we're constructing the `Phys`.
@@ -63,8 +90,11 @@ impl PortState {
 			.add(Self {
 				producer_phys,
 				consumer_phys,
-				producer_index: AtomicU64::new(0),
-				consumer_index: AtomicU64::new(0),
+				producer_tab_index: AtomicU64::new(0),
+				consumer_tab_index: AtomicU64::new(0),
+				producer_offset: 0,
+				consumer_offset: 0,
+				field_count_minus_one,
 			})
 			.or_else(|| {
 				// Free the pages; the Tab allocation failed.
@@ -91,8 +121,8 @@ impl PortState {
 	pub fn endpoint(state: &Tab<Self>, end: PortEnd) -> Option<Result<Tab<Token>, Tab<Token>>> {
 		state.with(|this| {
 			let index_ref = match end {
-				PortEnd::Producer => &this.producer_index,
-				PortEnd::Consumer => &this.consumer_index,
+				PortEnd::Producer => &this.producer_tab_index,
+				PortEnd::Consumer => &this.consumer_tab_index,
 			};
 
 			let mut current_index = index_ref.load(SeqCst);
@@ -133,14 +163,14 @@ impl Drop for PortState {
 		// However, it's still a good idea to check.
 		debug_assert!(
 			{
-				let v = self.producer_index.load(SeqCst);
+				let v = self.producer_tab_index.load(SeqCst);
 				v == 0 || crate::tab::get().lookup_any(v).is_none()
 			},
 			"producer endpoint still active"
 		);
 		debug_assert!(
 			{
-				let v = self.consumer_index.load(SeqCst);
+				let v = self.consumer_tab_index.load(SeqCst);
 				v == 0 || crate::tab::get().lookup_any(v).is_none()
 			},
 			"consumer endpoint still active"
@@ -193,20 +223,83 @@ impl PortEndpointToken {
 	/// Advances the port's internal copy state.
 	///
 	/// For direct-mapped ports, this is a no-op.
-	///
-	/// This is also a no-op for producers.
-	pub fn advance(&self) {
+	pub fn advance<A: Arch, const CORE_IS_RUNNING_CONSUMER: bool>(&self) {
 		if self.end == PortEnd::Producer {
 			return;
 		}
 
-		self.state.with(|st| {
+		self.state.with_mut(|st| {
 			if st.consumer_phys == st.producer_phys {
 				// Direct-mapped port; no need to advance.
 				return;
 			}
 
-			todo!("advance!");
+			// NOTE(qix-): Should never panic; the field count is at most 512.
+			let field_count = usize::from(st.field_count_minus_one + 1);
+			let offset_mask = (512 >> field_count.trailing_zeros()) - 1;
+
+			// SAFETY: We control this page and can guarantee it's aligned to a u64.
+			let consumer = unsafe { st.consumer_phys.as_mut_ptr_unchecked::<u64>() };
+			// SAFETY: We control this page and can guarantee it's aligned to a u64.
+			let producer = unsafe { st.producer_phys.as_mut_ptr_unchecked::<u64>() };
+
+			loop {
+				let next_index = st.consumer_offset & offset_mask;
+				let base_offset = field_count * next_index;
+
+				// Is the consumer slot free?
+				// SAFETY: As long as this state is active, we hold an owning 'handle' to the page.
+				let tag = unsafe { consumer.wrapping_add(base_offset).read_volatile() };
+
+				if tag != 0 {
+					break;
+				}
+
+				// Is there a pending message?
+				// SAFETY: As long as this state is active, we hold an owning 'handle' to the page.
+				let tag = unsafe { producer.wrapping_add(base_offset).read_volatile() };
+
+				if tag == 0 {
+					break;
+				}
+
+				// Copy the message's non-tag fields first.
+				for i in 1..field_count {
+					// SAFETY: As long as this state is active, we hold an owning 'handle' to the page.
+					unsafe {
+						consumer
+							.wrapping_add(base_offset + i)
+							.write_volatile(producer.wrapping_add(base_offset + i).read_volatile());
+					}
+				}
+
+				// Fence it. This is important, because the consumer must see the fields
+				// before it sees the tag.
+				if !CORE_IS_RUNNING_CONSUMER {
+					A::fence();
+				}
+
+				// Copy the tag.
+				// SAFETY: As long as this state is active, we hold an owning 'handle' to the page.
+				unsafe {
+					consumer.wrapping_add(base_offset).write_volatile(tag);
+				}
+
+				// Advance the consumer offset.
+				st.consumer_offset += 1;
+
+				// Tell the producer that we've consumed the message.
+				while st.producer_offset < st.consumer_offset {
+					// SAFETY: We control this page and can guarantee it's aligned to a u64.
+					unsafe {
+						producer
+							.wrapping_add(field_count * (st.producer_offset & offset_mask))
+							.write_volatile(0);
+					}
+
+					st.producer_offset += 1;
+				}
+			}
 		});
 	}
 }
