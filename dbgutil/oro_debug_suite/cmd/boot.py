@@ -408,6 +408,9 @@ class BootCmdLimine(gdb.Command):
                     warn(
                         "no kernel switch symbol found; will not automatically switch to kernel image"
                     )
+        elif release or withdebinfo:
+            with gdb_util.parameter("confirm", False):
+                gdb.execute(f"file {kernel_path}", to_string=False, from_tty=True)
 
         if auto_continue:
             if break_at_start:
