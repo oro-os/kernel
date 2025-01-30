@@ -1,12 +1,8 @@
 //! Implements Oro rings in the kernel.
 
-use oro_mem::{
-	alloc::vec::Vec,
-	mapper::{AddressSegment, AddressSpace as _, MapError},
-};
+use oro_mem::{alloc::vec::Vec, mapper::MapError};
 
 use crate::{
-	AddressSpace, Kernel, UserHandle,
 	arch::Arch,
 	instance::Instance,
 	interface::{Interface, RingInterface},
@@ -40,8 +36,6 @@ pub struct Ring<A: Arch> {
 	parent: Option<Tab<Ring<A>>>,
 	/// The module [`Instance`]s on the ring.
 	instances: Vec<Tab<Instance<A>>>,
-	/// The ring's base mapper handle.
-	mapper: UserHandle<A>,
 	/// The ring's child rings.
 	children: Vec<Tab<Ring<A>>>,
 	/// The interfaces exposed to the ring, grouped by type.
@@ -53,16 +47,10 @@ pub struct Ring<A: Arch> {
 impl<A: Arch> Ring<A> {
 	/// Creates a new ring.
 	pub fn new(parent: &Tab<Ring<A>>) -> Result<Tab<Self>, MapError> {
-		let mapper = AddressSpace::<A>::new_user_space(&Kernel::<A>::get().mapper)
-			.ok_or(MapError::OutOfMemory)?;
-
-		AddressSpace::<A>::sysabi().provision_as_shared(&mapper)?;
-
 		let tab = crate::tab::get()
 			.add(Self {
 				parent: Some(parent.clone()),
 				instances: Vec::new(),
-				mapper,
 				children: Vec::new(),
 				interfaces_by_type: Table::new(),
 				data: TypeTable::new(),
@@ -89,23 +77,10 @@ impl<A: Arch> Ring<A> {
 		// NOTE(qix-): core-local kernels are not guaranteed to be initialized
 		// NOTE(qix-): at this point in the kernel's lifetime.
 
-		// NOTE(qix-): We'd normally use the kernel's cached mapper instead of
-		// NOTE(qix-): getting the supervisor mapper directly (since it's slower
-		// NOTE(qix-): and less "safe" to pull it from the registers) but at this
-		// NOTE(qix-): point it's the only way to get the supervisor mapper and is,
-		// NOTE(qix-): for all intents and purposes, safe to do so. It's not ideal
-		// NOTE(qix-): and might get refactored in the future to be even more bulletproof.
-		let mapper =
-			AddressSpace::<A>::new_user_space(&AddressSpace::<A>::current_supervisor_space())
-				.ok_or(MapError::OutOfMemory)?;
-
-		AddressSpace::<A>::sysabi().provision_as_shared(&mapper)?;
-
 		crate::tab::get()
 			.add(Self {
 				parent: None,
 				instances: Vec::new(),
-				mapper,
 				children: Vec::new(),
 				interfaces_by_type: Table::new(),
 				data: TypeTable::new(),
@@ -119,12 +94,6 @@ impl<A: Arch> Ring<A> {
 	#[must_use]
 	pub fn parent(&self) -> Option<&Tab<Ring<A>>> {
 		self.parent.as_ref()
-	}
-
-	/// Returns a reference to the ring's mapper.
-	#[must_use]
-	pub fn mapper(&self) -> &UserHandle<A> {
-		&self.mapper
 	}
 
 	/// Returns a slice of instances on the ring.

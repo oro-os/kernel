@@ -51,17 +51,14 @@ impl AddressSpaceLayout {
 	/// if the segment is used for userspace.
 	pub const KERNEL_SECONDARY_BOOT_IDX: usize = 0;
 
-	/// The index for the system ABI segment.
-	///
-	/// Must be placed in the lower half.
-	pub const SYSABI: usize = 1;
-
-	/// The index for the module segments.
-	pub const MODULE_EXE_IDX: (usize, usize) = (5, 16);
-	/// The index for the module thread stack segment.
-	pub const MODULE_THREAD_STACK_IDX: usize = 17;
 	/// The index for the module thread interrupt stack.
-	pub const MODULE_INTERRUPT_STACK_IDX: usize = 18;
+	pub const MODULE_INTERRUPT_STACK_IDX: usize = 2;
+	/// The index for the module thread stack segment.
+	pub const MODULE_THREAD_STACK_IDX: usize = 3;
+	/// The index for the module thread-local data segment.
+	pub const MODULE_THREAD_LOCAL_IDX: (usize, usize) = (4, 16);
+	/// The index for the module segments.
+	pub const MODULE_EXE_IDX: (usize, usize) = (17, 255);
 
 	/// The recursive index for the page table.
 	pub const RECURSIVE_IDX: usize = 256;
@@ -540,14 +537,28 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		&DESCRIPTOR
 	}
 
-	fn sysabi() -> Self::UserSegment {
+	fn user_thread_local_rodata() -> Self::UserSegment {
 		const DESCRIPTOR: AddressSegment = AddressSegment {
-			valid_range: (AddressSpaceLayout::SYSABI, AddressSpaceLayout::SYSABI),
+			valid_range: AddressSpaceLayout::MODULE_THREAD_LOCAL_IDX,
 			entry_template: PageTableEntry::new()
 				.with_user()
 				.with_present()
 				.with_no_exec(),
-			intermediate_entry_template: PageTableEntry::new().with_present().with_no_exec(),
+			intermediate_entry_template: MODULE_EXE_INTERMEDIATE_ENTRY,
+		};
+
+		&DESCRIPTOR
+	}
+
+	fn user_thread_local_data() -> Self::UserSegment {
+		const DESCRIPTOR: AddressSegment = AddressSegment {
+			valid_range: AddressSpaceLayout::MODULE_THREAD_LOCAL_IDX,
+			entry_template: PageTableEntry::new()
+				.with_user()
+				.with_present()
+				.with_writable()
+				.with_no_exec(),
+			intermediate_entry_template: MODULE_EXE_INTERMEDIATE_ENTRY,
 		};
 
 		&DESCRIPTOR

@@ -247,12 +247,6 @@ pub unsafe trait AddressSpace: 'static {
 	/// It **must not** overlap with any other segment.
 	fn kernel_core_local() -> Self::SupervisorSegment;
 
-	/// Returns the layout descriptor for the sysabi segment,
-	/// exposed to instances and managed by the kernel.
-	///
-	/// This must be read-only, user accessible, and is **not** executable.
-	fn sysabi() -> Self::UserSegment;
-
 	/// Returns the layout descriptor for the user code segment.
 	///
 	/// This must be read-only, user accessible, and is executable.
@@ -277,6 +271,18 @@ pub unsafe trait AddressSpace: 'static {
 	/// regardless of their permissions. Any sort of intermediate page mappings must be
 	/// prepared for that.**
 	fn user_rodata() -> Self::UserSegment;
+
+	/// Returns the layout desscriptor for the user thread-local, read-only segment.
+	///
+	/// This must be read-only, user accessible, and is **not** executable. It MUST NOT
+	/// overlap with any other non-thread-local segment.
+	fn user_thread_local_rodata() -> Self::UserSegment;
+
+	/// Returns the layout descriptor for the user thread-local, read-write segment.
+	///
+	/// This must be read-write, user accessible, and is **not** executable. It MUST NOT
+	/// overlap with any other non-thread-local segment.
+	fn user_thread_local_data() -> Self::UserSegment;
 
 	/// Returns the layout descriptor for the userspace thread stack segment.
 	///

@@ -77,13 +77,12 @@ impl AddressSpaceLayout {
 	/// range that spans the entirety of the lower half.
 	pub const STUBS_IDX: (usize, usize) = (0, 255);
 
-	/// The index for the system ABI segment.
-	pub const SYSABI: usize = 1;
-
-	/// The index for the module segments.
-	pub const MODULE_EXE_IDX: (usize, usize) = (5, 16);
 	/// The index for the module thread stack segment.
-	pub const MODULE_THREAD_STACK_IDX: usize = 17;
+	pub const MODULE_THREAD_STACK_IDX: usize = 2;
+	/// The index for the module thread-local data segment.
+	pub const MODULE_THREAD_LOCAL_IDX: (usize, usize) = (3, 16);
+	/// The index for the module segments.
+	pub const MODULE_EXE_IDX: (usize, usize) = (17, 255);
 
 	/// The recursive entry indices.
 	pub const RECURSIVE_ENTRY_IDX: (usize, usize) = (256, 259);
@@ -654,28 +653,36 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 		&DESCRIPTOR
 	}
 
-	fn sysabi() -> Self::UserSegment {
+	fn user_thread_local_rodata() -> Self::UserSegment {
 		static DESCRIPTOR: Segment = unsafe {
 			Segment {
-				valid_range:       (AddressSpaceLayout::SYSABI, AddressSpaceLayout::SYSABI),
-				l0_template:       L0PageTableDescriptor::new()
-					.with_valid()
-					.with_kernel_no_exec()
-					.with_user_no_exec()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::ReadOnly),
-				l1_table_template: L1PageTableDescriptor::new()
-					.with_valid()
-					.with_kernel_no_exec()
-					.with_user_no_exec()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::ReadOnly),
-				l2_table_template: L2PageTableDescriptor::new()
-					.with_valid()
-					.with_kernel_no_exec()
-					.with_user_no_exec()
-					.with_table_access_permissions(PageTableEntryTableAccessPerm::ReadOnly),
+				valid_range:       AddressSpaceLayout::MODULE_THREAD_LOCAL_IDX,
+				l0_template:       USER_EXE_L0,
+				l1_table_template: USER_EXE_L1,
+				l2_table_template: USER_EXE_L2,
 				l3_template:       L3PageTableBlockDescriptor::new()
 					.with_valid()
 					.with_block_access_permissions(PageTableEntryBlockAccessPerm::KernelROUserRO)
+					.with_not_secure()
+					.with_user_no_exec()
+					.with_kernel_no_exec()
+					.with_mair_index(MairEntry::NormalMemory.index() as u64),
+			}
+		};
+
+		&DESCRIPTOR
+	}
+
+	fn user_thread_local_data() -> Self::UserSegment {
+		static DESCRIPTOR: Segment = unsafe {
+			Segment {
+				valid_range:       AddressSpaceLayout::MODULE_THREAD_LOCAL_IDX,
+				l0_template:       USER_EXE_L0,
+				l1_table_template: USER_EXE_L1,
+				l2_table_template: USER_EXE_L2,
+				l3_template:       L3PageTableBlockDescriptor::new()
+					.with_valid()
+					.with_block_access_permissions(PageTableEntryBlockAccessPerm::KernelRWUserRW)
 					.with_not_secure()
 					.with_user_no_exec()
 					.with_kernel_no_exec()

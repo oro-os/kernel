@@ -27,3 +27,6 @@ oro-ra-aarch64 = "check --quiet --message-format=json --keep-going --target ./or
 
 # NOTE: Does not need the unstable flags / building std / etc.
 oro-examples = "build --target=x86_64-unknown-none --target=aarch64-unknown-none -p example-noop -p example-spin -p example-std-noop -p example-std-noop-nightly -p example-std-spin -p example-hello-world -p example-root-vbuf-demo -p example-page-alloc"
+
+# NOTE(qix-): Temporary.
+test-ports = "build --target=x86_64-unknown-none -p example-test-ports"

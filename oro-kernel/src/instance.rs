@@ -85,11 +85,6 @@ impl<A: Arch> Instance<A> {
 
 		let handle = A::InstanceHandle::new(mapper)?;
 
-		// Apply the ring mapper overlay to the instance.
-		ring.with(|ring| {
-			AddressSpace::<A>::sysabi().apply_user_space_shallow(handle.mapper(), ring.mapper())
-		})?;
-
 		// Apply the module's read-only mapper overlay to the instance.
 		module.with(|module| {
 			AddressSpace::<A>::user_rodata()

@@ -38,6 +38,7 @@ pub mod iface;
 pub mod instance;
 pub mod interface;
 pub mod module;
+pub mod port;
 pub mod ring;
 pub mod scheduler;
 pub mod sync;
@@ -158,6 +159,15 @@ impl<A: Arch> Kernel<A> {
 				root_ring
 					.register_interface(RingInterface::<A>::new(
 						self::iface::root_ring::debug_out_v0::DebugOutV0::new(),
+						global_state.root_ring.id(),
+					))
+					.ok_or(MapError::OutOfMemory)
+			})?;
+
+			global_state.root_ring.with_mut(|root_ring| {
+				root_ring
+					.register_interface(RingInterface::<A>::new(
+						self::iface::root_ring::test_ports::RootTestPorts::new(),
 						global_state.root_ring.id(),
 					))
 					.ok_or(MapError::OutOfMemory)
