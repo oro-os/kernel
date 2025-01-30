@@ -4,7 +4,7 @@ use oro_mem::phys::PhysAddr;
 
 use crate::{
 	tab::Tab,
-	token::{NormalToken, Token},
+	token::{NormalToken, SlotMapEndpoint, Token},
 };
 
 /// A singular port connection.
@@ -40,7 +40,7 @@ impl Port {
 		let (producer_phys, producer_tab) = {
 			let mut t = NormalToken::new_4kib(1);
 			let phys = t.get_or_allocate(0)?;
-			let t = Token::SlotMap(t);
+			let t = Token::SlotMap(t, SlotMapEndpoint::Producer);
 			let tab = crate::tab::get().add(t)?;
 			(phys, tab)
 		};
@@ -48,7 +48,7 @@ impl Port {
 		let (consumer_phys, consumer_tab) = {
 			let mut t = NormalToken::new_4kib(1);
 			let phys = t.get_or_allocate(0)?;
-			let t = Token::SlotMap(t);
+			let t = Token::SlotMap(t, SlotMapEndpoint::Consumer);
 			let tab = crate::tab::get().add(t)?;
 			(phys, tab)
 		};

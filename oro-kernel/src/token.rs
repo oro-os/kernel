@@ -36,7 +36,7 @@ pub enum Token {
 	Normal(NormalToken) = key!("normal"),
 	/// A slot map token, which is a [`NormalToken`] that is enforced to be mapped
 	/// to a TLS segment and only take up a single page.
-	SlotMap(NormalToken) = key!("portslot"),
+	SlotMap(NormalToken, SlotMapEndpoint) = key!("portslot"),
 }
 
 impl Token {
@@ -163,4 +163,14 @@ impl NormalToken {
 			Some(phys)
 		}
 	}
+}
+
+/// A slot map endpoint - either producer or consumer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u64)]
+pub enum SlotMapEndpoint {
+	/// The producer side of the slot map.
+	Producer = key!("producer"),
+	/// The consumer side of the slot map.
+	Consumer = key!("consumer"),
 }

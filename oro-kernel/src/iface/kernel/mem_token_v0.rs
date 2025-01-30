@@ -51,13 +51,31 @@ impl KernelInterface for MemTokenV0 {
 
 		token.with(|t| {
 			match t {
-				Token::Normal(token) | Token::SlotMap(token) => {
+				Token::Normal(token) => {
 					// SAFETY(qix-): Ensure that the `usize` fits within a `u64`,
 					// SAFETY(qix-): otherwise the below `as` casts will truncate.
 					::oro_macro::assert::fits_within::<usize, u64>();
 
 					match key {
 						key!("type") => InterfaceResponse::ok(t.type_id()),
+						key!("subtype") => InterfaceResponse::ok(0),
+						key!("forget") => InterfaceResponse::immediate(SysError::WriteOnly, 0),
+						key!("pagesize") => InterfaceResponse::ok(token.page_size() as u64),
+						key!("pages") => InterfaceResponse::ok(token.page_count() as u64),
+						key!("size") => InterfaceResponse::ok(token.size() as u64),
+						key!("commit") => InterfaceResponse::ok(token.commit() as u64),
+						key!("base") => InterfaceResponse::immediate(SysError::WriteOnly, 0),
+						_ => InterfaceResponse::immediate(SysError::BadKey, 0),
+					}
+				}
+				Token::SlotMap(token, side) => {
+					// SAFETY(qix-): Ensure that the `usize` fits within a `u64`,
+					// SAFETY(qix-): otherwise the below `as` casts will truncate.
+					::oro_macro::assert::fits_within::<usize, u64>();
+
+					match key {
+						key!("type") => InterfaceResponse::ok(t.type_id()),
+						key!("subtype") => InterfaceResponse::ok(*side as u64),
 						key!("forget") => InterfaceResponse::immediate(SysError::WriteOnly, 0),
 						key!("pagesize") => InterfaceResponse::ok(token.page_size() as u64),
 						key!("pages") => InterfaceResponse::ok(token.page_count() as u64),

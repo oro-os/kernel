@@ -517,7 +517,7 @@ impl<A: Arch> Thread<A> {
 						.map_err(PageFaultError::MapError)?;
 					Ok(())
 				}
-				Token::SlotMap(t) => {
+				Token::SlotMap(t, _side) => {
 					debug_assert!(
 						page_idx == 0,
 						"slot map tokens must be exactly one page; attempt was made to commit \
@@ -532,11 +532,9 @@ impl<A: Arch> Thread<A> {
 						"slot map tokens must be exactly one page"
 					);
 					let segment = AddressSpace::<A>::user_thread_local_data();
-					let phys = t
-						.get_or_allocate(0)
-						// NOTE(qix-): Should never happen as we don't allocate on the fly, but enforce
-						// NOTE(qix-): that the token is already allocated.
-						.ok_or(PageFaultError::MapError(MapError::OutOfMemory))?;
+					let Some(phys) = t.get(0) else {
+						unreachable!("slot map token must be allocated before use");
+					};
 					segment
 						.map(self.handle.mapper(), virt, phys.address_u64())
 						.map_err(PageFaultError::MapError)?;
@@ -610,7 +608,7 @@ impl<A: Arch> Thread<A> {
 						Ok(())
 					})
 				}
-				Token::SlotMap(t) => {
+				Token::SlotMap(t, _side) => {
 					debug_assert!(
 						t.page_size() == 4096,
 						"page size != 4096 is not implemented"
