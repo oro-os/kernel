@@ -13,7 +13,7 @@ fn main() {
 	let token = match syscall_get!(KERNEL_PAGE_ALLOC_V0, KERNEL_PAGE_ALLOC_V0, key!("4kib"), 1) {
 		Ok(token) => token,
 		Err((e, ex)) => {
-			println!("error: {e:?}[{ex}]");
+			println!("error: {e:?}[{:?}]", Key(&ex));
 			return;
 		}
 	};
@@ -29,14 +29,14 @@ fn main() {
 	) {
 		Ok(ty) => ty,
 		Err((e, ex)) => {
-			println!("error: {e:?}[{ex}]");
+			println!("error: {e:?}[{:?}]", Key(&ex));
 			return;
 		}
 	};
 
 	println!("token type: {:?}", Key(&ty));
 
-	const TARGET_ADDR: u64 = 0x400_0000_0000;
+	const TARGET_ADDR: u64 = 0x3C00_0000_0000;
 
 	// Map it in.
 	match syscall_set!(
@@ -48,7 +48,7 @@ fn main() {
 	) {
 		Ok(_) => (),
 		Err((e, ex)) => {
-			println!("error mapping in token: {e:?}[{ex}]");
+			println!("error mapping in token: {e:?}[{:?}]", Key(&ex));
 			return;
 		}
 	}
