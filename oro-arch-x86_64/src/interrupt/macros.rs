@@ -12,6 +12,7 @@ pub(super) struct Aligned16<T: Sized>(pub T);
 
 /// ISR Table; wrapper around various structures to make it
 /// safely initializable and aligned.
+#[expect(clippy::type_complexity)]
 pub(super) struct IsrTable<Init: FnOnce() -> Aligned16<[IdtEntry; 256]>>(
 	Mutex<(
 		UnsafeCell<MaybeUninit<Aligned16<[IdtEntry; 256]>>>,
@@ -20,6 +21,9 @@ pub(super) struct IsrTable<Init: FnOnce() -> Aligned16<[IdtEntry; 256]>>(
 );
 
 impl<Init: FnOnce() -> Aligned16<[IdtEntry; 256]>> IsrTable<Init> {
+	/// Creates a new `IsrTable` with the given initializer when the ISR table is fetched.
+	///
+	/// **Do not use this function. It's meant only to be called by the `isr_table!` macro.**
 	pub const fn new(initializer: Init) -> Self {
 		Self(Mutex::new((
 			UnsafeCell::new(MaybeUninit::uninit()),

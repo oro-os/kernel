@@ -40,7 +40,7 @@ pub unsafe fn install_idt() {
 
 	#[allow(static_mut_refs)]
 	let idtr = Idtr {
-		limit: (core::mem::size_of_val(&*IDT.get()) - 1) as u16,
+		limit: (core::mem::size_of_val(IDT.get()) - 1) as u16,
 		base:  &raw const IDT.get()[0],
 	};
 
