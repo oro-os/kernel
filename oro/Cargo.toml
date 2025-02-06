@@ -25,3 +25,15 @@ module = ["runtime"]
 build = []
 panic_handler = []
 panic_debug_out_v0 = ["panic_handler"]
+rustc-dep-of-std = [
+	"core",
+	"compiler_builtins",
+	"compiler_builtins/rustc-dep-of-std",
+	"cfg-if",
+	"cfg-if/rustc-dep-of-std",
+]
+
+[dependencies]
+cfg-if = { version = "*", optional = true }
+core = { version = "*", optional = true, package = "rustc-std-workspace-core" }
+compiler_builtins = { version = "*", optional = true }
