@@ -229,7 +229,7 @@ impl PortEndpointToken {
 		}
 
 		self.state.with_mut(|st| {
-			if st.consumer_phys == st.producer_phys {
+			if ::oro_macro::unlikely!(st.consumer_phys == st.producer_phys) {
 				// Direct-mapped port; no need to advance.
 				return;
 			}
@@ -251,7 +251,7 @@ impl PortEndpointToken {
 				// SAFETY: As long as this state is active, we hold an owning 'handle' to the page.
 				let tag = unsafe { consumer.wrapping_add(base_offset).read_volatile() };
 
-				if tag != 0 {
+				if ::oro_macro::likely!(tag != 0) {
 					break;
 				}
 
@@ -259,7 +259,7 @@ impl PortEndpointToken {
 				// SAFETY: As long as this state is active, we hold an owning 'handle' to the page.
 				let tag = unsafe { producer.wrapping_add(base_offset).read_volatile() };
 
-				if tag == 0 {
+				if ::oro_macro::likely!(tag == 0) {
 					break;
 				}
 
@@ -289,7 +289,7 @@ impl PortEndpointToken {
 				st.consumer_offset += 1;
 
 				// Tell the producer that we've consumed the message.
-				while st.producer_offset < st.consumer_offset {
+				while ::oro_macro::likely!(st.producer_offset < st.consumer_offset) {
 					// SAFETY: We control this page and can guarantee it's aligned to a u64.
 					unsafe {
 						producer
