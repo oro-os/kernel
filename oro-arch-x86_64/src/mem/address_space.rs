@@ -51,14 +51,14 @@ impl AddressSpaceLayout {
 	/// if the segment is used for userspace.
 	pub const KERNEL_SECONDARY_BOOT_IDX: usize = 0;
 
-	/// The index for the module thread interrupt stack.
-	pub const MODULE_INTERRUPT_STACK_IDX: usize = 2;
-	/// The index for the module thread stack segment.
-	pub const MODULE_THREAD_STACK_IDX: usize = 3;
-	/// The index for the module thread-local data segment.
-	pub const MODULE_THREAD_LOCAL_IDX: (usize, usize) = (4, 16);
 	/// The index for the module segments.
-	pub const MODULE_EXE_IDX: (usize, usize) = (17, 255);
+	pub const MODULE_EXE_IDX: (usize, usize) = (0, 232);
+	/// The index for the module thread interrupt stack.
+	pub const MODULE_INTERRUPT_STACK_IDX: usize = 234;
+	/// The index for the module thread stack segment.
+	pub const MODULE_THREAD_STACK_IDX: usize = 236;
+	/// The index for the module thread-local data segment.
+	pub const MODULE_THREAD_LOCAL_IDX: (usize, usize) = (238, 255);
 
 	/// The recursive index for the page table.
 	pub const RECURSIVE_IDX: usize = 256;
