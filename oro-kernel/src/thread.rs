@@ -156,7 +156,7 @@ impl<A: Arch> Thread<A> {
 
 			// Map in the stack pages.
 			// TODO(qix-): Allow this to be configurable
-			for _ in 0..4 {
+			for _ in 0..16 {
 				stack_ptr -= 0x1000;
 				let phys = GlobalPfa.allocate().ok_or(MapError::OutOfMemory)?;
 				stack_segment.map(&thread_mapper, stack_ptr, phys)?;
