@@ -285,11 +285,13 @@ pub unsafe fn boot_secondary(
 
 	// Extract out the interesting bits of CR4 for the secondary core,
 	// without enabling anything that might screw up 16-bit initialization.
+	// We treat CR4 here as a 32-bit since this field is being accessed
+	// by the 32-bit stub.
 	debug_assert_eq!(meta_ptr, 0x8FF0);
 	let cr4_bits: u64 = crate::reg::Cr4::load().with_pge(false).into();
 	Phys::from_address_unchecked(meta_ptr)
 		.as_mut_ptr_unchecked::<u32>()
-		.write_volatile(cr4_bits as u32); // TODO(qix-): Not sure why I assumed a u32 here, cr4 is 64-bits.
+		.write_volatile(cr4_bits as u32);
 	meta_ptr += CR4BITS_SIZE;
 
 	// Write the GDT pointer into the last 6 bytes of the page.
