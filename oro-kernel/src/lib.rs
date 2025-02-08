@@ -62,6 +62,7 @@ use nolock::queues::{
 };
 use oro_macro::assert;
 use oro_mem::{
+	alloc::boxed::Box,
 	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace as _, MapError},
 	pfa::Alloc,
@@ -261,6 +262,8 @@ pub struct KernelState<A: Arch> {
 	thread_rx: Receiver<Tab<Thread<A>>>,
 	/// The root ring.
 	root_ring: tab::Tab<ring::Ring<A>>,
+	/// Kernel interfaces, made globall available.
+	kernel_interfaces: table::Table<Box<dyn self::iface::kernel::KernelInterface<A>>>,
 	/// Whether or not the root ring has been initialized.
 	///
 	/// We have to do this on a per-core basis because allocators
@@ -291,10 +294,14 @@ impl<A: Arch> KernelState<A> {
 
 		let (thread_rx, thread_tx) = nolock::queues::mpmc::bounded::scq::queue(128);
 
+		let mut kernel_interfaces = table::Table::new();
+		crate::iface::kernel::register_kernel_interfaces(&mut kernel_interfaces);
+
 		this.write(Self {
 			thread_tx,
 			thread_rx,
 			root_ring,
+			kernel_interfaces,
 			has_initialized_root: AtomicBool::new(false),
 		});
 

@@ -1,6 +1,8 @@
 //! Kernel interface for querying the ring's interfaces
 //! based on the interface type.
 
+use core::marker::PhantomData;
+
 use oro::syscall::Error as SysError;
 
 use super::KernelInterface;
@@ -8,12 +10,10 @@ use crate::{arch::Arch, syscall::InterfaceResponse, tab::Tab, thread::Thread};
 
 /// Version 0 of interface ID query by type kernel interface.
 #[repr(transparent)]
-pub struct IfaceQueryByTypeV0;
+pub struct IfaceQueryByTypeV0<A: Arch>(pub(crate) PhantomData<A>);
 
-impl KernelInterface for IfaceQueryByTypeV0 {
-	const TYPE_ID: u64 = oro::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0;
-
-	fn get<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
+impl<A: Arch> KernelInterface<A> for IfaceQueryByTypeV0<A> {
+	fn get(&self, thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		let ring = thread.with(|t| t.ring());
 
 		ring.with(|ring| {
@@ -31,7 +31,8 @@ impl KernelInterface for IfaceQueryByTypeV0 {
 		})
 	}
 
-	fn set<A: Arch>(
+	fn set(
+		&self,
 		_thread: &Tab<Thread<A>>,
 		_index: u64,
 		_key: u64,

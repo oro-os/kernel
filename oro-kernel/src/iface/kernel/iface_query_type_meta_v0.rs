@@ -1,5 +1,7 @@
 //! Allows the querying of interface metdata given an interface type ID.
 
+use core::marker::PhantomData;
+
 use oro::{key, syscall::Error as SysError};
 
 use super::KernelInterface;
@@ -7,12 +9,10 @@ use crate::{arch::Arch, syscall::InterfaceResponse, tab::Tab, thread::Thread};
 
 /// Version 0 of the thread control kernel interface.
 #[repr(transparent)]
-pub struct IfaceQueryTypeMetaV0;
+pub struct IfaceQueryTypeMetaV0<A: Arch>(pub(crate) PhantomData<A>);
 
-impl KernelInterface for IfaceQueryTypeMetaV0 {
-	const TYPE_ID: u64 = oro::id::iface::KERNEL_IFACE_QUERY_TYPE_META_V0;
-
-	fn get<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
+impl<A: Arch> KernelInterface<A> for IfaceQueryTypeMetaV0<A> {
+	fn get(&self, thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		let ring = thread.with(|t| t.ring());
 
 		ring.with(|ring| {
@@ -29,7 +29,8 @@ impl KernelInterface for IfaceQueryTypeMetaV0 {
 		})
 	}
 
-	fn set<A: Arch>(
+	fn set(
+		&self,
 		_thread: &Tab<Thread<A>>,
 		_index: u64,
 		_key: u64,

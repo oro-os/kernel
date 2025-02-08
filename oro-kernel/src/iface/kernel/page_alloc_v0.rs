@@ -10,6 +10,8 @@
 //! Userspace applications should not rely on the behavior of
 //! allocations, and should instead treat them as opaque tokens.
 
+use core::marker::PhantomData;
+
 use oro::{key, syscall::Error as SysError};
 
 use super::KernelInterface;
@@ -35,12 +37,10 @@ pub enum Error {
 
 /// Version 0 of the memory token query interface.
 #[repr(transparent)]
-pub struct PageAllocV0;
+pub struct PageAllocV0<A: Arch>(pub(crate) PhantomData<A>);
 
-impl KernelInterface for PageAllocV0 {
-	const TYPE_ID: u64 = oro::id::iface::KERNEL_PAGE_ALLOC_V0;
-
-	fn get<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
+impl<A: Arch> KernelInterface<A> for PageAllocV0<A> {
+	fn get(&self, thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		if key == 0 {
 			return InterfaceResponse::immediate(SysError::InterfaceError, Error::ZeroSize as u64);
 		}
@@ -73,7 +73,8 @@ impl KernelInterface for PageAllocV0 {
 		}
 	}
 
-	fn set<A: Arch>(
+	fn set(
+		&self,
 		_thread: &Tab<Thread<A>>,
 		_index: u64,
 		_key: u64,

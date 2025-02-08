@@ -14,6 +14,8 @@
 //! extra careful about your base addresses and spans when using this interface
 //! in order to be future-proof.
 
+use core::marker::PhantomData;
+
 use oro::{key, syscall::Error as SysError};
 
 use super::KernelInterface;
@@ -39,12 +41,10 @@ pub enum Error {
 
 /// Version 0 of the memory token query interface.
 #[repr(transparent)]
-pub struct MemTokenV0;
+pub struct MemTokenV0<A: Arch>(pub(crate) PhantomData<A>);
 
-impl KernelInterface for MemTokenV0 {
-	const TYPE_ID: u64 = oro::id::iface::KERNEL_MEM_TOKEN_V0;
-
-	fn get<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
+impl<A: Arch> KernelInterface<A> for MemTokenV0<A> {
+	fn get(&self, thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		let Some(token) = thread.with(|t| t.token(index)) else {
 			return InterfaceResponse::immediate(SysError::BadIndex, 0);
 		};
@@ -85,12 +85,7 @@ impl KernelInterface for MemTokenV0 {
 		})
 	}
 
-	fn set<A: Arch>(
-		thread: &Tab<Thread<A>>,
-		index: u64,
-		key: u64,
-		value: u64,
-	) -> InterfaceResponse {
+	fn set(&self, thread: &Tab<Thread<A>>, index: u64, key: u64, value: u64) -> InterfaceResponse {
 		match key {
 			key!("forget") => {
 				thread.with_mut(|t| t.forget_token(index)).map_or_else(

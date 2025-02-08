@@ -1,5 +1,7 @@
 //! Implements version 0 of the thread control interface.
 
+use core::marker::PhantomData;
+
 use oro::{key, syscall::Error as SysError};
 
 use super::KernelInterface;
@@ -26,12 +28,10 @@ pub enum Error {
 
 /// Version 0 of the thread control kernel interface.
 #[repr(transparent)]
-pub struct ThreadV0;
+pub struct ThreadV0<A: Arch>(pub(crate) PhantomData<A>);
 
-impl KernelInterface for ThreadV0 {
-	const TYPE_ID: u64 = oro::id::iface::KERNEL_THREAD_V0;
-
-	fn get<A: Arch>(thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
+impl<A: Arch> KernelInterface<A> for ThreadV0<A> {
+	fn get(&self, thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
 		let target = resolve_target!(thread, index);
 
 		match key {
@@ -41,12 +41,7 @@ impl KernelInterface for ThreadV0 {
 		}
 	}
 
-	fn set<A: Arch>(
-		thread: &Tab<Thread<A>>,
-		index: u64,
-		key: u64,
-		value: u64,
-	) -> InterfaceResponse {
+	fn set(&self, thread: &Tab<Thread<A>>, index: u64, key: u64, value: u64) -> InterfaceResponse {
 		let target = resolve_target!(thread, index);
 
 		match key {
