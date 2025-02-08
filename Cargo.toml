@@ -44,6 +44,7 @@ members = [
 	"examples/no-std/root-vbuf-demo",
 	"examples/no-std/page-alloc",
 	"examples/no-std/test-ports", # NOTE(qix-): temporary
+	"examples/no-std/x86_64-tls-base",
 	"examples/std/noop",
 	"examples/std/noop-nightly",
 	"examples/std/spin",

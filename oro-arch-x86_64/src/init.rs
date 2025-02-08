@@ -306,6 +306,10 @@ pub unsafe fn boot() -> ! {
 						(*kernel.handle().tss.get())
 							.rsp0
 							.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+
+						crate::asm::set_fs_msr(ctx_lock.handle().fsbase);
+						crate::asm::set_gs_msr(ctx_lock.handle().gsbase);
+
 						(cr3, rsp, kernel_rsp_ptr, kernel_irq_rsp_ptr)
 					})
 				};
@@ -330,6 +334,10 @@ pub unsafe fn boot() -> ! {
 						(*kernel.handle().tss.get())
 							.rsp0
 							.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+
+						crate::asm::set_fs_msr(ctx_lock.handle().fsbase);
+						crate::asm::set_gs_msr(ctx_lock.handle().gsbase);
+
 						(cr3, rsp, kernel_rsp_ptr, kernel_irq_rsp_ptr)
 					})
 				};

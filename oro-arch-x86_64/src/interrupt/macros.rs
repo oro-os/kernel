@@ -151,7 +151,12 @@ macro_rules! isr {
 					// If this is `None`, then the kernel is currently running.
 					// Otherwise it's a userspace task that we just jumped from.
 					if let Some(user_task) = scheduler_lock.current_thread().as_ref() {
-						user_task.with_mut(|t| t.handle_mut().irq_stack_ptr = irq_stack_ptr as usize);
+						user_task.with_mut(|t| {
+							let handle = t.handle_mut();
+							handle.irq_stack_ptr = irq_stack_ptr as usize;
+							handle.fsbase = $crate::asm::get_fs_msr();
+							handle.gsbase = $crate::asm::get_gs_msr();
+						});
 						drop(scheduler_lock);
 						Some(user_task.clone())
 					} else {
@@ -213,6 +218,10 @@ macro_rules! isr {
 								(*$kernel.handle().tss.get())
 									.rsp0
 									.write($crate::mem::address_space::AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+
+								$crate::asm::set_fs_msr(ctx_lock.handle().fsbase);
+								$crate::asm::set_gs_msr(ctx_lock.handle().gsbase);
+
 								(cr3, rsp)
 							})
 						};
@@ -240,6 +249,10 @@ macro_rules! isr {
 								(*$kernel.handle().tss.get())
 									.rsp0
 									.write($crate::mem::address_space::AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+
+								$crate::asm::set_fs_msr(ctx_lock.handle().fsbase);
+								$crate::asm::set_gs_msr(ctx_lock.handle().gsbase);
+
 								(cr3, rsp)
 							})
 						};

@@ -61,6 +61,9 @@
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/76560
 #![expect(incomplete_features)]
 #![feature(generic_const_exprs)]
+// SAFETY(qix-): Needed to make the system call key checks work inline.
+// SAFETY(qix-): https://github.com/rust-lang/rust/issues/76001
+#![feature(inline_const_pat)]
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 pub mod asm;
@@ -68,6 +71,7 @@ pub mod boot;
 pub mod core_local;
 pub mod cpuid;
 pub mod gdt;
+pub mod iface;
 pub mod instance;
 pub mod interrupt;
 pub mod lapic;
@@ -81,6 +85,8 @@ pub mod tss;
 pub(crate) mod init;
 
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
+use oro_kernel::{iface::kernel::KernelInterface, table::Table};
+use oro_mem::alloc::boxed::Box;
 
 /// The ELF class of the x86_64 architecture.
 pub const ELF_CLASS: ElfClass = ElfClass::Class64;
@@ -102,6 +108,10 @@ impl oro_kernel::arch::Arch for Arch {
 	fn fence() {
 		// NOTE(qix-): This might be too strong for what we need.
 		asm::strong_memory_barrier();
+	}
+
+	fn register_kernel_interfaces(table: &mut Table<Box<dyn KernelInterface<Self>>>) {
+		iface::register_kernel_interfaces(table);
 	}
 }
 

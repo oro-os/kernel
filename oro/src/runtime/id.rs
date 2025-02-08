@@ -22,12 +22,16 @@ pub mod mask {
 
 	/// `(iface & KERNEL_ID_TYPE) == KERNEL_ID_TYPE_META` indicates a module metadata structure.
 	pub const KERNEL_ID_TYPE_META: u64 = 0x0300_0000;
+
+	/// `(iface & KERNEL_ID_TYPE_ARCH_IFACE) == KERNEL_ID_TYPE_ARCH_IFACE` indicates
+	/// an architecture-specific kernel interface.
+	pub const KERNEL_ID_TYPE_ARCH_IFACE: u64 = KERNEL_ID_TYPE_IFACE | 0x0028_0000;
 }
 
 /// Kernel interface IDs.
 #[expect(clippy::unreadable_literal)]
 pub mod iface {
-	use crate::id::mask::KERNEL_ID_TYPE_IFACE;
+	use crate::id::mask::{KERNEL_ID_TYPE_ARCH_IFACE, KERNEL_ID_TYPE_IFACE};
 
 	/// The ID of the kernel threading interface (version 0).
 	pub const KERNEL_THREAD_V0: u64 = KERNEL_ID_TYPE_IFACE | 0x00_0001;
@@ -39,6 +43,9 @@ pub mod iface {
 	pub const KERNEL_MEM_TOKEN_V0: u64 = KERNEL_ID_TYPE_IFACE | 0x00_0004;
 	/// The ID of the kernel page allocation interface (version 0).
 	pub const KERNEL_PAGE_ALLOC_V0: u64 = KERNEL_ID_TYPE_IFACE | 0x00_0005;
+
+	/// (x86_64 only) The ID of the x86_64 TLS base pointer (FS/GS) interface (version 0).
+	pub const KERNEL_X86_64_TLS_BASE_V0: u64 = KERNEL_ID_TYPE_ARCH_IFACE | 0x00_0001;
 
 	/// The ID of the root ring debug output interface (version 0).
 	pub const ROOT_DEBUG_OUT_V0: u64 = 1736981805247;

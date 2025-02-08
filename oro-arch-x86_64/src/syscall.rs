@@ -127,7 +127,12 @@ unsafe extern "C" fn syscall_enter_noncompat_rust() -> ! {
 		unreachable!();
 	};
 
-	current_thread.with_mut(|t| t.handle_mut().irq_stack_ptr = stack_ptr);
+	current_thread.with_mut(|t| {
+		let handle = t.handle_mut();
+		handle.irq_stack_ptr = stack_ptr;
+		handle.fsbase = crate::asm::get_fs_msr();
+		handle.gsbase = crate::asm::get_gs_msr();
+	});
 
 	let switch = scheduler.event_system_call(&syscall_request);
 
@@ -149,6 +154,10 @@ unsafe extern "C" fn syscall_enter_noncompat_rust() -> ! {
 					(*kernel.handle().tss.get())
 						.rsp0
 						.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+
+					crate::asm::set_fs_msr(ctx_lock.handle().fsbase);
+					crate::asm::set_gs_msr(ctx_lock.handle().gsbase);
+
 					(cr3, rsp)
 				})
 			};
@@ -172,6 +181,10 @@ unsafe extern "C" fn syscall_enter_noncompat_rust() -> ! {
 					(*kernel.handle().tss.get())
 						.rsp0
 						.write(AddressSpaceLayout::interrupt_stack().range().1 as u64 & !0xFFF);
+
+					crate::asm::set_fs_msr(ctx_lock.handle().fsbase);
+					crate::asm::set_gs_msr(ctx_lock.handle().gsbase);
+
 					(cr3, rsp)
 				})
 			};

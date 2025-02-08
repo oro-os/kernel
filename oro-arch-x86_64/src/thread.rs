@@ -34,6 +34,10 @@ pub struct ThreadHandle {
 	pub entry_point:   usize,
 	/// The thread's stack pointer.
 	pub stack_ptr:     usize,
+	/// The thread's fsbase
+	pub fsbase:        u64,
+	/// The thread's fsbase
+	pub gsbase:        u64,
 }
 
 impl ThreadHandle {
@@ -109,6 +113,8 @@ unsafe impl oro_kernel::arch::ThreadHandle<crate::Arch> for ThreadHandle {
 			mapper: ManuallyDrop::new(mapper),
 			entry_point,
 			stack_ptr,
+			fsbase: 0,
+			gsbase: 0,
 		};
 
 		// NOTE(qix-): If it fails, it'll still be dropped.

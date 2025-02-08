@@ -199,6 +199,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "example-x86_64-tls-base"
+version = "0.0.0"
+dependencies = [
+ "oro",
+]
+
+[[package]]
 name = "foldhash"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

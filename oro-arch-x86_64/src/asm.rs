@@ -209,3 +209,29 @@ pub fn rflags() -> u64 {
 	}
 	rflags
 }
+
+/// Sets the FS base pointer MSR to the given `value`.
+#[inline(always)]
+pub fn set_fs_msr(value: u64) {
+	wrmsr(0xC000_0100, value);
+}
+
+/// Sets the GS base pointer MSR to the given `value`.
+#[inline(always)]
+pub fn set_gs_msr(value: u64) {
+	wrmsr(0xC000_0101, value);
+}
+
+/// Gets the FS base pointer MSR.
+#[inline(always)]
+#[must_use]
+pub fn get_fs_msr() -> u64 {
+	rdmsr(0xC000_0100)
+}
+
+/// Gets the GS base pointer MSR.
+#[inline(always)]
+#[must_use]
+pub fn get_gs_msr() -> u64 {
+	rdmsr(0xC000_0101)
+}
