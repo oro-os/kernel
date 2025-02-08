@@ -10,7 +10,7 @@ use crate::{
 	tab::Tab,
 	table::{Table, TypeTable},
 	thread::Thread,
-	token::Token,
+	token::{NormalToken, Token},
 };
 
 /// A singular module instance.
@@ -153,5 +153,78 @@ impl<A: Arch> Instance<A> {
 	#[inline]
 	pub fn data_mut(&mut self) -> &mut TypeTable {
 		&mut self.data
+	}
+
+	/// Allocates a thread stack for the instance.
+	///
+	/// Upon success, returns the virtual address of the stack base.
+	#[inline]
+	pub(crate) fn allocate_stack(&mut self) -> Result<usize, MapError> {
+		self.allocate_stack_with_size(65536)
+	}
+
+	/// Allocates a thread stack with the given size for the instance.
+	///
+	/// The size will be rounded up to the nearest page size, at the discretion
+	/// of the kernel _or_ architecture implementation.
+	///
+	/// Note that `Err(MapError::VirtOutOfRange)` is returned if there is no more
+	/// virtual address space available for the stack, and thus the thread cannot
+	/// be spawned.
+	#[cold]
+	pub(crate) fn allocate_stack_with_size(&mut self, size: usize) -> Result<usize, MapError> {
+		// Create the memory token.
+		let page_count = ((size + 4095) & !4095) >> 12;
+		let token = crate::tab::get()
+			.add(Token::NormalThreadStack(NormalToken::new_4kib(page_count)))
+			.ok_or(MapError::OutOfMemory)?;
+
+		// Find an appropriate stack start address.
+		let (thread_stack_low, thread_stack_high) = AddressSpace::<A>::user_thread_stack().range();
+		let thread_stack_low = (thread_stack_low + 4095) & !4095;
+		let thread_stack_high = thread_stack_high & !4095;
+
+		let mut stack_base = thread_stack_high;
+
+		'base_search: while stack_base > thread_stack_low {
+			// Account for the high guard page.
+			let stack_max = stack_base - 4096;
+			// Allocate the stack + 1 for the lower guard page.
+			let stack_min = stack_max - ((page_count + 1) << 12);
+
+			// Try to see if all pages are available for token mapping.
+			for addr in (stack_min..=stack_max).step_by(4096) {
+				debug_assert!(addr & 4095 == 0);
+
+				if self.token_vmap.contains(addr as u64) {
+					// Stack cannot be allocated here; would conflict.
+					// TODO(qix-): Get the mapping that conflicted and skip that many
+					// TODO(qix-): pages. Right now we do the naive thing and search WAY
+					// TODO(qix-): too many times, but I'm trying to implement this quickly
+					// TODO(qix-): for now.
+					stack_base -= 4096;
+					continue 'base_search;
+				}
+			}
+
+			// Insert it into the token map.
+			debug_assert_ne!(
+				stack_min + 4096,
+				stack_max,
+				"thread would allocate no stack pages (excluding guard pages)"
+			);
+			debug_assert_eq!(((stack_max) - (stack_min + 4096)) >> 12, page_count);
+
+			for (page_idx, addr) in ((stack_min + 4096)..stack_max).step_by(4096).enumerate() {
+				debug_assert!(addr & 4095 == 0);
+
+				self.token_vmap
+					.insert(addr as u64, (token.clone(), page_idx));
+			}
+
+			return Ok(stack_max);
+		}
+
+		Err(MapError::VirtOutOfRange)
 	}
 }

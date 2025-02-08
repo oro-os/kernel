@@ -36,6 +36,8 @@ pub enum Token {
 	// NOTE(qix-): as a sentinel value.
 	/// A [`NormalToken`] memory token. Represents one or more physical pages.
 	Normal(NormalToken) = key!("normal"),
+	/// A [`NormalToken`] memory token, mapped into the thread's stack segment.
+	NormalThreadStack(NormalToken) = key!("stack"),
 	/// A [`PortEndpointToken`] memory token. Represents a port endpoint created
 	/// by [`crate::port::PortState::endpoint()`].
 	PortEndpoint(PortEndpointToken) = key!("port"),

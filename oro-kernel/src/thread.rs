@@ -1,6 +1,6 @@
 //! Thread management types and functions.
 
-// TODO(qix-): As one might expect, thread state managemen here is a bit messy
+// TODO(qix-): As one might expect, thread state management here is a bit messy
 // TODO(qix-): and error-prone. It could use an FSM to help smooth out the transitions,
 // TODO(qix-): and to properly handle thread termination and cleanup. Further,
 // TODO(qix-): the schedulers have a very inefficient way of checking for relevant
@@ -14,9 +14,7 @@ use oro_debug::dbg_warn;
 use oro_macro::AsU64;
 use oro_mem::{
 	alloc::vec::Vec,
-	global_alloc::GlobalPfa,
-	mapper::{AddressSegment, AddressSpace as _, MapError, UnmapError},
-	pfa::Alloc,
+	mapper::{AddressSegment, AddressSpace as _, MapError},
 	phys::PhysAddr,
 };
 
@@ -107,94 +105,26 @@ pub struct Thread<A: Arch> {
 
 impl<A: Arch> Thread<A> {
 	/// Creates a new thread in the given module instance.
-	#[expect(clippy::missing_panics_doc)]
 	pub fn new(
 		instance: &Tab<Instance<A>>,
 		entry_point: usize,
 	) -> Result<Tab<Thread<A>>, MapError> {
-		// Pre-calculate the stack pointer.
-		// TODO(qix-): If/when we support larger page sizes, this will need to be adjusted.
-		let stack_ptr = AddressSpace::<A>::user_thread_stack().range().1 & !0xFFF;
-
 		let mapper = instance
 			.with(|instance| AddressSpace::<A>::duplicate_user_space_shallow(instance.mapper()))
 			.ok_or(MapError::OutOfMemory)?;
 
-		let handle = A::ThreadHandle::new(mapper, stack_ptr, entry_point)?;
-
 		// Allocate a thread stack.
-		// XXX(qix-): This isn't very memory efficient, I just want it to be safe and correct
-		// XXX(qix-): for now. At the moment, we allocate a blank userspace handle in order to
-		// XXX(qix-): map in all of the stack pages, making sure all of the allocations work.
-		// XXX(qix-): If they fail, then we can reclaim the entire address space back into the PFA
-		// XXX(qix-): without having to worry about surgical unmapping of the larger, final
-		// XXX(qix-): address space overlays (e.g. those coming from the ring, instance, module, etc).
-		let thread_mapper =
-			AddressSpace::<A>::new_user_space_empty().ok_or(MapError::OutOfMemory)?;
-
-		let r = {
-			let stack_segment = AddressSpace::<A>::user_thread_stack();
-			let mut stack_ptr = stack_ptr;
-
-			// Make sure the top guard page is unmapped.
-			// This is more of a sanity check.
-			match AddressSpace::<A>::user_thread_stack().unmap(&thread_mapper, stack_ptr) {
-				Ok(phys) => {
-					panic!(
-						"empty user address space stack guard page was mapped to physical address \
-						 {phys:#016X}"
-					)
-				}
-				Err(UnmapError::NotMapped) => (),
-				Err(e) => {
-					panic!(
-						"failed to assert unmap of empty user address space stack guard page: \
-						 {e:?}"
-					)
-				}
+		let stack_ptr = match instance.with_mut(|instance| instance.allocate_stack()) {
+			Ok(s) => s,
+			Err(err) => {
+				AddressSpace::<A>::free_user_space_handle(mapper);
+				return Err(err);
 			}
-
-			// Map in the stack pages.
-			// TODO(qix-): Allow this to be configurable
-			for _ in 0..16 {
-				stack_ptr -= 0x1000;
-				let phys = GlobalPfa.allocate().ok_or(MapError::OutOfMemory)?;
-				stack_segment.map(&thread_mapper, stack_ptr, phys)?;
-			}
-
-			// Make sure the bottom guard page is unmapped.
-			// This is more of a sanity check.
-			stack_ptr -= 0x1000;
-			match AddressSpace::<A>::user_thread_stack().unmap(&thread_mapper, stack_ptr) {
-				Ok(phys) => {
-					panic!(
-						"empty user address space stack guard page was mapped to physical address \
-						 {phys:#016X}"
-					)
-				}
-				Err(UnmapError::NotMapped) => (),
-				Err(e) => {
-					panic!(
-						"failed to assert unmap of empty user address space stack guard page: \
-						 {e:?}"
-					)
-				}
-			}
-
-			Ok(())
 		};
 
-		if let Err(err) = r {
-			AddressSpace::<A>::free_user_space_deep(thread_mapper);
-			return Err(err);
-		}
-
-		// NOTE(qix-): Unwrap should never panic here barring a critical bug in the kernel.
-		AddressSpace::<A>::user_thread_stack()
-			.apply_user_space_shallow(handle.mapper(), &thread_mapper)
-			.unwrap();
-
-		AddressSpace::<A>::free_user_space_handle(thread_mapper);
+		// NOTE(qix-): The thread handle implementation will free the mapper upon
+		// NOTE(qix-): error here, so we don't need to intercept the returned error, if any.
+		let handle = A::ThreadHandle::new(mapper, stack_ptr, entry_point)?;
 
 		// Create the thread.
 		// We do this before we create the tab just in case we're OOM
@@ -531,13 +461,27 @@ impl<A: Arch> Thread<A> {
 						t.page_size() == 4096,
 						"page size != 4096 is not implemented"
 					);
-					let page_base = virt + (page_idx * t.page_size());
 					let segment = AddressSpace::<A>::user_data();
 					let phys = t
 						.get_or_allocate(page_idx)
 						.ok_or(PageFaultError::MapError(MapError::OutOfMemory))?;
 					segment
-						.map(self.handle.mapper(), page_base, phys.address_u64())
+						.map(self.handle.mapper(), virt, phys.address_u64())
+						.map_err(PageFaultError::MapError)?;
+					Ok(())
+				}
+				Token::NormalThreadStack(t) => {
+					debug_assert!(page_idx < t.page_count());
+					debug_assert!(
+						t.page_size() == 4096,
+						"page size != 4096 is not implemented"
+					);
+					let segment = AddressSpace::<A>::user_thread_stack();
+					let phys = t
+						.get_or_allocate(page_idx)
+						.ok_or(PageFaultError::MapError(MapError::OutOfMemory))?;
+					segment
+						.map(self.handle.mapper(), virt, phys.address_u64())
 						.map_err(PageFaultError::MapError)?;
 					Ok(())
 				}
@@ -578,9 +522,9 @@ impl<A: Arch> Thread<A> {
 		token: &Tab<Token>,
 		virt: usize,
 	) -> Result<(), TokenMapError> {
-		token.with(|t| {
-			match t {
-				Token::Normal(t) => {
+		token.with(|tok| {
+			match tok {
+				Token::Normal(t) | Token::NormalThreadStack(t) => {
 					debug_assert!(
 						t.page_size() == 4096,
 						"page size != 4096 is not implemented"
@@ -594,7 +538,14 @@ impl<A: Arch> Thread<A> {
 						return Err(TokenMapError::VirtNotAligned);
 					}
 
-					let segment = AddressSpace::<A>::user_data();
+					// TODO(qix-): This feels messy; we need a better way
+					// TODO(qix-): to handle this.
+					#[expect(clippy::match_wildcard_for_single_variants)]
+					let segment = match tok {
+						Token::Normal(_) => AddressSpace::<A>::user_data(),
+						Token::NormalThreadStack(_) => AddressSpace::<A>::user_thread_stack(),
+						_ => unreachable!(),
+					};
 
 					// Make sure that none of the tokens exist in the vmap.
 					self.instance.with_mut(|instance| {
