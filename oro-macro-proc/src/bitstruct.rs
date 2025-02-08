@@ -865,6 +865,7 @@ pub fn bitstruct(input: proc_macro::TokenStream) -> Result<impl quote::ToTokens>
 
 		#[automatically_derived]
 		impl ::core::default::Default for #name {
+			#[inline]
 			fn default() -> Self {
 				Self::new()
 			}
@@ -877,6 +878,14 @@ pub fn bitstruct(input: proc_macro::TokenStream) -> Result<impl quote::ToTokens>
 			fn try_from(value: #primitive_type) -> Result<Self, Self::Error> {
 				#(#try_from_checks)*
 				Ok(Self(value))
+			}
+		}
+
+		#[automatically_derived]
+		impl ::core::convert::From<#name> for #primitive_type {
+			#[inline]
+			fn from(value: #name) -> Self {
+				value.0
 			}
 		}
 
