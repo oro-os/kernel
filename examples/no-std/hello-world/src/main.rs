@@ -2,7 +2,7 @@
 #![no_main]
 
 use oro::{
-	id::iface::{KERNEL_IFACE_QUERY_TYPE_META_V0, ROOT_DEBUG_OUT_V0},
+	id::iface::{KERNEL_IFACE_QUERY_BY_TYPE_V0, ROOT_DEBUG_OUT_V0},
 	key, syscall_get, syscall_set,
 };
 
@@ -13,8 +13,8 @@ fn write_bytes(bytes: &[u8]) {
 
 	// Get the iface ID for the root ring debug output interface.
 	let Ok(iface) = syscall_get!(
-		KERNEL_IFACE_QUERY_TYPE_META_V0,
-		KERNEL_IFACE_QUERY_TYPE_META_V0,
+		KERNEL_IFACE_QUERY_BY_TYPE_V0,
+		KERNEL_IFACE_QUERY_BY_TYPE_V0,
 		ROOT_DEBUG_OUT_V0,
 		0
 	) else {
