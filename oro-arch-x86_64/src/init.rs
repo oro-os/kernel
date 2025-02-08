@@ -3,7 +3,7 @@
 
 use core::{arch::asm, cell::UnsafeCell, mem::MaybeUninit};
 
-use oro_debug::{dbg, dbg_err};
+use oro_debug::{dbg, dbg_err, dbg_warn};
 use oro_elf::{ElfSegment, ElfSegmentType};
 use oro_kernel::{
 	KernelState, instance::Instance, module::Module, scheduler::Switch, thread::Thread,
@@ -252,6 +252,27 @@ pub unsafe fn boot() -> ! {
 	crate::interrupt::install_idt();
 	crate::syscall::install_syscall_handler();
 	crate::asm::load_tss(crate::gdt::TSS_GDT_OFFSET);
+
+	if crate::cpuid::CpuidA07C0B::get().is_some_and(|c| c.fsgsbase()) {
+		// Allow userspace applications to directly modify FS/GS registers.
+		// Further, we disable (for now) the timestamp instruction outside of
+		// ring 0.
+		// NOTE(qix-): The TSD flag is enabled here tentatively; I need to investigate
+		// NOTE(qix-): a bit more the implications of allowing it from userspace applications.
+		// SAFETY: We're not modifying any critical flags here that would alter the Rust VM's
+		// SAFETY: assumptions about the system state or memory layout.
+		unsafe {
+			crate::reg::Cr4::load()
+				.with_fsgsbase(true)
+				.with_tsd(true /* true = cr0 only */)
+				.store();
+		}
+	} else {
+		dbg_warn!(
+			"CPUID 07:0:EBX.FSGSBASE not supported; not enabling CR4.FSGSBASE (programs may not \
+			 work correctly)"
+		);
+	}
 
 	dbg!("boot");
 

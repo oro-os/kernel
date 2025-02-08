@@ -77,6 +77,7 @@ bitstruct! {
 		/// FSGSBASE enable.
 		///
 		/// If set, enables the use of the RDFSBASE, RDGSBASE, WRFSBASE, and WRGSBASE instructions.
+		// TODO(qix-): Mark this as `unsafe`, which will require a mod in `bitstruct!`.
 		pub fsgsbase[16] => as bool,
 		/// PCID enable.
 		///

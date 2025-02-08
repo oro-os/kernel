@@ -66,6 +66,7 @@
 pub mod asm;
 pub mod boot;
 pub mod core_local;
+pub mod cpuid;
 pub mod gdt;
 pub mod instance;
 pub mod interrupt;
