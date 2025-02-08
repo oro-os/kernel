@@ -35,7 +35,7 @@ pub enum Error {
 	TooManyPages = key!("toomany"),
 }
 
-/// Version 0 of the memory token query interface.
+/// Version 0 of the page allocation interface.
 #[repr(transparent)]
 pub struct PageAllocV0<A: Arch>(pub(crate) PhantomData<A>);
 
