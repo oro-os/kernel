@@ -1,6 +1,11 @@
 //! Defines traits that for items that must be provided by the architecture.
 
-use oro_mem::mapper::{AddressSpace, MapError};
+use oro_mem::{
+	alloc::boxed::Box,
+	mapper::{AddressSpace, MapError},
+};
+
+use crate::{iface::kernel::KernelInterface, table::Table};
 
 /// Implements an architecture for the Oro kernel.
 pub trait Arch: Sized + Send + Sync + 'static {
@@ -15,6 +20,14 @@ pub trait Arch: Sized + Send + Sync + 'static {
 
 	/// Performs a memory fence.
 	fn fence();
+
+	/// Registers any architecture-specific kernel interfaces.
+	///
+	/// These interfaces MUST be unique, and MUST NOT conflict with
+	/// any built-in (cross-architecture) interfaces.
+	fn register_kernel_interfaces(table: &mut Table<Box<dyn KernelInterface<Self>>>) {
+		let _ = table;
+	}
 }
 
 /// An architecture-specific thread handle.

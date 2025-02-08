@@ -296,6 +296,7 @@ impl<A: Arch> KernelState<A> {
 
 		let mut kernel_interfaces = table::Table::new();
 		crate::iface::kernel::register_kernel_interfaces(&mut kernel_interfaces);
+		A::register_kernel_interfaces(&mut kernel_interfaces);
 
 		this.write(Self {
 			thread_tx,
