@@ -64,7 +64,7 @@ consult [SECURITY.md](SECURITY.md) for instructions on how to responsibly disclo
 your findings.
 
 # License
-The Oro Operating System kernel is &copy; 2016-2025 by Joshua Lee Junon,
+The Oro Operating System kernel is &copy; 2016-2025 by Joshua Lee Junon,<br>
 and licensed under the [Mozilla Public License 2.0](LICENSE).
 
 Certain crates within this repository are dual-licensed under the
