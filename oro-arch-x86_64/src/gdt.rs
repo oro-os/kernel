@@ -401,9 +401,11 @@ impl<const COUNT: usize> Gdt<COUNT> {
 			"mov ax, 0x10",
 			"mov ds, ax",
 			"mov es, ax",
+			"mov ss, ax",
+			// Make sure that fs/gs segment registers are NULL descriptors.
+			"mov ax, 0",
 			"mov fs, ax",
 			"mov gs, ax",
-			"mov ss, ax",
 			in(reg) &gdt_descriptor,
 			out("rax") _,
 		};
