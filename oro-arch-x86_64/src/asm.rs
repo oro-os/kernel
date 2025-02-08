@@ -46,17 +46,6 @@ pub fn flush_tlb() {
 	}
 }
 
-/// Returns whether or not 5-level paging is enabled.
-#[inline(always)]
-#[must_use]
-pub fn is_5_level_paging_enabled() -> bool {
-	let cr4: usize;
-	unsafe {
-		asm!("mov {}, cr4", out(reg) cr4, options(nostack, nomem, preserves_flags));
-	}
-	cr4 & (1 << 12) != 0
-}
-
 /// Returns the current value of the `cr3` register
 #[inline(always)]
 #[must_use]
@@ -136,17 +125,6 @@ pub fn inw(port: u16) -> u16 {
 		);
 	}
 	value
-}
-
-/// Reads the current CR4 register value.
-#[inline(always)]
-#[must_use]
-pub fn cr4() -> u64 {
-	let cr4: u64;
-	unsafe {
-		asm!("mov {}, cr4", out(reg) cr4, options(nostack, nomem, preserves_flags));
-	}
-	cr4
 }
 
 /// Halts, indefinitely, the CPU (disabling interrupts).

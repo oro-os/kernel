@@ -27,7 +27,7 @@ impl PagingLevel {
 	#[cold]
 	#[must_use]
 	pub fn current_from_cpu() -> Self {
-		if crate::asm::is_5_level_paging_enabled() {
+		if crate::reg::Cr4::load().la57() {
 			Self::Level5
 		} else {
 			Self::Level4

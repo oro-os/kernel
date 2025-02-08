@@ -1,4 +1,4 @@
-//! Provides abstractions for certain x86_64 registers.
+//! Implements the cr0 register on x86_64.
 
 use core::arch::asm;
 

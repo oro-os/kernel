@@ -27,10 +27,6 @@ use crate::{
 	},
 };
 
-/// The LA57 bit in the CR4 register.
-// TODO(qix-): Pull this out into a register abstraction.
-const CR4_LA57: u32 = 1 << 12;
-
 /// Indicates that the primary has finished initializing the core state
 /// and that the secondaries are now free to boot.
 ///
@@ -259,7 +255,7 @@ pub unsafe fn boot_secondary(
 
 	// Write the actual CR4 value so that the long mode stub can install it.
 	debug_assert_eq!(meta_ptr, 0x8FD0);
-	let cr4_value = crate::asm::cr4();
+	let cr4_value: u64 = crate::reg::Cr4::load().into();
 	Phys::from_address_unchecked(meta_ptr)
 		.as_mut_ptr_unchecked::<u64>()
 		.write_volatile(cr4_value);
@@ -287,13 +283,13 @@ pub unsafe fn boot_secondary(
 		.write_bytes(0, NULLIDT_SIZE as usize);
 	meta_ptr += NULLIDT_SIZE;
 
-	// Extract out the interesting bits of CR4 for the secondary core.
-	// We only support extracting the LA57 bit for now.
+	// Extract out the interesting bits of CR4 for the secondary core,
+	// without enabling anything that might screw up 16-bit initialization.
 	debug_assert_eq!(meta_ptr, 0x8FF0);
-	let cr4_bits = (crate::asm::cr4() as u32) & CR4_LA57;
+	let cr4_bits: u64 = crate::reg::Cr4::load().with_pge(false).into();
 	Phys::from_address_unchecked(meta_ptr)
 		.as_mut_ptr_unchecked::<u32>()
-		.write_volatile(cr4_bits);
+		.write_volatile(cr4_bits as u32); // TODO(qix-): Not sure why I assumed a u32 here, cr4 is 64-bits.
 	meta_ptr += CR4BITS_SIZE;
 
 	// Write the GDT pointer into the last 6 bytes of the page.
