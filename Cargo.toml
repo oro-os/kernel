@@ -56,7 +56,7 @@ oro-type.path = "oro-type"
 oro-dtb.path = "oro-dtb"
 oro-dbgutil.path = "oro-dbgutil"
 oro-sync.path = "oro-sync"
-oro = { path = "oro", default-features = false, features = ["runtime"] }
+oro.path = "oro"
 
 limine = "0.3.1"
 uart_16550 = "0.3.0"

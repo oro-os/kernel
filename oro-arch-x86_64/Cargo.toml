@@ -43,7 +43,7 @@ oro-debug.workspace = true
 oro-dbgutil.workspace = true
 oro-acpi.workspace = true
 oro-sync.workspace = true
-oro = { workspace = true, default-features = false, features = ["runtime"] }
+oro.workspace = true
 
 # Work around non-composability of `test` profile and global allocator conflicts in unit test runner.
 [dev-dependencies]

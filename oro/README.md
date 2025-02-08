@@ -1,8 +1,7 @@
 # Oro Module High Level API and Build Tooling
 
 This crate houses a high-level API for executables targeting the Oro Operating System
-(called "Modules") to interact with the system, as well as build tooling to simplify
-the process of creating and building Oro Modules.
+(called "Modules") to interact with the kernel.
 
 ## Usage
 For updated usage information, please refer to the [crate documentation](https://docs.rs/oro).

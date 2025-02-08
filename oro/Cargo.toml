@@ -20,11 +20,6 @@ workspace = true
 [features]
 default = []
 nightly = []
-runtime = []
-module = ["runtime"]
-build = []
-panic_handler = []
-panic_debug_out_v0 = ["panic_handler"]
 rustc-dep-of-std = [
 	"core",
 	"compiler_builtins",
