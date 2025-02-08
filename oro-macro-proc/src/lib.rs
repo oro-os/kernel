@@ -4,10 +4,13 @@
 #![deny(missing_docs, clippy::missing_docs_in_private_items)]
 // TODO(qix-): Remove this when <https://github.com/rust-lang/rust-clippy/issues/12425> is fixed
 #![expect(clippy::tabs_in_doc_comments)]
-#![feature(let_chains, proc_macro_span)]
+#![feature(let_chains, proc_macro_span, proc_macro_diagnostic)]
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
+use quote::ToTokens;
+
 mod asm_buffer;
+mod bitstruct;
 mod enum_as;
 mod enum_iterator;
 mod gdb_autoload;
@@ -152,4 +155,14 @@ pub fn gdb_autoload_inline(input: proc_macro::TokenStream) -> proc_macro::TokenS
 #[proc_macro]
 pub fn asm_buffer_unchecked(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	self::asm_buffer::asm_buffer(input)
+}
+
+/// Defines a bit structure wrapper type around a primitive integer type,
+/// along with a set of field accessors, associated constants, and other utility functionality
+#[proc_macro]
+pub fn bitstruct(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+	match self::bitstruct::bitstruct(input) {
+		Ok(ts) => ts.to_token_stream().into(),
+		Err(e) => e.to_compile_error().to_token_stream().into(),
+	}
 }
