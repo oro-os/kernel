@@ -89,6 +89,8 @@ pub enum Opcode {
 /// Returns a tuple of the error code and the value.
 ///
 /// # Safety
+/// Syscalls are inherently unsafe.
+///
 /// The interpretation of the result value (second tuple value) is dependent upon
 /// the `Error` code returned. If the error code is [`Error::Ok`], the value returned
 /// is the returned value from the registry.
@@ -110,6 +112,8 @@ pub unsafe fn get_raw(interface_id: u64, index: u64, key: u64) -> (Error, u64) {
 /// The new version is only valid if the error code is [`Error::Ok`].
 ///
 /// # Safety
+/// Syscalls are inherently unsafe.
+///
 /// The interpretation of the result value (second tuple value) is dependent upon
 /// the `Error` code returned. If the error code is [`Error::Ok`], the value returned
 /// is `0`.
@@ -126,9 +130,12 @@ pub unsafe fn set_raw(interface_id: u64, index: u64, key: u64, value: u64) -> (E
 /// Gets a registry value by key.
 ///
 /// Returns the value.
+///
+/// # Safety
+/// Syscalls are inherently unsafe.
 #[inline(always)]
-pub fn get(interface_id: u64, index: u64, key: u64) -> Result<u64> {
-	let (err, value) = unsafe { get_raw(interface_id, index, key) };
+pub unsafe fn get(interface_id: u64, index: u64, key: u64) -> Result<u64> {
+	let (err, value) = get_raw(interface_id, index, key);
 	if err == Error::Ok {
 		Ok(value)
 	} else {
@@ -137,9 +144,12 @@ pub fn get(interface_id: u64, index: u64, key: u64) -> Result<u64> {
 }
 
 /// Sets a registry value by key.
+///
+/// # Safety
+/// Syscalls are inherently unsafe.
 #[inline(always)]
-pub fn set(interface_id: u64, index: u64, key: u64, value: u64) -> Result<()> {
-	let (err, value) = unsafe { set_raw(interface_id, index, key, value) };
+pub unsafe fn set(interface_id: u64, index: u64, key: u64, value: u64) -> Result<()> {
+	let (err, value) = set_raw(interface_id, index, key, value);
 	if err == Error::Ok {
 		Ok(())
 	} else {

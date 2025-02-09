@@ -44,13 +44,16 @@ impl<const TYPE_ID: u64> LazyIfaceId<TYPE_ID> {
 	pub fn get(&self) -> Option<u64> {
 		let id = self.0.load(Relaxed);
 		if id == 0 {
-			let iface = crate::syscall_get!(
-				crate::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0,
-				crate::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0,
-				TYPE_ID,
-				0
-			)
-			.ok()?;
+			// SAFETY: Getting the type ID is safe.
+			let iface = unsafe {
+				crate::syscall_get!(
+					crate::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0,
+					crate::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0,
+					TYPE_ID,
+					0
+				)
+				.ok()?
+			};
 
 			if let Err(other_id) = self.0.compare_exchange(0, iface, Relaxed, Relaxed) {
 				// Another thread resolved the ID first; use that.
@@ -81,12 +84,15 @@ pub mod root_ring {
 		pub fn id() -> Option<u64> {
 			let id = DEBUG_OUT_V0_ID.load(Relaxed);
 			if id == 0 {
-				let Ok(iface) = crate::syscall_get!(
-					crate::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0,
-					crate::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0,
-					crate::id::iface::ROOT_DEBUG_OUT_V0,
-					0
-				) else {
+				// SAFETY: Getting the interface instance is safe.
+				let Ok(iface) = (unsafe {
+					crate::syscall_get!(
+						crate::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0,
+						crate::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0,
+						crate::id::iface::ROOT_DEBUG_OUT_V0,
+						0
+					)
+				}) else {
 					DEBUG_OUT_V0_ID.store(!0, Relaxed);
 					return None;
 				};
@@ -134,14 +140,17 @@ pub mod root_ring {
 					word = (word << 8) | u64::from(*b);
 				}
 
-				crate::syscall_set!(
-					crate::id::iface::ROOT_DEBUG_OUT_V0,
-					iface,
-					0,
-					crate::key!("write"),
-					word
-				)
-				.unwrap();
+				// SAFETY: This doesen't modify any application state, and is safe.
+				unsafe {
+					crate::syscall_set!(
+						crate::id::iface::ROOT_DEBUG_OUT_V0,
+						iface,
+						0,
+						crate::key!("write"),
+						word
+					)
+					.unwrap();
+				}
 			}
 		}
 
