@@ -18,6 +18,7 @@ pub mod alloc;
 pub mod id;
 pub mod macros;
 pub mod syscall;
+pub mod tls;
 
 use core::sync::atomic::{AtomicU64, Ordering::Relaxed};
 
