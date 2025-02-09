@@ -19,6 +19,9 @@ pub struct Mutex<T: ?Sized> {
 	data:   UnsafeCell<T>,
 }
 
+unsafe impl<T: ?Sized + Send> Send for Mutex<T> {}
+unsafe impl<T: ?Sized + Send> Sync for Mutex<T> {}
+
 impl<T> Mutex<T> {
 	/// Creates a new `Mutex` instance.
 	#[must_use]
