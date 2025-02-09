@@ -45,9 +45,9 @@ impl<A: Arch> KernelInterface<A> for PageAllocV0<A> {
 			return InterfaceResponse::immediate(SysError::InterfaceError, Error::ZeroSize as u64);
 		}
 
-		match index {
+		match key {
 			key!("4kib") => {
-				usize::try_from(key).map_or(
+				usize::try_from(index).map_or(
 					InterfaceResponse::immediate(
 						SysError::InterfaceError,
 						Error::TooManyPages as u64,
@@ -69,7 +69,7 @@ impl<A: Arch> KernelInterface<A> for PageAllocV0<A> {
 					},
 				)
 			}
-			_ => InterfaceResponse::immediate(SysError::BadIndex, 0),
+			_ => InterfaceResponse::immediate(SysError::BadKey, 0),
 		}
 	}
 
