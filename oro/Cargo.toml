@@ -18,8 +18,7 @@ doctest = false
 workspace = true
 
 [features]
-default = ["alloc"]
-alloc = []
+default = []
 nightly = []
 rustc-dep-of-std = [
 	"core",
