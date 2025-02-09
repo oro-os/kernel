@@ -297,7 +297,7 @@ macro_rules! oro_boot_protocol {
 			/// tuple.
 			#[cfg(feature = "utils")]
 			#[must_use]
-			pub unsafe fn request_from_tag(tag: &mut crate::Tag) -> Option<(&mut RequestHeader, Request)> {
+			pub unsafe fn request_from_tag(tag: &mut crate::Tag) -> Option<(&mut RequestHeader, Request<'_>)> {
 				if ::core::ptr::from_mut(tag).align_offset(::core::mem::align_of::<RequestHeader>()) != 0 {
 					return None;
 				}

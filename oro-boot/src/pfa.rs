@@ -228,7 +228,7 @@ impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> UnsafePrebootPfa<
 	/// This method is unsafe because it allows for mutable access to the
 	/// inner PFA, which could lead to undefined behavior if used incorrectly.
 	#[must_use]
-	pub unsafe fn get_mut(&self) -> RefMut<PrebootPfa<M, I>> {
+	pub unsafe fn get_mut(&self) -> RefMut<'_, PrebootPfa<M, I>> {
 		self.inner.borrow_mut()
 	}
 

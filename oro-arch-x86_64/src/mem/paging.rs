@@ -385,7 +385,7 @@ impl PageTableEntry {
 	/// Gets a manipulator for the "available" fields of the page table entry.
 	#[inline]
 	#[must_use]
-	pub fn available(&mut self) -> AvailableFields {
+	pub fn available(&mut self) -> AvailableFields<'_> {
 		AvailableFields(&mut self.0)
 	}
 

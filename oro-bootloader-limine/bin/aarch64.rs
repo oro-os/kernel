@@ -6,7 +6,7 @@
 /// Panic handler for the kernel.
 #[inline(never)]
 #[panic_handler]
-unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
+unsafe fn panic(info: &::core::panic::PanicInfo<'_>) -> ! {
 	::oro_bootloader_limine::panic(info)
 }
 

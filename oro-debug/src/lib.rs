@@ -54,7 +54,7 @@ pub fn log_debug_bytes(line: &[u8]) {
 ///
 /// Shouldn't be used directly; use the `dbg!` macros instead.
 #[allow(unused_variables)]
-pub fn log(message: core::fmt::Arguments) {
+pub fn log(message: core::fmt::Arguments<'_>) {
 	#[cfg(feature = "kernel-debug")]
 	{
 		#[cfg(all(target_arch = "aarch64", feature = "pl011"))]

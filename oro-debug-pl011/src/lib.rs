@@ -39,7 +39,7 @@ pub fn init(offset: usize) {
 
 /// Logs a message to the PL011.
 #[expect(clippy::missing_panics_doc)]
-pub fn log(message: fmt::Arguments) {
+pub fn log(message: fmt::Arguments<'_>) {
 	if let Some(serial) = SERIAL.lock().as_mut() {
 		writeln!(serial, "{message}")
 	} else {

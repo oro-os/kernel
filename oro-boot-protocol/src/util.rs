@@ -138,7 +138,7 @@ impl RequestScanner {
 	/// be used. It is only safe to use the `Request` element of the returned
 	/// tuple.
 	#[must_use]
-	pub unsafe fn iter_mut(&self) -> RequestScannerIter {
+	pub unsafe fn iter_mut(&self) -> RequestScannerIter<'_> {
 		// A little bit of a hack to get around the division ban.
 		let shift = (::core::mem::size_of::<Tag>() - 1).count_ones();
 		// SAFETY(qix-): Len will never have the high bit set.

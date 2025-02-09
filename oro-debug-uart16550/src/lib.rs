@@ -17,7 +17,7 @@ pub fn init() {
 }
 
 /// Logs a message to the UART.
-pub fn log(message: fmt::Arguments) {
+pub fn log(message: fmt::Arguments<'_>) {
 	writeln!(SERIAL.lock(), "{message}").unwrap();
 }
 

@@ -6,7 +6,7 @@
 #[inline(never)]
 #[cold]
 #[panic_handler]
-unsafe fn panic(info: &::core::panic::PanicInfo) -> ! {
+unsafe fn panic(info: &::core::panic::PanicInfo<'_>) -> ! {
 	oro_debug::dbg_err!("panic: {info:?}");
 	oro_arch_aarch64::asm::halt();
 }

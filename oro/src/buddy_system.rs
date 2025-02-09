@@ -229,7 +229,7 @@ mod linked_list {
 
 		/// Return an iterator over the items in the list
 		#[expect(dead_code)] // TODO(qix-): May be useful; will keep for now.
-		pub fn iter(&self) -> Iter {
+		pub fn iter(&self) -> Iter<'_> {
 			Iter {
 				curr: self.head,
 				list: PhantomData,
@@ -237,7 +237,7 @@ mod linked_list {
 		}
 
 		/// Return an mutable iterator over the items in the list
-		pub fn iter_mut(&mut self) -> IterMut {
+		pub fn iter_mut(&mut self) -> IterMut<'_> {
 			IterMut {
 				prev: (&raw mut self.head).cast::<usize>(),
 				curr: self.head,

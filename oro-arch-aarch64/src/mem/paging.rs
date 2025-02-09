@@ -349,8 +349,14 @@ impl PageTableEntry {
 	/// is correctly specified. **Do not assume this value.**
 	#[inline]
 	#[must_use]
-	pub unsafe fn entry_type(&self, level: u8) -> PageTableEntryType {
-		impl_page_table_entry_type!(level, self, from_ref, as_ref_unchecked, PageTableEntryType)
+	pub unsafe fn entry_type(&self, level: u8) -> PageTableEntryType<'_> {
+		impl_page_table_entry_type!(
+			level,
+			self,
+			from_ref,
+			as_ref_unchecked,
+			PageTableEntryType<'_>
+		)
 	}
 
 	/// Returns the type of the page table entry based
@@ -362,13 +368,13 @@ impl PageTableEntry {
 	/// is correctly specified. **Do not assume this value.**
 	#[inline]
 	#[must_use]
-	pub unsafe fn entry_type_mut(&mut self, level: u8) -> PageTableEntryTypeMut {
+	pub unsafe fn entry_type_mut(&mut self, level: u8) -> PageTableEntryTypeMut<'_> {
 		impl_page_table_entry_type!(
 			level,
 			self,
 			from_mut,
 			as_mut_unchecked,
-			PageTableEntryTypeMut
+			PageTableEntryTypeMut<'_>
 		)
 	}
 }

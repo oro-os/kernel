@@ -1053,7 +1053,7 @@ impl Slot {
 
 	/// Attempts to return a reader guard for the slot.
 	#[inline]
-	fn try_read(&self) -> Option<SlotReaderGuard> {
+	fn try_read(&self) -> Option<SlotReaderGuard<'_>> {
 		let loaded = self.lock.load(Acquire);
 
 		let is_reader = loaded & (1 << 63) == 0;
@@ -1086,7 +1086,7 @@ impl Slot {
 	/// Returns a reader guard for the slot, blocking until
 	/// one is available.
 	#[inline]
-	fn read(&self) -> SlotReaderGuard {
+	fn read(&self) -> SlotReaderGuard<'_> {
 		loop {
 			if let Some(guard) = self.try_read() {
 				return guard;
@@ -1096,7 +1096,7 @@ impl Slot {
 
 	/// Attempts to return a writer guard for the slot.
 	#[inline]
-	fn try_write(&self) -> Option<SlotWriterGuard> {
+	fn try_write(&self) -> Option<SlotWriterGuard<'_>> {
 		let loaded = self.lock.load(Acquire);
 		let is_reader = loaded & (1 << 63) == 0;
 		// 31 is intentional; we have 1 high bit to indicate writer status,
@@ -1142,7 +1142,7 @@ impl Slot {
 	/// Returns a writer guard for the slot, blocking until
 	/// one is available.
 	#[inline]
-	fn write(&self) -> SlotWriterGuard {
+	fn write(&self) -> SlotWriterGuard<'_> {
 		loop {
 			if let Some(guard) = self.try_write() {
 				return guard;

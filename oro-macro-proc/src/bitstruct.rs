@@ -31,7 +31,7 @@ struct Bitstruct {
 }
 
 impl Parse for Bitstruct {
-	fn parse(input: ParseStream) -> Result<Self> {
+	fn parse(input: ParseStream<'_>) -> Result<Self> {
 		let mut content;
 		Ok(Self {
 			attributes: input.call(Attribute::parse_outer)?,
@@ -46,7 +46,7 @@ impl Parse for Bitstruct {
 	}
 }
 
-fn parse_optionally_separated<P: Parse, S: Parse>(input: ParseStream) -> Result<Vec<P>> {
+fn parse_optionally_separated<P: Parse, S: Parse>(input: ParseStream<'_>) -> Result<Vec<P>> {
 	let mut items = Vec::new();
 	while !input.is_empty() {
 		while input.parse::<S>().is_ok() {}
@@ -71,7 +71,7 @@ struct BitstructDef {
 }
 
 impl Parse for BitstructDef {
-	fn parse(input: ParseStream) -> Result<Self> {
+	fn parse(input: ParseStream<'_>) -> Result<Self> {
 		let bit_range;
 		Ok(Self {
 			attributes:   input.call(Attribute::parse_outer)?,
@@ -94,7 +94,7 @@ enum FieldBody {
 }
 
 impl Parse for FieldBody {
-	fn parse(input: ParseStream) -> Result<Self> {
+	fn parse(input: ParseStream<'_>) -> Result<Self> {
 		let lookahead = input.lookahead1();
 		if lookahead.peek(LitInt) {
 			Ok(Self::Const(input.parse()?))
@@ -118,7 +118,7 @@ enum ExtType {
 }
 
 impl Parse for ExtType {
-	fn parse(input: ParseStream) -> Result<Self> {
+	fn parse(input: ParseStream<'_>) -> Result<Self> {
 		let lookahead = input.lookahead1();
 		if lookahead.peek(kw::From) || lookahead.peek(Token![const]) {
 			Ok(Self::From(input.parse()?))
@@ -138,7 +138,7 @@ struct AsConversion {
 }
 
 impl Parse for AsConversion {
-	fn parse(input: ParseStream) -> Result<Self> {
+	fn parse(input: ParseStream<'_>) -> Result<Self> {
 		Ok(Self {
 			_as:     input.parse()?,
 			_unsafe: input.parse()?,
@@ -157,7 +157,7 @@ struct FromConversion {
 }
 
 impl Parse for FromConversion {
-	fn parse(input: ParseStream) -> Result<Self> {
+	fn parse(input: ParseStream<'_>) -> Result<Self> {
 		Ok(Self {
 			_const:  input.parse()?,
 			_from:   input.parse()?,
@@ -179,7 +179,7 @@ struct EnumField {
 }
 
 impl Parse for EnumField {
-	fn parse(input: ParseStream) -> Result<Self> {
+	fn parse(input: ParseStream<'_>) -> Result<Self> {
 		let type_content;
 		let variant_content;
 		Ok(Self {
@@ -218,7 +218,7 @@ impl FieldName {
 }
 
 impl std::fmt::Display for FieldName {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			Self::Ignored(_) => "_".fmt(f),
 			Self::Ident(ident) => ident.fmt(f),
@@ -227,7 +227,7 @@ impl std::fmt::Display for FieldName {
 }
 
 impl Parse for FieldName {
-	fn parse(input: ParseStream) -> Result<Self> {
+	fn parse(input: ParseStream<'_>) -> Result<Self> {
 		input
 			.parse::<Token![_]>()
 			.map(|t| Self::Ignored(t.span().unwrap()))
@@ -271,7 +271,7 @@ impl BitRange {
 }
 
 impl Parse for BitRange {
-	fn parse(input: ParseStream) -> Result<Self> {
+	fn parse(input: ParseStream<'_>) -> Result<Self> {
 		let high = input.parse::<LitInt>()?.base10_parse::<u8>()?;
 		let colon = input.parse::<Option<Token![:]>>()?;
 		let low = if colon.is_some() {
