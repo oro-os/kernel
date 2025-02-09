@@ -11,7 +11,11 @@
 #![cfg_attr(feature = "nightly", feature(ascii_char))]
 
 pub(crate) mod arch;
+pub(crate) mod buddy_system;
+pub(crate) mod lock;
 
+#[cfg(feature = "alloc")]
+pub mod alloc;
 pub mod id;
 pub mod macros;
 pub mod syscall;

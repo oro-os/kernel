@@ -5,6 +5,32 @@ use core::{arch::asm, mem::transmute};
 
 use crate::syscall;
 
+/// The top address (exclusive; one byte higher past the end)
+/// of the heap. The heap's pages grow downwards from this address.
+pub fn heap_top() -> u64 {
+	// Check the LA57 bit to determine if we are using 57-bit
+	// linear addressing.
+	let la57: u64;
+	// SAFFETY: We're not doing anything unsafe here.
+	unsafe {
+		asm!(
+			"mov {0}, cr4",
+			"and {0}, 1 << 12",
+			out(reg) la57,
+		);
+	}
+
+	let la57 = la57 != 0;
+
+	// TODO(qix-): This is a temporary solution, and will definitely change.
+	// TODO(qix-): See <https://github.com/oro-os/kernel/issues/49>.
+	if la57 {
+		230 << (12 + 9 * 4)
+	} else {
+		230 << (12 + 9 * 3)
+	}
+}
+
 /// Lowest level system call for x86_64.
 ///
 /// # Safety

@@ -99,19 +99,7 @@ pub enum Opcode {
 #[inline(always)]
 #[must_use]
 pub unsafe fn get_raw(interface_id: u64, index: u64, key: u64) -> (Error, u64) {
-	#[cfg(target_arch = "x86_64")]
-	{
-		crate::arch::x86_64::syscall(Opcode::Get, interface_id, index, key, 0)
-	}
-
-	#[cfg(not(target_arch = "x86_64"))]
-	{
-		// NOTE(qix-): Avoids unused variable warnings.
-		let _ = interface_id;
-		let _ = index;
-		let _ = key;
-		(Error::NotImplemented, 0)
-	}
+	crate::arch::syscall(Opcode::Get, interface_id, index, key, 0)
 }
 
 /// Performs a branchless system call to set a registry value by key.
@@ -132,20 +120,7 @@ pub unsafe fn get_raw(interface_id: u64, index: u64, key: u64) -> (Error, u64) {
 #[inline(always)]
 #[must_use]
 pub unsafe fn set_raw(interface_id: u64, index: u64, key: u64, value: u64) -> (Error, u64) {
-	#[cfg(target_arch = "x86_64")]
-	{
-		crate::arch::x86_64::syscall(Opcode::Set, interface_id, index, key, value)
-	}
-
-	#[cfg(not(target_arch = "x86_64"))]
-	{
-		// NOTE(qix-): Avoids unused variable warnings.
-		let _ = interface_id;
-		let _ = index;
-		let _ = key;
-		let _ = value;
-		(Error::NotImplemented, 0)
-	}
+	crate::arch::syscall(Opcode::Set, interface_id, index, key, value)
 }
 
 /// Gets a registry value by key.

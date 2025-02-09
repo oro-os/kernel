@@ -5,4 +5,5 @@ doc-valid-idents = [
 	"snake_case", "TitleCase",
 	"CONST_CASE",
 	"DeviceTree", "DTSpec",
+	"CS140e",
 ]
