@@ -12,8 +12,6 @@ use crate::{
 	thread::{ChangeStateError, RunState, Thread},
 };
 
-include!("macro/resolve_target.rs");
-
 /// Error codes specific to the thread control interface.
 #[derive(Debug, Clone, Copy)]
 #[repr(u64)]
@@ -32,7 +30,7 @@ pub struct ThreadV0<A: Arch>(pub(crate) PhantomData<A>);
 
 impl<A: Arch> KernelInterface<A> for ThreadV0<A> {
 	fn get(&self, thread: &Tab<Thread<A>>, index: u64, key: u64) -> InterfaceResponse {
-		let target = resolve_target!(thread, index);
+		let target = crate::iface_resolve_thread_target!(A, thread, index);
 
 		match key {
 			key!("id") => InterfaceResponse::ok(target.id()),
@@ -42,7 +40,7 @@ impl<A: Arch> KernelInterface<A> for ThreadV0<A> {
 	}
 
 	fn set(&self, thread: &Tab<Thread<A>>, index: u64, key: u64, value: u64) -> InterfaceResponse {
-		let target = resolve_target!(thread, index);
+		let target = crate::iface_resolve_thread_target!(A, thread, index);
 
 		match key {
 			key!("id") => InterfaceResponse::immediate(SysError::ReadOnly, 0),
