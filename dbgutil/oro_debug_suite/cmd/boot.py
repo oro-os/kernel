@@ -248,7 +248,7 @@ class BootCmdLimine(gdb.Command):
 
             trace_args.append("-plugin")
 
-            trace_path = path.join(repo_path, "target/release/libktrace.so")
+            trace_path = path.join(repo_path, "target/release/libktrace_plugin.so")
             if type(trace) is str:
                 trace_path += f",sock={trace}"
 
