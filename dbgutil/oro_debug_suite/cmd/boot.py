@@ -44,24 +44,27 @@ class BootCmdLimine(gdb.Command):
         oro boot limine [-sbCK] [-n <num_cores>]
 
     Options:
-        -S, --no-switch          Don't switch to the Limine executable before booting.
-                                 Specifying this will break many of the trackers.
-                                 Probably not a good idea to use it.
-        -n, --num_cores          Specify the number of CPU cores to emulate (default: 1).
-        -C, --no-continue        Do not automatically continue execution after booting.
-        -K, --no-autokernel      Do not automatically load the kernel image during transfer.
-                                 (Only useful with --switch)
-        -b, --break              Break at the start of the bootloader or kernel image after transfer
-                                 (whatever comes first).
-        -M, --no-env-modules     Don't load a module list from the `ORO_ROOT_MODULES` environment variable.
-        -m, --module [id=]<path> Include a module from `<path>` to be loaded onto the root ring.
-                                 Can be specified multiple times. In addition to this option, a
-                                 semi-colon separated list of modules can be specified in the
-                                 `ORO_ROOT_MODULES` environment variable.
-        -r, --release            Use the release kernel/bootloader instead of the debug version.
-                                 Note that the release versions must be built and up to date.
-        -R, --relwithdebinfo     Use the RelWithDebInfo kernel/bootloader instead of the debug version.
-                                 (implies --release)
+        -S, --no-switch               Don't switch to the Limine executable before booting.
+                                      Specifying this will break many of the trackers.
+                                      Probably not a good idea to use it.
+        -n, --num_cores               Specify the number of CPU cores to emulate (default: 1).
+        -C, --no-continue             Do not automatically continue execution after booting.
+        -K, --no-autokernel           Do not automatically load the kernel image during transfer.
+                                      (Only useful with --switch)
+        -b, --break                   Break at the start of the bootloader or kernel image after transfer
+                                      (whatever comes first).
+        -M, --no-env-modules          Don't load a module list from the `ORO_ROOT_MODULES` environment variable.
+        -m, --module [id=]<path>      Include a module from `<path>` to be loaded onto the root ring.
+                                      Can be specified multiple times. In addition to this option, a
+                                      semi-colon separated list of modules can be specified in the
+                                      `ORO_ROOT_MODULES` environment variable.
+        -r, --release                 Use the release kernel/bootloader instead of the debug version.
+                                      Note that the release versions must be built and up to date.
+        -R, --relwithdebinfo          Use the RelWithDebInfo kernel/bootloader instead of the debug version.
+                                      (implies --release)
+        -t, --trace [/path/to/sock]   Enable tracing of the kernel with the given socket path.
+                                      Must have `ORO_KTRACE` set to the root of the `oro-os/ktrace`
+                                      repository, built in release mode.
 
     Module Specification:
         Modules are specified as paths to files on the host filesystem. They are
@@ -100,6 +103,7 @@ class BootCmdLimine(gdb.Command):
         break_at_start = False
         release = False
         withdebinfo = False
+        trace = None
 
         argi = 0
         while argi < len(args):
@@ -145,6 +149,11 @@ class BootCmdLimine(gdb.Command):
             elif arg in ["--relwithdebinfo", "-R"]:
                 release = True
                 withdebinfo = True
+            elif arg in ["--trace", "-t"]:
+                if argi + 1 >= len(args) or args[argi + 1].startswith("-"):
+                    trace = True
+                else:
+                    trace = args[argi + 1]
             elif arg == "--":
                 rest_args = args[argi + 1 :]
                 break
@@ -230,6 +239,21 @@ class BootCmdLimine(gdb.Command):
             )
             return
 
+        trace_args = []
+        if trace is not None:
+            repo_path = os.getenv("ORO_KTRACE")
+            if not repo_path:
+                error("ORO_KTRACE environment variable not set; cannot enable tracing")
+                return
+
+            trace_args.append("-plugin")
+
+            trace_path = path.join(repo_path, "target/release/libktrace.so")
+            if type(trace) is str:
+                trace_path += f",sock={trace}"
+
+            trace_args.append(trace_path)
+
         # Set up the architecture-specific QEMU arguments
         if kernel_arch == "x86_64":
             qemu_args = [
@@ -243,6 +267,7 @@ class BootCmdLimine(gdb.Command):
                 f"cores={num_cores}",
                 "-m",
                 "1G",
+                *trace_args,
                 *rest_args,
             ]
         elif kernel_arch == "aarch64":
@@ -288,6 +313,7 @@ class BootCmdLimine(gdb.Command):
 
             qemu_args.append("-cdrom")
             qemu_args.append(iso_path)
+            qemu_args.extend(trace_args)
         else:
             error(f"unsupported QEMU architecture: {kernel_arch}")
             return
