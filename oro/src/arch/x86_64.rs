@@ -10,17 +10,11 @@ use crate::syscall;
 pub fn heap_top() -> u64 {
 	// Check the LA57 bit to determine if we are using 57-bit
 	// linear addressing.
-	let la57: u64;
-	// SAFFETY: We're not doing anything unsafe here.
-	unsafe {
-		asm!(
-			"mov {0}, cr4",
-			"and {0}, 1 << 12",
-			out(reg) la57,
-		);
-	}
-
-	let la57 = la57 != 0;
+	// TODO(qix-): This is a temporary solution; I erroneously had
+	// TODO(qix-): a direct `cr4` check in here which, obviously, isn't
+	// TODO(qix-): allowed in user mode. Will need to add a kernel interface
+	// TODO(qix-): for this.
+	let la57 = false;
 
 	// TODO(qix-): This is a temporary solution, and will definitely change.
 	// TODO(qix-): See <https://github.com/oro-os/kernel/issues/49>.

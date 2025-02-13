@@ -1,4 +1,9 @@
 //! Thread local storage facilities.
+//!
+//! # Safety
+//! Using this module is **undefined behavior** if
+//! the Rust standard library is used (except for
+//! [`tls_base`]).
 #![deny(unsafe_op_in_unsafe_fn)]
 
 use core::ptr::NonNull;
@@ -62,11 +67,14 @@ pub enum Error {
 /// Further, `ptr` must be a valid pointer with all
 /// of the alignment and access guarantees that are
 /// specified by the architecture.
+///
+/// **This function is undefined behavior if the
+/// Rust standard library is used.**
 #[cold]
 pub unsafe fn set_tls_base(thread_id: u64, ptr: NonNull<u8>) -> Result<(), Error> {
 	let ptr: u64 = ptr
 		.as_ptr()
-		.addr()
+		.expose_provenance()
 		.try_into()
 		.map_err(|_| Error::PointerTooLarge)?;
 
@@ -141,7 +149,7 @@ pub unsafe fn tls_base(thread_id: u64) -> Result<*const u8, Error> {
 					Ok(if ptr == 0 {
 						core::ptr::null()
 					} else {
-						ptr as *const u8
+						::core::ptr::with_exposed_provenance(ptr as usize)
 					})
 				}
 				Err((err, ext)) => Err(Error::Syscall(err, ext)),
@@ -155,5 +163,47 @@ pub unsafe fn tls_base(thread_id: u64) -> Result<*const u8, Error> {
 	{
 		let _ = thread_id;
 		Err(Error::Unsupported)
+	}
+}
+
+/// Ensures that the thread-local base pointer is set
+/// for the given thread ID, returning a static reference to it.
+///
+/// A thread ID of `0` is the current thread.
+///
+/// # Performance
+/// This function is not optimized for performance, as it incurs
+/// a **potentially racy** set of system calls. Callers should
+/// structure the TLS system such that architecture-specific
+/// mechanisms are used for performance-critical code paths.
+///
+/// See the documentation for [`set_tls_base`] for more information.
+///
+/// # Safety
+/// This function is racey; it must only be called by one thread
+/// at a time for any given thread ID (that includes a thread
+/// calling with `thread_id=0` and another thread calling with
+/// `thread_id=<this_thread>`).
+///
+/// Managing the TLS base manually makes calls to this function
+/// **undefined behavior**. Note that the use of `std` **whatsoever**
+/// means using this function incurs **undefined behavior**.
+pub unsafe fn ensure_tls_base<T: Sized, F>(thread_id: u64, init: F) -> Result<&'static T, Error>
+where
+	F: FnOnce() -> NonNull<T>,
+{
+	// SAFETY: Safety considerations offloaded to the caller.
+	let ptr = unsafe { tls_base(thread_id)? };
+
+	if ptr.is_null() {
+		// SAFETY: Safety considerations offloaded to the caller.
+		unsafe {
+			let ptr = init();
+			set_tls_base(thread_id, ptr.cast())?;
+			Ok(ptr.as_ref())
+		}
+	} else {
+		// SAFETY: Safety considerations offloaded to the caller.
+		Ok(unsafe { &*ptr.cast::<T>() })
 	}
 }
