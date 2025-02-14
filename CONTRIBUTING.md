@@ -205,7 +205,7 @@ support by doing the following:
 		"/usr/bin/env",
 		"bash",
 		"-c",
-		"cargo oro-ra-aarch64 && cargo oro-ra-x86_64"
+		"cargo oro-ra-aarch64; cargo oro-ra-x86_64"
 	]
 }
 ```
