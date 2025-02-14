@@ -263,6 +263,8 @@ class BootCmdLimine(gdb.Command):
                 "stdio",
                 "-no-reboot",
                 "-no-shutdown",
+                "-machine",
+                "q35",
                 "-smp",
                 f"cores={num_cores}",
                 "-m",
