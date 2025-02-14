@@ -74,5 +74,6 @@ pub(crate) fn register_kernel_interfaces<A: Arch>(table: &mut Table<Box<dyn Kern
 		KERNEL_IFACE_QUERY_TYPE_META_V0 => "./iface_query_type_meta_v0.rs" IfaceQueryTypeMetaV0,
 		KERNEL_MEM_TOKEN_V0 => "./mem_token_v0.rs" MemTokenV0,
 		KERNEL_PAGE_ALLOC_V0 => "./page_alloc_v0.rs" PageAllocV0,
+		KERNEL_ADDR_LAYOUT_V0 => "./addr_layout_v0.rs" AddrLayoutV0,
 	}
 }

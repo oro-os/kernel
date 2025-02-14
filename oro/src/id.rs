@@ -43,6 +43,8 @@ pub mod iface {
 	pub const KERNEL_MEM_TOKEN_V0: u64 = KERNEL_ID_TYPE_IFACE | 0x00_0004;
 	/// The ID of the kernel page allocation interface (version 0).
 	pub const KERNEL_PAGE_ALLOC_V0: u64 = KERNEL_ID_TYPE_IFACE | 0x00_0005;
+	/// The ID of the kernel address layout query interface (version 0).
+	pub const KERNEL_ADDR_LAYOUT_V0: u64 = KERNEL_ID_TYPE_IFACE | 0x00_0006;
 
 	/// (x86_64 only) The ID of the x86_64 TLS base pointer (FS/GS) interface (version 0).
 	pub const KERNEL_X86_64_TLS_BASE_V0: u64 = KERNEL_ID_TYPE_ARCH_IFACE | 0x00_0001;

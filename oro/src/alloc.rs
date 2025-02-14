@@ -2,7 +2,7 @@
 
 use core::ptr::NonNull;
 
-use crate::{buddy_system::Heap, lock::Mutex};
+use crate::{buddy_system::Heap, lock::Mutex, syscall_get};
 
 #[doc(hidden)]
 const ORDER: usize = 32;
@@ -59,11 +59,7 @@ unsafe impl core::alloc::GlobalAlloc for HeapAllocator {
 
 			if inner.base == 0 {
 				// First allocation; set the base.
-				inner.base = crate::arch::heap_top();
-				debug_assert!(
-					inner.base % 4096 == 0,
-					"crate::arch::heap_top() returned non-page-aligned address"
-				);
+				inner.base = heap_top();
 			}
 
 			// We've allocated the token; now map it.
@@ -144,4 +140,41 @@ unsafe impl core::alloc::GlobalAlloc for HeapAllocator {
 			self.0.lock().heap.dealloc(ptr, layout);
 		}
 	}
+}
+
+/// The top address (exclusive; one byte higher past the end)
+/// of the heap. The heap's pages grow downwards from this address.
+///
+/// # Performance
+/// This is a "cold" function, and should be used sparingly.
+/// It incurs a syscall and a number of runtime assertions.
+///
+/// # Panics
+/// Panics if the heap top syscall fails, or if the kernel reports
+/// `u64::MAX` as the heap top (it should never do this).
+#[must_use]
+pub fn heap_top() -> u64 {
+	// SAFETY: This is a query; it's always safe.
+	let high_byte = unsafe {
+		syscall_get!(
+			crate::id::iface::KERNEL_ADDR_LAYOUT_V0,
+			crate::id::iface::KERNEL_ADDR_LAYOUT_V0,
+			crate::key!("module"),
+			crate::key!("end"),
+		)
+		.expect("failed to get heap top")
+	};
+
+	let high_byte = high_byte.wrapping_add(1);
+	assert_ne!(
+		high_byte, 0,
+		"heap top is at highest address; allocator will not work"
+	);
+
+	assert!(
+		high_byte % 4096 == 0,
+		"heap top is non-page-aligned address"
+	);
+
+	high_byte
 }
