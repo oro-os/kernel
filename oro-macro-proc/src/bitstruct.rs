@@ -801,6 +801,19 @@ pub fn bitstruct(input: proc_macro::TokenStream) -> Result<impl quote::ToTokens>
 				// duplicate discriminants in an enum.
 				let is_exhaustive = enum_field.variants.len() == (1 << def.bit_range.count());
 
+				// TODO(qix-): We're currently transmuting in the getter which is actually unsafe
+				// TODO(qix-): unless the enum is exhaustive. For now, we forbid non-exhaustive enums
+				// TODO(qix-): until a patch can be made against the `get_name` method.
+				if !is_exhaustive {
+					enum_field
+						.name
+						.span()
+						.unwrap()
+						.error("bitstruct enums must be exhaustive")
+						.emit();
+					continue;
+				}
+
 				let non_exhaustive_attr = if is_exhaustive {
 					None
 				} else {
