@@ -1,0 +1,22 @@
+[package]
+name = "oro-pci"
+version.workspace = true
+description = "PCI support for Oro"
+publish = false
+edition = "2021"
+authors = [
+	"Josh Junon (https//github.com/qix-)"
+]
+homepage = "https://oro.sh"
+repository = "https://github.com/oro-os/kernel"
+license = "MPL-2.0"
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+oro-type.workspace = true
+oro-macro.workspace = true

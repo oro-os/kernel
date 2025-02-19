@@ -357,6 +357,7 @@ dependencies = [
  "oro-kernel",
  "oro-macro",
  "oro-mem",
+ "oro-pci",
  "oro-sync",
 ]
 
@@ -481,6 +482,14 @@ dependencies = [
  "oro-elf",
  "oro-macro",
  "oro-sync",
+]
+
+[[package]]
+name = "oro-pci"
+version = "0.0.0"
+dependencies = [
+ "oro-macro",
+ "oro-type",
 ]
 
 [[package]]

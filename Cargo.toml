@@ -34,6 +34,7 @@ members = [
 	"oro-dtb",
 	"oro-dbgutil",
 	"oro-sync",
+	"oro-pci",
 	"oro",
 ]
 
@@ -56,6 +57,7 @@ oro-type.path = "oro-type"
 oro-dtb.path = "oro-dtb"
 oro-dbgutil.path = "oro-dbgutil"
 oro-sync.path = "oro-sync"
+oro-pci.path = "oro-pci"
 oro.path = "oro"
 
 limine = "0.3.1"
