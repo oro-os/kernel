@@ -358,6 +358,7 @@ pub fn bitstruct(input: proc_macro::TokenStream) -> Result<impl quote::ToTokens>
 
 	let mut hit_bits: u128 = 0;
 	let mut bit_fields: [Option<(String, Span)>; 128] = array::from_fn(|_| None);
+	let mut debug_fields = vec![];
 
 	let mut const_bits_mask: u128 = 0;
 	let mut const_bits: u128 = 0;
@@ -443,6 +444,10 @@ pub fn bitstruct(input: proc_macro::TokenStream) -> Result<impl quote::ToTokens>
 
 		let low = def.bit_range.low();
 		let low_mask = (1u128 << def.bit_range.count()) - 1;
+
+		debug_fields.push(quote! {
+			.field(stringify!(#get_name), &self.#get_name())
+		});
 
 		match &def.field_body {
 			FieldBody::Const(lit) => {
@@ -850,7 +855,7 @@ pub fn bitstruct(input: proc_macro::TokenStream) -> Result<impl quote::ToTokens>
 	Ok(quote! {
 		#(#attributes)*
 		#[repr(transparent)]
-		#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+		#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 		#vis struct #name(#primitive_type);
 
 		#[automatically_derived]
@@ -886,6 +891,15 @@ pub fn bitstruct(input: proc_macro::TokenStream) -> Result<impl quote::ToTokens>
 			#[inline]
 			fn from(value: #name) -> Self {
 				value.0
+			}
+		}
+
+		#[automatically_derived]
+		impl ::core::fmt::Debug for #name {
+			fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+				f.debug_struct(stringify!(#name))
+					#(#debug_fields)*
+					.finish()
 			}
 		}
 
