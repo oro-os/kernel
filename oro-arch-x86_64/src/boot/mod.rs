@@ -95,6 +95,10 @@ pub unsafe fn boot_primary() -> ! {
 				match dev.config {
 					oro_pci::PciConfig::Type0(config) => {
 						dbg!("{dev:?} -> {:#?}", unsafe { config.read_volatile() });
+						dbg!("    REGISTERS:");
+						for bar in unsafe { (*config).base_registers_iter() } {
+							dbg!("        {bar:X?}");
+						}
 					}
 					_ => dbg!("{dev:?} -> ???"),
 				}

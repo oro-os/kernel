@@ -240,6 +240,100 @@ const _: () = const {
 	assert::size_of::<PciConfigType0, 64>();
 };
 
+impl PciConfigType0 {
+	/// Returns an iterator over the base address registers.
+	#[must_use]
+	pub fn base_registers_iter(&self) -> BarIter {
+		BarIter::new([
+			self.base_registers[0].read(),
+			self.base_registers[1].read(),
+			self.base_registers[2].read(),
+			self.base_registers[3].read(),
+			self.base_registers[4].read(),
+			self.base_registers[5].read(),
+		])
+	}
+
+	/// Writes the base address registers.
+	///
+	/// The given slice must occupy _at maximum_ 6 entries.
+	///
+	/// Always writes starting at the first register; if random-access
+	/// is required, use [`Self::write_base_registers_at`].
+	///
+	/// If the registers to be written are invalid, no registers are
+	/// written at all. See [`BarWriteError`] for errors that may arise.
+	///
+	/// # Safety
+	/// Modifying base registers will change the device's
+	/// memory map and may cause volatile writes to system
+	/// memory that could be unsafe.
+	#[inline]
+	pub unsafe fn write_base_registers(
+		&mut self,
+		registers: &[BaseAddressRegister],
+	) -> Result<(), BarWriteError> {
+		self.write_base_registers_at(0, registers)
+	}
+
+	/// Writes the base address registers starting at the given index.
+	///
+	/// The given slice must occupy _at maximum_ `6 - index` entries.
+	///
+	/// If the registers to be written are invalid, no registers are
+	/// written at all. See [`BarWriteError`] for errors that may arise.
+	///
+	/// # Safety
+	/// Modifying base registers will change the device's
+	/// memory map and may cause volatile writes to system
+	/// memory that could be unsafe.
+	#[cold]
+	pub unsafe fn write_base_registers_at(
+		&mut self,
+		start: usize,
+		registers: &[BaseAddressRegister],
+	) -> Result<(), BarWriteError> {
+		let max_entries = 6 - start;
+		let mut vals = [0; 6];
+		let mut entry_count = 0;
+		for register in registers {
+			let (v0, v1) = (*register).into();
+			vals[entry_count] = v0;
+			if let Some(v1) = v1 {
+				vals[entry_count + 1] = v1;
+				entry_count += 2;
+			} else {
+				entry_count += 1;
+			}
+		}
+
+		if entry_count > max_entries {
+			return Err(BarWriteError::TooLong);
+		}
+
+		for (i, val) in vals.iter().enumerate().take(entry_count) {
+			self.base_registers[start + i].write(*val);
+		}
+
+		Ok(())
+	}
+
+	/// Convenience function for [`Self::write_base_registers_at(at, &[reg])`].
+	///
+	/// # Safety
+	/// Modifying base registers will change the device's
+	/// memory map and may cause volatile writes to system
+	/// memory that could be unsafe.
+	#[inline]
+	pub unsafe fn write_base_register_at(
+		&mut self,
+		at: usize,
+		reg: BaseAddressRegister,
+	) -> Result<(), BarWriteError> {
+		self.write_base_registers_at(at, &[reg])
+	}
+}
+
 /// A type of PCI configuration structure.
 #[derive(Debug)]
 pub enum PciConfig {
@@ -559,5 +653,221 @@ bitstruct! {
 		/// If this is `false`, the device does not support BIST and
 		/// setting [`Self::start_or_running`] to `1` is undefined.
 		pub supported[7] => as bool,
+	}
+}
+
+/// Defines a base address register.
+///
+/// All encoding bits are zeroed when returned, including
+/// reserved bits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BaseAddressRegister {
+	/// A 32-bit memory region, with prefetch.
+	Memory32Prefetch(u32),
+	/// A 32-bit memory region, no prefetch.
+	Memory32(u32),
+	/// A 64-bit memory region, with prefetch.
+	Memory64Prefetch(u64),
+	/// A 64-bit memory region, no prefetch.
+	Memory64(u64),
+	/// A legacy ISA PCI < 1MiB region, with prefetch.
+	LegacyMemory1MiBPrefetch(u32),
+	/// A legacy ISA PCI < 1MiB region, no prefetch.
+	LegacyMemory1MiB(u32),
+	/// 32-bit I/O space region.
+	Io32(u32),
+}
+
+impl BaseAddressRegister {
+	/// Returns the number of BAR entries required for this BAR type.
+	#[inline]
+	#[must_use]
+	pub const fn entry_count(self) -> usize {
+		match self {
+			Self::Memory64Prefetch(_) | Self::Memory64(_) => 2,
+			Self::Memory32Prefetch(_)
+			| Self::Memory32(_)
+			| Self::LegacyMemory1MiBPrefetch(_)
+			| Self::LegacyMemory1MiB(_)
+			| Self::Io32(_) => 1,
+		}
+	}
+
+	/// Returns whether or not this BAR is prefetchable.
+	#[inline]
+	#[must_use]
+	pub const fn is_prefetchable(self) -> bool {
+		matches!(
+			self,
+			Self::Memory32Prefetch(_)
+				| Self::Memory64Prefetch(_)
+				| Self::LegacyMemory1MiBPrefetch(_)
+		)
+	}
+
+	/// Returns whether or not the BAR is 64-bits wide.
+	#[inline]
+	#[must_use]
+	pub const fn is_u64(self) -> bool {
+		matches!(self, Self::Memory64Prefetch(_) | Self::Memory64(_))
+	}
+}
+
+impl TryFrom<&[u32]> for BaseAddressRegister {
+	type Error = BarParseError;
+
+	fn try_from(v: &[u32]) -> Result<Self, Self::Error> {
+		let Some(&u0) = v.first() else {
+			return Err(BarParseError::TooShort);
+		};
+		let is_mem = (u0 & 1) == 0;
+
+		if is_mem {
+			let ty = (u0 >> 1) & 0b11;
+
+			if oro_macro::unlikely!(ty == 0b11) {
+				// Reserved.
+				return Err(BarParseError::Invalid);
+			}
+
+			let is_prefetch = u0 & (1 << 3) != 0;
+			let u0 = u0 & !0b1111;
+
+			match ty {
+				0b00 => {
+					if is_prefetch {
+						Ok(BaseAddressRegister::Memory32Prefetch(u0))
+					} else {
+						Ok(BaseAddressRegister::Memory32(u0))
+					}
+				}
+				0b01 => {
+					if is_prefetch {
+						Ok(BaseAddressRegister::LegacyMemory1MiBPrefetch(u0))
+					} else {
+						Ok(BaseAddressRegister::LegacyMemory1MiB(u0))
+					}
+				}
+				0b10 => {
+					let Some(&u1) = v.get(1) else {
+						return Err(BarParseError::TooShort);
+					};
+
+					let u1 = u64::from(u1);
+					let u0 = u64::from(u0);
+
+					if is_prefetch {
+						Ok(BaseAddressRegister::Memory64Prefetch((u1 << 32) | u0))
+					} else {
+						Ok(BaseAddressRegister::Memory64((u1 << 32) | u0))
+					}
+				}
+				_ => unreachable!(),
+			}
+		} else {
+			// I/O space.
+			Ok(BaseAddressRegister::Io32(u0 & !0b11))
+		}
+	}
+}
+
+impl From<BaseAddressRegister> for u64 {
+	fn from(v: BaseAddressRegister) -> Self {
+		#[cfg(debug_assertions)]
+		{
+			match v {
+				BaseAddressRegister::Io32(v) => {
+					debug_assert!((v & 0b11) == 0, "I/O BAR has bits[1:0] != 0");
+				}
+				BaseAddressRegister::Memory64(v) | BaseAddressRegister::Memory64Prefetch(v) => {
+					debug_assert!((v & 0b1111) == 0, "64-bit memory BAR has bits[3:0] != 0");
+				}
+				BaseAddressRegister::LegacyMemory1MiB(v)
+				| BaseAddressRegister::LegacyMemory1MiBPrefetch(v)
+				| BaseAddressRegister::Memory32(v)
+				| BaseAddressRegister::Memory32Prefetch(v) => {
+					debug_assert!((v & 0b1111) == 0, "32-bit memory BAR has bits[3:0] != 0");
+				}
+			}
+		}
+
+		#[allow(clippy::identity_op)]
+		match v {
+			BaseAddressRegister::Memory64(v) => v | 0b0100,
+			BaseAddressRegister::Memory64Prefetch(v) => v | 0b1100,
+			BaseAddressRegister::Memory32(v) => u64::from(v) | 0b0000,
+			BaseAddressRegister::Memory32Prefetch(v) => u64::from(v) | 0b1000,
+			BaseAddressRegister::LegacyMemory1MiB(v) => u64::from(v) | 0b0010,
+			BaseAddressRegister::LegacyMemory1MiBPrefetch(v) => u64::from(v) | 0b1010,
+			BaseAddressRegister::Io32(v) => u64::from(v) | 0b0001,
+		}
+	}
+}
+
+impl From<BaseAddressRegister> for (u32, Option<u32>) {
+	fn from(v: BaseAddressRegister) -> Self {
+		let entry_count = v.entry_count();
+		debug_assert!(
+			matches!(entry_count, 1 | 2),
+			"BAR entry count is not 1 or 2"
+		);
+		let is_64 = entry_count == 2;
+		let b64: u64 = v.into();
+		(
+			b64 as u32,
+			if is_64 {
+				Some((b64 >> 32) as u32)
+			} else {
+				None
+			},
+		)
+	}
+}
+
+/// An error type returned by [`BaseAddressRegister::try_from`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BarParseError {
+	/// The BAR is invalid (typically memory BAR with `bits[2:1] = 0b11 (reserved)`).
+	Invalid,
+	/// The given slice of `u32`s is too short (must be at least 2 entries if the BAR
+	/// is 64-bit). The first `u32` value is returned.
+	TooShort,
+}
+
+/// An error type returned by [`PciConfigType0::write_base_registers`].
+pub enum BarWriteError {
+	/// The given BAR slice is too long (consumed more than 6 entries).
+	TooLong,
+}
+
+/// An iterator over the BARs of a PCI device.
+pub struct BarIter {
+	/// The array of `u32`s in the BAR section.
+	inner: [u32; 6],
+	/// The current index.
+	index: usize,
+}
+
+impl BarIter {
+	/// Creates a new `BarIter`.
+	#[inline]
+	fn new(inner: [u32; 6]) -> Self {
+		Self { inner, index: 0 }
+	}
+}
+
+impl Iterator for BarIter {
+	type Item = Result<BaseAddressRegister, BarParseError>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		if self.index >= 6 {
+			return None;
+		}
+
+		let res = BaseAddressRegister::try_from(&self.inner[self.index..]);
+		// If the BAR is invalid, we stop iterating (signaled by setting the
+		// the index to >= 6).
+		self.index += res.map_or(6, BaseAddressRegister::entry_count);
+		Some(res)
 	}
 }
