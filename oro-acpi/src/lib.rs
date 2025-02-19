@@ -3,8 +3,12 @@
 #![cfg_attr(not(test), no_std)]
 // SAFETY(qix-): This is approved, just moving slowly.
 // SAFETY(qix-): It's also not critical to the operation of the crate.
-// https://github.com/rust-lang/rust/issues/48214
+// SAEFTY(qix-): https://github.com/rust-lang/rust/issues/48214
 #![feature(trivial_bounds)]
+// SAFETY(qix-): Used to get a reference to underlying values
+// SAFETY(qix-): in the MADT tables.
+// SAFETY(qix-): https://github.com/rust-lang/rust/issues/122034
+#![feature(ptr_as_ref_unchecked)]
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 use core::ptr::from_ref;
@@ -14,6 +18,7 @@ use oro_macro::assert;
 use oro_mem::phys::{Phys, PhysAddr};
 
 pub mod madt;
+pub mod mcfg;
 
 /// RSDP structure.
 pub struct Rsdp {
@@ -233,6 +238,28 @@ pub trait AcpiTable: Sized {
 			let len =
 				header.Length.read() as usize - core::mem::size_of::<sys::acpi_table_header>();
 			let data_base = core::ptr::from_ref(header).add(1).cast::<u8>();
+			core::slice::from_raw_parts(data_base, len)
+		}
+	}
+
+	/// Returns a slice of the table's data (after the `SysTable`).
+	///
+	/// Note that this is different from [`Self::data`] in that it
+	/// returns the data after the `SysTable`'s fields, which may be
+	/// longer than the header data.
+	///
+	/// # Safety
+	/// Caller must treat any and all multibyte fields fetched
+	/// from within this data as little endian.
+	unsafe fn trailing_data(&self) -> &'static [u8] {
+		// SAFETY(qix-): We can assume that the data is valid since
+		// SAFETY(qix-): this object only exists if it was validated.
+		// SAFETY(qix-): If it is not valid, it's a bug in the ACPI table implementation.
+		unsafe {
+			let header = self.header();
+			assert::fits_within::<u32, usize>();
+			let len = header.Length.read() as usize - core::mem::size_of::<Self::SysTable>();
+			let data_base = core::ptr::from_ref(self.inner_ref()).add(1).cast::<u8>();
 			core::slice::from_raw_parts(data_base, len)
 		}
 	}

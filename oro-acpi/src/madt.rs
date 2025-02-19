@@ -5,7 +5,7 @@ use core::mem::ManuallyDrop;
 
 use oro_macro::paste;
 
-use crate::sys;
+use crate::{AcpiTable, sys};
 
 /// Indicates that the 8259 PIC is present in the MADT.
 const PCAT_COMPAT: u32 = 1;
@@ -29,12 +29,7 @@ impl crate::Madt {
 		MadtIterator::new(
 			// SAFETY(qix-): We're guaranteed to be creating a valid slice,
 			// SAFETY(qix-): assuming ACPI has reported the correct length.
-			unsafe {
-				core::slice::from_raw_parts(
-					core::ptr::from_ref(self.ptr).cast::<u8>(),
-					self.ptr.Header.Length.read() as usize,
-				)
-			},
+			unsafe { self.trailing_data() },
 		)
 	}
 }
@@ -56,7 +51,7 @@ impl MadtIterator {
 	/// Creates a new iterator over the MADT entries.
 	#[must_use]
 	pub fn new(slice: &'static [u8]) -> Self {
-		Self { pos: 44, slice }
+		Self { pos: 0, slice }
 	}
 }
 
@@ -68,7 +63,9 @@ impl Iterator for MadtIterator {
 			return None;
 		}
 
-		let un = unsafe { &*(core::ptr::from_ref(&self.slice[self.pos]).cast::<MadtData>()) };
+		let un = unsafe {
+			(core::ptr::from_ref(&self.slice[self.pos]).cast::<MadtData>()).as_ref_unchecked()
+		};
 		assert!(unsafe { un.header.Length.read() as usize } <= self.slice.len() - self.pos);
 
 		let pos = self.pos;
