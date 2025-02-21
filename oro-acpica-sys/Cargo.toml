@@ -2,7 +2,7 @@
 name = "oro-acpica-sys"
 description = "Oro-specific low level Rust bindings for the ACPICA library"
 version = "20240322.0.2"
-edition = "2021"
+edition = "2024"
 license-file = "LICENSE"
 publish = false
 

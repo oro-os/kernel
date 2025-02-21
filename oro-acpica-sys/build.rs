@@ -28,7 +28,7 @@ fn main() {
 		.ignore_methods()
 		.use_core()
 		.disable_nested_struct_naming()
-		.rust_target(::bindgen::RustTarget::Nightly)
+		.rust_target(::bindgen::RustTarget::nightly())
 		.size_t_is_usize(true)
 		.translate_enum_integer_types(true)
 		.detect_include_paths(true);
