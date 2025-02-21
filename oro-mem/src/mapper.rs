@@ -54,17 +54,15 @@ pub unsafe trait AddressSpace: 'static {
 
 	/// Returns the supervisor address space handle for the current CPU.
 	///
-	/// # Safety
-	/// This function is callable only from the supervisor mode (whatever
-	/// that means for the architecture), and must ONLY be called by code
-	/// that has exclusive ownership of a segment.
-	///
-	/// Put another way, calling this function must not result in mapping
-	/// any entries that are being mapped into by code with another handle
-	/// to the supervisor space (via calling this method).
-	///
-	/// Further, this function _should_ be considered slow, and only called
+	/// This function _should_ be considered slow, and only called
 	/// when absolutely necessary.
+	///
+	/// # Safety
+	/// This function _technically_ returns a shared mutable reference to all
+	/// memory maps in the system. **Caller must only modify memory segments it
+	/// knows are not being modified by any other code that currently holds
+	/// a `SupervisorHandle`**. This is a **VERY** difficult thing to do; please
+	/// use this function sparingly.
 	unsafe fn current_supervisor_space() -> Self::SupervisorHandle;
 
 	/// Creates a new, empty supervisor address space handle. Uses the global allocator.
