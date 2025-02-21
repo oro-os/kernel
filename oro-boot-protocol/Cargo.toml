@@ -3,7 +3,7 @@ name = "oro-boot-protocol"
 version.workspace = true
 description = "Boot protocol for the Oro kernel"
 publish = false
-edition = "2021"
+edition = "2024"
 authors = [
 	"Josh Junon (https//github.com/qix-)"
 ]

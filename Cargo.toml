@@ -98,6 +98,7 @@ new_without_default = "allow"
 needless_doctest_main = "allow"
 tabs_in_doc_comments = "allow"
 redundant_closure_for_method_calls = "allow"
+#undocumented_unsafe_blocks = "warn"
 
 [profile.dev]
 panic = "abort"            # Use "abort" panic strategy

@@ -36,9 +36,10 @@ impl RequestScanner {
 		assert::aligns_within::<Tag, RequestHeader>();
 		let align_offset = base.align_offset(::core::mem::align_of::<RequestHeader>());
 		let len = len.saturating_sub(align_offset);
-		// SAFETY(qix-): We've already aligned the pointer.
+		// SAFETY: We've already aligned the pointer. Align offset is also
+		// SAFETY: never larger than an isize.
 		#[expect(clippy::cast_ptr_alignment)]
-		let base = base.add(align_offset).cast::<Tag>();
+		let base = unsafe { base.add(align_offset).cast::<Tag>() };
 
 		Self { base, len }
 	}
@@ -75,22 +76,24 @@ impl RequestScanner {
 
 		// A little bit of a hack to get around the division ban.
 		let shift = (::core::mem::size_of::<Tag>() - 1).count_ones();
-		let end = self.base.add(self.len >> shift);
+		// SAFETY: The shifted length will never exceed an `isize`.
+		let end = unsafe { self.base.add(self.len >> shift) };
 
-		// SAFETY(qix-): We are guaranteed to have valid alignment
-		// SAFETY(qix-): given that we start aligned, and iterate
-		// SAFETY(qix-): on 16-byte boundaries.
 		#[expect(clippy::cast_ptr_alignment)]
 		while ptr < end {
-			let header = &*(ptr.cast::<RequestHeader>());
+			// SAFETY: We are guaranteed to have valid alignment
+			// SAFETY: given that we start aligned, and iterate
+			// SAFETY: on 16-byte boundaries.
+			let header = unsafe { &*(ptr.cast::<RequestHeader>()) };
 
 			if header.magic == T::TAG {
-				return Some(&mut *ptr.cast());
+				// SAFETY: We can assume the pointer is valid here.
+				return unsafe { Some(&mut *ptr.cast()) };
 			}
 
-			// Gets the alignment requirements, and then divides by
-			// the tag size
-			ptr = ptr.add(::core::mem::align_of::<RequestHeader>() >> shift);
+			// Gets the alignment requirements, and then divides by the tag size.
+			// SAFETY: Alignment and shift is guaranteed never to exceed an `isize`.
+			ptr = unsafe { ptr.add(::core::mem::align_of::<RequestHeader>() >> shift) };
 		}
 
 		None

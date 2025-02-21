@@ -26,7 +26,11 @@ fn main() {
 	{
 		return;
 	}
-	std::env::remove_var("ORO_BUILD_PROTOCOL_HEADER");
+
+	// SAFETY: This is safe to call in a single-threaded environment (we are).
+	unsafe {
+		std::env::remove_var("ORO_BUILD_PROTOCOL_HEADER");
+	}
 
 	let tmpdir = std::env::temp_dir().join("oro-boot-protocol-header");
 	let tmpdir = tmpdir.to_str().expect("failed to get temp dir");
