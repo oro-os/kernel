@@ -20,8 +20,8 @@ gdb_autoload_inline!("dbgutil.py");
 /// Pass the virtual address to translate in `x0`.
 #[cfg(any(doc, target_arch = "aarch64"))]
 #[cfg(any(debug_assertions, feature = "force-hooks"))]
-#[link_section = ".text.force_keep"]
-#[no_mangle]
+#[unsafe(link_section = ".text.force_keep")]
+#[unsafe(no_mangle)]
 #[naked]
 pub extern "C" fn __oro_dbgutil_ATS1E1R() -> ! {
 	use core::arch::naked_asm;
@@ -38,8 +38,8 @@ macro_rules! hook_functions {
 	($($(#[$meta:meta])*$name:ident($($param:ident : $ty:ty),*));* $(;)?) => {
 		const _: () = {
 			#[used]
-			#[no_mangle]
-			#[link_section = ".oro_dbgutil.autosym"]
+			#[unsafe(no_mangle)]
+			#[unsafe(link_section = ".oro_dbgutil.autosym")]
 			#[cfg(any(debug_assertions, feature = "force-hooks"))]
 			static HOOK_FUNCTIONS: [u8; 0 $(+ 1 + stringify!($name).len())*] = const {
 				let mut arr = [0; 0 $(+ 1 + stringify!($name).len())*];
@@ -62,10 +62,10 @@ macro_rules! hook_functions {
 
 		$(
 			$(#[$meta])*
-			#[no_mangle]
+			#[unsafe(no_mangle)]
 			#[cfg_attr(
 				any(debug_assertions, feature = "force-hooks"),
-				link_section = ".text.force_keep"
+				unsafe(link_section = ".text.force_keep")
 			)]
 			#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
 			#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
