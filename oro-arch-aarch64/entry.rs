@@ -20,7 +20,10 @@ unsafe fn panic(info: &::core::panic::PanicInfo<'_>) -> ! {
 /// bootloader.
 #[inline(never)]
 #[cold]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn _start() -> ! {
-	oro_arch_aarch64::boot::boot_primary();
+	// SAFETY: This is the only place it's being called.
+	unsafe {
+		oro_arch_aarch64::boot::boot_primary();
+	}
 }

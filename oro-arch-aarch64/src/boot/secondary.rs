@@ -413,7 +413,7 @@ unsafe fn boot_secondary(
 /// The Rust entry point for the secondary cores after they've been booted
 /// and initialized by the assembly stub.
 #[inline(never)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 unsafe extern "C" fn boot_secondary_entry() {
 	let boot_block_virt: u64;
 	asm!("", out("x0") boot_block_virt);

@@ -3,7 +3,7 @@ name = "oro-arch-aarch64"
 version.workspace = true
 description = "Oro operating system AArch64 architecture kernel implementation"
 publish = false
-edition = "2021"
+edition = "2024"
 authors = [
 	"Josh Junon (https//github.com/qix-)"
 ]
