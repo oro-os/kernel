@@ -3,7 +3,7 @@ name = "oro-debug"
 version.workspace = true
 description = "Debugging utilities for the Oro kernel and bootloader development"
 publish = false
-edition = "2021"
+edition = "2024"
 authors = [
 	"Josh Junon (https//github.com/qix-)"
 ]
