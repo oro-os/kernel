@@ -376,7 +376,9 @@ pub unsafe trait AddressSegment<Handle: Sized>: Send + 'static {
 	/// Caller must ensure that all reclaimed pages are truly
 	/// freeable and not in use by any other address space handle.
 	unsafe fn unmap_all_and_reclaim(&self, space: &Handle) {
-		self.unmap_all_and_reclaim_in(space, &crate::global_alloc::GlobalPfa);
+		unsafe {
+			self.unmap_all_and_reclaim_in(space, &crate::global_alloc::GlobalPfa);
+		}
 	}
 
 	/// Unmaps and reclaims all pages in the segment. Uses the given allocator.

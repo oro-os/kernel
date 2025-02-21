@@ -132,7 +132,11 @@ impl GlobalPfa {
 		oro_dbgutil::__oro_dbgutil_pfa_mass_free(aligned_base, aligned_base + length);
 
 		for page in (aligned_base..(aligned_base + length)).step_by(4096) {
-			PFA.free(page);
+			// SAFETY: We're exposing a previously unknown range; the safety requirements are
+			// SAFETY: ultimately offloaded to the caller.
+			unsafe {
+				PFA.free(page);
+			}
 		}
 
 		// SAFETY: We are in a critical section, which is good enough for the requirements
@@ -157,6 +161,9 @@ unsafe impl Alloc for GlobalPfa {
 	}
 
 	unsafe fn free(&self, frame: u64) {
-		PFA.free(frame);
+		// SAFETY: Safety requirements offloaded to caller.
+		unsafe {
+			PFA.free(frame);
+		}
 	}
 }

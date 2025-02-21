@@ -103,7 +103,8 @@ pub trait PhysAddr: Sized {
 	/// the pointer is properly aligned before dereferencing it.
 	#[inline(always)]
 	unsafe fn as_maybe_uninit_unchecked<T>(&self) -> &MaybeUninit<T> {
-		&*(self.as_ptr_unchecked::<T>().cast())
+		// SAFETY: Safety requirements offloaded to caller.
+		unsafe { &*(self.as_ptr_unchecked::<T>().cast()) }
 	}
 
 	/// Returns a mutable [`MaybeUninit`] reference to the physical address.
@@ -118,7 +119,8 @@ pub trait PhysAddr: Sized {
 	#[inline(always)]
 	#[expect(clippy::mut_from_ref)]
 	unsafe fn as_maybe_uninit_mut_unchecked<T>(&self) -> &mut MaybeUninit<T> {
-		&mut *(self.as_mut_ptr_unchecked::<T>().cast())
+		// SAFETY: Safety requirements offloaded to caller.
+		unsafe { &mut *(self.as_mut_ptr_unchecked::<T>().cast()) }
 	}
 
 	/// Returns a reference to the given type.
@@ -130,7 +132,8 @@ pub trait PhysAddr: Sized {
 	/// to the type and that the data is initialized.
 	#[inline(always)]
 	unsafe fn as_ref_unchecked<T>(&self) -> &'static T {
-		&*self.as_ptr_unchecked()
+		// SAFETY: Safety requirements offloaded to caller.
+		unsafe { &*self.as_ptr_unchecked() }
 	}
 
 	/// Returns a mutable reference to the given type.
@@ -146,7 +149,8 @@ pub trait PhysAddr: Sized {
 	/// data in a way that would violate Rust's aliasing rules.
 	#[inline(always)]
 	unsafe fn as_mut_unchecked<T>(&self) -> &'static mut T {
-		&mut *self.as_mut_ptr_unchecked()
+		// SAFETY: Safety requirements offloaded to caller.
+		unsafe { &mut *self.as_mut_ptr_unchecked() }
 	}
 
 	/// Returns a reference to the given type.
