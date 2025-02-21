@@ -95,7 +95,8 @@ pub unsafe fn prepare_transfer<A: Alloc>(
 		.ok_or(crate::Error::MapError(MapError::OutOfMemory))?;
 
 	// Copy the stubs into the new page
-	let stubs_dest = stubs_phys.as_mut_unchecked::<[u8; 4096]>();
+	// SAFETY: We just allocated the memory; we can guarantee it's usable and aligned.
+	let stubs_dest = unsafe { stubs_phys.as_mut_unchecked::<[u8; 4096]>() };
 	stubs_dest[..STUBS.len()].copy_from_slice(STUBS.as_ref());
 
 	// Map the stubs into the new page table using an identity mapping.
@@ -172,36 +173,39 @@ pub unsafe fn transfer(
 	sctlr.set_wxn(false);
 	sctlr.write();
 
-	// Load TTBR0_EL1 with the new page table address and flush caches
-	// We do this here as opposed to the map stubs function so that e.g.
-	// memory mapped devices (such as the UART) can be used right up until
-	// the transfer occurs.
-	asm!(
-		"dsb ish",
-		"isb sy",
-		"msr ttbr0_el1, x0",
-		"ic iallu",
-		"dsb sy",
-		"isb sy",
-		"tlbi vmalle1is",
-		"dmb sy",
-		in("x0") stubs_page_table_phys,
-	);
+	// SAFETY: Assembly is unavoidable as we're jumping to the kernel.
+	unsafe {
+		// Load TTBR0_EL1 with the new page table address and flush caches
+		// We do this here as opposed to the map stubs function so that e.g.
+		// memory mapped devices (such as the UART) can be used right up until
+		// the transfer occurs.
+		asm!(
+			"dsb ish",
+			"isb sy",
+			"msr ttbr0_el1, x0",
+			"ic iallu",
+			"dsb sy",
+			"isb sy",
+			"tlbi vmalle1is",
+			"dmb sy",
+			in("x0") stubs_page_table_phys,
+		);
 
-	// Tell dbgutil we're about to switch
-	oro_dbgutil::__oro_dbgutil_kernel_will_transfer();
+		// Tell dbgutil we're about to switch
+		oro_dbgutil::__oro_dbgutil_kernel_will_transfer();
 
-	// Populate registers and jump to stubs
-	asm!(
-		"isb",
-		"br x4",
-		in("x0") page_table_phys,
-		in("x1") stack_addr,
-		in("x2") kernel_entry,
-		in("x3") mair_value,
-		in("x4") stubs_addr,
-		in("x5") tcr_el1_raw,
-		// SAFETY(qix-): Do not use `x8` or `x9` for transferring values.
-		options(noreturn)
-	);
+		// Populate registers and jump to stubs
+		asm!(
+			"isb",
+			"br x4",
+			in("x0") page_table_phys,
+			in("x1") stack_addr,
+			in("x2") kernel_entry,
+			in("x3") mair_value,
+			in("x4") stubs_addr,
+			in("x5") tcr_el1_raw,
+			// SAFETY(qix-): Do not use `x8` or `x9` for transferring values.
+			options(noreturn)
+		);
+	}
 }

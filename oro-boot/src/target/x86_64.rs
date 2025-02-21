@@ -65,6 +65,14 @@ pub fn target_address() -> usize {
 
 /// Prepares the system for a transfer. Called before the memory map
 /// is written, after which `transfer` is called.
+///
+/// # Safety
+/// This function is inherently unsafe, as it changes the memory map
+/// of the system.
+///
+/// Caller must ensure no other memory operations are being performed
+/// (using e.g. system address space handles, or raw operations on
+/// the page tables).
 #[expect(clippy::unnecessary_wraps)]
 pub unsafe fn prepare_transfer<A: Alloc>(
 	mapper: &mut AddressSpaceHandle,
@@ -81,7 +89,11 @@ pub unsafe fn prepare_transfer<A: Alloc>(
 	);
 
 	// Map in the recursive entry.
-	AddressSpaceLayout::map_recursive_entry(mapper);
+	// SAFETY: We're expecting that the memory map changes, as per the
+	// SAFETY: safety requirements of this function.
+	unsafe {
+		AddressSpaceLayout::map_recursive_entry(mapper);
+	}
 
 	// Allocate and map in the transfer stubs
 	let stubs_base = target_address();
@@ -89,7 +101,9 @@ pub unsafe fn prepare_transfer<A: Alloc>(
 	let source = &raw const STUBS[0];
 	let dest = stubs_base as *mut u8;
 
-	let current_mapper = AddressSpaceLayout::current_supervisor_space();
+	// SAFETY: We only hold this temporarily and drop it thereafter.
+	// SAFETY: It should also be the only reference in the system at this point.
+	let current_mapper = unsafe { AddressSpaceLayout::current_supervisor_space() };
 
 	let phys = alloc
 		.allocate()
@@ -118,12 +132,19 @@ pub unsafe fn prepare_transfer<A: Alloc>(
 		.map_in(&current_mapper, alloc, stubs_base, phys)
 		.expect("failed to map page for transfer stubs in current address space");
 
-	dest.copy_from(source, STUBS.len());
+	// SAFETY: We've just mapped it in.
+	unsafe {
+		dest.copy_from(source, STUBS.len());
+	}
 
 	Ok(())
 }
 
 /// Performs the transfer from pre-boot to the kernel.
+///
+/// # Safety
+/// This function completely changes the state of the system,
+/// booting the kernel. It is inherently very unsafe.
 pub unsafe fn transfer(
 	mapper: &mut AddressSpaceHandle,
 	kernel_entry: usize,
@@ -137,13 +158,16 @@ pub unsafe fn transfer(
 	oro_dbgutil::__oro_dbgutil_kernel_will_transfer();
 
 	// Jump to stubs.
-	// SAFETY(qix-): Do NOT use `ax`, `bx`, `dx`, `cx` for transfer registers.
-	asm!(
-		"jmp r12",
-		in("r9") page_table_phys,
-		in("r10") stack_addr,
-		in("r11") kernel_entry,
-		in("r12") stubs_addr,
-		options(noreturn)
-	);
+	// SAFETY: Assembly is unavoidable here.
+	// SAFETY: Do NOT use `ax`, `bx`, `dx`, `cx` for transfer registers.
+	unsafe {
+		asm!(
+			"jmp r12",
+			in("r9") page_table_phys,
+			in("r10") stack_addr,
+			in("r11") kernel_entry,
+			in("r12") stubs_addr,
+			options(noreturn)
+		);
+	}
 }
