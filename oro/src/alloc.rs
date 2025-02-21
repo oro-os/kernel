@@ -47,12 +47,15 @@ unsafe impl core::alloc::GlobalAlloc for HeapAllocator {
 			let num_pages = (layout.size().saturating_add(4095)) >> 12;
 			let num_pages = num_pages as u64;
 
-			let Ok(token) = crate::syscall_get!(
-				crate::id::iface::KERNEL_PAGE_ALLOC_V0,
-				crate::id::iface::KERNEL_PAGE_ALLOC_V0,
-				num_pages,
-				crate::key!("4kib"),
-			) else {
+			// SAFETY: Allocating a token is always safe.
+			let Ok(token) = (unsafe {
+				crate::syscall_get!(
+					crate::id::iface::KERNEL_PAGE_ALLOC_V0,
+					crate::id::iface::KERNEL_PAGE_ALLOC_V0,
+					num_pages,
+					crate::key!("4kib"),
+				)
+			}) else {
 				// Nothing we can do.
 				return core::ptr::null_mut();
 			};
@@ -69,26 +72,32 @@ unsafe impl core::alloc::GlobalAlloc for HeapAllocator {
 					base
 				} else {
 					// We've run out of heap space. Best-effort forget the token.
-					let _ = crate::syscall_set!(
-						crate::id::iface::KERNEL_MEM_TOKEN_V0,
-						crate::id::iface::KERNEL_MEM_TOKEN_V0,
-						token,
-						crate::key!("forget"),
-						1,
-					);
+					// SAFETY: We just allocated the token; it's safe to forget it.
+					let _ = unsafe {
+						crate::syscall_set!(
+							crate::id::iface::KERNEL_MEM_TOKEN_V0,
+							crate::id::iface::KERNEL_MEM_TOKEN_V0,
+							token,
+							crate::key!("forget"),
+							1,
+						)
+					};
 
 					return core::ptr::null_mut();
 				};
 
 				debug_assert!(inner.base % 4096 == 0, "inner.base is not page-aligned");
 
-				let result = crate::syscall_set!(
-					crate::id::iface::KERNEL_MEM_TOKEN_V0,
-					crate::id::iface::KERNEL_MEM_TOKEN_V0,
-					token,
-					crate::key!("base"),
-					inner.base,
-				);
+				// SAFETY: We've checked that the base area is unused.
+				let result = unsafe {
+					crate::syscall_set!(
+						crate::id::iface::KERNEL_MEM_TOKEN_V0,
+						crate::id::iface::KERNEL_MEM_TOKEN_V0,
+						token,
+						crate::key!("base"),
+						inner.base,
+					)
+				};
 
 				// TODO(qix-): Gets around the need for a nightly feature to use in a match arm.
 				// TODO(qix-): Inline when `inline_const_pat` is stable.
@@ -103,13 +112,16 @@ unsafe impl core::alloc::GlobalAlloc for HeapAllocator {
 					Err(_) => {
 						// Something went wrong; nothing we can do. Best effort
 						// forget the token.
-						let _ = crate::syscall_set!(
-							crate::id::iface::KERNEL_MEM_TOKEN_V0,
-							crate::id::iface::KERNEL_MEM_TOKEN_V0,
-							token,
-							crate::key!("forget"),
-							1,
-						);
+						// SAFETY: We just allocated the token; it's safe to forget it.
+						let _ = unsafe {
+							crate::syscall_set!(
+								crate::id::iface::KERNEL_MEM_TOKEN_V0,
+								crate::id::iface::KERNEL_MEM_TOKEN_V0,
+								token,
+								crate::key!("forget"),
+								1,
+							)
+						};
 
 						return core::ptr::null_mut();
 					}
@@ -119,7 +131,10 @@ unsafe impl core::alloc::GlobalAlloc for HeapAllocator {
 			// We've successfully mapped the token; now report it to the heap...
 			let start = inner.base as usize;
 			let end = inner.base as usize + (num_pages << 12) as usize;
-			inner.heap.add_to_heap(start, end);
+			// SAFETY: We've checked that the area is safe to add to the heap.
+			unsafe {
+				inner.heap.add_to_heap(start, end);
+			}
 
 			// ... and attempt the allocation again.
 			let ptr = inner
@@ -136,8 +151,11 @@ unsafe impl core::alloc::GlobalAlloc for HeapAllocator {
 	}
 
 	unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
-		if let Some(ptr) = NonNull::new(ptr) {
-			self.0.lock().heap.dealloc(ptr, layout);
+		// SAFETY: The safety requirements are offloaded to the caller.
+		unsafe {
+			if let Some(ptr) = NonNull::new(ptr) {
+				self.0.lock().heap.dealloc(ptr, layout);
+			}
 		}
 	}
 }

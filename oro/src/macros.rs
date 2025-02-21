@@ -80,7 +80,7 @@ macro_rules! key {
 macro_rules! uses {
 	($iface:expr, $key:expr) => {{
 		const LEN: usize = $crate::macros::private::uses(const { $iface }, const { $key }).len();
-		#[link_section = ".oro.uses"]
+		#[unsafe(link_section = ".oro.uses")]
 		static USES: [u64; LEN] = $crate::macros::private::uses(const { $iface }, const { $key });
 
 		::core::hint::black_box(USES);

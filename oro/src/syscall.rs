@@ -101,7 +101,8 @@ pub enum Opcode {
 #[inline(always)]
 #[must_use]
 pub unsafe fn get_raw(interface_id: u64, index: u64, key: u64) -> (Error, u64) {
-	crate::arch::syscall(Opcode::Get, interface_id, index, key, 0)
+	// SAFETY: Safety requirements offloaded to caller.
+	unsafe { crate::arch::syscall(Opcode::Get, interface_id, index, key, 0) }
 }
 
 /// Performs a branchless system call to set a registry value by key.
@@ -124,7 +125,8 @@ pub unsafe fn get_raw(interface_id: u64, index: u64, key: u64) -> (Error, u64) {
 #[inline(always)]
 #[must_use]
 pub unsafe fn set_raw(interface_id: u64, index: u64, key: u64, value: u64) -> (Error, u64) {
-	crate::arch::syscall(Opcode::Set, interface_id, index, key, value)
+	// SAFETY: Safety requirements offloaded to caller.
+	unsafe { crate::arch::syscall(Opcode::Set, interface_id, index, key, value) }
 }
 
 /// Gets a registry value by key.
@@ -135,7 +137,8 @@ pub unsafe fn set_raw(interface_id: u64, index: u64, key: u64, value: u64) -> (E
 /// Syscalls are inherently unsafe.
 #[inline(always)]
 pub unsafe fn get(interface_id: u64, index: u64, key: u64) -> Result<u64> {
-	let (err, value) = get_raw(interface_id, index, key);
+	// SAFETY: Safety requirements offloaded to caller.
+	let (err, value) = unsafe { get_raw(interface_id, index, key) };
 	if err == Error::Ok {
 		Ok(value)
 	} else {
@@ -149,7 +152,8 @@ pub unsafe fn get(interface_id: u64, index: u64, key: u64) -> Result<u64> {
 /// Syscalls are inherently unsafe.
 #[inline(always)]
 pub unsafe fn set(interface_id: u64, index: u64, key: u64, value: u64) -> Result<()> {
-	let (err, value) = set_raw(interface_id, index, key, value);
+	// SAFETY: Safety requirements offloaded to caller.
+	let (err, value) = unsafe { set_raw(interface_id, index, key, value) };
 	if err == Error::Ok {
 		Ok(())
 	} else {

@@ -5,7 +5,11 @@
 //!
 //! Copyright 2019-2020 Jiajie Chen, licensed under the MIT License.
 //! Original: <https://github.com/rcore-os/buddy_system_allocator>
-#![expect(clippy::missing_docs_in_private_items)]
+#![expect(
+	 // NOTE(qix-): I intend to audit this at some point; this is temporary.
+	unsafe_op_in_unsafe_fn,
+	clippy::missing_docs_in_private_items,
+)]
 
 use core::{
 	alloc::Layout,

@@ -3,7 +3,7 @@ name = "oro"
 version.workspace = true
 description = "High level module API and build tooling."
 publish = true
-edition = "2021"
+edition = "2024"
 authors = [
 	"Josh Junon (https//github.com/qix-)"
 ]
