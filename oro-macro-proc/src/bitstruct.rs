@@ -723,7 +723,7 @@ pub fn bitstruct(input: proc_macro::TokenStream) -> Result<impl quote::ToTokens>
 
 				#[expect(clippy::needless_continue)]
 				for variant in &enum_field.variants {
-					let Some(ref discrim_val) = &variant.discriminant else {
+					let Some(discrim_val) = &variant.discriminant else {
 						variant
 							.ident
 							.span()
@@ -734,7 +734,7 @@ pub fn bitstruct(input: proc_macro::TokenStream) -> Result<impl quote::ToTokens>
 					};
 
 					let Expr::Lit(ExprLit {
-						lit: Lit::Int(ref discrim_val),
+						lit: Lit::Int(discrim_val),
 						..
 					}) = &discrim_val.1
 					else {

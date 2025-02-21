@@ -67,7 +67,7 @@ pub fn gdb_autoload_inline(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
 	let expanded = quote! {
 			#[used]
-			#[link_section = ".debug_gdb_scripts"]
+			#[unsafe(link_section = ".debug_gdb_scripts")]
 			static #script_ident: [u8; #script_len] = {
 					// This is unused, but creates a build-time dependency
 					// on the file.
