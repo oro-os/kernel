@@ -273,7 +273,8 @@ impl PciConfigType0 {
 		&mut self,
 		registers: &[BaseAddressRegister],
 	) -> Result<(), BarWriteError> {
-		self.write_base_registers_at(0, registers)
+		// SAFETY: Safety requirements offloaded to caller.
+		unsafe { self.write_base_registers_at(0, registers) }
 	}
 
 	/// Writes the base address registers starting at the given index.
@@ -330,7 +331,8 @@ impl PciConfigType0 {
 		at: usize,
 		reg: BaseAddressRegister,
 	) -> Result<(), BarWriteError> {
-		self.write_base_registers_at(at, &[reg])
+		// SAFETY: Safety requirements offloaded to caller.
+		unsafe { self.write_base_registers_at(at, &[reg]) }
 	}
 }
 
