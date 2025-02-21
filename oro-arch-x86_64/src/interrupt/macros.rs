@@ -120,14 +120,14 @@ macro_rules! isr {
 	($(#[$meta:meta])* unsafe fn $isr_name:ident($kernel:ident, $user_task:ident $(, $err_code:ident)?) -> Option<Switch> $blk:block) => {
 		#[doc = concat!("The ISR (Interrupt Service Routine) trampoline stub for [`", stringify!($isr_name), "_rust`].")]
 		#[naked]
-		#[no_mangle]
+		#[unsafe(no_mangle)]
 		pub unsafe extern "C" fn $isr_name() -> ! {
 			$crate::isr!(@ $isr_name $(, $err_code)?);
 		}
 
 		::oro_macro::paste! {
 			$(#[$meta])*
-			#[no_mangle]
+			#[unsafe(no_mangle)]
 			#[allow(clippy::used_underscore_binding)]
 			unsafe extern "C" fn $isr_name %% _rust() -> ! {
 				// Must be first.

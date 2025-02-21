@@ -12,11 +12,11 @@ use crate::{
 };
 
 /// Caches the system's paging level.
-#[no_mangle]
+#[unsafe(no_mangle)]
 static mut ORO_SYSCALL_CANONICAL_ADDRESS_MASK: u64 = !0;
 
 /// The base address of a user task's IRQ stack.
-#[no_mangle]
+#[unsafe(no_mangle)]
 static mut ORO_SYSCALL_IRQ_STACK_BASE: usize = 0;
 
 /// Installs the syscall handler.
@@ -78,7 +78,7 @@ pub unsafe fn install_syscall_handler() {
 /// into the thread's mapper before `cr3` is switched during a
 /// context switch. This is, perhaps, the most dangerous and important
 /// part of the entire kernel.
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[naked]
 unsafe extern "C" fn syscall_enter_noncompat() -> ! {
 	crate::syscall_store_task_and_jmp!(syscall_enter_noncompat_rust)
@@ -92,7 +92,7 @@ unsafe extern "C" fn syscall_enter_noncompat() -> ! {
 ///
 /// Not to be called directly by kernel code.
 #[inline(never)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 unsafe extern "C" fn syscall_enter_noncompat_rust() -> ! {
 	let stack_ptr: usize;
 	let opcode: u64;

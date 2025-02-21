@@ -73,7 +73,7 @@ pub fn initialize_user_irq_stack(page_slice: &mut [u64], entry_point: u64, stack
 ///
 /// **Interrupts must be disabled before calling
 /// this function.**
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[naked]
 pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 	// Push all general purpose registers
@@ -161,7 +161,7 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user() {
 ///
 /// **Interrupts must be disabled before calling
 /// this function.**
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[naked]
 pub unsafe extern "C" fn oro_x86_64_kernel_to_user_sysret() {
 	// TODO(qix-): There is almost definitely some missing functionality here, namely
@@ -251,7 +251,7 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user_sysret() {
 ///
 /// **Interrupts must be disabled before calling
 /// this function.**
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[naked]
 pub unsafe extern "C" fn oro_x86_64_user_to_user_sysret() {
 	// TODO(qix-): There is almost definitely some missing functionality here, namely
@@ -371,7 +371,7 @@ macro_rules! syscall_store_task_and_jmp {
 ///
 /// This function MUST NOT be called; it must
 /// always be jumped to.
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[naked]
 pub unsafe extern "C" fn oro_x86_64_user_to_user() {
 	// Push all general purpose registers
@@ -509,7 +509,7 @@ macro_rules! isr_store_task_and_jmp_err {
 ///
 /// This function MUST NOT be called; it must
 /// always be jumped to.
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[naked]
 pub unsafe extern "C" fn oro_x86_64_return_to_kernel() {
 	naked_asm!(
@@ -555,7 +555,7 @@ pub unsafe extern "C" fn oro_x86_64_return_to_kernel() {
 ///
 /// This function MUST NOT be jumped to; it must
 /// always be called normally.
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[naked]
 pub unsafe extern "C" fn oro_x86_64_kernel_to_idle() {
 	naked_asm!("mov [r9], rsp", "sti", "4: hlt", "jmp 4b", "ud2",);

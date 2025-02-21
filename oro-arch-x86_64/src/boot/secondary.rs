@@ -453,7 +453,7 @@ const SECONDARY_BOOT_LONG_MODE_STUB: &[u8] = &asm_buffer! {
 /// The Rust entry point for secondary cores. This is jumped to
 /// by the long mode stub after setting up most of the rest of
 /// the *actual* long mode environment.
-#[no_mangle]
+#[unsafe(no_mangle)]
 unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	crate::gdt::GDT.install();
 
