@@ -3,7 +3,7 @@ name = "oro-debug-uart16550"
 version.workspace = true
 description = "16550 UART driver for x86_64 I/O port serial output, used for Oro kernel debug output"
 publish = false
-edition = "2021"
+edition = "2024"
 authors = [
 	"Josh Junon (https//github.com/qix-)"
 ]
