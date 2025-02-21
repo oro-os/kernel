@@ -74,6 +74,8 @@ impl<A: Arch> Scheduler<A> {
 	///
 	/// # Safety
 	/// Interrupts MUST be disabled before calling this function.
+	///
+	/// The returned `ScheduleAction` **must** be **infallibly** consumed and acted upon by the caller.
 	#[must_use]
 	unsafe fn pick_user_thread(&mut self) -> Option<(Tab<Thread<A>>, ScheduleAction)> {
 		if let Some(thread) = self.current.take() {
@@ -108,7 +110,8 @@ impl<A: Arch> Scheduler<A> {
 
 			// Take action if needed, otherwise skip the thread; it'll be re-queued when
 			// it needs to be.
-			if let Ok(action) = selected.with_mut(|t| t.try_schedule(self.kernel.id())) {
+			// SAFETY: Safety requirements offloaded to the caller.
+			if let Ok(action) = unsafe { selected.with_mut(|t| t.try_schedule(self.kernel.id())) } {
 				self.current = Some(selected.clone());
 				return Some((selected, action));
 			}
@@ -135,10 +138,15 @@ impl<A: Arch> Scheduler<A> {
 	/// disabled before calling this function.** At no point
 	/// can other scheduler methods be invoked while this function
 	/// is running.
+	///
+	/// Returned switch **must** be consumed and acted upon by the caller,
+	/// **infallibly**.
 	#[must_use]
 	pub unsafe fn event_idle(&mut self) -> Switch<A> {
 		let coming_from_user = self.current.as_ref().map(|t| t.id());
-		let switch = Switch::from_schedule_action(self.pick_user_thread(), coming_from_user);
+		// SAFETY: Safety requirements offloaded to caller.
+		let switch =
+			Switch::from_schedule_action(unsafe { self.pick_user_thread() }, coming_from_user);
 		self.kernel.handle().schedule_timer(1000);
 		switch
 	}
@@ -166,10 +174,15 @@ impl<A: Arch> Scheduler<A> {
 	/// disabled before calling this function.** At no point
 	/// can other scheduler methods be invoked while this function
 	/// is running.
+	///
+	/// Returned switch **must** be consumed and acted upon by the caller,
+	/// **infallibly**.
 	#[must_use]
 	pub unsafe fn event_timer_expired(&mut self) -> Switch<A> {
 		let coming_from_user = self.current.as_ref().map(|t| t.id());
-		let switch = Switch::from_schedule_action(self.pick_user_thread(), coming_from_user);
+		// SAFETY: Safety requirements offloaded to caller.
+		let switch =
+			Switch::from_schedule_action(unsafe { self.pick_user_thread() }, coming_from_user);
 		self.kernel.handle().schedule_timer(1000);
 		switch
 	}
@@ -206,6 +219,9 @@ impl<A: Arch> Scheduler<A> {
 	/// disabled before calling this function.** At no point
 	/// can other scheduler methods be invoked while this function
 	/// is running.
+	///
+	/// Returned switch **must** be consumed and acted upon by the caller,
+	/// **infallibly**.
 	#[expect(clippy::missing_panics_doc)]
 	#[must_use]
 	pub unsafe fn event_system_call(&mut self, request: &SystemCallRequest) -> Switch<A> {
@@ -234,7 +250,9 @@ impl<A: Arch> Scheduler<A> {
 			}
 		}
 
-		let switch = Switch::from_schedule_action(self.pick_user_thread(), Some(thread.id()));
+		// SAFETY: Safety requirements offloaded to caller.
+		let switch =
+			Switch::from_schedule_action(unsafe { self.pick_user_thread() }, Some(thread.id()));
 		self.kernel.handle().schedule_timer(1000);
 		switch
 	}
@@ -249,6 +267,9 @@ impl<A: Arch> Scheduler<A> {
 	/// **Interrupts or any other asynchronous events must be disabled before
 	/// calling this function.** At no point can other scheduler methods be
 	/// invoked while this function is running.
+	///
+	/// Returned switch **must** be consumed and acted upon by the caller,
+	/// **infallibly**.
 	#[expect(clippy::missing_panics_doc)]
 	#[must_use]
 	pub unsafe fn event_page_fault(
@@ -273,7 +294,9 @@ impl<A: Arch> Scheduler<A> {
 				 {err:?}",
 				id
 			);
-			Switch::from_schedule_action(self.pick_user_thread(), Some(id))
+
+			// SAFETY: Safety requirements offloaded to caller.
+			Switch::from_schedule_action(unsafe { self.pick_user_thread() }, Some(id))
 		} else {
 			self.current = Some(thread.clone());
 			Switch::UserResume(thread, None)

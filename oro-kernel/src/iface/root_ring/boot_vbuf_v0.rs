@@ -40,7 +40,7 @@ use crate::{
 ///
 /// Optional.
 #[used]
-#[link_section = ".oro_boot"]
+#[unsafe(link_section = ".oro_boot")]
 pub static VBUF_REQUEST: VideoBuffersRequest = VideoBuffersRequest::with_revision(0);
 
 /// Interface-specific error type.

@@ -71,7 +71,10 @@ impl<T: Sized, Alloc: Allocator + Default> Table<T, Alloc> {
 	/// Caller must ensure that `id` does not already exist in the table.
 	#[inline]
 	pub unsafe fn insert_unique_unchecked(&mut self, id: u64, value: T) {
-		self.0.insert_unique_unchecked(id, value);
+		// SAFETY: Safety requirements offloaded to the caller.
+		unsafe {
+			self.0.insert_unique_unchecked(id, value);
+		}
 	}
 
 	/// Returns a reference to the value associated with the given ID.

@@ -20,8 +20,12 @@ static HAS_SET_KERNEL_ID_FN: core::sync::atomic::AtomicBool =
 
 /// Retrieves the current core's kernel ID. This is linked to by `oro-sync` for the
 /// [`oro_sync::ReentrantLock`] implementation.
+///
+/// # Safety
+/// This function is **not** safe to call directly. It is intended to be called by
+/// `oro-sync` only.
 #[doc(hidden)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub(crate) unsafe extern "C" fn oro_sync_current_core_id() -> u32 {
 	#[cfg(debug_assertions)]
 	{
@@ -31,7 +35,10 @@ pub(crate) unsafe extern "C" fn oro_sync_current_core_id() -> u32 {
 		);
 	}
 
-	let id = KERNEL_ID_FN.assume_init()();
+	// SAFETY: We have offloaded safety considerations to users of this ID system.
+	// SAFETY: The sync crate's locking mechanisms for re-entrant locks cannot be used
+	// SAFETY: prior to the kernel ID function being set.
+	let id = unsafe { KERNEL_ID_FN.assume_init()() };
 	::oro_dbgutil::__oro_dbgutil_core_id_fn_was_called(id);
 	id
 }
@@ -57,7 +64,7 @@ pub unsafe fn initialize_kernel_id_fn<A: Arch>() {
 
 	// SAFETY(qix-): We have offloaded safety considerations to the caller here.
 	#[expect(static_mut_refs)]
-	{
+	unsafe {
 		::oro_dbgutil::__oro_dbgutil_core_id_fn_was_set(get_arch_kernel_id::<A>());
 		KERNEL_ID_FN.write(get_arch_kernel_id::<A>);
 	}
@@ -80,7 +87,7 @@ pub unsafe fn install_dummy_kernel_id_fn() {
 
 	// SAFETY(qix-): We have offloaded safety considerations to the caller here.
 	#[expect(static_mut_refs)]
-	{
+	unsafe {
 		::oro_dbgutil::__oro_dbgutil_core_id_fn_was_set(0xDEAD_DEAD);
 		KERNEL_ID_FN.write(|| 0xDEAD_DEAD);
 	}

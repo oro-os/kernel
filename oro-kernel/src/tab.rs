@@ -206,8 +206,10 @@ impl GlobalTable {
 
 		// Mark the slot as free. If this returns `true` the slot is
 		// now a tomb.
+		// SAFETY: We're currently freeing; the safety considerations thereof
+		// SAFETY: are thus offloaded to the caller.
 		#[cfg(not(feature = "zombie-tombs"))]
-		if slot.free_and_check_tomb() {
+		if unsafe { slot.free_and_check_tomb() } {
 			// Go down the rabbit hole and see if any of the subtables are now all tombs.
 
 			// TODO(qix-): Implement this. For now, we leak.
@@ -229,7 +231,11 @@ impl GlobalTable {
 		loop {
 			let last_free = self.last_free.load(Relaxed);
 
-			slot.set_next_free(last_free as usize);
+			// SAFETY: We're currently freeing; the safety considerations thereof
+			// SAFETY: are thus offloaded to the caller.
+			unsafe {
+				slot.set_next_free(last_free as usize);
+			}
 
 			if self
 				.last_free

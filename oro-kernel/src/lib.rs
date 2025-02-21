@@ -127,7 +127,8 @@ impl<A: Arch> Kernel<A> {
 	) -> Result<&'static Self, MapError> {
 		assert::fits::<Self, 4096>();
 
-		let mapper = AddressSpace::<A>::current_supervisor_space();
+		// SAFETY: Safety requirements about exclusive access are offloaded to the caller.
+		let mapper = unsafe { AddressSpace::<A>::current_supervisor_space() };
 		let core_local_segment = AddressSpace::<A>::kernel_core_local();
 
 		let kernel_base = core_local_segment.range().0;
@@ -139,24 +140,32 @@ impl<A: Arch> Kernel<A> {
 		}
 
 		let kernel_ptr = kernel_base as *mut Self;
-		kernel_ptr.write(Self {
-			id,
-			handle,
-			state: global_state,
-			scheduler: MaybeUninit::uninit(),
-			mapper,
-		});
+		// SAFETY: We've just mapped in the kernel instance, and have debug-checked it's aligned.
+		unsafe {
+			kernel_ptr.write(Self {
+				id,
+				handle,
+				state: global_state,
+				scheduler: MaybeUninit::uninit(),
+				mapper,
+			});
+		}
 
-		// SAFETY(qix-): Now that the kernel has been mapped in, we can initialize the _real_
-		// SAFETY(qix-): core-local ID function. This is effectively a no-op for secondary
-		// SAFETY(qix-): cores, but doing it here ensures that any stray usage of `ReentrantLock`s
-		// SAFETY(qix-): at least see _some_ core ID. This isn't ideal, it's a bit of a hack, but
-		// SAFETY(qix-): it's a one-off situation that isn't trivial to avoid.
-		sync::initialize_kernel_id_fn::<A>();
+		// SAFETY: Now that the kernel has been mapped in, we can initialize the _real_
+		// SAFETY: core-local ID function. This is effectively a no-op for secondary
+		// SAFETY: cores, but doing it here ensures that any stray usage of `ReentrantLock`s
+		// SAFETY: at least see _some_ core ID. This isn't ideal, it's a bit of a hack, but
+		// SAFETY: it's a one-off situation that isn't trivial to avoid.
+		unsafe {
+			sync::initialize_kernel_id_fn::<A>();
+		}
 
-		(*kernel_ptr)
-			.scheduler
-			.write(TicketMutex::new(Scheduler::new(&*kernel_ptr)));
+		// SAFETY: We've just written the kernel instance to the core-local segment; it's safe to read.
+		unsafe {
+			(*kernel_ptr)
+				.scheduler
+				.write(TicketMutex::new(Scheduler::new(&*kernel_ptr)));
+		}
 
 		if !global_state.has_initialized_root.swap(true, SeqCst) {
 			global_state.root_ring.with_mut(|root_ring| {
@@ -190,7 +199,8 @@ impl<A: Arch> Kernel<A> {
 			}
 		}
 
-		Ok(&*kernel_ptr)
+		// SAFETY: We just wrote the kernel instance to the core-local segment; it's safe to deref.
+		unsafe { Ok(&*kernel_ptr) }
 	}
 
 	/// Returns a reference to the core-local kernel instance.
@@ -249,7 +259,8 @@ impl<A: Arch> Kernel<A> {
 	/// spinlock and thus does not disable interrupts.
 	#[must_use]
 	pub unsafe fn scheduler(&self) -> &TicketMutex<Scheduler<A>> {
-		self.scheduler.assume_init_ref()
+		// SAFETY: Always valid if we have a valid `self` reference.
+		unsafe { self.scheduler.assume_init_ref() }
 	}
 }
 
@@ -287,10 +298,14 @@ impl<A: Arch> KernelState<A> {
 	/// or else registry accesses will page fault.
 	#[allow(clippy::missing_panics_doc)]
 	pub unsafe fn init(this: &'static mut MaybeUninit<Self>) -> Result<(), MapError> {
-		// SAFETY(qix-): Must be first, before anything else happens in the kernel.
-		self::sync::install_dummy_kernel_id_fn();
+		// SAFETY: Must be first, before anything else happens in the kernel.
+		unsafe {
+			self::sync::install_dummy_kernel_id_fn();
+		}
 
-		let root_ring = ring::Ring::<A>::new_root()?;
+		// SAFETY: We've offloaded the requirement of being called once for the entire
+		// SAFETY: kernel lifetime to the caller.
+		let root_ring = unsafe { ring::Ring::<A>::new_root()? };
 
 		let (thread_rx, thread_tx) = nolock::queues::mpmc::bounded::scq::queue(128);
 
