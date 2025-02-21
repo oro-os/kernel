@@ -39,16 +39,22 @@ impl Rsdp {
 	/// the bootloader has done so, but we still must mark this as unsafe.
 	#[must_use]
 	pub unsafe fn get(physical_address: u64) -> Option<Self> {
-		let ptr =
-			Phys::from_address_unchecked(physical_address).as_ref::<sys::acpi_table_rsdp>()?;
+		// SAFETY: Safety requirements of physical address offloaded to caller.
+		let ptr = unsafe {
+			Phys::from_address_unchecked(physical_address).as_ref::<sys::acpi_table_rsdp>()?
+		};
 
-		if ptr.Signature != *from_ref(sys::ACPI_SIG_RSDP).cast::<[i8; 8]>() {
+		// SAFETY: We assume the pointer is valid; it's based off the physical address,
+		// SAFETY: the safety constraints for which have been offloaded to the caller.
+		if ptr.Signature != unsafe { *from_ref(sys::ACPI_SIG_RSDP).cast::<[i8; 8]>() } {
 			return None;
 		}
 
 		let mut checksum: u8 = 0;
 		for i in 0..20 {
-			checksum = checksum.wrapping_add(from_ref(ptr).cast::<u8>().add(i).read());
+			// SAFETY: We assume the pointer is valid; it's based off the physical address,
+			// SAFETY: the safety constraints for which have been offloaded to the caller.
+			checksum = checksum.wrapping_add(unsafe { from_ref(ptr).cast::<u8>().add(i).read() });
 		}
 
 		if checksum != 0 {
@@ -60,7 +66,10 @@ impl Rsdp {
 			// SAFETY(qix-): The length field is only valid for revisions > 0.
 			let mut checksum: u8 = 0;
 			for i in 0..(ptr.Length.read() as usize) {
-				checksum = checksum.wrapping_add(from_ref(ptr).cast::<u8>().add(i).read());
+				// SAFETY: We assume the pointer is valid; it's based off the physical address,
+				// SAFETY: the safety constraints for which have been offloaded to the caller.
+				checksum =
+					checksum.wrapping_add(unsafe { from_ref(ptr).cast::<u8>().add(i).read() });
 			}
 			if checksum != 0 {
 				return None;
@@ -82,14 +91,14 @@ impl Rsdp {
 	#[must_use]
 	pub fn sdt(&self) -> Option<RootSdt> {
 		if self.revision() == 0 {
-			// SAFETY(qix-): We've made sure we're casting to the right type.
+			// SAFETY: We've made sure we're casting to the right type.
 			Some(RootSdt::Rsdt(unsafe {
-				Rsdt::new(u64::from(self.ptr.RsdtPhysicalAddress.read()))?
+				Rsdt::from_phys(u64::from(self.ptr.RsdtPhysicalAddress.read()))?
 			}))
 		} else {
-			// SAFETY(qix-): We've made sure we're casting to the right type.
+			// SAFETY: We've made sure we're casting to the right type.
 			Some(RootSdt::Xsdt(unsafe {
-				Xsdt::new(self.ptr.XsdtPhysicalAddress.read())?
+				Xsdt::from_phys(self.ptr.XsdtPhysicalAddress.read())?
 			}))
 		}
 	}
@@ -123,7 +132,8 @@ where
 	///
 	/// Returns `None` if the table is not found or is not valid.
 	fn find<T: AcpiTable>(&self) -> Option<T> {
-		// SAFETY(qix-): We know that the data is valid since we've validated the table.
+		// SAFETY: We can assume all data within the table is valid given that the OEM has
+		// SAFETY: built the table. There's nothing further we can do to ensure safety.
 		unsafe {
 			<Self as AcpiTable>::data(self)
 				.as_window_slice::<{ PTR_SIZE }>()
@@ -132,8 +142,8 @@ where
 					let phys = chunk.from_le_64();
 					let sig = Phys::from_address_unchecked(phys).as_ref_unchecked::<[i8; 4]>();
 					if sig == T::SIGNATURE {
-						// SAFETY(qix-): We've ensured that we're really iterating over physical addresses.
-						Some(T::new(phys))
+						// SAFETY: We've ensured that we're really iterating over physical addresses.
+						Some(T::from_phys(phys))
 					} else {
 						None
 					}
@@ -173,10 +183,13 @@ pub trait AcpiTable: Sized {
 	/// Returns `None` if the ACPI table is invalid.
 	///
 	/// # Safety
-	/// Caller must ensure the physical address is readable.
+	/// Caller must ensure the physical address is valid and readable.
 	#[must_use]
-	unsafe fn new(physical_address: u64) -> Option<Self> {
-		let ptr = Phys::from_address_unchecked(physical_address).as_ref::<Self::SysTable>()?;
+	unsafe fn from_phys(physical_address: u64) -> Option<Self> {
+		// SAFETY: Safety requirements of physical address offloaded to caller.
+		let ptr =
+			unsafe { Phys::from_address_unchecked(physical_address).as_ref::<Self::SysTable>()? };
+
 		let header = Self::header_ref(ptr);
 
 		if &header.Signature != Self::SIGNATURE {
@@ -186,26 +199,23 @@ pub trait AcpiTable: Sized {
 		let mut checksum = 0_u8;
 		for i in 0..header.Length.read() {
 			assert::fits_within::<u32, usize>();
-			checksum = checksum.wrapping_add(from_ref(ptr).cast::<u8>().add(i as usize).read());
+			// SAFETY: We assume the pointer is valid; it's based off the physical address,
+			// SAFETY: the safety constraints for which have been offloaded to the caller.
+			checksum =
+				checksum.wrapping_add(unsafe { from_ref(ptr).cast::<u8>().add(i as usize).read() });
 		}
 
 		if checksum != 0 {
 			return None;
 		}
 
-		Some(Self::new_unchecked(ptr))
+		// SAFETY: We've constructed the
+		Some(Self::from_ref(ptr))
 	}
 
 	/// Creates a new instance of the ACPI table
-	/// from the given physical address.
-	///
-	/// Does NOT perform any validation. **Do not use this method.
-	/// Use [`Self::new`] instead.**
-	///
-	/// # Safety
-	/// Caller must ensure the physical address is readable and that
-	/// the ACPI table is valid.
-	unsafe fn new_unchecked(ptr: &'static Self::SysTable) -> Self;
+	/// from the given system table reference.
+	fn from_ref(ptr: &'static Self::SysTable) -> Self;
 
 	/// Returns a reference to the header of a given ref.
 	fn header_ref(sys_table: &'static Self::SysTable) -> &'static sys::acpi_table_header;
@@ -294,7 +304,7 @@ macro_rules! impl_tables {
 
 			type SysTable = $systbl_ident;
 
-			unsafe fn new_unchecked(ptr: &'static Self::SysTable) -> Self {
+			fn from_ref(ptr: &'static Self::SysTable) -> Self {
 				Self { ptr }
 			}
 

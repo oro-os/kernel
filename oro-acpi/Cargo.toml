@@ -3,7 +3,7 @@ name = "oro-acpi"
 version.workspace = true
 description = "Advanced Configuration and Power Interface (ACPI) support for Oro"
 publish = false
-edition = "2021"
+edition = "2024"
 authors = [
 	"Josh Junon (https//github.com/qix-)"
 ]
