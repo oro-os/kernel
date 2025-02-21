@@ -91,9 +91,14 @@ const MODULE_EXE_INTERMEDIATE_ENTRY: PageTableEntry = PageTableEntry::new()
 
 impl AddressSpaceLayout {
 	/// Adds the recursive mapping to the provided page table.
-	pub fn map_recursive_entry(handle: &AddressSpaceHandle) {
-		// SAFETY(qix-): We can reasonably assuming that the `AddressSpaceHandle`
-		// SAFETY(qix-): is valid if it's been constructed by us.
+	///
+	/// # Safety
+	/// This will invariable modify the underlying memory mapping. Anything at
+	/// `Self::RECURSIVE_IDX` will be overwritten, and become unavailable and
+	/// potentially lost.
+	pub unsafe fn map_recursive_entry(handle: &AddressSpaceHandle) {
+		// SAFETY: We can reasonably assuming that the `AddressSpaceHandle`
+		// SAFETY: is valid if it's been constructed by us.
 		unsafe {
 			// NOTE(qix-): Reminder not to treat this as a leaf PTE. It's setting
 			// NOTE(qix-): both intermediate entries as well as a leaf (technically,
