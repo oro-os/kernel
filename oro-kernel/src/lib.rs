@@ -328,10 +328,9 @@ impl<A: Arch> KernelState<A> {
 			Thread::<A>::deallocate(&thread);
 		}
 
-		match self.thread_tx.try_enqueue(thread) {
-			Ok(t) => t,
-			Err((err, _)) => panic!("thread queue full or disconnected: {err:?}"),
-		};
+		if let Err((err, _)) = self.thread_tx.try_enqueue(thread) {
+			panic!("thread queue full or disconnected: {err:?}")
+		}
 	}
 
 	/// Tries to take the next unclaimed thread.

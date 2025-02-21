@@ -473,7 +473,6 @@ impl PageTableEntry {
 
 impl From<u64> for PageTableEntry {
 	#[inline]
-	#[must_use]
 	fn from(value: u64) -> Self {
 		Self(value)
 	}
@@ -481,7 +480,6 @@ impl From<u64> for PageTableEntry {
 
 impl From<PageTableEntry> for u64 {
 	#[inline]
-	#[must_use]
 	fn from(entry: PageTableEntry) -> Self {
 		entry.0
 	}

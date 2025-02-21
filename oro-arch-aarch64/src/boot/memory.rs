@@ -295,7 +295,7 @@ unsafe fn linear_map_regions<'a>(
 						.with_address(base_phys)
 						.into(),
 				);
-			};
+			}
 
 			// Now to back out, we have to restore the L1 entry first...
 			l0_pte.write(
