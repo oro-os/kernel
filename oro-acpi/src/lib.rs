@@ -42,7 +42,7 @@ impl Rsdp {
 		let ptr =
 			Phys::from_address_unchecked(physical_address).as_ref::<sys::acpi_table_rsdp>()?;
 
-		if ptr.Signature != *core::ptr::from_ref(sys::ACPI_SIG_RSDP).cast::<[i8; 8]>() {
+		if ptr.Signature != *from_ref(sys::ACPI_SIG_RSDP).cast::<[i8; 8]>() {
 			return None;
 		}
 
@@ -208,18 +208,10 @@ pub trait AcpiTable: Sized {
 	unsafe fn new_unchecked(ptr: &'static Self::SysTable) -> Self;
 
 	/// Returns a reference to the header of a given ref.
-	///
-	/// # Safety
-	/// Caller must treat any and all multibyte fields fetched
-	/// from within this header as little endian.
-	unsafe fn header_ref(sys_table: &'static Self::SysTable) -> &'static sys::acpi_table_header;
+	fn header_ref(sys_table: &'static Self::SysTable) -> &'static sys::acpi_table_header;
 
 	/// Returns a reference to this table's header.
-	///
-	/// # Safety
-	/// Caller must treat any and all multibyte fields fetched
-	/// from within this header as little endian.
-	unsafe fn header(&self) -> &'static sys::acpi_table_header;
+	fn header(&self) -> &'static sys::acpi_table_header;
 
 	/// Returns a slice of the table's data (after the header).
 	///
@@ -237,7 +229,7 @@ pub trait AcpiTable: Sized {
 			assert::fits_within::<u32, usize>();
 			let len =
 				header.Length.read() as usize - core::mem::size_of::<sys::acpi_table_header>();
-			let data_base = core::ptr::from_ref(header).add(1).cast::<u8>();
+			let data_base = from_ref(header).add(1).cast::<u8>();
 			core::slice::from_raw_parts(data_base, len)
 		}
 	}
@@ -259,18 +251,15 @@ pub trait AcpiTable: Sized {
 			let header = self.header();
 			assert::fits_within::<u32, usize>();
 			let len = header.Length.read() as usize - core::mem::size_of::<Self::SysTable>();
-			let data_base = core::ptr::from_ref(self.inner_ref()).add(1).cast::<u8>();
+			let data_base = from_ref(self.inner_ref()).add(1).cast::<u8>();
 			core::slice::from_raw_parts(data_base, len)
 		}
 	}
 
 	/// Returns the internal system table type.
-	///
-	/// # Safety
-	/// Caller must access all multi-byte fields as little endian.
-	unsafe fn inner_ref(&self) -> &'static Self::SysTable {
+	fn inner_ref(&self) -> &'static Self::SysTable {
 		// SAFETY(qix-): The header reference always marks the start of the table.
-		unsafe { &*::core::ptr::from_ref(self.header()).cast::<Self::SysTable>() }
+		unsafe { &*from_ref(self.header()).cast::<Self::SysTable>() }
 	}
 }
 
@@ -309,11 +298,11 @@ macro_rules! impl_tables {
 				Self { ptr }
 			}
 
-			unsafe fn header_ref(sys_table: &'static Self::SysTable) -> &'static sys::acpi_table_header {
+			fn header_ref(sys_table: &'static Self::SysTable) -> &'static sys::acpi_table_header {
 				&sys_table.Header
 			}
 
-			unsafe fn header(&self) -> &'static sys::acpi_table_header {
+			fn header(&self) -> &'static sys::acpi_table_header {
 				&self.ptr.Header
 			}
 		}

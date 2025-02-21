@@ -9,8 +9,8 @@ impl crate::Mcfg {
 	#[must_use]
 	pub fn entries(&self) -> McfgIterator {
 		McfgIterator::new(
-			// SAFETY(qix-): We're guaranteed to be creating a valid slice,
-			// SAFETY(qix-): assuming ACPI has reported the correct length.
+			// SAFETY: We always read the data as LE (as we cast to types
+			// SAFETY: that enforce it for us)
 			unsafe { self.trailing_data() },
 		)
 	}
