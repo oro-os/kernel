@@ -7,7 +7,9 @@
 #[inline(never)]
 #[panic_handler]
 unsafe fn panic(info: &::core::panic::PanicInfo<'_>) -> ! {
-	::oro_bootloader_limine::panic(info)
+	// SAFETY: This is the architecture-specific entry function, the
+	// SAFETY: only allowed place to call this function.
+	unsafe { ::oro_bootloader_limine::panic(info) }
 }
 
 /// Main entry point for the Limine bootloader stage
@@ -18,8 +20,13 @@ unsafe fn panic(info: &::core::panic::PanicInfo<'_>) -> ! {
 /// by the Limine bootloader.
 #[inline(never)]
 #[cold]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn _start() -> ! {
-	::core::arch::asm!("cli");
-	::oro_bootloader_limine::init()
+	// SAFETY: Inline assembly is required to disable interrupts.
+	unsafe {
+		::core::arch::asm!("cli");
+	}
+	// SAFETY: This is the architecture-specific entry function, the
+	// SAFETY: only allowed place to call this function.
+	unsafe { ::oro_bootloader_limine::init() }
 }

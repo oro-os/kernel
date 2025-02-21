@@ -135,7 +135,9 @@ pub unsafe fn init() -> ! {
 	let hhdm_offset = hhdm_response.offset();
 
 	(|| {
-		Err({
+		// SAFETY: The call to bootstrap is inherently unsafe; we call it
+		// SAFETY: once here, from only the bootstrap processor.
+		Err(unsafe {
 			let bs = oro_boot::OroBootstrapper::bootstrap(
 				hhdm_offset,
 				KERNEL_STACK_PAGES,
@@ -297,9 +299,12 @@ pub unsafe fn panic(info: &::core::panic::PanicInfo<'_>) -> ! {
 
 	dbg_err!("panic: {:?}", info);
 	loop {
-		#[cfg(target_arch = "x86_64")]
-		asm!("hlt");
-		#[cfg(target_arch = "aarch64")]
-		asm!("wfi");
+		// SAFETY: Inline assembly is required to halt the CPU.
+		unsafe {
+			#[cfg(target_arch = "x86_64")]
+			asm!("hlt");
+			#[cfg(target_arch = "aarch64")]
+			asm!("wfi");
+		}
 	}
 }
