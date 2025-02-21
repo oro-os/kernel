@@ -3,7 +3,7 @@ name = "oro-macro"
 version.workspace = true
 description = "Macros used throughout the Oro kernel project."
 publish = false
-edition = "2021"
+edition = "2024"
 authors = [
 	"Josh Junon (https//github.com/qix-)"
 ]
