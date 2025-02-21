@@ -9,11 +9,7 @@
 #![feature(debug_closure_helpers)]
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
-use core::{
-	fmt,
-	mem::{ManuallyDrop, transmute},
-	ptr::from_ref,
-};
+use core::{fmt, mem::ManuallyDrop, ptr::from_ref};
 
 use oro_macro::assert;
 
@@ -65,6 +61,8 @@ impl Elf {
 	/// it must not be shorter, and must always refer
 	/// to otherwise valid memory not used by anything else.
 	///
+	/// `length` must not be larger than an `isize`.
+	///
 	/// The parser will check that all data falls within
 	/// the length, but does not enforce that the ELF is
 	/// _exactly_ `length` bytes long.
@@ -80,19 +78,19 @@ impl Elf {
 			return Err(ElfError::UnalignedBaseAddr);
 		}
 
-		let end_excl = base_addr.add(length) as u64;
+		// SAFETY: `length` requirements offloaded to caller.
+		let end_excl = unsafe { base_addr.add(length) as u64 };
 
+		// SAFETY: We've checked that the base address is aligned.
 		#[expect(clippy::cast_ptr_alignment)]
-		let elf = &*base_addr.cast::<Self>();
+		let elf = unsafe { &*base_addr.cast::<Self>() };
 
 		if elf.ident.magic != [0x7F, b'E', b'L', b'F'] {
 			return Err(ElfError::InvalidMagic);
 		}
 
-		if !matches!(transmute::<ElfClass, u8>(elf.ident.class), 1_u8 | 2_u8) {
-			return Err(ElfError::InvalidClass(transmute::<ElfClass, u8>(
-				elf.ident.class,
-			)));
+		if !matches!(elf.ident.class as u8, 1_u8 | 2_u8) {
+			return Err(ElfError::InvalidClass(elf.ident.class as u8));
 		}
 
 		if elf.ident.class != class {
@@ -102,13 +100,8 @@ impl Elf {
 			});
 		}
 
-		if !matches!(
-			transmute::<ElfEndianness, u8>(elf.ident.endian),
-			1_u8 | 2_u8
-		) {
-			return Err(ElfError::InvalidEndianness(transmute::<ElfEndianness, u8>(
-				elf.ident.endian,
-			)));
+		if !matches!(elf.ident.endian as u8, 1_u8 | 2_u8) {
+			return Err(ElfError::InvalidEndianness(elf.ident.endian as u8));
 		}
 
 		if elf.ident.endian != endianness {
@@ -182,9 +175,12 @@ impl Elf {
 			}};
 		}
 
-		match elf.ident.class {
-			ElfClass::Class32 => validate_arch_header!(&elf.endian.elf32, end_excl),
-			ElfClass::Class64 => validate_arch_header!(&elf.endian.elf64, end_excl),
+		// SAFETY: Access to union field is checked and safe in this case.
+		unsafe {
+			match elf.ident.class {
+				ElfClass::Class32 => validate_arch_header!(&elf.endian.elf32, end_excl),
+				ElfClass::Class64 => validate_arch_header!(&elf.endian.elf64, end_excl),
+			}
 		}
 
 		Ok(elf)
