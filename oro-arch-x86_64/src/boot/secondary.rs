@@ -456,6 +456,8 @@ const SECONDARY_BOOT_LONG_MODE_STUB: &[u8] = &asm_buffer! {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	crate::gdt::GDT.install();
+	crate::interrupt::install_idt();
+	crate::asm::flush_tlb();
 
 	// Get references to the secondary boot flags.
 	let primary_flag = &*(0x8FB0 as *const AtomicU64);

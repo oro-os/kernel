@@ -32,6 +32,7 @@ const SECONDARY_STACK_PAGES: usize = 16;
 pub unsafe fn boot_primary() -> ! {
 	crate::asm::disable_interrupts();
 	crate::gdt::GDT.install();
+	crate::interrupt::install_idt();
 	crate::asm::flush_tlb();
 
 	#[cfg(debug_assertions)]

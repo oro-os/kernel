@@ -20,14 +20,15 @@ crate::isr_table! {
 /// Installs the IDT (Interrupt Descriptor Table) for the kernel
 /// and enables interrupts.
 ///
-/// # Safety
-/// Modifies global state, and must be called only once.
+/// # LAPIC / Spurious Interrupts
+/// This function **does not** initialize the LAPIC (Local APIC) for
+/// interrupt handling. This must be done separately with
+/// [`initialize_lapic_irqs`].
 ///
-/// The kernel MUST be fully initialized before calling this function.
+/// # Safety
+/// Modifies global state, and must be called only once - preferably
+/// early, and after the GDT has been installed.
 pub unsafe fn install_idt() {
-	// Get the LAPIC.
-	let lapic = &crate::Kernel::get().handle().lapic;
-
 	/// The IDTR (Interrupt Descriptor Table Register) structure,
 	/// read in by the `lidt` instruction.
 	#[repr(C, packed)]
@@ -51,6 +52,17 @@ pub unsafe fn install_idt() {
 		in(reg) &idtr,
 		options(nostack, preserves_flags)
 	);
+}
+
+/// Initializes the APIC (Advanced Programmable Interrupt Controller)
+/// for interrupt handling.
+///
+/// # Safety
+/// Modifies global state, and must be called only once.
+///
+/// The kernel MUST be fully initialized before calling this function.
+pub unsafe fn initialize_lapic_irqs() {
+	let lapic = &crate::Kernel::get().handle().lapic;
 
 	lapic.set_timer_divider(crate::lapic::ApicTimerDivideBy::Div128);
 
