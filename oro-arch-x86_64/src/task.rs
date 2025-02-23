@@ -168,6 +168,7 @@ pub unsafe extern "C" fn oro_x86_64_kernel_to_user_sysret() {
 	// TODO(qix-): around the resume flag (RF) and the trap flag (TF) in the RFLAGS register.
 	naked_asm!(
 		"mov [rsi], rsp",
+		// XXX(qix-): This looks wrong, not sure what I did here.
 		"push r8",
 		"push r9",
 		"push r10",
