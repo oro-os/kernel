@@ -320,7 +320,7 @@ pub unsafe fn boot_secondary(
 
 	// Wait for the secondary core to signal it's ready.
 	let mut ok = false;
-	for _ in 0..100_000 {
+	for _ in 0..10_000_000 {
 		match secondary_flag.load(Acquire) {
 			1 => {
 				ok = true;
