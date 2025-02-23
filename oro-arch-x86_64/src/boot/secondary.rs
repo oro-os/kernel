@@ -532,6 +532,10 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	}
 
 	if !ok {
+		dbg_err!(
+			"secondary core timed out waiting for primary to signal to continue, or primary told \
+			 us to stop"
+		);
 		crate::asm::hang();
 	}
 
