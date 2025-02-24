@@ -87,14 +87,25 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	let mut has_cs9 = false;
 
 	for region in mmap_iterator.clone() {
-		if region.base < MIB_1 {
-			let end = region.base + region.length;
+		let end = region.base + region.length;
 
-			if region.base <= 0x8000 && end >= 0x9000 {
+		let is_usable = matches!(
+			region.ty,
+			MemoryMapEntryType::Usable | MemoryMapEntryType::Reclaimable
+		);
+
+		if region.base <= 0x8000 && end >= 0x9000 {
+			if is_usable {
 				has_cs8 = true;
+			} else {
+				dbg_warn!("cs8 exists but is not usable ({:?})", region.ty);
 			}
-			if region.base <= 0x9000 && end >= 0xA000 {
+		}
+		if region.base <= 0x9000 && end >= 0xA000 {
+			if is_usable {
 				has_cs9 = true;
+			} else {
+				dbg_warn!("cs9 exists but is not usable ({:?})", region.ty);
 			}
 		}
 	}
