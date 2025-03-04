@@ -198,10 +198,15 @@ pub unsafe fn boot_primary() -> ! {
 
 			num_cores
 		} else {
-			dbg_warn!(
-				"multicore disabled OR physical pages 0x8000/0x9000 are not available; cannot \
-				 boot secondary cores"
-			);
+			if MULTICORE_ENABLED {
+				dbg_warn!(
+					"physical pages 0x8000/0x9000 are not available; cannot boot secondary cores"
+				);
+			} else {
+				dbg_warn!("multicore disabled; cannot boot secondary cores");
+			}
+
+			// Only booting the primary core.
 			1
 		};
 
