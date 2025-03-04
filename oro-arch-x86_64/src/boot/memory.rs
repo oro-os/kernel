@@ -317,7 +317,7 @@ unsafe fn linear_map_regions<'a>(
 		}
 
 		dbg!(
-			"mapped region: {:016X}:{} ({total_mappings} mappings) -> {:?} @ \
+			"mapped region: {:016X}:{:X} ({total_mappings} mappings) -> {:?} @ \
 			 {start_of_region:016X}",
 			region.base,
 			region.length,
