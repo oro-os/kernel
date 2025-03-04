@@ -185,13 +185,13 @@ pub unsafe fn boot_secondary(
 		Phys::from_address_unchecked(0x8000).as_mut_ptr_unchecked::<u8>(),
 		SECONDARY_BOOT_STUB.len(),
 	);
-	stub_slice.copy_from_slice(SECONDARY_BOOT_STUB);
+	stub_slice.copy_from_slice(&SECONDARY_BOOT_STUB);
 
 	let long_mode_stub_slice = core::slice::from_raw_parts_mut(
 		Phys::from_address_unchecked(0x8000 + 0x400).as_mut_ptr_unchecked::<u8>(),
 		SECONDARY_BOOT_LONG_MODE_STUB.len(),
 	);
-	long_mode_stub_slice.copy_from_slice(SECONDARY_BOOT_LONG_MODE_STUB);
+	long_mode_stub_slice.copy_from_slice(&SECONDARY_BOOT_LONG_MODE_STUB);
 
 	// Write the GDT to the second half of the page.
 	// It lives at 0x8000 + 0x800 (CS:IP = 0x0800:0x0800).
@@ -345,110 +345,118 @@ pub unsafe fn boot_secondary(
 	Ok(())
 }
 
-/// The secondary boot stub machine code.
-///
-/// This is more or less adapted from the direct-to-long-mode boot stub
-/// provided by Brendan from the `OSDev` Wiki. It's not supposed to work
-/// as per the AMD documentation, but it does.
-const SECONDARY_BOOT_STUB: &[u8] = &asm_buffer! {
-	// 16-bit code starts here
-	".code16",
+asm_buffer! {
+	/// The secondary boot stub machine code.
+	///
+	/// This is more or less adapted from the direct-to-long-mode boot stub
+	/// provided by Brendan from the `OSDev` Wiki. It's not supposed to work
+	/// as per the AMD documentation, but it does.
+	static SECONDARY_BOOT_STUB: AsmBuffer = {
+		{
+			// 16-bit code starts here
+			".code16",
 
-	// Mask off all IRQs with the LAPIC.
-	"cli",
-	"mov al, 0xFF",
-	"out 0xA1, al",
-	"out 0x21, al",
-	"nop",
-	"nop",
+			// Mask off all IRQs with the LAPIC.
+			"cli",
+			"mov al, 0xFF",
+			"out 0xA1, al",
+			"out 0x21, al",
+			"nop",
+			"nop",
 
-	// Load the zero IDT. This makes all NMIs
-	// cause a triple fault.
-	//
-	// The zero IDT has been placed at 0x8FF0
-	// by the primary core.
-	"lidt [0x8FE8]",
+			// Load the zero IDT. This makes all NMIs
+			// cause a triple fault.
+			//
+			// The zero IDT has been placed at 0x8FF0
+			// by the primary core.
+			"lidt [0x8FE8]",
 
-	// Set the PAE and PGE bits in CR4,
-	// as well as any others that the primary
-	// core has set that we're interested in.
-	"mov eax, 0b10100000",
-	"mov ebx, [0x8FF0]",
-	"or eax, ebx",
-	"mov cr4, eax",
+			// Set the PAE and PGE bits in CR4,
+			// as well as any others that the primary
+			// core has set that we're interested in.
+			"mov eax, 0b10100000",
+			"mov ebx, [0x8FF0]",
+			"or eax, ebx",
+			"mov cr4, eax",
 
-	// Load the top level page table.
-	// The primary core has placed the L4 page table
-	// at 0x9000.
-	"mov edx, 0x9000",
-	"mov cr3, edx",
+			// Load the top level page table.
+			// The primary core has placed the L4 page table
+			// at 0x9000.
+			"mov edx, 0x9000",
+			"mov cr3, edx",
 
-	// Set the LME and NXE bits in EFER.
-	//
-	// LME tells the CPU we want Long Mode.
-	//
-	// NXE tells the CPU to allow us to use the
-	// no-execute (NX) bit in the page tables.
-	// If we don't enable that, and we use NX,
-	// the CPU will fault with a #GP(0xD) with
-	// an error code of 0xA (1010b, reserved bit
-	// set).
-	"xor eax, eax",
-	"mov ecx, 0xC0000080",
-	"rdmsr",
-	"or eax, 0x00000900",
-	"wrmsr",
+			// Set the LME and NXE bits in EFER.
+			//
+			// LME tells the CPU we want Long Mode.
+			//
+			// NXE tells the CPU to allow us to use the
+			// no-execute (NX) bit in the page tables.
+			// If we don't enable that, and we use NX,
+			// the CPU will fault with a #GP(0xD) with
+			// an error code of 0xA (1010b, reserved bit
+			// set).
+			"xor eax, eax",
+			"mov ecx, 0xC0000080",
+			"rdmsr",
+			"or eax, 0x00000900",
+			"wrmsr",
 
-	// Activate long mode by setting
-	// both the paging and protected mode
-	// bits at the same time in CR0.
-	"mov ebx, cr0",
-	"or ebx, 0x80000001",
-	"mov cr0, ebx",
+			// Activate long mode by setting
+			// both the paging and protected mode
+			// bits at the same time in CR0.
+			"mov ebx, cr0",
+			"or ebx, 0x80000001",
+			"mov cr0, ebx",
 
-	// Load the GDT.
-	"lgdt [0x8FF8]",
+			// Load the GDT.
+			"lgdt [0x8FF8]",
 
-	// Set the stack pointer; the primary core
-	// has placed the stack at 0x20000, plus a
-	// page, so we can use the stack pointer
-	// at 0x21000.
-	"mov esp, 0x21000",
+			// Set the stack pointer; the primary core
+			// has placed the stack at 0x20000, plus a
+			// page, so we can use the stack pointer
+			// at 0x21000.
+			"mov esp, 0x21000",
 
-	// We can now jump to the long mode stub.
-	"ljmp 0x0008, 0x8400",
-};
+			// We can now jump to the long mode stub.
+			"ljmp 0x0008, 0x8400",
+		},
+	};
+}
 
-/// The secondary boot stub machine code for long mode.
-///
-/// This is jumped to by the 16-bit stub after setting up the
-/// interim long mode environment, necessary to switch the
-/// code segment selector via an `ljmp` instruction.
-const SECONDARY_BOOT_LONG_MODE_STUB: &[u8] = &asm_buffer! {
-	// 64-bit code starts here
-	".code64",
+asm_buffer! {
+	/// The secondary boot stub machine code for long mode.
+	///
+	/// This is jumped to by the 16-bit stub after setting up the
+	/// interim long mode environment, necessary to switch the
+	/// code segment selector via an `ljmp` instruction.
+	static SECONDARY_BOOT_LONG_MODE_STUB: AsmBuffer = {
+		{
+			// 64-bit code starts here
+			".code64",
 
-	// Set the real stack pointer.
-	"mov rax, [0x8FE0]",
-	"mov rsp, rax",
+			// Set the real stack pointer.
+			"mov rax, [0x8FE0]",
+			"mov rsp, rax",
 
-	// Set the real CR3 value.
-	"mov rax, [0x8FD8]",
-	"mov cr3, rax",
+			// Set the real CR3 value.
+			"mov rax, [0x8FD8]",
+			"mov cr3, rax",
 
-	// Install the real CR0 value.
-	"mov rax, [0x8FC8]",
-	"mov cr0, rax",
+			// Install the real CR0 value.
+			"mov rax, [0x8FC8]",
+			"mov cr0, rax",
 
-	// Install the real CR4 value.
-	"mov rax, [0x8FD0]",
-	"mov cr4, rax",
+			// Install the real CR4 value.
+			"mov rax, [0x8FD0]",
+			"mov cr4, rax",
 
-	// Jump to the Rust kernel secondary core entry point.
-	"push 0",
-	"mov rax, [0x8FC0]",
-	"jmp rax",
-};
+			// Jump to the Rust kernel secondary core entry point.
+			"push 0",
+			"mov rax, [0x8FC0]",
+			"jmp rax",
+		},
+	};
+}
 
 /// The Rust entry point for secondary cores. This is jumped to
 /// by the long mode stub after setting up most of the rest of

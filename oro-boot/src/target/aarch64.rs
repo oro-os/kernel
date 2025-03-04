@@ -37,38 +37,42 @@ pub struct TransferData {
 	stubs_addr: u64,
 }
 
-/// The stub machine code to be executed in order to
-/// jump to the kernel.
-const STUBS: &[u8] = &asm_buffer! {
-	// Disable MMU
-	"mrs x9, sctlr_el1",
-	"bic x9, x9, #1",
-	"msr sctlr_el1, x9",
-	// Set up the MAIR register
-	"msr mair_el1, x3",
-	// Set the TCR_EL1 register to the configuration expected by the kernel
-	"msr tcr_el1, x5",
-	// Set up the kernel page table address in TTBR1_EL1
-	"msr ttbr1_el1, x0",
-	// Re-enable MMU
-	"mrs x9, sctlr_el1",
-	"orr x9, x9, #1",
-	"msr sctlr_el1, x9",
-	// Invalidate TLBs
-	"tlbi vmalle1is",
-	// Invalidate instruction cache
-	"ic iallu",
-	// Invalidate data cache
-	"dc isw, xzr",
-	// Ensure all cache, TLB, and branch predictor maintenance operations have completed
-	"dsb nsh",
-	// Ensure the instruction stream is consistent
-	"isb",
-	// Set up the stack pointer
-	"mov sp, x1",
-	// Jump to the kernel entry point
-	"br x2",
-};
+asm_buffer! {
+	/// The stub machine code to be executed in order to
+	/// jump to the kernel.
+	static STUBS: AsmBuffer = {
+		{
+			// Disable MMU
+			"mrs x9, sctlr_el1",
+			"bic x9, x9, #1",
+			"msr sctlr_el1, x9",
+			// Set up the MAIR register
+			"msr mair_el1, x3",
+			// Set the TCR_EL1 register to the configuration expected by the kernel
+			"msr tcr_el1, x5",
+			// Set up the kernel page table address in TTBR1_EL1
+			"msr ttbr1_el1, x0",
+			// Re-enable MMU
+			"mrs x9, sctlr_el1",
+			"orr x9, x9, #1",
+			"msr sctlr_el1, x9",
+			// Invalidate TLBs
+			"tlbi vmalle1is",
+			// Invalidate instruction cache
+			"ic iallu",
+			// Invalidate data cache
+			"dc isw, xzr",
+			// Ensure all cache, TLB, and branch predictor maintenance operations have completed
+			"dsb nsh",
+			// Ensure the instruction stream is consistent
+			"isb",
+			// Set up the stack pointer
+			"mov sp, x1",
+			// Jump to the kernel entry point
+			"br x2",
+		}
+	};
+}
 
 /// Prepares the system for a transfer. Called before the memory map
 /// is written, after which `transfer` is called.

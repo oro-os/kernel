@@ -9,7 +9,6 @@
 
 use quote::ToTokens;
 
-mod asm_buffer;
 mod bitstruct;
 mod enum_as;
 mod enum_iterator;
@@ -145,16 +144,6 @@ pub fn enum_as_u32(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 #[proc_macro]
 pub fn gdb_autoload_inline(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	self::gdb_autoload::gdb_autoload_inline(input)
-}
-
-/// Unchecked version of the `asm_buffer!` macro from the `oro-macro` crate.
-///
-/// You should use that one instead. Do not use this macro directly, as it
-/// fails when generating documentation and provides no additional control or
-/// benefit over `asm_buffer!`.
-#[proc_macro]
-pub fn asm_buffer_unchecked(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	self::asm_buffer::asm_buffer(input)
 }
 
 /// Defines a bit structure wrapper type around a primitive integer type,

@@ -252,75 +252,79 @@ struct BootInitBlock {
 	secondary_flag: AtomicBool,
 }
 
-/// The secondary boot core initialization stub.
-///
-/// Upon entry, `x0` is the physical address of the
-/// `BootInitBlock` structure that parameterizes
-/// the core.
-///
-/// This physical address must be forwarded in
-/// `x0` to the `entry_point` field of the `BootInitBlock`
-/// when branching to the kernel.
-///
-/// Expects that the page these are written to is
-/// direct-mapped. The `BootInitBlock` does not
-/// need to be.
-const SECONDARY_BOOT_STUB: &[u8] = &asm_buffer! {
-	// Make sure the MMU is disabled (it should be).
-	"mrs x9, sctlr_el1",
-	"bic x9, x9, #1",
-	"msr sctlr_el1, x9",
+asm_buffer! {
+	/// The secondary boot core initialization stub.
+	///
+	/// Upon entry, `x0` is the physical address of the
+	/// `BootInitBlock` structure that parameterizes
+	/// the core.
+	///
+	/// This physical address must be forwarded in
+	/// `x0` to the `entry_point` field of the `BootInitBlock`
+	/// when branching to the kernel.
+	///
+	/// Expects that the page these are written to is
+	/// direct-mapped. The `BootInitBlock` does not
+	/// need to be.
+	static SECONDARY_BOOT_STUB: AsmBuffer = {
+		{
+			// Make sure the MMU is disabled (it should be).
+			"mrs x9, sctlr_el1",
+			"bic x9, x9, #1",
+			"msr sctlr_el1, x9",
 
-	// Set up the MAIR register (0x28)
-	"ldr x9, [x0, #0x28]",
-	"msr mair_el1, x9",
+			// Set up the MAIR register (0x28)
+			"ldr x9, [x0, #0x28]",
+			"msr mair_el1, x9",
 
-	// Set up the TCR_EL1 registers (0x18)
-	"ldr x9, [x0, #0x18]",
-	"msr tcr_el1, x9",
+			// Set up the TCR_EL1 registers (0x18)
+			"ldr x9, [x0, #0x18]",
+			"msr tcr_el1, x9",
 
-	// Set up the TTBR0_EL1/TTBR1_EL1 registers (0x8, 0x10)
-	"ldr x9, [x0, #0x8]",
-	"msr ttbr0_el1, x9",
-	"ldr x9, [x0, #0x10]",
-	"msr ttbr1_el1, x9",
+			// Set up the TTBR0_EL1/TTBR1_EL1 registers (0x8, 0x10)
+			"ldr x9, [x0, #0x8]",
+			"msr ttbr0_el1, x9",
+			"ldr x9, [x0, #0x10]",
+			"msr ttbr1_el1, x9",
 
-	// Load the entry point we'll jump to (0x30)
-	"ldr x10, [x0, #0x30]",
+			// Load the entry point we'll jump to (0x30)
+			"ldr x10, [x0, #0x30]",
 
-	// Set the stack pointer (0x20)
-	"ldr x9, [x0, #0x20]",
-	"mov sp, x9",
+			// Set the stack pointer (0x20)
+			"ldr x9, [x0, #0x20]",
+			"mov sp, x9",
 
-	// Add the linear offset to the init block base address.
-	//
-	// IMPORTANT: BootInitBlock is no longer available
-	// IMPORTANT: after this point.
-	"ldr x9, [x0, #0x38]",
-	"add x0, x0, x9",
+			// Add the linear offset to the init block base address.
+			//
+			// IMPORTANT: BootInitBlock is no longer available
+			// IMPORTANT: after this point.
+			"ldr x9, [x0, #0x38]",
+			"add x0, x0, x9",
 
-	// Invalidate TLBs
-	"tlbi vmalle1is",
-	"ic iallu",
-	"dc isw, xzr",
-	"dsb nsh",
-	"isb",
+			// Invalidate TLBs
+			"tlbi vmalle1is",
+			"ic iallu",
+			"dc isw, xzr",
+			"dsb nsh",
+			"isb",
 
-	// Re-enable the MMU
-	"mrs x9, sctlr_el1",
-	"orr x9, x9, #1",
-	"msr sctlr_el1, x9",
+			// Re-enable the MMU
+			"mrs x9, sctlr_el1",
+			"orr x9, x9, #1",
+			"msr sctlr_el1, x9",
 
-	// Invalidate TLBs
-	"tlbi vmalle1is",
-	"ic iallu",
-	"dc isw, xzr",
-	"dsb nsh",
-	"isb",
+			// Invalidate TLBs
+			"tlbi vmalle1is",
+			"ic iallu",
+			"dc isw, xzr",
+			"dsb nsh",
+			"isb",
 
-	// Jump to the kernel
-	"br x10",
-};
+			// Jump to the kernel
+			"br x10",
+		}
+	};
+}
 
 /// Attempts to boot a single secondary core.
 unsafe fn boot_secondary(
@@ -345,7 +349,7 @@ unsafe fn boot_secondary(
 		.allocate()
 		.ok_or(SecondaryBootError::OutOfMemory)?;
 	let boot_virt = Phys::from_address_unchecked(boot_phys).as_mut_ptr_unchecked::<[u8; 4096]>();
-	(&mut *boot_virt)[..SECONDARY_BOOT_STUB.len()].copy_from_slice(SECONDARY_BOOT_STUB);
+	(&mut *boot_virt)[..SECONDARY_BOOT_STUB.len()].copy_from_slice(&SECONDARY_BOOT_STUB);
 
 	// Direct map the boot stubs into the lower page table.
 	AddressSpaceLayout::stubs()
