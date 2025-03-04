@@ -2,6 +2,8 @@
 //! requests that a physical address be mapped into a specific range of virtual
 //! addresses.
 
+use core::cell::UnsafeCell;
+
 use oro_macro::unlikely;
 use oro_mem::{
 	mapper::{AddressSegment as Segment, MapError, UnmapError},
@@ -87,14 +89,16 @@ impl AddressSegment {
 			}
 		}
 
-		let mut current_page_table = space.base_phys().as_mut_ptr_unchecked::<PageTable>();
+		let mut current_page_table = space
+			.base_phys()
+			.as_ref_unchecked::<UnsafeCell<PageTable>>();
 
 		for level in (1..space.paging_level().as_usize()).rev() {
 			let index = (virt >> (12 + level * 9)) & 0x1FF;
-			let entry = &mut (&mut *current_page_table)[index];
+			let entry = &mut (*current_page_table.get())[index];
 
 			current_page_table = if entry.present() {
-				Phys::from_address_unchecked(entry.address()).as_mut_ptr_unchecked()
+				Phys::from_address_unchecked(entry.address()).as_ref_unchecked()
 			} else {
 				let frame_phys_addr = alloc.allocate().ok_or(MapError::OutOfMemory)?;
 
@@ -117,13 +121,13 @@ impl AddressSegment {
 
 				crate::asm::invlpg(frame_virt_addr);
 				#[expect(clippy::cast_ptr_alignment)]
-				let pt = frame_virt_addr.cast::<PageTable>();
+				let pt = frame_virt_addr.cast::<UnsafeCell<PageTable>>();
 				debug_assert!(pt.is_aligned());
-				pt
+				&*pt
 			};
 		}
 
-		let entry = &mut (*current_page_table)[(virt >> 12) & 0x1FF];
+		let entry = &mut (*current_page_table.get())[(virt >> 12) & 0x1FF];
 
 		Ok(entry)
 	}
