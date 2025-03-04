@@ -245,6 +245,9 @@ pub unsafe fn boot_secondary(
 	gdtr_descriptor_slice[0..2].copy_from_slice(&(gdt_slice.len() as u16 - 1).to_le_bytes());
 	gdtr_descriptor_slice[2..6].copy_from_slice(&gdt_base.to_le_bytes());
 
+	// Make sure all cores see the change.
+	crate::asm::strong_memory_fence();
+
 	// Finally, tell the processor to start executing at page 8 (0x8000).
 	// NOTE(qix-): Specifying other pages doesn't seem to work. The documentation
 	// NOTE(qix-): surrounding the LAPIC SIPI interrupts are full of holes and

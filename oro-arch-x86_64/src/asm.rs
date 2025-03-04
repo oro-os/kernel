@@ -190,9 +190,9 @@ pub fn halt_once() {
 	}
 }
 
-/// Performs a strong memory serialization barrier.
+/// Performs a strong memory serialization fence.
 #[inline(always)]
-pub fn strong_memory_barrier() {
+pub fn strong_memory_fence() {
 	unsafe {
 		asm!("mfence", options(nostack, preserves_flags),);
 	}

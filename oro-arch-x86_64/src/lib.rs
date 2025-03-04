@@ -109,7 +109,7 @@ impl oro_kernel::arch::Arch for Arch {
 
 	fn fence() {
 		// NOTE(qix-): This might be too strong for what we need.
-		asm::strong_memory_barrier();
+		asm::strong_memory_fence();
 	}
 
 	fn register_kernel_interfaces(table: &mut Table<Box<dyn KernelInterface<Self>>>) {
