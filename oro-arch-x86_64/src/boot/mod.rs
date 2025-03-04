@@ -74,38 +74,38 @@ pub unsafe fn boot_primary() -> ! {
 		.sdt()
 		.expect("ACPI tables are missing either the RSDT or XSDT table");
 
-	{
-		let mcfg = sdt
-			.find::<oro_acpi::Mcfg>()
-			.expect("MCFG table not found in ACPI tables");
+	//{
+	// 	let mcfg = sdt
+	// 		.find::<oro_acpi::Mcfg>()
+	// 		.expect("MCFG table not found in ACPI tables");
 
-		for entry in mcfg.entries() {
-			dbg!("MCFG entry: {entry:?}", entry = entry);
+	// 	for entry in mcfg.entries() {
+	// 		dbg!("MCFG entry: {entry:?}", entry = entry);
 
-			let base =
-				unsafe { Phys::from_address_unchecked(entry.Address.read()).as_ptr_unchecked() };
+	// 		let base =
+	// 			unsafe { Phys::from_address_unchecked(entry.Address.read()).as_ptr_unchecked() };
 
-			for dev in oro_pci::MmioIterator::new(
-				base,
-				entry.StartBusNumber.read(),
-				entry.EndBusNumber.read(),
-			)
-			.expect("mis-aligned MCFG PCI(e) base pointer")
-			{
-				#[allow(unreachable_patterns)]
-				match dev.config {
-					oro_pci::PciConfig::Type0(config) => {
-						dbg!("{dev:?} -> {:#?}", unsafe { config.read_volatile() });
-						dbg!("    REGISTERS:");
-						for bar in unsafe { (*config).base_registers_iter() } {
-							dbg!("        {bar:X?}");
-						}
-					}
-					_ => dbg!("{dev:?} -> ???"),
-				}
-			}
-		}
-	}
+	// 		for dev in oro_pci::MmioIterator::new(
+	// 			base,
+	// 			entry.StartBusNumber.read(),
+	// 			entry.EndBusNumber.read(),
+	// 		)
+	// 		.expect("mis-aligned MCFG PCI(e) base pointer")
+	// 		{
+	// 			#[allow(unreachable_patterns)]
+	// 			match dev.config {
+	// 				oro_pci::PciConfig::Type0(config) => {
+	// 					dbg!("{dev:?} -> {:#?}", unsafe { config.read_volatile() });
+	// 					dbg!("    REGISTERS:");
+	// 					for bar in unsafe { (*config).base_registers_iter() } {
+	// 						dbg!("        {bar:X?}");
+	// 					}
+	// 				}
+	// 				_ => dbg!("{dev:?} -> ???"),
+	// 			}
+	// 		}
+	// 	}
+	//}
 
 	let fadt = sdt
 		.find::<oro_acpi::Fadt>()
