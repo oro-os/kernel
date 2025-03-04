@@ -325,7 +325,7 @@ unsafe fn linear_map_regions<'a>(
 		);
 	}
 
-	crate::asm::flush_tlb_global();
+	crate::asm::flush_tlb();
 
 	Some(mmap_offset)
 }

@@ -20,9 +20,6 @@ pub fn invlpg<T>(virtual_address: *const T) {
 ///
 /// This is *very* expensive and should be used sparingly.
 ///
-/// **Note:** pages marked as "global" are not guaranteed to be flushed.
-/// If you must flush global pages, use [`flush_tlb_global`].
-///
 /// Assumes there's a stack.
 #[inline(always)]
 pub fn flush_tlb() {
@@ -44,49 +41,6 @@ pub fn flush_tlb() {
 			"popfq",
 			// Mark that we clobbered the `rax` register.
 			out("rax") _,
-			options(nostack, preserves_flags, nomem)
-		);
-	}
-}
-
-/// Flushes the Translation Lookaside Buffer (TLB) for the current CPU,
-/// including any pages marked as "global".
-///
-/// This is *very* expensive and should be used sparingly.
-///
-/// If global pages do not need to be flushed, use [`flush_tlb`] instead.
-/// Note that depending on the CPU's mode, global pages may still be flushed
-/// even if the non-global variant is used.
-///
-/// Assumes there's a stack.
-#[inline(always)]
-pub fn flush_tlb_global() {
-	unsafe {
-		asm!(
-			// Store and disable the interrupts
-			// We do this because there's a race condition where,
-			// in a very unlikely event, an interrupt could be
-			// triggered between the `mov` instructions and we
-			// end up restoring an old `cr3` value. So we
-			// disable interrupts to prevent this.
-			"pushfq",
-			"cli",
-			// Store the current G flag and disable it.
-			"mov rdi, cr4",
-			"mov rax, rdi",
-			"and rax, 0xFFFFFFFFFFFFFF7F",
-			"mov cr4, rax",
-			// Read and write back the CR3 value,
-			// which triggers a full TLB flush on x86.
-			"mov rax, cr3",
-			"mov cr3, rax",
-			// Restore the G flag.
-			"mov cr4, rdi",
-			// Restore interrupts.
-			"popfq",
-			// Mark that we clobbered the `rax` register.
-			out("rax") _,
-			out("rdi") _,
 			options(nostack, preserves_flags, nomem)
 		);
 	}
