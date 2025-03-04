@@ -299,8 +299,11 @@ asm_buffer! {
 			// 16-bit code starts here
 			".code16",
 
-			// Mask off all IRQs with the LAPIC.
+			// Disable interrupts and clear direction flag.
 			"cli",
+			"cld",
+
+			// Mask off all IRQs with the LAPIC.
 			"mov al, 0xFF",
 			"out 0xA1, al",
 			"out 0x21, al",
