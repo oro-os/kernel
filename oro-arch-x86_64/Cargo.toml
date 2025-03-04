@@ -45,6 +45,7 @@ oro-acpi.workspace = true
 oro-sync.workspace = true
 oro.workspace = true
 oro-pci.workspace = true
+oro-type.workspace = true
 
 # Work around non-composability of `test` profile and global allocator conflicts in unit test runner.
 [dev-dependencies]

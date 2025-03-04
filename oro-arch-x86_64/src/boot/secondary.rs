@@ -495,13 +495,9 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 
 	dbg!("local APIC version: {:?}", lapic.version());
 
-	// Set the LAPIC ID to the one we were given.
-	// We do this since after an INIT IPI / SIPI, the LAPIC ID
-	// *can* be reset to something else.
-	let given_lapic_id = (0x8FA0 as *const u8).read_volatile();
-	lapic.set_id(given_lapic_id);
-
+	// Make sure the LAPIC IDs match.
 	let lapic_id = lapic.id();
+	let given_lapic_id = (0x8FA0 as *const u8).read_volatile();
 
 	if lapic_id != given_lapic_id {
 		// Tell the primary we failed.

@@ -360,6 +360,7 @@ dependencies = [
  "oro-mem",
  "oro-pci",
  "oro-sync",
+ "oro-type",
 ]
 
 [[package]]

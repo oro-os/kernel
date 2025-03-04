@@ -5,12 +5,147 @@
 
 use core::fmt;
 
+use oro_type::Volatile;
+
+/// A single 32-bit, read-only LAPIC register.
+#[repr(C, align(16))]
+struct RO32 {
+	/// The register value.
+	value: Volatile<u32>,
+}
+
+impl RO32 {
+	/// Reads the register value.
+	#[must_use]
+	fn read(&self) -> u32 {
+		self.value.get()
+	}
+}
+
+/// A single 32-bit, read-write LAPIC register.
+#[repr(C, align(16))]
+struct RW32 {
+	/// The register value.
+	value: Volatile<u32>,
+}
+
+impl RW32 {
+	/// Reads the register value.
+	#[must_use]
+	fn read(&self) -> u32 {
+		self.value.get()
+	}
+
+	/// Writes the register value.
+	fn write(&self, value: u32) {
+		self.value.set(value);
+	}
+}
+
+/// A single 32-bit write-only LAPIC register.
+#[repr(C, align(16))]
+struct WO32 {
+	/// The register value.
+	value: Volatile<u32>,
+}
+
+impl WO32 {
+	/// Writes the register value.
+	fn write(&self, value: u32) {
+		self.value.set(value);
+	}
+}
+
+/// A padding entry for the LAPIC register block.
+#[repr(C, align(16))]
+struct Padding([u8; 16]);
+
+/// The LAPIC register block.
+///
+/// # Reference
+/// From the Intel SDM Volume 3, December 2024, Table 12-1 _Local APIC Register Address Map_,
+/// page 398.
+#[repr(C)]
+#[expect(clippy::missing_docs_in_private_items)]
+struct LapicRegisterBlock {
+	_reserved0: [Padding; 2],
+	/// Local APIC ID.
+	id:         RO32,
+	/// Version register.
+	version:    RO32,
+	_reserved1: [Padding; 4],
+	/// Task Priority Register (TPR).
+	tpr:        RW32,
+	/// Arbitraration Priority Register (APR).
+	/// Not available on all processors, so we exclude it here.
+	_reserved2: Padding,
+	/// Processor Priority Register (PPR).
+	ppr:        RO32,
+	/// EOI Register.
+	eoi:        WO32,
+	/// Remote read register (RRD).
+	/// Not available on all processors, so we exclude it here.
+	_reserved3: Padding,
+	/// Logical Destination Register.
+	ldr:        RW32,
+	/// Destination Format Register.
+	dfr:        RW32,
+	/// Spurious Interrupt Vector Register.
+	svr:        RW32,
+	/// In-Service Register.
+	///
+	/// These are 32-bit registers, where index `0` is the first 32-bits (bits 31:0),
+	/// index `1` is the next 32-bits (bits 63:32), and so on.
+	isr:        [RO32; 8],
+	/// Trigger Mode Register.
+	///
+	/// These are 32-bit registers, where index `0` is the first 32-bits (bits 31:0),
+	/// index `1` is the next 32-bits (bits 63:32), and so on.
+	tmr:        [RO32; 8],
+	/// Interrupt Request Register.
+	///
+	/// These are 32-bit registers, where index `0` is the first 32-bits (bits 31:0),
+	/// index `1` is the next 32-bits (bits 63:32), and so on.
+	irr:        [RO32; 8],
+	/// Error Status Register.
+	esr:        RW32,
+	_reserved4: [Padding; 6],
+	/// LVT corrected machine check interrupt (CMCI) register.
+	lvt_cmci:   RW32,
+	/// Interrupt Command Register.
+	///
+	/// These are 32-bit registers, where index `0` is the first 32-bits (bits 31:0),
+	/// index `1` is the next 32-bits (bits 63:32), and so on.
+	icr:        [RW32; 2],
+	/// LVT Timer Register.
+	lvt_timer:  RW32,
+	/// LVT Thermal Sensor Register.
+	/// Not available on all processors, so we exclude it here.
+	_reserved5: Padding,
+	/// LVT Performance Monitoring Counters Register.
+	/// Not available on all processors, so we exclude it here.
+	_reserved6: Padding,
+	/// LVT LINT0 Register.
+	lvt_lint0:  RW32,
+	/// LVT LINT1 Register.
+	lvt_lint1:  RW32,
+	/// LVT Error Register.
+	lvt_error:  RW32,
+	/// Initial Count Register.
+	icr_timer:  RW32,
+	/// Current Count Register.
+	ccr_timer:  RO32,
+	_reserved7: [Padding; 4],
+	/// Divide Configuration Register.
+	dcr_timer:  RW32,
+	_reserved8: Padding,
+}
+
 /// The LAPIC (Local Advanced Programmable Interrupt Controller (APIC))
 /// controller.
 pub struct Lapic {
-	/// The base address of the LAPIC.
-	/// Virtual and pre-translated.
-	base: *mut u8,
+	/// The base address of the LAPIC register block.
+	base: *const LapicRegisterBlock,
 }
 
 // SAFETY: The pointer is valid across all cores and is thus sendable.
@@ -22,26 +157,28 @@ impl Lapic {
 	/// Creates a new LAPIC controller.
 	///
 	/// # Panics
-	/// Panics if the LAPIC address is not 16-byte aligned.
+	/// Panics if the LAPIC address is not properly aligned to a 16-byte boundary.
 	///
 	/// # Safety
 	/// The caller must ensure that the LAPIC base address is valid and aligned.
-	pub unsafe fn new(base: *mut u8) -> Self {
+	#[must_use]
+	#[inline(never)]
+	#[cold]
+	pub unsafe fn new(base: *const u8) -> Self {
 		assert!(!base.is_null(), "LAPIC base is null");
 		assert_eq!(
 			base.align_offset(16),
 			0,
 			"LAPIC base is not 16-byte aligned"
 		);
-		Self { base }
+		Self { base: base.cast() }
 	}
 
 	/// Returns the local APIC version.
 	#[must_use]
 	pub fn version(&self) -> LapicVersion {
-		// SAFETY(qix-): The LAPIC base address is trusted to be vali and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
-		let version32 = unsafe { self.base.add(0x30).cast::<u32>().read_volatile() };
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
+		let version32 = unsafe { (*self.base).version.read() };
 		LapicVersion {
 			supports_eoi_broadcast_suppression: (version32 & (1 << 24)) != 0,
 			max_lvt_entries: (version32 >> 16) as u8,
@@ -52,62 +189,46 @@ impl Lapic {
 	/// Returns the local APIC ID.
 	#[must_use]
 	pub fn id(&self) -> u8 {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
-		let id32 = unsafe { self.base.add(0x20).cast::<u32>().read_volatile() };
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
+		let id32 = unsafe { (*self.base).id.read() };
 		(id32 >> 24) as u8
-	}
-
-	/// Sets the local APIC ID.
-	pub fn set_id(&self, id: u8) {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
-		unsafe {
-			let v = self.base.add(0x20).cast::<u32>().read_volatile();
-			let v = (v & 0x00FF_FFFF) | (u32::from(id) << 24);
-			self.base.add(0x20).cast::<u32>().write_volatile(v);
-		}
 	}
 
 	/// Clears the errors in the local APIC.
 	pub fn clear_errors(&self) {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
 		unsafe {
-			self.base.add(0x280).cast::<u32>().write_volatile(0);
+			(*self.base).esr.write(0);
 		}
 	}
 
 	/// Selects the secondary processor we want to interact with.
 	pub fn set_target_apic(&self, apic_id: u8) {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
 		unsafe {
-			let v = self.base.add(0x310).cast::<u32>().read_volatile();
+			let v = (*self.base).isr[1].read();
 			let v = (v & 0x00FF_FFFF) | (u32::from(apic_id) << 24);
-			self.base.add(0x310).cast::<u32>().write_volatile(v);
+			(*self.base).icr[1].write(v);
 		}
 	}
 
 	/// Triggers an INIT IPI to the currently selected target secondary processor
 	/// (selected via [`Self::set_target_apic()`]).
 	pub fn send_init_ipi(&self) {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
 		unsafe {
-			let v = self.base.add(0x300).cast::<u32>().read_volatile();
+			let v = (*self.base).icr[0].read();
 			let v = (v & 0xFFF0_0000) | 0x00_C500;
 			// let v = 0x00004500;
-			self.base.add(0x300).cast::<u32>().write_volatile(v);
+			(*self.base).icr[0].write(v);
 		}
 	}
 
 	/// Waits for the IPI to be acknowledged by the target processor.
 	pub fn wait_for_ipi_ack(&self) {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
 		unsafe {
-			while self.base.add(0x300).cast::<u32>().read_volatile() & 0x1000 != 0 {
+			while (*self.base).icr[0].read() & 0x1000 != 0 {
 				core::hint::spin_loop();
 			}
 		}
@@ -115,25 +236,23 @@ impl Lapic {
 
 	/// Deasserts the INIT IPI.
 	pub fn deassert_init_ipi(&self) {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
 		unsafe {
-			let v = self.base.add(0x300).cast::<u32>().read_volatile();
+			let v = (*self.base).icr[0].read();
 			let v = (v & 0xFFF0_0000) | 0x00_8500;
-			self.base.add(0x300).cast::<u32>().write_volatile(v);
+			(*self.base).icr[0].write(v);
 		}
 	}
 
 	/// Sends a startup IPI to the currently selected target secondary processor
 	/// (selected via [`Self::set_target_apic()`]).
 	pub fn send_startup_ipi(&self, cs_page: u8) {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
 		unsafe {
-			let v = self.base.add(0x300).cast::<u32>().read_volatile();
+			let v = (*self.base).icr[0].read();
 			let v = (v & 0xFFF0_F800) | 0x00_0600 | u32::from(cs_page);
 			// let v = 0x00004600 | cs_page as u32;
-			self.base.add(0x300).cast::<u32>().write_volatile(v);
+			(*self.base).icr[0].write(v);
 		}
 	}
 
@@ -174,52 +293,42 @@ impl Lapic {
 
 	/// Sends an End Of Interrupt (EOI) signal to the LAPIC.
 	pub fn eoi(&self) {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
 		unsafe {
-			self.base.add(0xB0).cast::<u32>().write_volatile(0);
+			(*self.base).eoi.write(0);
 		}
 	}
 
 	/// Configures the LAPIC timer.
 	pub fn configure_timer(&self, config: ApicTimerConfig) {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
 		unsafe {
-			self.base.add(0x320).cast::<u32>().write_volatile(config.0);
+			(*self.base).lvt_timer.write(config.0);
 		}
 	}
 
 	/// Sets the LAPIC timer divider value.
 	pub fn set_timer_divider(&self, divide_by: ApicTimerDivideBy) {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
 		unsafe {
-			self.base
-				.add(0x3E0)
-				.cast::<u32>()
-				.write_volatile(divide_by as u32);
+			(*self.base).dcr_timer.write(divide_by as u32);
 		}
 	}
 
 	/// Reads the LAPIC timer's configuration.
 	#[must_use]
 	pub fn timer_config(&self) -> ApicTimerConfig {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
-		unsafe {
-			ApicTimerConfig(self.base.add(0x320).cast::<u32>().read_volatile())
-		}
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
+		unsafe { ApicTimerConfig((*self.base).lvt_timer.read()) }
 	}
 
 	/// Reads the LAPIC timer's divide-by value.
 	#[must_use]
 	pub fn timer_divide_by(&self) -> ApicTimerDivideBy {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned,
-		// SAFETY(qix-): and the transmuted bits are always valid.
-		#[expect(clippy::cast_ptr_alignment)]
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned,
+		// SAFETY: and the transmuted bits are always valid.
 		unsafe {
-			let v = self.base.add(0x3E0).cast::<u32>().read_volatile();
+			let v = (*self.base).dcr_timer.read();
 			let v = v & 0b1011;
 			core::mem::transmute(v)
 		}
@@ -227,10 +336,9 @@ impl Lapic {
 
 	/// Sets the LAPIC timer's initial count.
 	pub fn set_timer_initial_count(&self, count: u32) {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
 		unsafe {
-			self.base.add(0x380).cast::<u32>().write_volatile(count);
+			(*self.base).icr_timer.write(count);
 		}
 	}
 
@@ -247,29 +355,22 @@ impl Lapic {
 	/// Reads the LAPIC timer's current count.
 	#[must_use]
 	pub fn timer_current_count(&self) -> u32 {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
-		unsafe {
-			self.base.add(0x390).cast::<u32>().read_volatile()
-		}
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
+		unsafe { (*self.base).ccr_timer.read() }
 	}
 
 	/// Reads the LAPIC's spurrious interrupt vector (SVR) value.
 	#[must_use]
 	pub fn spurious_vector(&self) -> ApicSvr {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
-		unsafe {
-			ApicSvr(self.base.add(0xF0).cast::<u32>().read_volatile())
-		}
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
+		unsafe { ApicSvr((*self.base).svr.read()) }
 	}
 
 	/// Sets the LAPIC's spurrious interrupt vector (SVR) value.
 	pub fn set_spurious_vector(&self, svr: ApicSvr) {
-		// SAFETY(qix-): The LAPIC base address is trusted to be valid and aligned.
-		#[expect(clippy::cast_ptr_alignment)]
+		// SAFETY: The LAPIC base address is trusted to be valid and aligned.
 		unsafe {
-			self.base.add(0xF0).cast::<u32>().write_volatile(svr.0);
+			(*self.base).svr.write(svr.0);
 		}
 	}
 }
@@ -348,7 +449,7 @@ impl ApicTimerConfig {
 		if bits == 0b11 {
 			None
 		} else {
-			// SAFETY(qix-): The mode bits are always valid.
+			// SAFETY: The mode bits are always valid.
 			Some(unsafe { core::mem::transmute::<u32, ApicTimerMode>(bits) })
 		}
 	}
