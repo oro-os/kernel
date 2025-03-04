@@ -4,6 +4,8 @@
 //! several memory facilities usable by the kernel (e.g. a page frame
 //! allocator, linear map translator, etc.).
 
+use core::cell::UnsafeCell;
+
 use oro_boot_protocol::{MemoryMapEntry, MemoryMapEntryType, memory_map::MemoryMapKind};
 use oro_debug::{dbg, dbg_warn};
 use oro_macro::assert;
@@ -167,6 +169,7 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 /// Returns the computed base offset of the page frame allocator.
 ///
 /// Returns None if the system ran out of memory while mapping the regions.
+#[expect(clippy::redundant_else)]
 unsafe fn linear_map_regions<'a>(
 	otf: &'a OnTheFlyMapper,
 	mmap_pfa: &mut MemoryMapPfa<'a>,
@@ -189,22 +192,7 @@ unsafe fn linear_map_regions<'a>(
 	let (linear_map_base, linear_map_last_incl) =
 		(linear_map_base as u64, linear_map_last_incl as u64);
 
-	// First, we calculate the offset.
-	// Adding this to the lowest physical address will give us the
-	// first byte of the linear map segment.
-	let mut base_offset = u64::MAX;
-	for region in regions.clone() {
-		base_offset = base_offset.min(region.base);
-	}
-	let mmap_offset = linear_map_base - base_offset;
-
-	// We then round up to the nearest 2MiB boundary.
-	let mmap_offset = (mmap_offset + ((1 << 21) - 1)) & !((1 << 21) - 1);
-	debug_assert_eq!(
-		mmap_offset % (1 << 21),
-		0,
-		"mmap_offset is not 2MiB page-aligned"
-	);
+	let mmap_offset = linear_map_base;
 
 	// We hack in a synthetic region to map the first
 	// 4GiB of memory to the linear map, since much
@@ -212,7 +200,7 @@ unsafe fn linear_map_regions<'a>(
 	// there and bootloaders tend not to report them
 	// to us in the memory map.
 	let regions = [MemoryMapEntry {
-		base:   0,
+		base:   0x1000,
 		length: 1 << 32,
 		ty:     MemoryMapEntryType::Unknown,
 		next:   0,
@@ -226,20 +214,13 @@ unsafe fn linear_map_regions<'a>(
 		let mut base_phys = region.base;
 		let mut length = region.length;
 
-		// Align it to a 2MiB boundary
-		let aligned = base_phys & !((1 << 21) - 1);
-		let alignment_offset = base_phys - aligned;
+		// Align it to a page boundary
+		let aligned = (base_phys + 0xFFF) & !0xFFF;
+		let alignment_offset = aligned - base_phys;
 		base_phys = aligned;
-		length += alignment_offset;
-		length = (length + ((1 << 21) - 1)) & !((1 << 21) - 1);
+		length = (length - alignment_offset) & !0xFFF;
 
 		let mut base_virt = base_phys + mmap_offset;
-
-		debug_assert_eq!(
-			base_virt % (1 << 21),
-			0,
-			"base_virt is not 2MiB page-aligned"
-		);
 
 		if base_virt < linear_map_base {
 			dbg_warn!(
@@ -267,7 +248,7 @@ unsafe fn linear_map_regions<'a>(
 
 		let mut total_mappings = 0;
 		while length > 0 {
-			for level in (2..=paging_level as u64).rev() {
+			for level in (1..=paging_level as u64).rev() {
 				let mut page_table_virt = (base_virt >> (12 + 9 * level)) as usize;
 				for rec_level in 0..level {
 					let shift = 9 * (rec_level + ((paging_level as u64) - level));
@@ -277,17 +258,19 @@ unsafe fn linear_map_regions<'a>(
 
 				page_table_virt = extend!(page_table_virt << 12);
 
-				let page_table = &mut *(page_table_virt as *mut PageTable);
+				let page_table = &*(page_table_virt as *const UnsafeCell<PageTable>);
 				let entry_idx = (base_virt >> (12 + 9 * (level - 1))) & 0x1FF;
-				let entry = &mut page_table[entry_idx as usize];
+				let entry = &mut (*page_table.get())[entry_idx as usize];
 
-				if level == 2 {
-					// `entry.present() == true` occurs when two regions that
-					// have been 2MiB extended end up overlapping. In this
-					// case, cool! We've already mapped this region, we can do nothing.
-					if !entry.present() {
+				if !entry.present() {
+					if level == 2 && (base_virt & ((1 << 21) - 1)) == 0 && length >= (1 << 21) {
+						debug_assert_eq!(
+							base_phys & ((1 << 21) - 1),
+							0,
+							"base_phys is not 2mib aligned"
+						);
+
 						// Make a 2MiB page.
-						debug_assert_eq!(base_phys % (1 << 21), 0, "base_phys is not 2MiB aligned");
 						*entry = PageTableEntry::new()
 							.with_writable()
 							.with_present()
@@ -296,24 +279,56 @@ unsafe fn linear_map_regions<'a>(
 							.with_huge()
 							.with_address(base_phys);
 						total_mappings += 1;
+
+						base_virt += 1 << 21;
+						base_phys += 1 << 21;
+						length -= 1 << 21;
+
+						break;
+					} else if level == 1 {
+						debug_assert_eq!(base_phys & 0xFFF, 0, "base_phys is not page aligned");
+
+						// Make a 4KiB page.
+						*entry = PageTableEntry::new()
+							.with_writable()
+							.with_present()
+							.with_global()
+							.with_no_exec()
+							.with_address(base_phys);
+						total_mappings += 1;
+
+						base_virt += 0x1000;
+						base_phys += 0x1000;
+						length -= 0x1000;
+
+						break;
+					} else {
+						let pt_phys = mmap_pfa.next()?;
+						// Do this _before_ putting it into the PTE to prevent
+						// TLB thrashing in some cases.
+						otf.zero_page(pt_phys);
+						*entry = PageTableEntry::new()
+							.with_writable()
+							.with_present()
+							.with_no_exec()
+							.with_address(pt_phys);
+						total_mappings += 1;
 					}
-				} else if !entry.present() {
-					let pt_phys = mmap_pfa.next()?;
-					// Do this _before_ putting it into the PTE to prevent
-					// TLB thrashing in some cases.
-					otf.zero_page(pt_phys);
-					*entry = PageTableEntry::new()
-						.with_writable()
-						.with_present()
-						.with_no_exec()
-						.with_address(pt_phys);
-					total_mappings += 1;
+				} else if level == 2 && entry.huge() {
+					// We're already done with this region;
+					// don't continue iteration into the next level.
+					base_virt += 1 << 21;
+					base_phys += 1 << 21;
+					length = length.saturating_sub(1 << 21);
+					break;
+				} else if level == 1 {
+					// We already mapped this; skip over it.
+					base_virt += 0x1000;
+					base_phys += 0x1000;
+					length = length.saturating_sub(0x1000);
+					break;
 				}
 			}
-
-			base_virt += 1 << 21;
-			base_phys += 1 << 21;
-			length -= 1 << 21;
 		}
 
 		dbg!(
