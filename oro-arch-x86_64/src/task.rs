@@ -320,6 +320,9 @@ pub unsafe extern "C" fn oro_x86_64_user_to_user_sysret() {
 macro_rules! syscall_store_task_and_jmp {
 	($jmp_to:ident) => {
 		naked_asm! {
+			// Clear the direction flag
+			// TODO(qix-): See if this can be integrated into the mask MSR.
+			"cld",
 			// Store the user stack for a moment.
 			"mov r8, rsp",
 			// Set the stack base pointer to the IRQ stack base address.
