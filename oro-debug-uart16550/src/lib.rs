@@ -32,3 +32,11 @@ pub fn log_debug_bytes(prefix: &str, line: &[u8]) {
 	}
 	serial.send(b'\n');
 }
+
+/// Logs a string directly to the UART.
+pub fn log_str_raw(string: &str) {
+	let mut serial = SERIAL.lock();
+	for byte in string.bytes() {
+		serial.send(byte);
+	}
+}

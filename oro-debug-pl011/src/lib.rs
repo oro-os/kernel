@@ -56,3 +56,10 @@ pub fn log_debug_bytes(prefix: &str, line: &[u8]) {
 		serial.block_write_data_byte(b'\n');
 	}
 }
+
+/// Logs a string directly to the PL011.
+pub fn log_str_raw(string: &str) {
+	if let Some(serial) = SERIAL.lock().as_mut() {
+		serial.block_write_all(string.as_bytes());
+	}
+}

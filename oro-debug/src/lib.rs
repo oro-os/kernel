@@ -98,3 +98,30 @@ macro_rules! dbg_warn {
 		}
 	}};
 }
+
+/// A `fmt::Write` logger. Used primarily for low-level debugging.
+/// Please use sparingly, and prefer the `dbg!` macro for most
+/// debugging needs.
+#[cfg(debug_assertions)]
+pub struct DebugWriter;
+
+#[cfg(debug_assertions)]
+impl core::fmt::Write for DebugWriter {
+	#[allow(unused_variables)]
+	fn write_str(&mut self, s: &str) -> core::fmt::Result {
+		#[cfg(feature = "kernel-debug")]
+		{
+			#[cfg(all(target_arch = "aarch64", feature = "pl011"))]
+			oro_debug_pl011::log_str_raw(s);
+			#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
+			oro_debug_uart16550::log_str_raw(s);
+		}
+
+		#[cfg(not(feature = "kernel-debug"))]
+		{
+			let _ = s;
+		}
+
+		Ok(())
+	}
+}
