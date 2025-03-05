@@ -14,6 +14,7 @@ mod enum_as;
 mod enum_iterator;
 mod gdb_autoload;
 mod paste;
+mod repeat;
 
 /// Derive macro for the `EnumIterator` trait.
 ///
@@ -153,5 +154,25 @@ pub fn bitstruct(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	match self::bitstruct::bitstruct(input) {
 		Ok(ts) => ts.to_token_stream().into(),
 		Err(e) => e.to_compile_error().to_token_stream().into(),
+	}
+}
+
+/// Repeats the given token stream `n` times.
+///
+/// # Usage
+/// ```no_run
+/// repeat!(5 => {
+///     println!("Hello, world!");
+/// });
+///
+/// static ARR: [u8; 10] = [
+///    1, 2, repeat!(3 => {3,}) 6, 7, 8, 9, 10
+/// ];
+/// ```
+#[proc_macro]
+pub fn repeat(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+	match self::repeat::repeat(input) {
+		Ok(ts) => ts.into(),
+		Err(e) => e.to_compile_error().into(),
 	}
 }

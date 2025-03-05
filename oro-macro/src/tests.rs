@@ -93,3 +93,10 @@ fn paste_const_case() {
 		assert_eq!(42, SOME_CONST_CASE);
 	}
 }
+
+#[test]
+fn repeat() {
+	let mut i = 0;
+	repeat! {5 => { i += 1; }}
+	assert_eq!(i, 5);
+}
