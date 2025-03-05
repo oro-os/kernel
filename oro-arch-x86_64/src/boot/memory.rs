@@ -343,7 +343,10 @@ unsafe fn linear_map_regions<'a>(
 		);
 	}
 
+	let cr4 = crate::reg::Cr4::load();
+	cr4.with_pge(false).store();
 	crate::asm::flush_tlb();
+	cr4.store();
 
 	Some(mmap_offset)
 }
