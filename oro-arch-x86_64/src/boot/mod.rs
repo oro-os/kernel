@@ -45,15 +45,6 @@ pub unsafe fn boot_primary() -> ! {
 	#[cfg(debug_assertions)]
 	oro_debug::init_with_offset(Phys::from_address_unchecked(0).virt());
 
-	crate::reg::Cr0::new()
-		.with_monitor_coprocessor()
-		.with_emulation()
-		.with_alignment_mask()
-		.with_paging_enable()
-		.with_protected_mode_enable()
-		.inherit()
-		.load();
-
 	dbg!("booting primary core");
 
 	// Get the RSDP from the bootloader.

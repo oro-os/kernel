@@ -215,7 +215,7 @@ pub unsafe fn boot_secondary(
 	(*stubs.get()).entry_point = entry_point_ptr;
 
 	// Write the actual CR0 value so that the long mode stub can install it.
-	let cr0_value: u64 = crate::reg::Cr0::read().into();
+	let cr0_value: u64 = crate::reg::Cr0::load().into();
 	(*stubs.get()).actual_cr0_value = cr0_value;
 
 	// Write the actual CR4 value so that the long mode stub can install it.
