@@ -57,6 +57,17 @@ pub fn cr3() -> u64 {
 	cr3
 }
 
+/// Returns the current value of the `cr2` register
+#[inline(always)]
+#[must_use]
+pub fn cr2() -> u64 {
+	let cr2: u64;
+	unsafe {
+		asm!("mov {}, cr2", out(reg) cr2, options(nostack, nomem, preserves_flags));
+	}
+	cr2
+}
+
 /// Disables the 8259 PIC by masking off all interrupts.
 #[inline(always)]
 pub fn disable_8259() {
