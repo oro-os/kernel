@@ -64,6 +64,9 @@
 // SAFETY(qix-): Needed to make the system call key checks work inline.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/76001
 #![feature(inline_const_pat)]
+// SAFETY(qix-): Needed for clean code surrounding the default IDT table.
+// SAFETY(qix-): https://github.com/rust-lang/rust/issues/83527
+#![feature(macro_metavar_expr)]
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 // TODO(qix-): This is a temporary measure; it'll be removed at some point.
 #![expect(unsafe_op_in_unsafe_fn)]

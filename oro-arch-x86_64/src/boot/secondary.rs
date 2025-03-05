@@ -418,9 +418,9 @@ asm_buffer! {
 /// the *actual* long mode environment.
 #[unsafe(no_mangle)]
 unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
-	crate::gdt::GDT.install();
-	crate::interrupt::install_idt();
 	crate::asm::flush_tlb();
+	crate::gdt::GDT.install();
+	crate::interrupt::default::install_default_idt();
 
 	let stubs = Phys::from_address_unchecked(0x8000)
 		.as_ref::<UnsafeCell<BootMeta>>()

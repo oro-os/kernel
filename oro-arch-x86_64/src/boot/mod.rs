@@ -31,9 +31,9 @@ const SECONDARY_STACK_PAGES: usize = 16;
 /// Panics if any of the boot requests are missing or malformed.
 pub unsafe fn boot_primary() -> ! {
 	crate::asm::disable_interrupts();
-	crate::gdt::GDT.install();
-	crate::interrupt::install_idt();
 	crate::asm::flush_tlb();
+	crate::gdt::GDT.install();
+	crate::interrupt::default::install_default_idt();
 
 	#[cfg(debug_assertions)]
 	oro_debug::init();

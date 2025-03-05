@@ -249,7 +249,8 @@ pub unsafe fn boot() -> ! {
 		gdt_mut.assume_init_ref().install();
 	}
 
-	crate::interrupt::initialize_lapic_irqs();
+	crate::interrupt::kernel::install_kernel_idt();
+	crate::interrupt::kernel::initialize_lapic_irqs();
 	crate::syscall::install_syscall_handler();
 	crate::asm::load_tss(crate::gdt::TSS_GDT_OFFSET);
 

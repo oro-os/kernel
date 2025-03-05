@@ -2,33 +2,15 @@
 
 use core::arch::asm;
 
-use crate::lapic::{ApicSvr, ApicTimerConfig, ApicTimerMode};
-
+pub mod default;
+pub mod kernel;
 mod macros;
 
-crate::isr_table! {
-	/// The IDT (Interrupt Descriptor Table) for the kernel.
-	static IDT = {
-		// TODO(qix-): Exception ISRs (which cannot be processed with the default ISR).
-		PAGE_FAULT[14] => isr_page_fault,
-		TIMER_VECTOR[32] => isr_sys_timer,
-		APIC_SVR_VECTOR[255] => isr_apic_svr,
-		_ => default_isr,
-	};
-}
-
-/// Installs the IDT (Interrupt Descriptor Table) for the kernel
-/// and enables interrupts.
-///
-/// # LAPIC / Spurious Interrupts
-/// This function **does not** initialize the LAPIC (Local APIC) for
-/// interrupt handling. This must be done separately with
-/// [`initialize_lapic_irqs`].
+/// Installs the given IDT (Interrupt Descriptor Table).
 ///
 /// # Safety
-/// Modifies global state, and must be called only once - preferably
-/// early, and after the GDT has been installed.
-pub unsafe fn install_idt() {
+/// Modifies global state, and must be called only once.
+pub(crate) unsafe fn install_idt(idt: &'static [IdtEntry]) {
 	/// The IDTR (Interrupt Descriptor Table Register) structure,
 	/// read in by the `lidt` instruction.
 	#[repr(C, packed)]
@@ -39,10 +21,15 @@ pub unsafe fn install_idt() {
 		base:  *const IdtEntry,
 	}
 
+	debug_assert!(
+		u16::try_from(core::mem::size_of_val(idt)).is_ok(),
+		"given IDT is too large"
+	);
+
 	#[allow(static_mut_refs)]
 	let idtr = Idtr {
-		limit: (core::mem::size_of_val(IDT.get()) - 1) as u16,
-		base:  &raw const IDT.get()[0],
+		limit: (core::mem::size_of_val(idt) - 1) as u16,
+		base:  &raw const idt[0],
 	};
 
 	// We load the IDT as early as possible, prior to telling the APIC
@@ -50,39 +37,14 @@ pub unsafe fn install_idt() {
 	asm!(
 		"lidt [{}]",
 		in(reg) &idtr,
-		options(nostack, preserves_flags)
-	);
-}
-
-/// Initializes the APIC (Advanced Programmable Interrupt Controller)
-/// for interrupt handling.
-///
-/// # Safety
-/// Modifies global state, and must be called only once.
-///
-/// The kernel MUST be fully initialized before calling this function.
-pub unsafe fn initialize_lapic_irqs() {
-	let lapic = &crate::Kernel::get().handle().lapic;
-
-	lapic.set_timer_divider(crate::lapic::ApicTimerDivideBy::Div128);
-
-	lapic.configure_timer(
-		ApicTimerConfig::new()
-			.with_vector(TIMER_VECTOR)
-			.with_mode(ApicTimerMode::OneShot),
-	);
-
-	lapic.set_spurious_vector(
-		ApicSvr::new()
-			.with_vector(APIC_SVR_VECTOR)
-			.with_software_enable(),
+		options(nostack)
 	);
 }
 
 /// A single IDT (Interrupt Descriptor Table) entry.
 #[derive(Debug, Clone, Copy, Default)]
 #[repr(C, packed)]
-struct IdtEntry {
+pub(crate) struct IdtEntry {
 	/// The lower 16 bits of the ISR (Interrupt Service Routine) address.
 	isr_low:    u16,
 	/// The code segment selector used when handling the interrupt.

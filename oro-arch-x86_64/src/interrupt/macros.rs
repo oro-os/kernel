@@ -78,7 +78,7 @@ macro_rules! isr_table {
 
 		// BEG(qix-): Forgive me for this astrocity.
 		$(#[$meta])* static $isr_table:
-				$crate::interrupt::macros::IsrTable<fn() -> $crate::interrupt::macros::Aligned16<[IdtEntry; 256]>> =
+				$crate::interrupt::macros::IsrTable<fn() -> $crate::interrupt::macros::Aligned16<[$crate::interrupt::IdtEntry; 256]>> =
 			$crate::interrupt::macros::IsrTable::new(|| {
 			let mut arr = [
 				$crate::interrupt::IdtEntry::new()
@@ -272,4 +272,97 @@ macro_rules! isr {
 			}
 		}
 	};
+}
+
+/// Sets up the default ISR table.
+#[macro_export]
+macro_rules! default_isr_table {
+	(
+		$(#[$meta:meta])*
+		$vis:vis fn $name:ident() -> &'static [IdtEntry; $N:expr] = [
+			$($isrty:tt),* $(,)?
+		];
+	) => {
+		::core::arch::global_asm! {
+			$(
+				concat!(".global _oro_default_isr_", ${index(0)}, "\n"),
+				concat!("_oro_default_isr_", ${index(0)}, ":"),
+				$crate::default_isr_table!(@ push $isrty),
+				concat!("push ", ${index(0)}),
+				 // NOTE(qix-): This is not technically stable. RDI is used as the
+				 // NOTE(qix-): first argument to a rust function, but that's not
+				 // NOTE(qix-): guaranteed to be the case in the future.
+				"push rdi",
+				"mov rdi, cr0",
+				"push rdi",
+				"mov rdi, cr2",
+				"push rdi",
+				"mov rdi, cr3",
+				"push rdi",
+				"mov rdi, cr4",
+				"push rdi",
+				"push rax",
+				"push rbx",
+				"push rcx",
+				"push rdx",
+				"push rsi",
+				"push rbp",
+				"push r8",
+				"push r9",
+				"push r10",
+				"push r11",
+				"push r12",
+				"push r13",
+				"push r14",
+				"push r15",
+				"mov rax, 1",
+				"xor rcx, rcx",
+				"xor rdx, rdx",
+				"xor rbx, rbx",
+				"cpuid",
+				"shr rbx, 24",
+				"and rbx, 0xFF",
+				"push rbx",
+				"mov rdi, rsp",
+				"jmp _oro_default_isr_handler",
+				"ud2",
+			)*
+		}
+
+		$(#[$meta])*
+		$vis fn $name() -> &'static [$crate::interrupt::IdtEntry; $N] {
+			use oro_sync::Lock;
+			static TABLE: oro_sync::Mutex<
+				Option<core::cell::UnsafeCell<[$crate::interrupt::IdtEntry; $N]>>
+			> = oro_sync::Mutex::new(None);
+
+			if let Some(table) = TABLE.lock().as_ref().map(|t| t.get()) {
+				// SAFETY: We can guarantee it's initialized here and is only being read.
+				unsafe { &*table }
+			} else {
+				let new_table = [$(
+					$crate::interrupt::IdtEntry::new()
+						.with_kernel_cs()
+						.with_attributes(0x8E)
+						.with_isr({
+							unsafe extern "C" {
+								#[link_name = concat!("_oro_default_isr_", ::core::stringify!(${ignore($isrty)}${index(0)}))]
+								unsafe fn _isr_handler() -> !;
+							}
+
+							_isr_handler
+						})
+				),*];
+
+				let mut table = TABLE.lock();
+				// SAFETY: It's only ever being read beyond this point, therefore
+				// SAFETY: it's safe to refer to the inner contents statically.
+				unsafe { &*table.get_or_insert_with(|| core::cell::UnsafeCell::new(new_table)).get() }
+			}
+		}
+	};
+
+	(@ push error) => { "" };
+	(@ push noerror) => { "push 0" };
+	(@ push $tt:tt) => { compile_error!("invalid handler type") };
 }
