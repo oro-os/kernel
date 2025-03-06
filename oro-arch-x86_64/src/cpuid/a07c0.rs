@@ -29,7 +29,13 @@ impl CpuidA07C0B {
 				// NOTE(qix-): LLVM uses `rbx` internally, so we have to preserve it.
 				"push rbx",
 				"mov eax, 0x07",
-				"mov ecx, 0",
+				"xor ecx, ecx",
+				// NOTE(qix-): On older CPUs, unused output registers for `cpuid` were
+				// NOTE(qix-): left untouched in some cases and not others, namely on
+				// NOTE(qix-): capabilities checks. It's always a good idea to zero them
+				// NOTE(qix-): out before calling `cpuid`.
+				"xor edx, edx",
+				"xor ebx, ebx",
 				"cpuid",
 				"mov eax, ebx",
 				"pop rbx",

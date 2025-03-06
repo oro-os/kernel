@@ -42,6 +42,12 @@ pub fn highest_leaf() -> Option<u32> {
 			// NOTE(qix-): Makes CPUID a bit tricky to deal with.
 			"push rbx",
 			"mov eax, 0",
+			// NOTE(qix-): On older CPUs, unused output registers for `cpuid` were
+			// NOTE(qix-): left untouched in some cases and not others, namely on
+			// NOTE(qix-): capabilities checks. It's always a good idea to zero them
+			// NOTE(qix-): out before calling `cpuid`.
+			"xor ecx, ecx",
+			"xor edx, edx",
 			"cpuid",
 			"pop rbx",
 			lateout("eax") r,
