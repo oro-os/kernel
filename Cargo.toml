@@ -28,8 +28,6 @@ members = [
 	"oro-macro-proc",
 	"oro-kernel",
 	"oro-debug",
-	"oro-debug-pl011",
-	"oro-debug-uart16550",
 	"oro-type",
 	"oro-dtb",
 	"oro-dbgutil",
@@ -51,8 +49,6 @@ oro-macro-proc.path = "oro-macro-proc"
 oro-elf.path = "oro-elf"
 oro-kernel.path = "oro-kernel"
 oro-debug.path = "oro-debug"
-oro-debug-pl011.path = "oro-debug-pl011"
-oro-debug-uart16550.path = "oro-debug-uart16550"
 oro-type.path = "oro-type"
 oro-dtb.path = "oro-dtb"
 oro-dbgutil.path = "oro-dbgutil"

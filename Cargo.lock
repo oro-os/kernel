@@ -407,24 +407,9 @@ dependencies = [
 name = "oro-debug"
 version = "0.0.0"
 dependencies = [
- "oro-debug-pl011",
- "oro-debug-uart16550",
-]
-
-[[package]]
-name = "oro-debug-pl011"
-version = "0.0.0"
-dependencies = [
- "oro-sync",
- "volatile-register",
-]
-
-[[package]]
-name = "oro-debug-uart16550"
-version = "0.0.0"
-dependencies = [
  "oro-sync",
  "uart_16550",
+ "volatile-register",
 ]
 
 [[package]]

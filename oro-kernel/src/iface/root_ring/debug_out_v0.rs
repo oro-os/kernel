@@ -74,6 +74,7 @@ impl BufferState {
 
 	/// Flushes the buffer immediately.
 	fn flush(&mut self) {
+		#[cfg(debug_assertions)]
 		::oro_debug::log_debug_bytes(&self.buffer);
 		self.buffer.clear();
 	}

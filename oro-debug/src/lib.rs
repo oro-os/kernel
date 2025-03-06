@@ -9,6 +9,16 @@
 //! if used improperly.
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![expect(internal_features)]
+#![feature(core_intrinsics)]
+
+#[cfg(any(doc, all(debug_assertions, feature = "pl011")))]
+mod pl011;
+#[cfg(any(
+	doc,
+	all(debug_assertions, target_arch = "x86_64", feature = "uart16550")
+))]
+mod uart16550;
 
 /// Initializes the debug logger with a linear map offset, if one is enabled.
 ///
@@ -19,10 +29,10 @@
 pub fn init_with_offset(offset: usize) {
 	#[cfg(feature = "kernel-debug")]
 	{
-		#[cfg(all(target_arch = "aarch64", feature = "pl011"))]
-		oro_debug_pl011::init(offset);
+		#[cfg(feature = "pl011")]
+		self::pl011::init(offset);
 		#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
-		oro_debug_uart16550::init();
+		self::uart16550::init();
 	}
 }
 
@@ -38,15 +48,16 @@ pub fn init() {
 ///
 /// To be used only by the root-ring kernel debug output interface.
 #[allow(unused_variables, dead_code)]
+#[cfg(debug_assertions)]
 pub fn log_debug_bytes(line: &[u8]) {
 	#[cfg(feature = "kernel-debug")]
 	{
 		#[doc(hidden)]
 		const PREFIX: &str = "<module>:0:D:";
-		#[cfg(all(target_arch = "aarch64", feature = "pl011"))]
-		oro_debug_pl011::log_debug_bytes(PREFIX, line);
+		#[cfg(feature = "pl011")]
+		self::pl011::log_debug_bytes(PREFIX, line);
 		#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
-		oro_debug_uart16550::log_debug_bytes(PREFIX, line);
+		self::uart16550::log_debug_bytes(PREFIX, line);
 	}
 }
 
@@ -54,13 +65,14 @@ pub fn log_debug_bytes(line: &[u8]) {
 ///
 /// Shouldn't be used directly; use the `dbg!` macros instead.
 #[allow(unused_variables)]
+#[cfg(debug_assertions)]
 pub fn log(message: core::fmt::Arguments<'_>) {
 	#[cfg(feature = "kernel-debug")]
 	{
-		#[cfg(all(target_arch = "aarch64", feature = "pl011"))]
-		oro_debug_pl011::log(message);
+		#[cfg(feature = "pl011")]
+		self::pl011::log(message);
 		#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
-		oro_debug_uart16550::log(message);
+		self::uart16550::log(message);
 	}
 
 	#[cfg(not(feature = "kernel-debug"))]
@@ -73,8 +85,13 @@ pub fn log(message: core::fmt::Arguments<'_>) {
 #[macro_export]
 macro_rules! dbg {
 	($($arg:tt)*) => {{
+		#[cfg(debug_assertions)]
 		{
 			$crate::log(format_args!("{}:{}:I:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
+		}
+		#[cfg(not(debug_assertions))]
+		{
+			let _ = format_args!($($arg)*);
 		}
 	}};
 }
@@ -83,8 +100,13 @@ macro_rules! dbg {
 #[macro_export]
 macro_rules! dbg_err {
 	($($arg:tt)*) => {{
+		#[cfg(debug_assertions)]
 		{
 			$crate::log(format_args!("{}:{}:E:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
+		}
+		#[cfg(not(debug_assertions))]
+		{
+			let _ = format_args!($($arg)*);
 		}
 	}};
 }
@@ -93,8 +115,13 @@ macro_rules! dbg_err {
 #[macro_export]
 macro_rules! dbg_warn {
 	($($arg:tt)*) => {{
+		#[cfg(debug_assertions)]
 		{
 			$crate::log(format_args!("{}:{}:W:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
+		}
+		#[cfg(not(debug_assertions))]
+		{
+			let _ = format_args!($($arg)*);
 		}
 	}};
 }
@@ -111,10 +138,10 @@ impl core::fmt::Write for DebugWriter {
 	fn write_str(&mut self, s: &str) -> core::fmt::Result {
 		#[cfg(feature = "kernel-debug")]
 		{
-			#[cfg(all(target_arch = "aarch64", feature = "pl011"))]
-			oro_debug_pl011::log_str_raw(s);
+			#[cfg(feature = "pl011")]
+			self::pl011::log_str_raw(s);
 			#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
-			oro_debug_uart16550::log_str_raw(s);
+			self::uart16550::log_str_raw(s);
 		}
 
 		#[cfg(not(feature = "kernel-debug"))]

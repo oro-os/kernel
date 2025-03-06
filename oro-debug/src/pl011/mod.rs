@@ -2,10 +2,6 @@
 //!
 //! Note that this is a very primitive implementation, suitable for only what
 //! the Oro kernel needs.
-#![no_std]
-#![expect(internal_features)]
-#![feature(core_intrinsics)]
-#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
 
 mod driver;
 
@@ -38,7 +34,6 @@ pub fn init(offset: usize) {
 }
 
 /// Logs a message to the PL011.
-#[expect(clippy::missing_panics_doc)]
 pub fn log(message: fmt::Arguments<'_>) {
 	if let Some(serial) = SERIAL.lock().as_mut() {
 		writeln!(serial, "{message}")
