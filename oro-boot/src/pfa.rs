@@ -72,8 +72,13 @@ impl<M: Into<OroMemRe> + Clone, I: Iterator<Item = M> + Clone> PrebootPfa<M, I> 
 	/// Allocates a page frame of 4096 bytes (aligned to 4096 bytes).
 	#[must_use]
 	pub fn allocate_page(&mut self) -> Option<u64> {
-		let (phys, _) = self.allocate::<AlignedPage>()?;
-		Some(phys)
+		loop {
+			let (phys, _) = self.allocate::<AlignedPage>()?;
+			if phys == 0x8000 || phys == 0x9000 {
+				continue;
+			}
+			return Some(phys);
+		}
 	}
 
 	/// Allocates an object of the given size in bytes.
