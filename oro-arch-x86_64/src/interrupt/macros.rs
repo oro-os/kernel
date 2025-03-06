@@ -67,7 +67,7 @@ impl<Init: FnOnce() -> Aligned16<[IdtEntry; 256]>> IsrTable<Init> {
 /// The ISR functions must have been created with the [`crate::isr!`] macro.
 #[macro_export]
 macro_rules! isr_table {
-	($(#[$meta:meta])* static $isr_table:ident = { $($isr_const:ident[$isr_num:expr] => $isr_name:ident),* , _ => $def_isr_name:ident $(,)? };) => {
+	($(#[$meta:meta])* static $isr_table:ident = { $({ $def_isr:expr })? $($isr_const:ident[$isr_num:expr] => $isr_name:ident),* , _ => $def_isr_name:ident $(,)? };) => {
 		$(mod $isr_name;)*
 		mod $def_isr_name;
 
@@ -87,6 +87,12 @@ macro_rules! isr_table {
 					.with_isr($def_isr_name::$def_isr_name);
 				256
 			];
+
+			$(
+				let def_isr = $def_isr;
+				let def_len = def_isr.len().min(256);
+				arr[..def_len].copy_from_slice(&def_isr[..def_len]);
+			)?
 
 			$(
 				arr[$isr_num as usize] = $crate::interrupt::IdtEntry::new()

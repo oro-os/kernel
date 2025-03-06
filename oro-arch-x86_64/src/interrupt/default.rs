@@ -8,7 +8,7 @@ use oro_debug::dbg;
 crate::default_isr_table! {
 	/// The default ISR table, used for early stage
 	/// interrupt handling and error reporting.
-	fn get_default_isr_table() -> &'static [IdtEntry; 32] = [
+	pub(crate) fn get_default_isr_table() -> &'static [IdtEntry; 32] = [
 		// Divide by zero
 		noerror,
 		// Debug

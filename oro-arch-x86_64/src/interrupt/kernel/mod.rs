@@ -9,6 +9,8 @@ use crate::lapic::{ApicSvr, ApicTimerConfig, ApicTimerMode};
 crate::isr_table! {
 	/// The IDT (Interrupt Descriptor Table) for the kernel.
 	static IDT = {
+		{ super::default::get_default_isr_table() }
+
 		// TODO(qix-): Exception ISRs (which cannot be processed with the default ISR).
 		PAGE_FAULT[14] => isr_page_fault,
 		TIMER_VECTOR[32] => isr_sys_timer,
