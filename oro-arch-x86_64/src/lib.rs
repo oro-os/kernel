@@ -87,8 +87,6 @@ pub mod task;
 pub mod thread;
 pub mod tss;
 
-pub(crate) mod init;
-
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};
 use oro_kernel::{iface::kernel::KernelInterface, table::Table};
 use oro_mem::alloc::boxed::Box;
@@ -102,7 +100,7 @@ pub const ELF_MACHINE: ElfMachine = ElfMachine::X86_64;
 
 /// Zero-sized type for specifying the architecture-specific types
 /// used throughout the `oro-kernel` crate.
-pub(crate) struct Arch;
+pub struct Arch;
 
 impl oro_kernel::arch::Arch for Arch {
 	type AddressSpace = crate::mem::address_space::AddressSpaceLayout;
@@ -121,4 +119,4 @@ impl oro_kernel::arch::Arch for Arch {
 }
 
 /// Type alias for the Oro kernel core-local instance type.
-pub(crate) type Kernel = oro_kernel::Kernel<Arch>;
+pub type Kernel = oro_kernel::Kernel<Arch>;

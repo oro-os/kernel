@@ -533,6 +533,6 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 		"secondary core booted but primary didn't signal to continue in a timely fashion"
 	);
 
-	crate::init::initialize_secondary(lapic);
-	crate::init::boot();
+	super::initialize_core_local(lapic);
+	super::finalize_boot_and_run();
 }

@@ -255,6 +255,16 @@ impl<A: Arch> Kernel<A> {
 		// SAFETY: Always valid if we have a valid `self` reference.
 		unsafe { self.scheduler.assume_init_ref() }
 	}
+
+	/// Runs the kernel's main loop.
+	///
+	/// This function is the main entry point for the kernel.
+	/// The architecture essentially gives up primary control
+	/// to the architecture-agnostic Oro kernel, only being
+	/// called back through the [`arch`] handles.
+	pub fn run(&self) -> ! {
+		todo!("run()");
+	}
 }
 
 /// Global state shared by all [`Kernel`] instances across

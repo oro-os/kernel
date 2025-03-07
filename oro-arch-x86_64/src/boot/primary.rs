@@ -6,6 +6,7 @@ use oro_acpi::{
 };
 use oro_boot_protocol::acpi::AcpiKind;
 use oro_debug::{dbg, dbg_warn};
+use oro_kernel::KernelState;
 use oro_mem::{
 	mapper::AddressSpace,
 	phys::{Phys, PhysAddr},
@@ -61,39 +62,6 @@ pub unsafe fn boot() -> ! {
 	let sdt = rsdp
 		.sdt()
 		.expect("ACPI tables are missing either the RSDT or XSDT table");
-
-	//{
-	// 	let mcfg = sdt
-	// 		.find::<oro_acpi::Mcfg>()
-	// 		.expect("MCFG table not found in ACPI tables");
-
-	// 	for entry in mcfg.entries() {
-	// 		dbg!("MCFG entry: {entry:?}", entry = entry);
-
-	// 		let base =
-	// 			unsafe { Phys::from_address_unchecked(entry.Address.read()).as_ptr_unchecked() };
-
-	// 		for dev in oro_pci::MmioIterator::new(
-	// 			base,
-	// 			entry.StartBusNumber.read(),
-	// 			entry.EndBusNumber.read(),
-	// 		)
-	// 		.expect("mis-aligned MCFG PCI(e) base pointer")
-	// 		{
-	// 			#[allow(unreachable_patterns)]
-	// 			match dev.config {
-	// 				oro_pci::PciConfig::Type0(config) => {
-	// 					dbg!("{dev:?} -> {:#?}", unsafe { config.read_volatile() });
-	// 					dbg!("    REGISTERS:");
-	// 					for bar in unsafe { (*config).base_registers_iter() } {
-	// 						dbg!("        {bar:X?}");
-	// 					}
-	// 				}
-	// 				_ => dbg!("{dev:?} -> ???"),
-	// 			}
-	// 		}
-	// 	}
-	//}
 
 	let fadt = sdt
 		.find::<oro_acpi::Fadt>()
@@ -197,14 +165,19 @@ pub unsafe fn boot() -> ! {
 		dbg!("proceeding with {} core(s)", num_cores);
 	}
 
-	// The secondaries are now waiting for our signal that the global state has been initialized.
-	crate::init::initialize_primary(lapic);
+	// SAFETY(qix-): This is the only place we take a mutable reference to it.
+	#[expect(static_mut_refs)]
+	KernelState::init(&mut super::KERNEL_STATE).expect("failed to create global kernel state");
+
+	super::initialize_core_local(lapic);
+	// SAFETY: This is the only place where the root ring is being initialized.
+	unsafe { super::root_ring::initialize_root_ring(); }
 
 	// Global state has been initialized (along with the primary core's local kernel instance).
 	// Signal to the secondaries that they can now proceed with initializing their core-local
 	// kernel instances.
 	secondary::SECONDARIES_MAY_BOOT.store(true, core::sync::atomic::Ordering::Relaxed);
 
-	// Now boot our own kernel instance.
-	crate::init::boot()
+	// Now boot the kernel.
+	super::finalize_boot_and_run();
 }
