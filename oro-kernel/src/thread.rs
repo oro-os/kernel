@@ -20,12 +20,12 @@ use oro_mem::{
 
 use crate::{
 	AddressSpace, UserHandle,
-	arch::{Arch, ThreadHandle},
+	arch::{Arch, SystemCallResponse, ThreadHandle},
 	instance::Instance,
 	port::PortEnd,
 	ring::Ring,
 	scheduler::PageFaultType,
-	syscall::{InFlightState, InFlightSystemCall, InFlightSystemCallHandle, SystemCallResponse},
+	syscall::{InFlightState, InFlightSystemCall, InFlightSystemCallHandle},
 	tab::Tab,
 	table::{Table, TypeTable},
 	token::Token,

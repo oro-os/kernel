@@ -4,8 +4,8 @@ use oro::syscall::Error as SysError;
 use oro_mem::alloc::boxed::Box;
 
 use crate::{
-	arch::Arch,
-	syscall::{InterfaceResponse, SystemCallResponse},
+	arch::{Arch, SystemCallResponse},
+	syscall::InterfaceResponse,
 	tab::Tab,
 	thread::Thread,
 };

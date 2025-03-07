@@ -8,8 +8,8 @@ use oro_debug::dbg_warn;
 
 use crate::{
 	Kernel,
-	arch::{Arch, CoreHandle},
-	syscall::{InFlightSystemCall, InterfaceResponse, SystemCallRequest, SystemCallResponse},
+	arch::{Arch, CoreHandle, SystemCallRequest, SystemCallResponse},
+	syscall::{InFlightSystemCall, InterfaceResponse},
 	tab::Tab,
 	thread::{RunState, ScheduleAction, Thread},
 };

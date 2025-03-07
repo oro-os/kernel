@@ -13,7 +13,7 @@ use oro::syscall::{Error, Opcode};
 use oro_mem::alloc::sync::Arc;
 
 use crate::{
-	arch::Arch,
+	arch::{Arch, SystemCallRequest, SystemCallResponse},
 	interface::{Interface, RingInterface},
 	tab::Tab,
 	thread::Thread,
@@ -257,28 +257,4 @@ impl Drop for InFlightSystemCallHandle {
 			)
 			.ok();
 	}
-}
-
-/// System call request data.
-#[derive(Debug, Clone)]
-pub struct SystemCallRequest {
-	/// The opcode.
-	pub opcode: u64,
-	/// The first argument.
-	pub arg1:   u64,
-	/// The second argument.
-	pub arg2:   u64,
-	/// The third argument.
-	pub arg3:   u64,
-	/// The fourth argument.
-	pub arg4:   u64,
-}
-
-/// System call response data.
-#[derive(Debug, Clone, Copy)]
-pub struct SystemCallResponse {
-	/// The error code.
-	pub error: oro::syscall::Error,
-	/// The return value.
-	pub ret:   u64,
 }

@@ -27,12 +27,21 @@ pub struct CoreHandle {
 	pub kernel_irq_stack: UnsafeCell<u64>,
 }
 
-unsafe impl oro_kernel::arch::CoreHandle for CoreHandle {
+unsafe impl oro_kernel::arch::CoreHandle<crate::Arch> for CoreHandle {
 	fn schedule_timer(&self, ticks: u32) {
 		self.lapic.set_timer_initial_count(ticks);
 	}
 
 	fn cancel_timer(&self) {
 		self.lapic.cancel_timer();
+	}
+
+	unsafe fn run_context(
+		&self,
+		_context: Option<&UnsafeCell<<crate::Arch as oro_kernel::arch::Arch>::ThreadHandle>>,
+		_ticks: Option<u32>,
+		_resumption: Option<oro_kernel::arch::Resumption>,
+	) -> oro_kernel::arch::PreemptionEvent {
+		todo!();
 	}
 }
