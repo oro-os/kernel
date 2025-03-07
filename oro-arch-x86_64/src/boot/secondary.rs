@@ -97,6 +97,11 @@ const _: () = {
 
 /// Boots a secondary core with the given local APIC and LAPIC ID.
 ///
+/// # Panics
+/// Panics if the boot stubs are too large to fit in the first half of the page.
+/// This should never happen outside of development of the stubs themselves (and
+/// moreso, would be relatively rare anyway).
+///
 /// # Safety
 /// Uses the page at physical address 0x8000 as the secondary core's entry point,
 /// and the page at physical address 0x9000 as the secondary core's L4 page table.

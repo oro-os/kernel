@@ -54,6 +54,15 @@ pub struct PreparedMemory {
 /// - Uninstalls the recursive mapping.
 /// - Hands back a physical address translator and page frame allocator
 ///   for the system to use.
+///
+/// # Panics
+/// Panics if the recursive entry is not mapped, or if the system
+/// runs out of memory while mapping the linear map.
+///
+/// # Safety
+/// Must only be called once at system boot by the primary core prior to
+/// any secondaries coming online.
+#[must_use]
 pub unsafe fn prepare_memory() -> PreparedMemory {
 	// First, let's make sure the recursive entry is mapped.
 	const RIDX: usize = crate::mem::address_space::AddressSpaceLayout::RECURSIVE_IDX;

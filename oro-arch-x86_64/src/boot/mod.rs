@@ -23,6 +23,11 @@ pub static mut KERNEL_STATE: MaybeUninit<KernelState<crate::Arch>> = MaybeUninit
 
 /// Initializes the core local kernel.
 ///
+/// # Panics
+/// Panics if there is an error whilst initializing the kernel
+/// state. See [`oro_kernel::Kernel::initialize_for_core`] for
+/// more information.
+///
 /// # Safety
 /// Must ONLY be called ONCE for the entire lifetime of the core.
 ///
@@ -56,7 +61,7 @@ pub fn finalize_boot_and_run() -> ! {
 	let (tss_offset, gdt) =
 		Gdt::<5>::new().with_sys_entry(SysEntry::for_tss(kernel.handle().tss.get()));
 
-	assert_eq!(
+	debug_assert_eq!(
 		tss_offset,
 		crate::gdt::TSS_GDT_OFFSET,
 		"TSS offset mismatch"
