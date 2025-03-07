@@ -42,7 +42,6 @@ use crate::{
 pub(super) static SECONDARIES_MAY_BOOT: AtomicBool = AtomicBool::new(false);
 
 /// The error type for booting a secondary core.
-#[expect(dead_code)]
 #[derive(Debug)]
 pub enum BootError {
 	/// The system is out of memory.
@@ -103,7 +102,7 @@ const _: () = {
 /// and the page at physical address 0x9000 as the secondary core's L4 page table.
 ///
 /// Caller must ensure these pages are mapped and accessible.
-pub unsafe fn boot_secondary(
+pub unsafe fn boot(
 	primary_handle: &AddressSpaceHandle,
 	lapic: &Lapic,
 	secondary_lapic_id: u8,

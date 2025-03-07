@@ -24,6 +24,6 @@ unsafe fn panic(info: &::core::panic::PanicInfo<'_>) -> ! {
 pub unsafe extern "C" fn _start() -> ! {
 	// SAFETY: This is the only place that the boot primary function is being called.
 	unsafe {
-		::oro_arch_x86_64::boot::boot_primary();
+		::oro_arch_x86_64::boot::primary::boot();
 	}
 }
