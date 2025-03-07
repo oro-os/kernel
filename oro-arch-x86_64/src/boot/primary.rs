@@ -145,6 +145,8 @@ pub unsafe fn boot() -> ! {
 					} else {
 						dbg!("cpu {}: not booting (disabled)", apic.id());
 					}
+				} else {
+					dbg_warn!("unhandled MADT entry: {entry:#X?}");
 				}
 			}
 
