@@ -4,13 +4,6 @@
 //! etc. and provides a common interface for architectures to implement
 //! the Oro kernel on their respective platforms.
 #![no_std]
-// SAFETY(qix-): `adt_const_params` isn't strictly necessary but is on track for acceptance,
-// SAFETY(qix-): and the open questions (e.g. mangling) are not of concern here.
-// SAFETY(qix-): https://github.com/rust-lang/rust/issues/95174
-#![feature(adt_const_params)]
-// SAFETY(qix-): Technically not required but helps clean things up a bit for the archs.
-// SAFETY(qix-): https://github.com/rust-lang/rust/issues/29661
-#![feature(associated_type_defaults)]
 // SAFETY(qix-): Needed to make the system call key checks work inline.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/76001
 #![feature(inline_const_pat)]
