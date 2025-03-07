@@ -29,18 +29,18 @@ crate::isr_table! {
 pub unsafe fn initialize_lapic_irqs() {
 	let lapic = &crate::Kernel::get().handle().lapic;
 
+	lapic.set_spurious_vector(
+		ApicSvr::new()
+			.with_vector(APIC_SVR_VECTOR)
+			.with_software_enable(),
+	);
+
 	lapic.set_timer_divider(crate::lapic::ApicTimerDivideBy::Div128);
 
 	lapic.configure_timer(
 		ApicTimerConfig::new()
 			.with_vector(TIMER_VECTOR)
 			.with_mode(ApicTimerMode::OneShot),
-	);
-
-	lapic.set_spurious_vector(
-		ApicSvr::new()
-			.with_vector(APIC_SVR_VECTOR)
-			.with_software_enable(),
 	);
 }
 
