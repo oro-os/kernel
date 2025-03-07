@@ -171,7 +171,9 @@ pub unsafe fn boot() -> ! {
 
 	super::initialize_core_local(lapic);
 	// SAFETY: This is the only place where the root ring is being initialized.
-	unsafe { super::root_ring::initialize_root_ring(); }
+	unsafe {
+		super::root_ring::initialize_root_ring();
+	}
 
 	// Global state has been initialized (along with the primary core's local kernel instance).
 	// Signal to the secondaries that they can now proceed with initializing their core-local

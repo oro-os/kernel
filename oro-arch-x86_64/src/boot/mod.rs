@@ -3,8 +3,8 @@
 pub mod memory;
 pub mod primary;
 pub mod protocol;
-pub mod secondary;
 pub mod root_ring;
+pub mod secondary;
 
 use core::{cell::UnsafeCell, mem::MaybeUninit};
 
@@ -68,7 +68,9 @@ pub fn finalize_boot_and_run() -> ! {
 	gdt_mut.write(gdt);
 	core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 	// SAFETY: We just wrote to the GDT. It's safe to assume it's initialized.
-	unsafe { gdt_mut.assume_init_ref().install(); }
+	unsafe {
+		gdt_mut.assume_init_ref().install();
+	}
 
 	// SAFETY: This is the boot sequence, which is the only place where these functions
 	// SAFETY: are called.

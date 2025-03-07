@@ -2,11 +2,16 @@
 
 use oro_debug::{dbg, dbg_err};
 use oro_elf::{ElfSegment, ElfSegmentType};
-use oro_kernel::{instance::Instance, thread::Thread, module::Module};
-use oro_mem::{global_alloc::GlobalPfa, mapper::{AddressSpace, AddressSegment}, pfa::Alloc, phys::{Phys, PhysAddr}};
+use oro_kernel::{instance::Instance, module::Module, thread::Thread};
+use oro_mem::{
+	global_alloc::GlobalPfa,
+	mapper::{AddressSegment, AddressSpace},
+	pfa::Alloc,
+	phys::{Phys, PhysAddr},
+};
 
-use crate::mem::address_space::AddressSpaceLayout;
 use super::protocol;
+use crate::mem::address_space::AddressSpaceLayout;
 
 /// Initializes the root ring for the system
 ///
