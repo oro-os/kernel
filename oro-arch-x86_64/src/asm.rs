@@ -1,5 +1,5 @@
 //! Assembly instruction stubs for the x86_64 architecture.
-#![expect(clippy::inline_always)]
+#![expect(clippy::inline_always, unused_unsafe)]
 
 use core::arch::asm;
 
@@ -69,16 +69,27 @@ pub fn cr2() -> u64 {
 }
 
 /// Disables the 8259 PIC by masking off all interrupts.
+///
+/// # Safety
+/// If `disconnect_imcr` is true, the IMCR (Interrupt Mode Control Register)
+/// must have been detected beforehand. Calling this function with `true`
+/// when the IMCR is not present is undefined behavior.
 #[inline(always)]
-pub fn disable_8259() {
+pub unsafe fn disable_8259(disconnect_imcr: bool) {
+	// SAFETY: This is always safe.
 	unsafe {
-		asm!(
-			"mov al, 0xFF",
-			"out 0x21, al",
-			"out 0xA1, al",
-			out("al") _,
-			options(nostack, preserves_flags)
-		);
+		outb(0x21, 0xFF); // Mask interrupt vectors 0-7
+		outb(0xA1, 0xFF); // Mask interrupt vectors 8-15
+	}
+
+	if disconnect_imcr {
+		// SAFETY: Safety is offloaded to caller.
+		unsafe {
+			// See "Intel MultiProcessor Specification Version 1.4 (1997)"
+			// page 3-8 for more information.
+			outb(0x22, 0x70); // Select IMCR
+			outb(0x23, 0x01); // Disconnect
+		}
 	}
 }
 

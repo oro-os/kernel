@@ -99,7 +99,11 @@ pub unsafe fn boot() -> ! {
 
 	if madt.has_8259() {
 		dbg!("8259 PIC detected; disabling it");
-		crate::asm::disable_8259();
+		// TODO(qix-): Detect if the IMCR is enabled before passing `true`.
+		// TODO(qix-): https://github.com/oro-os/development-notes/blob/master/Development%20Notes/x86/Scheduler%20Refactor%20(Mar%20'25).md#7-march-2025-apic-troubles
+		unsafe {
+			crate::asm::disable_8259(true);
+		}
 	}
 
 	let lapic = crate::lapic::Lapic::new(
