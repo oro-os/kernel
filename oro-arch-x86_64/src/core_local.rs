@@ -2,6 +2,8 @@
 
 use core::{cell::UnsafeCell, mem::MaybeUninit};
 
+use oro_kernel::arch::PreemptionEvent;
+
 use crate::{gdt, lapic, tss};
 
 /// Core local kernel handle for the x86_64 architecture.
@@ -38,10 +40,20 @@ unsafe impl oro_kernel::arch::CoreHandle<crate::Arch> for CoreHandle {
 
 	unsafe fn run_context(
 		&self,
-		_context: Option<&UnsafeCell<<crate::Arch as oro_kernel::arch::Arch>::ThreadHandle>>,
-		_ticks: Option<u32>,
+		context: Option<&UnsafeCell<<crate::Arch as oro_kernel::arch::Arch>::ThreadHandle>>,
+		ticks: Option<u32>,
 		_resumption: Option<oro_kernel::arch::Resumption>,
-	) -> oro_kernel::arch::PreemptionEvent {
-		todo!();
+	) -> PreemptionEvent {
+		if let Some(_context) = context {
+			todo!("run_context (context=Some)");
+		} else {
+			// Go to sleep.
+			if let Some(ticks) = ticks {
+				self.schedule_timer(ticks);
+			}
+			crate::asm::enable_interrupts();
+			crate::asm::halt_once();
+			PreemptionEvent::Timer
+		}
 	}
 }

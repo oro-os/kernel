@@ -49,10 +49,12 @@ use core::{
 	sync::atomic::{AtomicBool, Ordering::SeqCst},
 };
 
+use arch::CoreHandle;
 use nolock::queues::{
 	DequeueError,
 	mpmc::bounded::scq::{Receiver, Sender},
 };
+use oro_debug::dbg;
 use oro_macro::assert;
 use oro_mem::{
 	alloc::boxed::Box,
@@ -61,9 +63,8 @@ use oro_mem::{
 	pfa::Alloc,
 };
 use oro_sync::TicketMutex;
-use tab::Tab;
 
-use self::{arch::Arch, interface::RingInterface, scheduler::Scheduler, thread::Thread};
+use self::{arch::Arch, interface::RingInterface, scheduler::Scheduler, tab::Tab, thread::Thread};
 
 /// Core-local instance of the Oro kernel.
 ///
@@ -263,7 +264,13 @@ impl<A: Arch> Kernel<A> {
 	/// to the architecture-agnostic Oro kernel, only being
 	/// called back through the [`arch`] handles.
 	pub fn run(&self) -> ! {
-		todo!("run()");
+		loop {
+			dbg!("run_context(None, Some(1000), None)");
+			// SAFETY: Running with no context is safe.
+			unsafe {
+				self.handle.run_context(None, Some(1000), None);
+			}
+		}
 	}
 }
 
