@@ -53,7 +53,7 @@ pub fn log_debug_bytes(line: &[u8]) {
 	#[cfg(feature = "kernel-debug")]
 	{
 		#[doc(hidden)]
-		const PREFIX: &str = "<module>:0:D:";
+		const PREFIX: &str = "D:<module>:0:";
 		#[cfg(feature = "pl011")]
 		self::pl011::log_debug_bytes(PREFIX, line);
 		#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
@@ -87,7 +87,7 @@ macro_rules! dbg {
 	($($arg:tt)*) => {{
 		#[cfg(debug_assertions)]
 		{
-			$crate::log(format_args!("{}:{}:I:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
+			$crate::log(format_args!("I:{}:{}:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
 		}
 		#[cfg(not(debug_assertions))]
 		{
@@ -102,7 +102,7 @@ macro_rules! dbg_err {
 	($($arg:tt)*) => {{
 		#[cfg(debug_assertions)]
 		{
-			$crate::log(format_args!("{}:{}:E:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
+			$crate::log(format_args!("E:{}:{}:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
 		}
 		#[cfg(not(debug_assertions))]
 		{
@@ -117,7 +117,7 @@ macro_rules! dbg_warn {
 	($($arg:tt)*) => {{
 		#[cfg(debug_assertions)]
 		{
-			$crate::log(format_args!("{}:{}:W:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
+			$crate::log(format_args!("W:{}:{}:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
 		}
 		#[cfg(not(debug_assertions))]
 		{
