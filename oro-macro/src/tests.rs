@@ -97,6 +97,18 @@ fn paste_const_case() {
 #[test]
 fn repeat() {
 	let mut i = 0;
-	repeat! {5 => { i += 1; }}
+	repeat! { _ in ..5 { i += 1; }}
 	assert_eq!(i, 5);
+}
+
+#[test]
+fn repeat_with_i() {
+	let mut arr = [0usize; 10];
+	repeat! {
+		$I in 5..10 {
+			arr[$I] = $I * 2;
+		}
+	};
+
+	assert_eq!(arr, [0, 0, 0, 0, 0, 10, 12, 14, 16, 18]);
 }
