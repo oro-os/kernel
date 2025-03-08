@@ -112,3 +112,15 @@ fn repeat_with_i() {
 
 	assert_eq!(arr, [0, 0, 0, 0, 0, 10, 12, 14, 16, 18]);
 }
+
+#[test]
+fn repeat_with_i_closed() {
+	let mut arr = [0usize; 11];
+	repeat! {
+		$I in 5..=10 {
+			arr[$I] = $I * 2;
+		}
+	};
+
+	assert_eq!(arr, [0, 0, 0, 0, 0, 10, 12, 14, 16, 18, 20]);
+}
