@@ -30,6 +30,7 @@
 #![feature(result_flattening)]
 
 pub mod arch;
+pub mod event;
 pub mod iface;
 pub mod instance;
 pub mod interface;
@@ -54,7 +55,6 @@ use nolock::queues::{
 	DequeueError,
 	mpmc::bounded::scq::{Receiver, Sender},
 };
-use oro_debug::dbg;
 use oro_macro::assert;
 use oro_mem::{
 	alloc::boxed::Box,
@@ -264,13 +264,35 @@ impl<A: Arch> Kernel<A> {
 	/// to the architecture-agnostic Oro kernel, only being
 	/// called back through the [`arch`] handles.
 	pub fn run(&self) -> ! {
-		loop {
-			dbg!("run_context(None, Some(1000), None)");
-			// SAFETY: Running with no context is safe.
-			unsafe {
-				self.handle.run_context(None, Some(1000), None);
-			}
+		// Immediately perform a kernel halt with the smallest
+		// timeslice to immediately invoke a scheduler run.
+		// SAFETY: Calling with a `None` context is always safe, barring bugs in the
+		// SAFETY: architecture implementation.
+		unsafe {
+			self.handle.run_context(None, Some(1), None);
 		}
+		#[expect(unreachable_code)]
+		{
+			unreachable!("architecture returned from context switch! this is a bug!");
+		}
+	}
+
+	/// Handles a preemption event.
+	///
+	/// # Safety
+	/// - The caller must ensure that the stack is restored to the top of the
+	///   kernel stack segment ([`oro_mem::mapper::AddressSpace::kernel_stack()`]).
+	/// - Interrupts must be disabled. Any NMI handlers must be primed to dump core
+	///   and kernel panic; **this function is non-reentrant**.
+	/// - This function must only be called **exactly once** per context switch.
+	/// - The caller must ensure that any thread state is properly updated prior
+	///   to calling this function.
+	/// - The caller must ensure that the preemption event pertains to the currently
+	///   running context. This function **must not** be called with any value other
+	///   than [`event::PreemptionEvent::Timer`] if the context was `None`.
+	#[expect(clippy::needless_pass_by_value)]
+	pub unsafe fn handle_event(&self, event: event::PreemptionEvent) -> ! {
+		todo!("handle_event: {event:?}");
 	}
 }
 

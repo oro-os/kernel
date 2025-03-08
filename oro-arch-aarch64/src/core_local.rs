@@ -2,6 +2,8 @@
 
 use core::cell::UnsafeCell;
 
+use oro_kernel::{arch::Arch, event::Resumption};
+
 /// Core local kernel handle for the AArch64 architecture.
 pub struct CoreHandle;
 
@@ -16,10 +18,10 @@ unsafe impl oro_kernel::arch::CoreHandle<crate::Arch> for CoreHandle {
 
 	unsafe fn run_context(
 		&self,
-		_context: Option<&UnsafeCell<<crate::Arch as oro_kernel::arch::Arch>::ThreadHandle>>,
+		_context: Option<&UnsafeCell<<crate::Arch as Arch>::ThreadHandle>>,
 		_ticks: Option<u32>,
-		_resumption: Option<oro_kernel::arch::Resumption>,
-	) -> oro_kernel::arch::PreemptionEvent {
+		_resumption: Option<Resumption>,
+	) -> ! {
 		todo!();
 	}
 }

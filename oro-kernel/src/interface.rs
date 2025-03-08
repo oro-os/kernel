@@ -4,10 +4,7 @@ use oro::syscall::Error as SysError;
 use oro_mem::alloc::boxed::Box;
 
 use crate::{
-	arch::{Arch, SystemCallResponse},
-	syscall::InterfaceResponse,
-	tab::Tab,
-	thread::Thread,
+	arch::Arch, event::SystemCallResponse, syscall::InterfaceResponse, tab::Tab, thread::Thread,
 };
 
 /// Implements an interface, which is a flat namespace of `(index, flay_keyvals)`.

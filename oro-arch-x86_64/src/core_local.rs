@@ -2,7 +2,7 @@
 
 use core::{cell::UnsafeCell, mem::MaybeUninit};
 
-use oro_kernel::arch::PreemptionEvent;
+use oro_kernel::{arch::Arch, event::Resumption};
 
 use crate::{gdt, lapic, tss};
 
@@ -40,10 +40,10 @@ unsafe impl oro_kernel::arch::CoreHandle<crate::Arch> for CoreHandle {
 
 	unsafe fn run_context(
 		&self,
-		context: Option<&UnsafeCell<<crate::Arch as oro_kernel::arch::Arch>::ThreadHandle>>,
+		context: Option<&UnsafeCell<<crate::Arch as Arch>::ThreadHandle>>,
 		ticks: Option<u32>,
-		_resumption: Option<oro_kernel::arch::Resumption>,
-	) -> PreemptionEvent {
+		_resumption: Option<Resumption>,
+	) -> ! {
 		if let Some(_context) = context {
 			todo!("run_context (context=Some)");
 		} else {
@@ -53,7 +53,7 @@ unsafe impl oro_kernel::arch::CoreHandle<crate::Arch> for CoreHandle {
 			}
 			crate::asm::enable_interrupts();
 			crate::asm::halt_once();
-			PreemptionEvent::Timer
+			unreachable!("halt_once returned! this is a bug!");
 		}
 	}
 }

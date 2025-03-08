@@ -2,7 +2,7 @@
 
 use core::arch::{asm, naked_asm};
 
-use oro_kernel::{arch::SystemCallRequest, scheduler::Switch};
+use oro_kernel::{event::SystemCallRequest, scheduler::Switch};
 use oro_mem::mapper::AddressSegment;
 use oro_sync::Lock;
 

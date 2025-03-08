@@ -20,7 +20,8 @@ use oro_mem::{
 
 use crate::{
 	AddressSpace, UserHandle,
-	arch::{Arch, SystemCallResponse, ThreadHandle},
+	arch::{Arch, ThreadHandle},
+	event::SystemCallResponse,
 	instance::Instance,
 	port::PortEnd,
 	ring::Ring,

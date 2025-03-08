@@ -13,7 +13,8 @@ use oro::syscall::{Error, Opcode};
 use oro_mem::alloc::sync::Arc;
 
 use crate::{
-	arch::{Arch, SystemCallRequest, SystemCallResponse},
+	arch::Arch,
+	event::{SystemCallRequest, SystemCallResponse},
 	interface::{Interface, RingInterface},
 	tab::Tab,
 	thread::Thread,

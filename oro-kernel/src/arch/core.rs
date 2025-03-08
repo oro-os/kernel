@@ -2,7 +2,7 @@
 
 use core::cell::UnsafeCell;
 
-use crate::arch::Arch;
+use crate::{arch::Arch, event::Resumption};
 
 /// A handle to a local core.
 ///
@@ -46,138 +46,20 @@ pub unsafe trait CoreHandle<A: Arch> {
 	/// call response, etc.) - such cases are bugs in the kernel, as the kernel is specified
 	/// as to properly track the state of the context.
 	///
-	/// The returned value is the event that occurred causing the context switch back to the
-	/// kernel.
+	/// This function should never return. Instead, a returning context switch should call
+	/// [`crate::Kernel::handle_event()`] with the appropriate [`crate::event::PreemptionEvent`].
 	///
-	/// # Implementation Safety
-	/// Implementors must treat this method as a singular call. This will typically be
-	/// a complex entry point into userland, being returned to via an interrupt - an entirely
-	/// separate path of execution.
 	///
-	/// Implementors must take extra care to fully restore the system state to what the Rust
-	/// VM would expect upon return of this function, and this function must always return to
-	/// the original caller as though it were a normal function call.
-	///
-	/// Implementors should not make any assumptions about the Rust ABI, and should try to return
-	/// from this method using real Rust code rather than assembly stubs (i.e. returning to a
-	/// controlled jump point, that ultimately resumes a function in the Rust portion of the implementation,
-	/// followed by a Rust return).
-	///
-	/// Assertions are encouraged, to any extent possible, but it is urged that such assertions
-	/// be debug-only. Unrecoverable errors should be handled in the form of a panic. **No userland
-	/// code - error, exception, or otherwise - may result in an assertion, panic or UB.**
+	/// # Safety
+	/// Caller _must_ ensure that the context is not being run on any other core.
 	///
 	/// It is the responsibility of the implementation to properly update the context's state,
 	/// if provided. The context is guaranteed only to be `None` if the kernel is idle and
 	/// halting the core.
-	///
-	/// The response must always be returned by the originally executing core. Not doing so
-	/// is undefined behavior.
-	///
-	/// # Safety
-	/// Caller _must_ ensure that the context is not being run on any other core.
 	unsafe fn run_context(
 		&self,
 		context: Option<&UnsafeCell<A::ThreadHandle>>,
 		ticks: Option<u32>,
 		resumption: Option<Resumption>,
-	) -> PreemptionEvent;
-}
-
-/// A preemption event.
-///
-/// Returned by [`CoreHandle::run_context()`] to indicate the reason for the context switch
-/// back to the kernel.
-pub enum PreemptionEvent {
-	/// The context was preempted by a timer event.
-	Timer,
-	/// The context invoked a system call.
-	SystemCall(SystemCallRequest),
-	/// The context page faulted.
-	PageFault(PageFault),
-	/// The context yielded.
-	Yield,
-	/// The context executed an invalid instruction.
-	InvalidInstruction(InvalidInstruction),
-}
-
-/// A page fault preemption event.
-///
-/// Returned by [`PreemptionEvent::PageFault`] to indicate the reason for the page fault.
-#[derive(Debug, Clone)]
-pub struct PageFault {
-	/// The address in memory that was accessed.
-	pub address: usize,
-	/// The faulting instruction address. If this information
-	/// is not provided by the architecture, can be `None`.
-	pub ip:      Option<usize>,
-	/// The type of memory access.
-	///
-	/// See [`PageFaultAccess`] for information on how to
-	/// choose a proper value for this field.
-	pub access:  PageFaultAccess,
-}
-
-/// The type of memory access that caused a page fault.
-///
-/// # Choosing a Value
-/// It's not assumed that a page fault is an exclusive operation;
-/// however, the kernel only concerns itself with one operation at one time.
-///
-/// If multiple access types are involved in the fault, the following
-/// rules should be followed:
-///
-/// - If the fault involves an execution attempt, regardless of any other
-///   access types, the access type should be `Execute`.
-/// - If the fault involves a write attempt, regardless if a read is also
-///   involved, the access type should be `Write`.
-/// - If the fault involves a read attempt, and no other access types are
-///   involved, the access type should be `Read`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PageFaultAccess {
-	/// The fault was caused by an attempt to read from memory.
-	Read,
-	/// The fault was caused by an attempt to write to memory.
-	Write,
-	/// The fault was caused by an attempt to execute memory.
-	Execute,
-}
-
-/// An invalid instruction preemption event.
-pub struct InvalidInstruction {
-	/// The faulting instruction address.
-	pub ip: usize,
-}
-
-/// System call request data.
-#[derive(Debug, Clone)]
-pub struct SystemCallRequest {
-	/// The opcode.
-	pub opcode: u64,
-	/// The first argument.
-	pub arg1:   u64,
-	/// The second argument.
-	pub arg2:   u64,
-	/// The third argument.
-	pub arg3:   u64,
-	/// The fourth argument.
-	pub arg4:   u64,
-}
-
-/// A resumption type.
-///
-/// If provided to [`CoreHandle::run_context()`], the resumption type
-/// parameterizes the return of execution back to the context.
-pub enum Resumption {
-	/// Return from a system call.
-	SystemCall(SystemCallResponse),
-}
-
-/// System call response data.
-#[derive(Debug, Clone, Copy)]
-pub struct SystemCallResponse {
-	/// The error code.
-	pub error: oro::syscall::Error,
-	/// The return value.
-	pub ret:   u64,
+	) -> !;
 }
