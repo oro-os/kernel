@@ -182,6 +182,8 @@
 	.global \no_exc_name
 	\no_exc_name :
 		PUSH_REGISTERS \CHECK_STACK_ALIGNMENT, \ADDITIONAL_REGISTER_PUSH
+
+		//; Store the `StackFrame` into the first argument of the handler call.
 		mov rdi, rsp
 
 		//; If this is NOT the kernel, our stack is
