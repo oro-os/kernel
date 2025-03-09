@@ -4,7 +4,7 @@
 //!; ISRs, where they will either jump to a core dump handler
 //!; or forward the exception / interrupt to the kernel for
 //!; userspace processing.
-.section .text.oro_isr64
+.pushsection .text.oro_isr64
 .code64
 
 ///; Sets the stack pointer to the kernel's stack
@@ -406,3 +406,5 @@
 	DEFINE_IRET \CHECK_STACK_ALIGNMENT, _oro_isr_iret_xmm, POP_XMM_REGISTERS
 	DEFINE_IRET \CHECK_STACK_ALIGNMENT, _oro_isr_iret_novec
 .endmacro
+
+.popsection

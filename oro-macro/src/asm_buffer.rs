@@ -57,12 +57,13 @@ impl ::core::ops::Deref for AsmBuffer {
 macro_rules! asm_buffer {
 	($(#[$meta:meta])* $vis:vis static $name:ident : AsmBuffer = { { $($code:literal),* $(,)? } $(, { $($tt:tt)* })? $(,)? };) => {
 		::core::arch::global_asm! {
-			".section .rodata",
+			".pushsection .rodata",
 			concat!(".global __asm_buffer_", line!()),
 			concat!(".global __asm_buffer_", line!(), "_end"),
 			concat!("__asm_buffer_", line!(), ":"),
 			$($code),*,
 			concat!("__asm_buffer_", line!(), "_end:"),
+			".popsection",
 			$($($tt)*)?
 		}
 
