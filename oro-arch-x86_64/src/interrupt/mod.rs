@@ -8,6 +8,7 @@ use core::{
 };
 
 use idt::IdtEntry;
+use oro_kernel::event::{InvalidInstruction, PageFault, PageFaultAccess, PreemptionEvent};
 use oro_macro::paste;
 use oro_sync::{Lock, Mutex};
 
@@ -343,9 +344,60 @@ struct StackFrame {
 /// within the kernel itself, on the kernel's stack.
 #[unsafe(no_mangle)]
 extern "C" fn _oro_isr_rust_handler(stack_ptr: *const UnsafeCell<StackFrame>) -> ! {
-	todo!("oro_isr_rust_handler: {:#016X?}", unsafe {
-		&*(*stack_ptr).get()
-	});
+	// SAFETY: This entire thing is inherently unsafe; there's no point
+	// SAFETY: in skirting around it, we're glueing low-level CPU code
+	// SAFETY: to a higher level Rust kernel.
+	unsafe {
+		// Make sure the `as` casts won't truncate.
+		oro_macro::assert::fits_within::<u64, usize>();
+
+		debug_assert!(stack_ptr.is_aligned());
+		let fp = &*stack_ptr;
+
+		debug_assert!(
+			((*fp.get()).cs & 3) == 3 || (*fp.get()).iv >= 32,
+			"_oro_isr_rust_handler called with kernel exception (core panic handler wasn't called)"
+		);
+
+		let preemption_event = match (*fp.get()).iv {
+			// Invalid opcode.
+			0x06 => {
+				PreemptionEvent::InvalidInstruction(InvalidInstruction {
+					ip: (*fp.get()).ip as usize,
+				})
+			}
+			// Page fault.
+			0x0E => {
+				PreemptionEvent::PageFault(PageFault {
+					address: crate::asm::cr2() as usize,
+					ip:      Some((*fp.get()).ip as usize),
+					access:  {
+						let err = (*fp.get()).err;
+						if (err & 0b0001_0000) != 0 {
+							PageFaultAccess::Execute
+						} else if err & 0b0000_0010 != 0 {
+							PageFaultAccess::Write
+						} else {
+							PageFaultAccess::Read
+						}
+					},
+				})
+			}
+			// Timer
+			0x20 => PreemptionEvent::Timer,
+			// Unhandled exception?
+			// XXX(qix-): This is temporary
+			iv if iv < 32 => {
+				todo!(
+					"unhandled userspace exception: {:#016X?}",
+					&*(*stack_ptr).get()
+				);
+			}
+			iv => PreemptionEvent::Interrupt(iv),
+		};
+
+		crate::Kernel::get().handle_event(preemption_event);
+	}
 }
 
 /// Debug assertion function that is called by the

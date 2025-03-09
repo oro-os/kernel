@@ -16,6 +16,8 @@ pub enum PreemptionEvent {
 	Yield,
 	/// The context executed an invalid instruction.
 	InvalidInstruction(InvalidInstruction),
+	/// Interrupt number
+	Interrupt(u64),
 }
 
 /// A page fault preemption event.
