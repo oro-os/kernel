@@ -326,16 +326,20 @@ impl<A: Arch> Kernel<A> {
 
 			match switch {
 				scheduler::Switch::KernelResume | scheduler::Switch::UserToKernel => {
+					drop(sched);
 					self.handle.run_context(None, Some(1000), None);
 				}
 				scheduler::Switch::KernelToUser(thr, sys)
 				| scheduler::Switch::UserResume(thr, sys)
 				| scheduler::Switch::UserToUser(thr, sys) => {
 					let sys = sys.map(Resumption::SystemCall);
+
 					// SAFETY: This isn't. It's highly unsafe. But should work for now.
 					let handle = &*thr
 						.with(|t| core::ptr::from_ref(t.handle()))
 						.cast::<UnsafeCell<_>>();
+
+					drop(sched);
 					self.handle.run_context(Some(handle), Some(1000), sys);
 				}
 			}

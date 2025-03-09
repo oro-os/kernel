@@ -1,7 +1,9 @@
 //! Implements various CPUID lookup structures and functions.
 
+mod a01c0;
 mod a07c0;
 
+pub use a01c0::CpuidA01C0B;
 pub use a07c0::CpuidA07C0B;
 
 /// Determines if the CPU supports the `CPUID` instruction.

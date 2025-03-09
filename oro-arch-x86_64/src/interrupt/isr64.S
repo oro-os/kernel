@@ -31,7 +31,7 @@
 ///; Asserts that the stack is aligned to a given value.
 ///;
 ///; Does nothing under debug mode.
-.macro CHECK_STACK_ALIGNMENT_DEBUG alignment
+.macro CHECK_STACK_ALIGNMENT_DEBUG alignment, test_value
 	//; Save RSP, as well as RDI so we don't clobber it.
 	push rsp
 	push rdi
@@ -39,14 +39,15 @@
 	//; Test the alignment
 	mov rdi, [rsp+8]
 	and rdi, (\alignment - 1)
-	test rdi, rdi
-	jz 100f
+	cmp rdi, \test_value
+	je 100f
 
 	//; Not aligned; there's a bug!
 	mov rsi, \alignment
+	mov rcx, \test_value
 	mov rdx, [rsp+8]
-	SET_KERNEL_STACK_BASE
-	jmp _oro_isr_dbg_stack_unaligned //; (got=rdi, expected=rsi, stack_ptr=rdx)
+	SET_KERNEL_STACK_BASE //; !! clobbers eax !!
+	jmp _oro_isr_dbg_stack_unaligned //; (got=rdi, alignment=rsi, stack_ptr=rdx, expected_value=rcx)
 	ud2
 
 	//; We're aligned; restore RDI
@@ -56,7 +57,7 @@
 .endmacro
 
 ///; No-op check stack. Invoked in release mode.
-.macro CHECK_STACK_ALIGNMENT_NOOP alignment
+.macro CHECK_STACK_ALIGNMENT_NOOP alignment, test_value
 .endmacro
 
 ///; Pushes the remaining fields of `StackFrame` onto the stack.
@@ -99,7 +100,7 @@
 	//; If not, we jump to the debug handler for
 	//; this particular case. Then push any additional
 	//; registers to the stack space we just allocated.
-	\CHECK_STACK_ALIGNMENT 64
+	\CHECK_STACK_ALIGNMENT 64, 0
 	sub rsp, 64 * 32
 	\ADDITIONAL_REGISTER_PUSH
 .endmacro
@@ -200,25 +201,26 @@
 		mov rdi, rsp
 
 		//; Test the CS for the DPL
-		mov rax, [rsp + {CS_OFFSET}]
+		mov rdx, [rsp + {CS_OFFSET}]
 
-		//; We're done playing around with the stack, and it's necessary
+		//; We're done referencing the shadow stack, and it's necessary
 		//; that in either case - core dump or forward - we need to set
 		//; the kernel stack.
-		SET_KERNEL_STACK_BASE
+		SET_KERNEL_STACK_BASE //; !! clobbers eax !!
 
 		//; Check for DPL=3 and skip over core dump if it's hit.
-		test rax, 3
-		jnz 4f
+		and rdx, 3
+		cmp rdx, 3
+		je 4f
 
 		//; - Ring 0 (we should panic)
-		\CHECK_STACK_ALIGNMENT 16
-		jmp _oro_isr_rust_core_panic
+		\CHECK_STACK_ALIGNMENT 16, 0
+		jmp _oro_isr_rust_core_panic //; (stack_frame_ptr=rdi)
 		ud2
 
 		//; - Ring 3 (forward to kernel; no panic)
 	4:
-		\CHECK_STACK_ALIGNMENT 16
+		\CHECK_STACK_ALIGNMENT 16, 0
 		jmp _oro_isr_rust_handler //; (stack_frame_ptr=rdi)
 		ud2
 
@@ -237,16 +239,158 @@
 		//; need to set the stack to the kernel's
 		//; stack base so it has some room to work.
 		mov rax, [rsp + {CS_OFFSET}]
-		test rax, 3
-		jz 4f
+		and rax, 3
+		cmp rax, 3
+		jne 4f
 
 		//; - Ring 3 (we should switch the stack)
-		SET_KERNEL_STACK_BASE
+		SET_KERNEL_STACK_BASE //; !! clobbers eax !!
 
 		//; - Ring 0 (we're already on the kernel stack).
 	4:
-		\CHECK_STACK_ALIGNMENT 16
+		\CHECK_STACK_ALIGNMENT 16, 0
 		jmp _oro_isr_rust_handler //; (stack_frame_ptr=rdi)
+		ud2
+.endmacro
+
+///; Pops the non-trampoline fields of `StackFrame` back into their registers.
+.macro POP_REGISTERS CHECK_STACK_ALIGNMENT, ADDITIONAL_REGISTER_POP
+	//; If vector registers are being preserved, restore them.
+	\ADDITIONAL_REGISTER_POP
+	add rsp, 64 * 32
+	\CHECK_STACK_ALIGNMENT 64, 0
+
+	//; gsbase MSR
+	pop rdx
+	mov eax, edx
+	shr rdx, 32
+	mov ecx, 0xC0000101
+	wrmsr
+
+	//; fsbase MSR
+	pop rdx
+	mov eax, edx
+	shr rdx, 32
+	mov ecx, 0xC0000100
+	wrmsr
+
+	//; GP registers
+	pop r15
+	pop r14
+	pop r13
+	pop r12
+	pop r11
+	pop r10
+	pop r9
+	pop r8
+	pop rbp
+	pop rsi
+	pop rdx
+	pop rcx
+	pop rbx
+	pop rax
+	pop rdi
+.endmacro
+
+///; Pops the AVX-512 vector registers from the stack.
+.macro POP_ZMM_REGISTERS
+	//; Each of the ZMMn registers.
+	vmovdqa64 zmm31, [rsp + (31 * 64)]
+	vmovdqa64 zmm30, [rsp + (30 * 64)]
+	vmovdqa64 zmm29, [rsp + (29 * 64)]
+	vmovdqa64 zmm28, [rsp + (28 * 64)]
+	vmovdqa64 zmm27, [rsp + (27 * 64)]
+	vmovdqa64 zmm26, [rsp + (26 * 64)]
+	vmovdqa64 zmm25, [rsp + (25 * 64)]
+	vmovdqa64 zmm24, [rsp + (24 * 64)]
+	vmovdqa64 zmm23, [rsp + (23 * 64)]
+	vmovdqa64 zmm22, [rsp + (22 * 64)]
+	vmovdqa64 zmm21, [rsp + (21 * 64)]
+	vmovdqa64 zmm20, [rsp + (20 * 64)]
+	vmovdqa64 zmm19, [rsp + (19 * 64)]
+	vmovdqa64 zmm18, [rsp + (18 * 64)]
+	vmovdqa64 zmm17, [rsp + (17 * 64)]
+	vmovdqa64 zmm16, [rsp + (16 * 64)]
+	vmovdqa64 zmm15, [rsp + (15 * 64)]
+	vmovdqa64 zmm14, [rsp + (14 * 64)]
+	vmovdqa64 zmm13, [rsp + (13 * 64)]
+	vmovdqa64 zmm12, [rsp + (12 * 64)]
+	vmovdqa64 zmm11, [rsp + (11 * 64)]
+	vmovdqa64 zmm10, [rsp + (10 * 64)]
+	vmovdqa64 zmm9, [rsp + (9 * 64)]
+	vmovdqa64 zmm8, [rsp + (8 * 64)]
+	vmovdqa64 zmm7, [rsp + (7 * 64)]
+	vmovdqa64 zmm6, [rsp + (6 * 64)]
+	vmovdqa64 zmm5, [rsp + (5 * 64)]
+	vmovdqa64 zmm4, [rsp + (4 * 64)]
+	vmovdqa64 zmm3, [rsp + (3 * 64)]
+	vmovdqa64 zmm2, [rsp + (2 * 64)]
+	vmovdqa64 zmm1, [rsp + (1 * 64)]
+	vmovdqa64 zmm0, [rsp]
+.endmacro
+
+///; Pops the AVX vector registers from the stack.
+.macro POP_YMM_REGISTERS
+	//; Each of the YMMn registers.
+	vmovdqa ymm15, [rsp + (15 * 32)]
+	vmovdqa ymm14, [rsp + (14 * 32)]
+	vmovdqa ymm13, [rsp + (13 * 32)]
+	vmovdqa ymm12, [rsp + (12 * 32)]
+	vmovdqa ymm11, [rsp + (11 * 32)]
+	vmovdqa ymm10, [rsp + (10 * 32)]
+	vmovdqa ymm9, [rsp + (9 * 32)]
+	vmovdqa ymm8, [rsp + (8 * 32)]
+	vmovdqa ymm7, [rsp + (7 * 32)]
+	vmovdqa ymm6, [rsp + (6 * 32)]
+	vmovdqa ymm5, [rsp + (5 * 32)]
+	vmovdqa ymm4, [rsp + (4 * 32)]
+	vmovdqa ymm3, [rsp + (3 * 32)]
+	vmovdqa ymm2, [rsp + (2 * 32)]
+	vmovdqa ymm1, [rsp + (1 * 32)]
+	vmovdqa ymm0, [rsp]
+.endmacro
+
+///; Pops the SSE vector registers to the stack.
+.macro POP_XMM_REGISTERS
+	movdqa xmm15, [rsp + (15 * 16)]
+	movdqa xmm14, [rsp + (14 * 16)]
+	movdqa xmm13, [rsp + (13 * 16)]
+	movdqa xmm12, [rsp + (12 * 16)]
+	movdqa xmm11, [rsp + (11 * 16)]
+	movdqa xmm10, [rsp + (10 * 16)]
+	movdqa xmm9, [rsp + (9 * 16)]
+	movdqa xmm8, [rsp + (8 * 16)]
+	movdqa xmm7, [rsp + (7 * 16)]
+	movdqa xmm6, [rsp + (6 * 16)]
+	movdqa xmm5, [rsp + (5 * 16)]
+	movdqa xmm4, [rsp + (4 * 16)]
+	movdqa xmm3, [rsp + (3 * 16)]
+	movdqa xmm2, [rsp + (2 * 16)]
+	movdqa xmm1, [rsp + (1 * 16)]
+	movdqa xmm0, [rsp]
+.endmacro
+
+///; Defines the `iret` handler for user tasks.
+.macro DEFINE_IRET CHECK_STACK_ALIGNMENT, iret_name ADDITIONAL_REGISTER_POP
+	.global \iret_name
+	\iret_name : //; fn(l4_page_phys = rdi, irq_frame_base = rsi)
+		//; Switch to the task's page tables.
+		mov cr3, rdi
+		mov rsp, rsi
+
+		//; Restore all registers.
+		\CHECK_STACK_ALIGNMENT 16, 0
+		POP_REGISTERS \CHECK_STACK_ALIGNMENT \ADDITIONAL_REGISTER_POP
+
+		//; Pop off IV and Err
+		add rsp, 16
+
+		//; At this point, we should have exactly the following on the stack:
+		//; ip, cs, flags, sp, ss
+		\CHECK_STACK_ALIGNMENT 4096, (4096 - 40)
+
+		//; "Return" from interrupt.
+		iretq
 		ud2
 .endmacro
 
@@ -257,4 +401,8 @@
 	DEFINE_HANDLERS \CHECK_STACK_ALIGNMENT, _oro_isr_common_exc_ymm, _oro_isr_common_ymm, PUSH_YMM_REGISTERS
 	DEFINE_HANDLERS \CHECK_STACK_ALIGNMENT, _oro_isr_common_exc_xmm, _oro_isr_common_xmm, PUSH_XMM_REGISTERS
 	DEFINE_HANDLERS \CHECK_STACK_ALIGNMENT, _oro_isr_common_exc_novec, _oro_isr_common_novec
+	DEFINE_IRET \CHECK_STACK_ALIGNMENT, _oro_isr_iret_zmm, POP_ZMM_REGISTERS
+	DEFINE_IRET \CHECK_STACK_ALIGNMENT, _oro_isr_iret_ymm, POP_YMM_REGISTERS
+	DEFINE_IRET \CHECK_STACK_ALIGNMENT, _oro_isr_iret_xmm, POP_XMM_REGISTERS
+	DEFINE_IRET \CHECK_STACK_ALIGNMENT, _oro_isr_iret_novec
 .endmacro

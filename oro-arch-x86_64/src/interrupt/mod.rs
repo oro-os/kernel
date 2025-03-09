@@ -413,104 +413,125 @@ extern "C" fn _oro_isr_rust_handler(stack_ptr: *const UnsafeCell<StackFrame>) ->
 /// interrupt stubs if the stack is unaligned.
 #[cfg(debug_assertions)]
 #[unsafe(no_mangle)]
-extern "C" fn _oro_isr_dbg_stack_unaligned(got: u64, expected: u64, stack_ptr: u64) -> ! {
+extern "C" fn _oro_isr_dbg_stack_unaligned(
+	got: u64,
+	alignment: u64,
+	stack_ptr: u64,
+	expected: u64,
+) -> ! {
 	panic!(
 		"CORE PANIC - ISR STACK MISALIGNED: modulo={got:#016X}, expected={expected:#016X}, \
-		 rsp={stack_ptr:#016X}"
+		 align={alignment:#016X}, rsp={stack_ptr:#016X}"
 	);
 }
 
 /// Core panic.
 #[unsafe(no_mangle)]
 extern "C" fn _oro_isr_rust_core_panic(stack_ptr: *const UnsafeCell<StackFrame>) -> ! {
-	#[cfg(feature = "simple_core_dump")]
+	let _ = stack_ptr; // NOTE(qix-): Marked as unused on release modes.
+
+	#[cfg(debug_assertions)]
 	{
-		dbg!("unhandled exception; core is dead");
+		use core::fmt::Write;
 
-		#[cfg(debug_assertions)]
-		{
-			use core::fmt::Write;
+		const HEX: &[u8] = b"0123456789ABCDEF";
 
-			const HEX: &[u8] = b"0123456789ABCDEF";
+		macro_rules! log_hex {
+			($v:expr) => {
+				let b = [
+					HEX[(($v >> 60) & 0xF) as usize],
+					HEX[(($v >> 56) & 0xF) as usize],
+					HEX[(($v >> 52) & 0xF) as usize],
+					HEX[(($v >> 48) & 0xF) as usize],
+					HEX[(($v >> 44) & 0xF) as usize],
+					HEX[(($v >> 40) & 0xF) as usize],
+					HEX[(($v >> 36) & 0xF) as usize],
+					HEX[(($v >> 32) & 0xF) as usize],
+					HEX[(($v >> 28) & 0xF) as usize],
+					HEX[(($v >> 24) & 0xF) as usize],
+					HEX[(($v >> 20) & 0xF) as usize],
+					HEX[(($v >> 16) & 0xF) as usize],
+					HEX[(($v >> 12) & 0xF) as usize],
+					HEX[(($v >> 8) & 0xF) as usize],
+					HEX[(($v >> 4) & 0xF) as usize],
+					HEX[($v & 0xF) as usize],
+				];
 
-			macro_rules! log_hex {
-				($v:expr) => {
-					let b = [
-						HEX[(($v >> 60) & 0xF) as usize],
-						HEX[(($v >> 56) & 0xF) as usize],
-						HEX[(($v >> 52) & 0xF) as usize],
-						HEX[(($v >> 48) & 0xF) as usize],
-						HEX[(($v >> 44) & 0xF) as usize],
-						HEX[(($v >> 40) & 0xF) as usize],
-						HEX[(($v >> 36) & 0xF) as usize],
-						HEX[(($v >> 32) & 0xF) as usize],
-						HEX[(($v >> 28) & 0xF) as usize],
-						HEX[(($v >> 24) & 0xF) as usize],
-						HEX[(($v >> 20) & 0xF) as usize],
-						HEX[(($v >> 16) & 0xF) as usize],
-						HEX[(($v >> 12) & 0xF) as usize],
-						HEX[(($v >> 8) & 0xF) as usize],
-						HEX[(($v >> 4) & 0xF) as usize],
-						HEX[($v & 0xF) as usize],
-					];
-
-					// SAFETY: We know the string is valid UTF-8.
-					let _ = oro_debug::DebugWriter
-						.write_str(unsafe { core::str::from_utf8_unchecked(&b) });
-				};
-			}
-
-			macro_rules! log_field {
-				($label:literal, $f:ident) => {
-					let _ = oro_debug::DebugWriter.write_str(concat!("\n", $label, ":\t"));
-					log_hex!(fr.$f);
-				};
-			}
-
-			log_field!("IV", iv);
-			log_field!("IP", ip);
-			log_field!("SP", sp);
-			log_field!("SS", ss);
-			log_field!("ERR", err);
-			log_field!("FLAGS", flags);
-			log_field!("CR0", cr0);
-			log_field!("CR2", cr2);
-			log_field!("CR3", cr3);
-			log_field!("CR4", cr4);
-			log_field!("RAX", rax);
-			log_field!("RBX", rbx);
-			log_field!("RCX", rcx);
-			log_field!("RDX", rdx);
-			log_field!("RSI", rsi);
-			log_field!("RDI", rdi);
-			log_field!("RBP", rbp);
-			log_field!("R8", r8);
-			log_field!("R9", r9);
-			log_field!("R10", r10);
-			log_field!("R11", r11);
-			log_field!("R12", r12);
-			log_field!("R13", r13);
-			log_field!("R14", r14);
-			log_field!("R15", r15);
-			log_field!("LAPIC ID (<=255)", lapic_id_u8);
-
-			let _ = oro_debug::DebugWriter.write_str("\n\nEND OF CORE DUMP\n");
+				// SAFETY: We know the string is valid UTF-8.
+				let _ =
+					oro_debug::DebugWriter.write_str(unsafe { core::str::from_utf8_unchecked(&b) });
+			};
 		}
 
-		crate::asm::hang();
+		oro_debug::dbg_err!("unhandled exception; core is about to panic");
+		// SAFETY: We have to assume it's valid.
+		let fr = unsafe { &*(*stack_ptr).get() };
+
+		macro_rules! log_field {
+			($label:literal, $f:ident) => {
+				let _ = oro_debug::DebugWriter.write_str(concat!("\n", $label, ":\t"));
+				log_hex!(fr.$f);
+			};
+		}
+
+		macro_rules! log_var {
+			($label:literal, $v:expr) => {
+				let _ = oro_debug::DebugWriter.write_str(concat!("\n", $label, ":\t"));
+				log_hex!($v);
+			};
+		}
+
+		let cr0: u64 = crate::reg::Cr0::load().into();
+		let cr2: u64 = crate::asm::cr2();
+		let cr3: u64 = crate::asm::cr3();
+		let cr4: u64 = crate::reg::Cr4::load().into();
+		let lapic_id_u8 = crate::cpuid::CpuidA01C0B::get().map(|v| v.local_apic_id());
+
+		log_field!("IV", iv);
+		log_field!("IP", ip);
+		log_field!("SP", sp);
+		log_field!("CS", cs);
+		log_field!("SS", ss);
+		log_field!("ERR", err);
+		log_field!("FLAGS", flags);
+		log_var!("CR0", cr0);
+		log_var!("CR2", cr2);
+		log_var!("CR3", cr3);
+		log_var!("CR4", cr4);
+		log_field!("RAX", rax);
+		log_field!("RBX", rbx);
+		log_field!("RCX", rcx);
+		log_field!("RDX", rdx);
+		log_field!("RSI", rsi);
+		log_field!("RDI", rdi);
+		log_field!("RBP", rbp);
+		log_field!("R8", r8);
+		log_field!("R9", r9);
+		log_field!("R10", r10);
+		log_field!("R11", r11);
+		log_field!("R12", r12);
+		log_field!("R13", r13);
+		log_field!("R14", r14);
+		log_field!("R15", r15);
+		if let Some(lapic_id_u8) = lapic_id_u8 {
+			let lapic_id = u64::from(lapic_id_u8);
+			log_var!("LAPIC ID (<=255)", lapic_id);
+		} else {
+			let _ = oro_debug::DebugWriter.write_str("\nLAPIC ID (<=255):\t(unknown)");
+		}
+
+		let _ = oro_debug::DebugWriter.write_str("\n\nEND OF CORE DUMP\n");
 	}
 
-	#[cfg(not(feature = "simple_core_dump"))]
-	{
-		// SAFETY: Not much we can do here anyway.
-		panic!("core panicked: {:#?}", unsafe { &*(*stack_ptr).get() });
-	}
+	// SAFETY: Not much we can do here anyway.
+	panic!("core panicked");
 }
 
 /// Performs an `iret` into userspace code.
 ///
 /// This function **does** modify the local core's
-/// TSS pointers.
+/// TSS pointers to point to the stack frame base
+/// on DPL=3 -> DPL=0 code.
 ///
 /// # Safety
 /// The given task context MUST be ready for a context switch,
@@ -519,8 +540,38 @@ extern "C" fn _oro_isr_rust_core_panic(stack_ptr: *const UnsafeCell<StackFrame>)
 ///
 /// This function **may not** be used to switch into kernel (ring 0)
 /// code.
-pub unsafe fn iret_context(_cr3: u64) -> ! {
-	todo!("iret");
+#[inline]
+pub unsafe fn iret_context(cr3: u64) -> ! {
+	unsafe extern "C" {
+		#[link_name = "_oro_isr_iret_zmm"]
+		fn oro_isr_iret_zmm(cr3: u64, irq_frame_base: u64) -> !;
+		#[link_name = "_oro_isr_iret_ymm"]
+		fn oro_isr_iret_ymm(cr3: u64, irq_frame_base: u64) -> !;
+		#[link_name = "_oro_isr_iret_xmm"]
+		fn oro_isr_iret_xmm(cr3: u64, irq_frame_base: u64) -> !;
+		#[link_name = "_oro_isr_iret_novec"]
+		fn oro_isr_iret_novec(cr3: u64, irq_frame_base: u64) -> !;
+	}
+
+	let irq_stack_base = AddressSpaceLayout::irq_stack_base(PagingLevel::current_from_cpu()) as u64;
+
+	// SAFETY: We can guarantee that we're the only users of this handle
+	// SAFETY: given that `Kernel` handles are core-local.
+	unsafe {
+		(*crate::Kernel::get().handle().tss.get())
+			.rsp0
+			.write(irq_stack_base);
+	}
+
+	let irq_frame_base = irq_stack_base - core::mem::size_of::<StackFrame>() as u64;
+
+	let vector_preservation = get_vector_preservation();
+	match vector_preservation {
+		VectorPreservation::Zmm => oro_isr_iret_zmm(cr3, irq_frame_base),
+		VectorPreservation::Ymm => oro_isr_iret_ymm(cr3, irq_frame_base),
+		VectorPreservation::Xmm => oro_isr_iret_xmm(cr3, irq_frame_base),
+		VectorPreservation::None => oro_isr_iret_novec(cr3, irq_frame_base),
+	}
 }
 
 #[doc(hidden)]

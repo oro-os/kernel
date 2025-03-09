@@ -244,6 +244,28 @@ impl AddressSpaceLayout {
 			}
 		}
 	}
+
+	/// Returns the user task IRQ stack base.
+	///
+	/// This can be directly stored in `rsp` in e.g. ISR handlers.
+	#[must_use]
+	#[inline]
+	pub const fn irq_stack_base(paging_level: PagingLevel) -> usize {
+		match paging_level {
+			PagingLevel::Level4 => {
+				crate::sign_extend!(
+					L4,
+					((Self::MODULE_INTERRUPT_STACK_IDX + 1) << (12 + 9 * 3)) - 0x1000
+				)
+			}
+			PagingLevel::Level5 => {
+				crate::sign_extend!(
+					L5,
+					((Self::MODULE_INTERRUPT_STACK_IDX + 1) << (12 + 9 * 4)) - 0x1000
+				)
+			}
+		}
+	}
 }
 
 /// Intermediate page table entry template for the kernel code segment.
