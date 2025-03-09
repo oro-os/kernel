@@ -39,8 +39,11 @@
 	mov rsi, \alignment
 	mov rcx, \test_value
 	mov rdx, [rsp+8]
+	call 101f
+101:
+	pop r8
 	SET_KERNEL_STACK_BASE //; !! clobbers rax !!
-	jmp _oro_isr_dbg_stack_unaligned //; (got=rdi, alignment=rsi, stack_ptr=rdx, expected_value=rcx)
+	jmp _oro_isr_dbg_stack_unaligned //; (got=rdi, alignment=rsi, stack_ptr=rdx, expected_value=rcx, rip=r8)
 	ud2
 
 	//; We're aligned; restore RDI

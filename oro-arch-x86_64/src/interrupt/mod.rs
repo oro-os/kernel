@@ -418,11 +418,39 @@ extern "C" fn _oro_isr_dbg_stack_unaligned(
 	alignment: u64,
 	stack_ptr: u64,
 	expected: u64,
+	rip: u64,
 ) -> ! {
-	panic!(
-		"CORE PANIC - ISR STACK MISALIGNED: modulo={got:#016X}, expected={expected:#016X}, \
-		 align={alignment:#016X}, rsp={stack_ptr:#016X}"
+	use oro_debug::dbg_err;
+
+	dbg_err!(
+		"ISR STACK MISALIGNED: modulo={got:#016X}, expected={expected:#016X}, \
+		 align={alignment:#016X}, rsp={stack_ptr:#016X}, rip={rip:#016X}"
 	);
+
+	if (stack_ptr & 7) != 0 {
+		dbg_err!("stack pointer is NOT 64-bit aligned; below values will be garbage");
+	}
+
+	let end = AddressSpaceLayout::irq_stack_base(PagingLevel::current_from_cpu()) as u64;
+	let start = stack_ptr & !7;
+
+	// SAFETY: Doesn't really matter, this is debugging best-effort, as this
+	// SAFETY: is a case of a bug in the kernel.
+	unsafe {
+		let slice = UnsafeCell::new(::core::slice::from_raw_parts(
+			start as *const u64,
+			((end - start) >> 3) as usize,
+		));
+		let slice_ref = &*slice.get();
+
+		dbg_err!("    BEGIN STACK");
+		for (i, v) in slice_ref.iter().rev().enumerate() {
+			dbg_err!("    {:016X}: {v:016X}", i * 8);
+		}
+		dbg_err!("    END STACK");
+	}
+
+	panic!("ISR stack misaligned")
 }
 
 /// Core panic.
