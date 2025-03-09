@@ -590,8 +590,10 @@ macro_rules! define_all_handlers {
 }
 
 global_asm! {
+	include_str!("../common-pre.S"),
 	include_str!("./isr64.S"),
 	define_all_handlers!(),
+	include_str!("../common-post.S"),
 	CS_OFFSET = const core::mem::offset_of!(StackFrame, cs),
 	KERNEL_STACK_BASE_L4 = const AddressSpaceLayout::kernel_stack_base(PagingLevel::Level4),
 	KERNEL_STACK_BASE_L5 = const AddressSpaceLayout::kernel_stack_base(PagingLevel::Level5),
