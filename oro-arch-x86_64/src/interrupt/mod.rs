@@ -568,6 +568,10 @@ extern "C" fn _oro_isr_rust_core_panic(stack_ptr: *const UnsafeCell<StackFrame>)
 ///
 /// This function **may not** be used to switch into kernel (ring 0)
 /// code.
+///
+/// **All locks or other stack-based stateful objects must be destroyed
+/// prior to this function being called.** The kernel is entirely
+/// destroyed when this function is called.
 #[inline]
 pub unsafe fn iret_context(cr3: u64) -> ! {
 	unsafe extern "C" {
