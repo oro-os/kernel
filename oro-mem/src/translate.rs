@@ -73,18 +73,17 @@ static LINEAR_MAP_SET: ::core::sync::atomic::AtomicBool =
 ///
 /// Must be called only by the boot core, before other cores are
 /// initialized.
-#[cfg_attr(debug_assertions, expect(clippy::missing_panics_doc))]
 pub unsafe fn set_global_map_offset(offset: u64) {
 	#[cfg(debug_assertions)]
 	{
-		assert!(
+		debug_assert!(
 			!LINEAR_MAP_SET.swap(true, ::core::sync::atomic::Ordering::SeqCst),
 			"global linear map offset already set"
 		);
 	}
 
 	let old = LINEAR_MAP_OFFSET.swap(offset, Relaxed);
-	assert_eq!(old, 0, "global linear map offset already set");
+	debug_assert_eq!(old, 0, "global linear map offset already set");
 }
 
 /// Gets the global (kernel-wide) offset for all mapped memory.
