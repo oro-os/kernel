@@ -46,7 +46,7 @@
 	mov rsi, \alignment
 	mov rcx, \test_value
 	mov rdx, [rsp+8]
-	SET_KERNEL_STACK_BASE //; !! clobbers eax !!
+	SET_KERNEL_STACK_BASE //; !! clobbers rax !!
 	jmp _oro_isr_dbg_stack_unaligned //; (got=rdi, alignment=rsi, stack_ptr=rdx, expected_value=rcx)
 	ud2
 
@@ -206,7 +206,7 @@
 		//; We're done referencing the shadow stack, and it's necessary
 		//; that in either case - core dump or forward - we need to set
 		//; the kernel stack.
-		SET_KERNEL_STACK_BASE //; !! clobbers eax !!
+		SET_KERNEL_STACK_BASE //; !! clobbers rax !!
 
 		//; Check for DPL=3 and skip over core dump if it's hit.
 		and rdx, 3
@@ -244,7 +244,7 @@
 		jne 4f
 
 		//; - Ring 3 (we should switch the stack)
-		SET_KERNEL_STACK_BASE //; !! clobbers eax !!
+		SET_KERNEL_STACK_BASE //; !! clobbers rax !!
 
 		//; - Ring 0 (we're already on the kernel stack).
 	4:
