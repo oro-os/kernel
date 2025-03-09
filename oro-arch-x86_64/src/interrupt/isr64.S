@@ -12,6 +12,9 @@
 ///; Does not set `rdi` (e.g. for calling a Rust function with the
 ///; pointer to the `StackFrame`).
 .macro PUSH_REGISTERS CHECK_STACK_ALIGNMENT, ADDITIONAL_REGISTER_PUSH
+	//; We should have exactly 7 items on the stack.
+	\CHECK_STACK_ALIGNMENT 4096, (4096 - (8 * 7))
+
 	//; GP registers
 	push rdi
 	push rax
