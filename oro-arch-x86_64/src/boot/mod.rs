@@ -81,7 +81,7 @@ pub fn finalize_boot_and_run() -> ! {
 	// SAFETY: are called.
 	unsafe {
 		crate::interrupt::initialize_lapic_irqs();
-		// crate::syscall::install_syscall_handler();
+		crate::syscall::install_syscall_handler();
 		crate::asm::load_tss(crate::gdt::TSS_GDT_OFFSET);
 	}
 
