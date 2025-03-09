@@ -20,17 +20,20 @@ jobs:
         run: cargo fmt --all -- --check
   lint-clippy:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        profile: ["dev", "release"]
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Lint (clippy) [common]
-        run: cargo oro-clippy -- -D warnings
+        run: cargo oro-clippy --profile ${{ matrix.profile }} -- -D warnings
       - name: Lint (clippy) [x86_64]
-        run: cargo oro-clippy-x86_64 -- -D warnings
+        run: cargo oro-clippy-x86_64 --profile ${{ matrix.profile }} -- -D warnings
       - name: Lint (clippy) [aarch64]
-        run: cargo oro-clippy-aarch64 -- -D warnings
+        run: cargo oro-clippy-aarch64 --profile ${{ matrix.profile }} -- -D warnings
   lint-docs:
     runs-on: ubuntu-latest
     steps:
