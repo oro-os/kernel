@@ -1,6 +1,6 @@
 //! Concrete architecture-specific kernel thread handles.
 
-use core::mem::ManuallyDrop;
+use core::{cell::UnsafeCell, mem::ManuallyDrop, ptr::null_mut};
 
 use oro_mem::{
 	global_alloc::GlobalPfa,
@@ -9,96 +9,106 @@ use oro_mem::{
 	phys::{Phys, PhysAddr},
 };
 
-use crate::mem::address_space::{AddressSpaceHandle, AddressSpaceLayout};
-
-/// The number of IRQ stack pages to allocate per thread.
-const IRQ_STACK_PAGES: usize = {
-	#[cfg(not(any(debug_assertions, feature = "big-irq-stack")))]
-	{
-		1
-	}
-
-	#[cfg(any(debug_assertions, feature = "big-irq-stack"))]
-	{
-		4
-	}
+use crate::{
+	interrupt::StackFrame,
+	mem::address_space::{AddressSpaceHandle, AddressSpaceLayout},
 };
+
+/// Unsafe `Sync`/`Send` wrapper. There's no way to implement
+/// the IRQ stack pointer otherwise without using a `Mutex`, but
+/// a mutex's lock cannot be held across context switch boundaries.
+/// Further, this is initialized once.
+#[repr(transparent)]
+struct Unsafe<T>(*mut T);
+
+unsafe impl<T> Sync for Unsafe<T> {}
+unsafe impl<T> Send for Unsafe<T> {}
 
 /// Concrete architecture-specific kernel thread handle.
 pub struct ThreadHandle {
 	/// The thread's mapper.
-	pub mapper:        ManuallyDrop<AddressSpaceHandle>,
-	/// The thread's interrupt stack pointer.
-	pub irq_stack_ptr: usize,
-	/// The thread's entry point.
-	pub entry_point:   usize,
-	/// The thread's stack pointer.
-	pub stack_ptr:     usize,
-	/// The thread's fsbase
-	pub fsbase:        u64,
-	/// The thread's fsbase
-	pub gsbase:        u64,
+	mapper:      ManuallyDrop<AddressSpaceHandle>,
+	/// The pointer to the base of the [`StackFrame`]
+	/// that is saved/restored when context switching to this
+	/// thread, **in kernel-space**.
+	///
+	/// **DO NOT USE THIS AS THE STACK POINTER WHEN SWITCHING
+	/// TO THE USERSPACE CONTEXT.**
+	stack_frame: Unsafe<UnsafeCell<StackFrame>>,
 }
 
 impl ThreadHandle {
-	/// Prepares interrupt stack mappings for the thread upon creation.
-	fn prepare_mappings(&mut self) -> Result<(), MapError> {
-		// Map in pages for the interrupt stack, with a stack guard.
-		//
-		// NOTE(qix-): This is NOT the thread's stack, but a separate stack for
-		// NOTE(qix-): handling interrupts.
-		let irq_stack_segment = AddressSpaceLayout::interrupt_stack();
-		let stack_high_guard = irq_stack_segment.range().1 & !0xFFF;
+	/// Performs an `iret` back into this thread's userspace context.
+	///
+	/// # Safety
+	/// See [`crate::interrupt::iret_context`] for safety considerations.
+	#[inline]
+	pub unsafe fn iret(&self) -> ! {
+		crate::interrupt::iret_context(self.mapper.base_phys)
+	}
 
-		self.irq_stack_ptr = stack_high_guard;
+	/// Returns the current `fsbase` denoted in the thread's stack frame.
+	///
+	/// Note that if the thread is running and this method is being called
+	/// from a different core, it is _technically_ safe but there is no guarantee
+	/// about the value returned from this function.
+	///
+	/// **Callers must not use this value for any pointer or reference purposes
+	/// as it is _entirely_ user controlled, racey, and unreliable. Do not try
+	/// to interpret this value.**
+	#[must_use]
+	#[inline]
+	pub fn fsbase(&self) -> u64 {
+		// SAFETY: We can more or less ignore any problems with this as the caller
+		// SAFETY: should not be using this in any way that is consequential.
+		unsafe { ::core::ptr::read_volatile(&(*(*self.stack_frame.0).get()).fsbase) }
+	}
 
-		let mut current_start = self.irq_stack_ptr;
-		let mut first_phys = None;
+	/// Returns the current `gsbase` denoted in the thread's stack frame.
+	///
+	/// Note that if the thread is running and this method is being called
+	/// from a different core, it is _technically_ safe but there is no guarantee
+	/// about the value returned from this function.
+	///
+	/// **Callers must not use this value for any pointer or reference purposes
+	/// as it is _entirely_ user controlled, racey, and unreliable. Do not try
+	/// to interpret this value.**
+	#[must_use]
+	#[inline]
+	pub fn gsbase(&self) -> u64 {
+		// SAFETY: We can more or less ignore any problems with this as the caller
+		// SAFETY: should not be using this in any way that is consequential.
+		unsafe { ::core::ptr::read_volatile(&(*(*self.stack_frame.0).get()).gsbase) }
+	}
 
-		for _ in 0..IRQ_STACK_PAGES {
-			current_start -= 0x1000;
-			let phys = GlobalPfa.allocate().ok_or(MapError::OutOfMemory)?;
-			first_phys.get_or_insert(phys);
-			irq_stack_segment.map(&self.mapper, current_start, phys)?;
-		}
-
-		current_start -= 0x1000;
-
-		// Make sure the guard pages are unmapped.
-		// More of a debug check, as this should never be the case
-		// with a bug-free implementation.
-		match irq_stack_segment.unmap(&self.mapper, stack_high_guard) {
-			Ok(phys) => panic!("interrupt stack high guard was already mapped at {phys:016X}"),
-			Err(UnmapError::NotMapped) => {}
-			Err(err) => {
-				panic!("interrupt stack high guard encountered error when unmapping: {err:?}")
-			}
-		}
-
-		match irq_stack_segment.unmap(&self.mapper, current_start) {
-			Ok(phys) => panic!("interrupt stack low guard was already mapped at {phys:016X}"),
-			Err(UnmapError::NotMapped) => {}
-			Err(err) => {
-				panic!("interrupt stack low guard encountered error when unmapping: {err:?}")
-			}
-		}
-
-		// Now write the initial `iretq` information to the frame.
-		// SAFETY(qix-): We know that these are valid addresses.
+	/// Sets the thread's FS base.
+	///
+	/// Will be picked up on the next context switch.
+	///
+	/// # Safety
+	/// Calling this function from another core while the thread
+	/// is executing may cause problems for the userspace program. It's not
+	/// recommended to do this unless _this thread_ has asked for it.
+	pub unsafe fn set_fsbase(&self, value: u64) {
+		// SAFETY: Safety considerations offloaded to the caller.
 		unsafe {
-			let page_slice = core::slice::from_raw_parts_mut(
-				Phys::from_address_unchecked(first_phys.unwrap()).as_mut_ptr_unchecked(),
-				4096 >> 3,
-			);
-			let written = crate::task::initialize_user_irq_stack(
-				page_slice,
-				self.entry_point as u64,
-				self.stack_ptr as u64,
-			);
-			self.irq_stack_ptr -= written as usize;
+			::core::ptr::write_volatile(&mut (*(*self.stack_frame.0).get()).fsbase, value);
 		}
+	}
 
-		Ok(())
+	/// Sets the thread's GS base.
+	///
+	/// Will be picked up on the next context switch.
+	///
+	/// # Safety
+	/// Calling this function from another core while the thread
+	/// is executing may cause problems for the userspace program. It's not
+	/// recommended to do this unless _this thread_ has asked for it.
+	pub unsafe fn set_gsbase(&self, value: u64) {
+		// SAFETY: Safety considerations offloaded to the caller.
+		unsafe {
+			::core::ptr::write_volatile(&mut (*(*self.stack_frame.0).get()).gsbase, value);
+		}
 	}
 }
 
@@ -109,17 +119,64 @@ unsafe impl oro_kernel::arch::ThreadHandle<crate::Arch> for ThreadHandle {
 		entry_point: usize,
 	) -> Result<Self, MapError> {
 		let mut r = Self {
-			irq_stack_ptr: 0,
-			mapper: ManuallyDrop::new(mapper),
-			entry_point,
-			stack_ptr,
-			fsbase: 0,
-			gsbase: 0,
+			mapper:      ManuallyDrop::new(mapper),
+			stack_frame: Unsafe(null_mut()),
 		};
 
-		// NOTE(qix-): If it fails, it'll still be dropped.
-		r.prepare_mappings()?;
+		// Map in pages for the interrupt stack, with a stack guard.
+		//
+		// NOTE(qix-): This is NOT the thread's stack, but a separate stack for
+		// NOTE(qix-): handling interrupts.
+		let irq_stack_segment = AddressSpaceLayout::interrupt_stack();
+		let irq_stack_high_guard = irq_stack_segment.range().1 & !0xFFF;
 
+		match irq_stack_segment.unmap(&r.mapper, irq_stack_high_guard) {
+			Ok(phys) => panic!("interrupt stack high guard was already mapped at {phys:016X}"),
+			Err(UnmapError::NotMapped) => {}
+			Err(err) => {
+				panic!("interrupt stack high guard encountered error when unmapping: {err:?}")
+			}
+		}
+
+		let irq_stack_user_virt = irq_stack_high_guard - 0x1000;
+
+		let irq_stack_phys = GlobalPfa.allocate().ok_or(MapError::OutOfMemory)?;
+		irq_stack_segment.map(&r.mapper, irq_stack_user_virt, irq_stack_phys)?;
+
+		// Make sure the guard pages are unmapped.
+		// More of a debug check, as this should never be the case
+		// with a bug-free implementation.
+		let irq_stack_lower_guard = irq_stack_user_virt - 0x1000;
+		match irq_stack_segment.unmap(&r.mapper, irq_stack_lower_guard) {
+			Ok(phys) => panic!("interrupt stack low guard was already mapped at {phys:016X}"),
+			Err(UnmapError::NotMapped) => {}
+			Err(err) => {
+				panic!("interrupt stack low guard encountered error when unmapping: {err:?}")
+			}
+		}
+
+		// Now write the initial `iretq` information to the frame.
+		// SAFETY(qix-): We know that these are valid addresses.
+		unsafe {
+			r.stack_frame.0 = Phys::from_address_unchecked(
+				irq_stack_phys + (0x1000 - core::mem::size_of::<StackFrame>()) as u64,
+			)
+			.as_mut_ptr_unchecked();
+
+			debug_assert!(r.stack_frame.0.is_aligned());
+
+			r.stack_frame.0.write_volatile(UnsafeCell::new(StackFrame {
+				cs: u64::from(crate::gdt::USER_CS | 3),
+				ss: u64::from(crate::gdt::USER_DS | 3),
+				sp: stack_ptr as u64,
+				ip: entry_point as u64,
+				..Default::default()
+			}));
+		}
+
+		debug_assert_ne!(r.stack_frame.0, null_mut());
+		// SAFETY: We should have initialized this already, I'm just sanity-checking assumptions here.
+		debug_assert_eq!(r.stack_frame.0.cast(), unsafe { (*r.stack_frame.0).get() });
 		Ok(r)
 	}
 

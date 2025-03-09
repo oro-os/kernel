@@ -46,11 +46,13 @@ pub mod thread;
 pub mod token;
 
 use core::{
+	cell::UnsafeCell,
 	mem::MaybeUninit,
 	sync::atomic::{AtomicBool, Ordering::SeqCst},
 };
 
 use arch::CoreHandle;
+use event::Resumption;
 use nolock::queues::{
 	DequeueError,
 	mpmc::bounded::scq::{Receiver, Sender},
@@ -62,7 +64,7 @@ use oro_mem::{
 	mapper::{AddressSegment, AddressSpace as _, MapError},
 	pfa::Alloc,
 };
-use oro_sync::TicketMutex;
+use oro_sync::{Lock, TicketMutex};
 
 use self::{arch::Arch, interface::RingInterface, scheduler::Scheduler, tab::Tab, thread::Thread};
 
@@ -300,7 +302,44 @@ impl<A: Arch> Kernel<A> {
 	///   than [`event::PreemptionEvent::Timer`] if the context was `None`.
 	#[expect(clippy::needless_pass_by_value)]
 	pub unsafe fn handle_event(&self, event: event::PreemptionEvent) -> ! {
-		todo!("handle_event: {event:?}");
+		// TODO(qix-): The scheduler is going to go away at some point,
+		// TODO(qix-): at least in its current form. This is temporary.
+		// SAFETY: The kernel is initialized if we're inside this method.
+		unsafe {
+			let mut sched = self.scheduler().lock();
+			let switch = match &event {
+				event::PreemptionEvent::Timer => sched.event_timer_expired(),
+				event::PreemptionEvent::PageFault(pf) => {
+					sched.event_page_fault(
+						match pf.access {
+							event::PageFaultAccess::Execute => scheduler::PageFaultType::Execute,
+							event::PageFaultAccess::Write => scheduler::PageFaultType::Write,
+							event::PageFaultAccess::Read => scheduler::PageFaultType::Read,
+						},
+						pf.address,
+					)
+				}
+				unknown => {
+					todo!("unknown incoming preemption event: {unknown:?}");
+				}
+			};
+
+			match switch {
+				scheduler::Switch::KernelResume | scheduler::Switch::UserToKernel => {
+					self.handle.run_context(None, Some(1000), None);
+				}
+				scheduler::Switch::KernelToUser(thr, sys)
+				| scheduler::Switch::UserResume(thr, sys)
+				| scheduler::Switch::UserToUser(thr, sys) => {
+					let sys = sys.map(Resumption::SystemCall);
+					// SAFETY: This isn't. It's highly unsafe. But should work for now.
+					let handle = &*thr
+						.with(|t| core::ptr::from_ref(t.handle()))
+						.cast::<UnsafeCell<_>>();
+					self.handle.run_context(Some(handle), Some(1000), sys);
+				}
+			}
+		}
 	}
 }
 

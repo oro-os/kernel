@@ -46,10 +46,19 @@ unsafe impl oro_kernel::arch::CoreHandle<crate::Arch> for CoreHandle {
 		&self,
 		context: Option<&UnsafeCell<<crate::Arch as Arch>::ThreadHandle>>,
 		ticks: Option<u32>,
-		_resumption: Option<Resumption>,
+		resumption: Option<Resumption>,
 	) -> ! {
-		if let Some(_context) = context {
-			todo!("run_context (context=Some)");
+		if let Some(context) = context {
+			if let Some(ticks) = ticks {
+				self.schedule_timer(ticks);
+			}
+
+			match resumption {
+				None => (*context.get()).iret(),
+				Some(_) => {
+					todo!("Some() resumption (not yet migrated)");
+				}
+			}
 		} else {
 			// Go to sleep.
 			let kernel_stack_base =

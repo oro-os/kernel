@@ -82,8 +82,7 @@ pub mod interrupt;
 pub mod lapic;
 pub mod mem;
 pub mod reg;
-pub mod syscall;
-pub mod task;
+// pub mod syscall;
 pub mod thread;
 pub mod tss;
 

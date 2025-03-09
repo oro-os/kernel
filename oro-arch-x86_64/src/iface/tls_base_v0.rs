@@ -17,11 +17,11 @@ impl KernelInterface<A> for TlsBaseV0 {
 
 		match key {
 			key!("fsbase") => {
-				let v = thread.with(|ctx| ctx.handle().fsbase);
+				let v = thread.with(|ctx| ctx.handle().fsbase());
 				InterfaceResponse::ok(v)
 			}
 			key!("gsbase") => {
-				let v = thread.with(|ctx| ctx.handle().gsbase);
+				let v = thread.with(|ctx| ctx.handle().gsbase());
 				InterfaceResponse::ok(v)
 			}
 			_ => InterfaceResponse::immediate(SysError::BadKey, 0),
@@ -42,7 +42,9 @@ impl KernelInterface<A> for TlsBaseV0 {
 				// Set the FS base pointer. Will get picked up by the
 				// next context switch.
 				thread.with_mut(|ctx| {
-					ctx.handle_mut().fsbase = value;
+					// SAFETY: The application has requested this to occur; they're thus
+					// SAFETY: agreeing to whatever safety concerns might arise.
+					unsafe { ctx.handle().set_fsbase(value); }
 				});
 				InterfaceResponse::ok(0)
 			},
@@ -50,7 +52,9 @@ impl KernelInterface<A> for TlsBaseV0 {
 				// Set the GS base pointer. Will get picked up by the
 				// next context switch.
 				thread.with_mut(|ctx| {
-					ctx.handle_mut().gsbase = value;
+					// SAFETY: The application has requested this to occur; they're thus
+					// SAFETY: agreeing to whatever safety concerns might arise.
+					unsafe { ctx.handle().set_gsbase(value); }
 				});
 				InterfaceResponse::ok(0)
 			},

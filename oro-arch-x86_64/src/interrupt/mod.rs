@@ -300,40 +300,49 @@ pub unsafe fn initialize_lapic_irqs() {
 }
 
 /// A stack frame for an interrupt handler.
-#[expect(clippy::missing_docs_in_private_items)]
+#[expect(missing_docs)]
 #[derive(Debug)]
 #[repr(C, align(8))]
-struct StackFrame {
+pub struct StackFrame {
 	/// May not be fully initialized; do NOT inspect this data.
 	/// It's for the stubs to use, and is a maximum bound for the
 	/// size needed with full AVX-512 support.
-	zmm:    MaybeUninit<[[u64; 8]; 32]>,
+	pub zmm:    MaybeUninit<[[u64; 8]; 32]>,
 	// NOTE(qix-): Following fields MUST total a multiple of 64
 	// NOTE(qix-): or else the ZMMn stores will fault.
-	gsbase: u64,
-	fsbase: u64,
-	r15:    u64,
-	r14:    u64,
-	r13:    u64,
-	r12:    u64,
-	r11:    u64,
-	r10:    u64,
-	r9:     u64,
-	r8:     u64,
-	rbp:    u64,
-	rsi:    u64,
-	rdx:    u64,
-	rcx:    u64,
-	rbx:    u64,
-	rax:    u64,
-	rdi:    u64,
-	iv:     u64,
-	err:    u64,
-	ip:     u64,
-	cs:     u64,
-	flags:  u64,
-	sp:     u64,
-	ss:     u64,
+	pub gsbase: u64,
+	pub fsbase: u64,
+	pub r15:    u64,
+	pub r14:    u64,
+	pub r13:    u64,
+	pub r12:    u64,
+	pub r11:    u64,
+	pub r10:    u64,
+	pub r9:     u64,
+	pub r8:     u64,
+	pub rbp:    u64,
+	pub rsi:    u64,
+	pub rdx:    u64,
+	pub rcx:    u64,
+	pub rbx:    u64,
+	pub rax:    u64,
+	pub rdi:    u64,
+	pub iv:     u64,
+	pub err:    u64,
+	pub ip:     u64,
+	pub cs:     u64,
+	pub flags:  u64,
+	pub sp:     u64,
+	pub ss:     u64,
+}
+
+impl Default for StackFrame {
+	#[inline]
+	fn default() -> Self {
+		// SAFETY: This is safe, as it's all essentially "maybe uninit" anyway.
+		// SAFETY: Moreover, all fields are already safely represented by zeros.
+		unsafe { core::mem::zeroed() }
+	}
 }
 
 /// Common entry point for the ISR handlers.
@@ -496,6 +505,22 @@ extern "C" fn _oro_isr_rust_core_panic(stack_ptr: *const UnsafeCell<StackFrame>)
 		// SAFETY: Not much we can do here anyway.
 		panic!("core panicked: {:#?}", unsafe { &*(*stack_ptr).get() });
 	}
+}
+
+/// Performs an `iret` into userspace code.
+///
+/// This function **does** modify the local core's
+/// TSS pointers.
+///
+/// # Safety
+/// The given task context MUST be ready for a context switch,
+/// must NOT be run anywhere else, and the CPU must be ready
+/// to receive interrupts (kernel initialized, IDT installed, etc).
+///
+/// This function **may not** be used to switch into kernel (ring 0)
+/// code.
+pub unsafe fn iret_context(_cr3: u64) -> ! {
+	todo!("iret");
 }
 
 #[doc(hidden)]
