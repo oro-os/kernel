@@ -2,6 +2,8 @@
 
 use core::{arch::global_asm, cell::UnsafeCell};
 
+use oro_kernel::event::{PreemptionEvent, SystemCallRequest};
+
 use crate::{
 	asm::{rdmsr, wrmsr},
 	interrupt::StackFrame,
@@ -76,7 +78,30 @@ pub unsafe fn install_syscall_handler() {
 /// `sysret` or an `iret` return to the user task as per the Oro ABI specification.
 #[unsafe(no_mangle)]
 extern "C" fn _oro_syscall_handler(stack_ptr: *const UnsafeCell<StackFrame>) -> ! {
-	todo!("syscall: {:#X?}", unsafe { &*(*stack_ptr).get() });
+	debug_assert!(stack_ptr.is_aligned());
+
+	// SAFETY: We have to assume this is safe; it's passed in directly
+	// SAFETY: by the ASM stubs.
+	let fp = unsafe { &*stack_ptr };
+
+	// SAFETY: Same safety consideration as above.
+	let syscall_request = unsafe {
+		SystemCallRequest {
+			opcode: (*fp.get()).rax,
+			arg1:   (*fp.get()).rsi,
+			arg2:   (*fp.get()).rdi,
+			arg3:   (*fp.get()).rdx,
+			arg4:   (*fp.get()).r9,
+		}
+	};
+
+	// Fire it off to the kernel.
+	// SAFETY: We can assume that since we're coming from a syscall that it was the
+	// SAFETY: thread that was originally scheduled by this core. We have no other way
+	// SAFETY: of verifying that here.
+	unsafe {
+		crate::Kernel::get().handle_event(PreemptionEvent::SystemCall(syscall_request));
+	}
 }
 
 #[doc(hidden)]
