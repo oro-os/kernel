@@ -263,7 +263,15 @@ impl<A: Arch> Kernel<A> {
 	/// The architecture essentially gives up primary control
 	/// to the architecture-agnostic Oro kernel, only being
 	/// called back through the [`arch`] handles.
-	pub fn run(&self) -> ! {
+	///
+	/// # Safety
+	/// > ⚠️**THIS FUNCTION IS VERY UNSAFE.**⚠️
+	///
+	/// Callers must be aware that their ENTIRE stack space will be
+	/// blown away. Absolutely NO stack items may be "live", to be
+	/// used later; all kernel state MUST be stored in non-stack
+	/// memory segments. **Absolutely no exceptions.**
+	pub unsafe fn run(&self) -> ! {
 		// Immediately perform a kernel halt with the smallest
 		// timeslice to immediately invoke a scheduler run.
 		// SAFETY: Calling with a `None` context is always safe, barring bugs in the

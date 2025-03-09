@@ -31,7 +31,7 @@ pub unsafe fn boot() -> ! {
 	crate::asm::disable_interrupts();
 	crate::asm::flush_tlb();
 	crate::gdt::GDT.install();
-	crate::interrupt::default::install_default_idt();
+	crate::interrupt::install();
 
 	#[cfg(debug_assertions)]
 	oro_debug::init();

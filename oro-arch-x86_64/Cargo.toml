@@ -25,6 +25,14 @@ force-singlecore = []
 # This is the default in debug mode.
 big-irq-stack = []
 
+# In cases where the stack or other memory structures are being
+# munged and are otherwise hard to debug (especially in cases where
+# triple faults are occurring without any core dump output), enabling
+# this flag may be able to get information out on the wire. It's not
+# the default since it isn't as robust nor maintainable, and doesn't
+# flow through the default `panic!()` plumbing.
+simple_core_dump = []
+
 [lib]
 path = "src/lib.rs"
 

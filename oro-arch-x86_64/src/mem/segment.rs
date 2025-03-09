@@ -15,6 +15,7 @@ use super::{address_space::AddressSpaceHandle, paging::PageTable};
 use crate::mem::{paging::PageTableEntry, paging_level::PagingLevel};
 
 /// Sign-extends a value to the appropriate size for the current paging level.
+#[macro_export]
 macro_rules! sign_extend {
 	(L4, $value:expr) => {
 		// SAFETY(qix-): We expect and want the sign loss here.

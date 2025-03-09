@@ -6,4 +6,5 @@ doc-valid-idents = [
 	"CONST_CASE",
 	"DeviceTree", "DTSpec",
 	"CS140e",
+	"ZMMn", "YMMn", "XMMn",
 ]

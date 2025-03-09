@@ -8,10 +8,13 @@ use oro_mem::{
 	phys::{Phys, PhysAddr},
 };
 
-use super::{paging::PageTable, paging_level::PagingLevel, segment::MapperHandle};
 use crate::{
 	asm::cr3,
-	mem::{paging::PageTableEntry, segment::AddressSegment},
+	mem::{
+		paging::{PageTable, PageTableEntry},
+		paging_level::PagingLevel,
+		segment::{AddressSegment, MapperHandle},
+	},
 };
 
 /// A handle to an address space for the x86_64 architecture.
@@ -224,6 +227,22 @@ impl AddressSpaceLayout {
 		};
 
 		&DESCRIPTOR
+	}
+
+	/// Returns the kernel's stack base.
+	///
+	/// This can be directly stored in `rsp` in e.g. ISR handlers.
+	#[must_use]
+	#[inline]
+	pub const fn kernel_stack_base(paging_level: PagingLevel) -> usize {
+		match paging_level {
+			PagingLevel::Level4 => {
+				crate::sign_extend!(L4, ((Self::KERNEL_STACK_IDX + 1) << (12 + 9 * 3)) - 0x1000)
+			}
+			PagingLevel::Level5 => {
+				crate::sign_extend!(L5, ((Self::KERNEL_STACK_IDX + 1) << (12 + 9 * 4)) - 0x1000)
+			}
+		}
 	}
 }
 

@@ -80,8 +80,7 @@ pub fn finalize_boot_and_run() -> ! {
 	// SAFETY: This is the boot sequence, which is the only place where these functions
 	// SAFETY: are called.
 	unsafe {
-		// crate::interrupt::kernel::install_kernel_idt();
-		crate::interrupt::kernel::initialize_lapic_irqs();
+		crate::interrupt::initialize_lapic_irqs();
 		crate::syscall::install_syscall_handler();
 		crate::asm::load_tss(crate::gdt::TSS_GDT_OFFSET);
 	}
@@ -109,5 +108,10 @@ pub fn finalize_boot_and_run() -> ! {
 
 	// Run the kernel, never returning.
 	dbg!("booting core {}", kernel.id());
-	kernel.run();
+
+	// SAFETY: NO STACK VALUES MAY BE STORED FOR USAGE BEYOND THIS POINT.
+	// SAFETY: THE STACK IS COMPLETELY DESTROYED BY CALLING THIS FUNCTION.
+	unsafe {
+		kernel.run();
+	}
 }

@@ -4,7 +4,11 @@ use core::{cell::UnsafeCell, mem::MaybeUninit};
 
 use oro_kernel::{arch::Arch, event::Resumption};
 
-use crate::{gdt, lapic, tss};
+use crate::{
+	gdt, lapic,
+	mem::{address_space::AddressSpaceLayout, paging_level::PagingLevel},
+	tss,
+};
 
 /// Core local kernel handle for the x86_64 architecture.
 ///
@@ -48,12 +52,24 @@ unsafe impl oro_kernel::arch::CoreHandle<crate::Arch> for CoreHandle {
 			todo!("run_context (context=Some)");
 		} else {
 			// Go to sleep.
+			let kernel_stack_base =
+				AddressSpaceLayout::kernel_stack_base(PagingLevel::current_from_cpu());
+
 			if let Some(ticks) = ticks {
 				self.schedule_timer(ticks);
 			}
-			crate::asm::enable_interrupts();
-			crate::asm::halt_once();
-			unreachable!("halt_once returned! this is a bug!");
+
+			::core::arch::asm! {
+				// Clear the stack pointer
+				"mov rsp, {}",
+				// Enable interrupts
+				"sti",
+				// Halt once
+				"hlt",
+				"ud2",
+				in(reg) kernel_stack_base,
+				options(noreturn),
+			}
 		}
 	}
 }

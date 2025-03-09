@@ -1,0 +1,260 @@
+//!; Oro global ISR stubs.
+//!;
+//!; These functions are jumped to by the individual vector
+//!; ISRs, where they will either jump to a core dump handler
+//!; or forward the exception / interrupt to the kernel for
+//!; userspace processing.
+.section .text.oro_isr64
+.code64
+
+///; Sets the stack pointer to the kernel's stack
+///; base, depending on the addressing level.
+///;
+///; Clobbers RAX.
+.macro SET_KERNEL_STACK_BASE
+	mov rax, cr4
+	and rax, 0b1000000000000
+	test rax, rax
+	jz 150f
+
+	//; - CR4.LA57=1 (5-level paging)
+	mov rsp, {KERNEL_STACK_BASE_L5}
+	jmp 151f
+
+150:
+	//; - CR4.LA57=0 (4-level paging)
+	mov rsp, {KERNEL_STACK_BASE_L4}
+
+151:
+.endmacro
+
+///; Asserts that the stack is aligned to a given value.
+///;
+///; Does nothing under debug mode.
+.macro CHECK_STACK_ALIGNMENT_DEBUG alignment
+	//; Save RSP, as well as RDI so we don't clobber it.
+	push rsp
+	push rdi
+
+	//; Test the alignment
+	mov rdi, [rsp+8]
+	and rdi, (\alignment - 1)
+	test rdi, rdi
+	jz 100f
+
+	//; Not aligned; there's a bug!
+	mov rsi, \alignment
+	mov rdx, [rsp+8]
+	SET_KERNEL_STACK_BASE
+	jmp _oro_isr_dbg_stack_unaligned //; (got=rdi, expected=rsi, stack_ptr=rdx)
+	ud2
+
+	//; We're aligned; restore RDI
+100:
+	pop rdi
+	add rsp, 8 //; remove `rsp` from the stack
+.endmacro
+
+///; No-op check stack. Invoked in release mode.
+.macro CHECK_STACK_ALIGNMENT_NOOP alignment
+.endmacro
+
+///; Pushes the remaining fields of `StackFrame` onto the stack.
+///;
+///; Does not set `rdi` (e.g. for calling a Rust function with the
+///; pointer to the `StackFrame`).
+.macro PUSH_REGISTERS CHECK_STACK_ALIGNMENT, ADDITIONAL_REGISTER_PUSH
+	//; GP registers
+	push rdi
+	push rax
+	push rbx
+	push rcx
+	push rdx
+	push rsi
+	push rbp
+	push r8
+	push r9
+	push r10
+	push r11
+	push r12
+	push r13
+	push r14
+	push r15
+
+	//; fsbase MSR
+	mov ecx, 0xC0000100
+	rdmsr
+	shl rdx, 32
+	or rax, rdx
+	push rax
+
+	//; gsbase MSR
+	mov ecx, 0xC0000101
+	rdmsr
+	shl rdx, 32
+	or rax, rdx
+	push rax
+
+	//; At this point, we should be 64-byte aligned.
+	//; If not, we jump to the debug handler for
+	//; this particular case. Then push any additional
+	//; registers to the stack space we just allocated.
+	\CHECK_STACK_ALIGNMENT 64
+	sub rsp, 64 * 32
+	\ADDITIONAL_REGISTER_PUSH
+.endmacro
+
+///; Pushes the AVX-512 vector registers to the stack.
+.macro PUSH_ZMM_REGISTERS
+	//; Each of the ZMMn registers.
+	vmovdqa64 [rsp + (31 * 64)], zmm31
+	vmovdqa64 [rsp + (30 * 64)], zmm30
+	vmovdqa64 [rsp + (29 * 64)], zmm29
+	vmovdqa64 [rsp + (28 * 64)], zmm28
+	vmovdqa64 [rsp + (27 * 64)], zmm27
+	vmovdqa64 [rsp + (26 * 64)], zmm26
+	vmovdqa64 [rsp + (25 * 64)], zmm25
+	vmovdqa64 [rsp + (24 * 64)], zmm24
+	vmovdqa64 [rsp + (23 * 64)], zmm23
+	vmovdqa64 [rsp + (22 * 64)], zmm22
+	vmovdqa64 [rsp + (21 * 64)], zmm21
+	vmovdqa64 [rsp + (20 * 64)], zmm20
+	vmovdqa64 [rsp + (19 * 64)], zmm19
+	vmovdqa64 [rsp + (18 * 64)], zmm18
+	vmovdqa64 [rsp + (17 * 64)], zmm17
+	vmovdqa64 [rsp + (16 * 64)], zmm16
+	vmovdqa64 [rsp + (15 * 64)], zmm15
+	vmovdqa64 [rsp + (14 * 64)], zmm14
+	vmovdqa64 [rsp + (13 * 64)], zmm13
+	vmovdqa64 [rsp + (12 * 64)], zmm12
+	vmovdqa64 [rsp + (11 * 64)], zmm11
+	vmovdqa64 [rsp + (10 * 64)], zmm10
+	vmovdqa64 [rsp + (9 * 64)], zmm9
+	vmovdqa64 [rsp + (8 * 64)], zmm8
+	vmovdqa64 [rsp + (7 * 64)], zmm7
+	vmovdqa64 [rsp + (6 * 64)], zmm6
+	vmovdqa64 [rsp + (5 * 64)], zmm5
+	vmovdqa64 [rsp + (4 * 64)], zmm4
+	vmovdqa64 [rsp + (3 * 64)], zmm3
+	vmovdqa64 [rsp + (2 * 64)], zmm2
+	vmovdqa64 [rsp + (1 * 64)], zmm1
+	vmovdqa64 [rsp], zmm0
+.endmacro
+
+///; Pushes the AVX vector registers to the stack.
+.macro PUSH_YMM_REGISTERS
+	//; Each of the YMMn registers.
+	vmovdqa [rsp + (15 * 32)], ymm15
+	vmovdqa [rsp + (14 * 32)], ymm14
+	vmovdqa [rsp + (13 * 32)], ymm13
+	vmovdqa [rsp + (12 * 32)], ymm12
+	vmovdqa [rsp + (11 * 32)], ymm11
+	vmovdqa [rsp + (10 * 32)], ymm10
+	vmovdqa [rsp + (9 * 32)], ymm9
+	vmovdqa [rsp + (8 * 32)], ymm8
+	vmovdqa [rsp + (7 * 32)], ymm7
+	vmovdqa [rsp + (6 * 32)], ymm6
+	vmovdqa [rsp + (5 * 32)], ymm5
+	vmovdqa [rsp + (4 * 32)], ymm4
+	vmovdqa [rsp + (3 * 32)], ymm3
+	vmovdqa [rsp + (2 * 32)], ymm2
+	vmovdqa [rsp + (1 * 32)], ymm1
+	vmovdqa [rsp], ymm0
+.endmacro
+
+///; Pushes the SSE vector registers to the stack.
+.macro PUSH_XMM_REGISTERS
+	movdqa [rsp + (15 * 16)], xmm15
+	movdqa [rsp + (14 * 16)], xmm14
+	movdqa [rsp + (13 * 16)], xmm13
+	movdqa [rsp + (12 * 16)], xmm12
+	movdqa [rsp + (11 * 16)], xmm11
+	movdqa [rsp + (10 * 16)], xmm10
+	movdqa [rsp + (9 * 16)], xmm9
+	movdqa [rsp + (8 * 16)], xmm8
+	movdqa [rsp + (7 * 16)], xmm7
+	movdqa [rsp + (6 * 16)], xmm6
+	movdqa [rsp + (5 * 16)], xmm5
+	movdqa [rsp + (4 * 16)], xmm4
+	movdqa [rsp + (3 * 16)], xmm3
+	movdqa [rsp + (2 * 16)], xmm2
+	movdqa [rsp + (1 * 16)], xmm1
+	movdqa [rsp], xmm0
+.endmacro
+
+.macro DEFINE_HANDLERS CHECK_STACK_ALIGNMENT, exc_name, no_exc_name, ADDITIONAL_REGISTER_PUSH
+	///; Common exception vector
+	///;
+	///; Checks if the incoming interrupt is coming from a kernel
+	///; code segment (CS) and will jump to a core dump handler
+	///; if so (as any exception whilst in the kernel code segment
+	///; is a fatal panic scenario).
+	///;
+	///; The ISR stubs have already pushed a synthetic error code
+	///; (if needed) and vector number to the stack.
+	.global \exc_name
+	\exc_name :
+		PUSH_REGISTERS \CHECK_STACK_ALIGNMENT, \ADDITIONAL_REGISTER_PUSH
+
+		//; Store the `StackFrame` into the first argument of the handler call.
+		mov rdi, rsp
+
+		//; Test the CS for the DPL
+		mov rax, [rsp + {CS_OFFSET}]
+
+		//; We're done playing around with the stack, and it's necessary
+		//; that in either case - core dump or forward - we need to set
+		//; the kernel stack.
+		SET_KERNEL_STACK_BASE
+
+		//; Check for DPL=3 and skip over core dump if it's hit.
+		test rax, 3
+		jnz 4f
+
+		//; - Ring 0 (we should panic)
+		\CHECK_STACK_ALIGNMENT 16
+		jmp _oro_isr_rust_core_panic
+		ud2
+
+		//; - Ring 3 (forward to kernel; no panic)
+	4:
+		\CHECK_STACK_ALIGNMENT 16
+		jmp _oro_isr_rust_handler //; (stack_frame_ptr=rdi)
+		ud2
+
+	///; Common non-exception vector.
+	///;
+	///; These are simply vectors that come from various
+	///; events in the system and do not indicate an error.
+	///; The CS's DPL indicator makes no difference.
+	.global \no_exc_name
+	\no_exc_name :
+		PUSH_REGISTERS \CHECK_STACK_ALIGNMENT, \ADDITIONAL_REGISTER_PUSH
+		mov rdi, rsp
+
+		//; If this is NOT the kernel, our stack is
+		//; currently the thread's shadow stack; we
+		//; need to set the stack to the kernel's
+		//; stack base so it has some room to work.
+		mov rax, [rsp + {CS_OFFSET}]
+		test rax, 3
+		jz 4f
+
+		//; - Ring 3 (we should switch the stack)
+		SET_KERNEL_STACK_BASE
+
+		//; - Ring 0 (we're already on the kernel stack).
+	4:
+		\CHECK_STACK_ALIGNMENT 16
+		jmp _oro_isr_rust_handler //; (stack_frame_ptr=rdi)
+		ud2
+.endmacro
+
+///; Main definition macro; invoked by the Rust side of things with the
+///; given debug/release parameters.
+.macro DEFINE_ALL_HANDLERS CHECK_STACK_ALIGNMENT
+	DEFINE_HANDLERS \CHECK_STACK_ALIGNMENT, _oro_isr_common_exc_zmm, _oro_isr_common_zmm, PUSH_ZMM_REGISTERS
+	DEFINE_HANDLERS \CHECK_STACK_ALIGNMENT, _oro_isr_common_exc_ymm, _oro_isr_common_ymm, PUSH_YMM_REGISTERS
+	DEFINE_HANDLERS \CHECK_STACK_ALIGNMENT, _oro_isr_common_exc_xmm, _oro_isr_common_xmm, PUSH_XMM_REGISTERS
+	DEFINE_HANDLERS \CHECK_STACK_ALIGNMENT, _oro_isr_common_exc_novec, _oro_isr_common_novec
+.endmacro
