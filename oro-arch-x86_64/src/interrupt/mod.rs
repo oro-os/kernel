@@ -439,7 +439,36 @@ extern "C" fn _oro_isr_dbg_stack_unaligned(
 		dbg_err!("stack pointer is NOT 64-bit aligned; below values will be garbage");
 	}
 
-	let end = AddressSpaceLayout::irq_stack_base(PagingLevel::current_from_cpu()) as u64;
+	// Try to figure out which segment the stack belongs to.
+	let pl = PagingLevel::current_from_cpu();
+	let top_level_idx = match pl {
+		PagingLevel::Level4 => (stack_ptr >> (12 + 9 * 3)) & 0x1FF,
+		PagingLevel::Level5 => (stack_ptr >> (12 + 9 * 4)) & 0x1FF,
+	};
+
+	match top_level_idx as usize {
+		AddressSpaceLayout::MODULE_INTERRUPT_STACK_IDX => {
+			dbg_err!("RSP is in MODULE_INTERRUPT_STACK_IDX");
+		}
+		AddressSpaceLayout::MODULE_THREAD_STACK_IDX => {
+			dbg_err!("RSP is in MODULE_THREAD_STACK_IDX");
+		}
+		AddressSpaceLayout::KERNEL_STACK_IDX => {
+			dbg_err!("RSP is in KERNEL_STACK_IDX");
+		}
+		unknown => {
+			dbg_err!("RSP is in UNKNOWN STACK INDEX ({unknown}, pl={pl:?})");
+		}
+	}
+
+	let end = match pl {
+		PagingLevel::Level4 => {
+			crate::sign_extend!(L4, (top_level_idx << (12 + 9 * 3)) | 0x0000_007F_FFFF_F000)
+		}
+		PagingLevel::Level5 => {
+			crate::sign_extend!(L5, (top_level_idx << (12 + 9 * 4)) | 0x0000_FFFF_FFFF_F000)
+		}
+	} as u64;
 	let start = stack_ptr & !7;
 
 	// SAFETY: Doesn't really matter, this is debugging best-effort, as this
