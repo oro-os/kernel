@@ -32,8 +32,8 @@
 		\CHECK_STACK_ALIGNMENT 64, 0
 
 		//; Now populate the registers needed by the system call.
-		mov QWORD PTR [rsp + {CS_OFFSET}], {USER_CS}
-		mov QWORD PTR [rsp + {SS_OFFSET}], {USER_DS}
+		//; NOTE(qix-): We don't need to populate the CS/SS fields at all
+		//; NOTE(qix-): as they never change.
 		mov [rsp + {SP_OFFSET}], r8
 		mov [rsp + {R15_OFFSET}], r15
 		mov [rsp + {R14_OFFSET}], r14
