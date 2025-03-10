@@ -125,7 +125,7 @@ extern "C" fn _oro_syscall_handler(stack_ptr: *const UnsafeCell<StackFrame>) -> 
 /// **All locks or other stack-based stateful objects must be destroyed
 /// prior to this function being called.** The kernel is entirely
 /// destroyed when this function is called.
-pub unsafe fn sysret_context(cr3: u64, response: SystemCallResponse) -> ! {
+pub unsafe fn sysret_context(cr3: u64, response: &SystemCallResponse) -> ! {
 	unsafe extern "C" {
 		#[link_name = "_oro_syscall_return"]
 		fn oro_syscall_return(cr3: u64, irq_frame_base: u64, res: *const SystemCallResponse) -> !;
@@ -143,7 +143,7 @@ pub unsafe fn sysret_context(cr3: u64, response: SystemCallResponse) -> ! {
 
 	let irq_frame_base = irq_stack_base - core::mem::size_of::<StackFrame>() as u64;
 
-	oro_syscall_return(cr3, irq_frame_base, &raw const response);
+	oro_syscall_return(cr3, irq_frame_base, response);
 }
 
 #[doc(hidden)]

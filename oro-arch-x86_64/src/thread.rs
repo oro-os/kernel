@@ -53,7 +53,7 @@ impl ThreadHandle {
 	/// # Safety
 	/// See [`crate::syscall::sysret_context`] for safety considerations.
 	#[inline]
-	pub unsafe fn sysret(&self, res: SystemCallResponse) -> ! {
+	pub unsafe fn sysret(&self, res: &SystemCallResponse) -> ! {
 		crate::syscall::sysret_context(self.mapper.base_phys, res);
 	}
 
@@ -181,7 +181,7 @@ unsafe impl oro_kernel::arch::ThreadHandle<crate::Arch> for ThreadHandle {
 				sp: stack_ptr as u64,
 				ip: entry_point as u64,
 				// TODO(qix-): Set up a bitstruct for this
-				flags: 0x2 | 0x200 | 0x00040000 | 0x00010000,
+				flags: 0x2 | 0x200 | 0x0004_0000 | 0x0001_0000,
 				..Default::default()
 			}));
 		}

@@ -53,7 +53,7 @@ unsafe impl oro_kernel::arch::CoreHandle<crate::Arch> for CoreHandle {
 				self.schedule_timer(ticks);
 			}
 
-			match resumption {
+			match &resumption {
 				None => (*context.get()).iret(),
 				Some(Resumption::SystemCall(res)) => (*context.get()).sysret(res),
 			}
