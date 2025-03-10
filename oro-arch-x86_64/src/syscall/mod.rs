@@ -2,7 +2,7 @@
 
 use core::{arch::global_asm, cell::UnsafeCell};
 
-use oro_kernel::event::{PreemptionEvent, SystemCallRequest};
+use oro_kernel::event::{PreemptionEvent, SystemCallRequest, SystemCallResponse};
 
 use crate::{
 	asm::{rdmsr, wrmsr},
@@ -104,6 +104,48 @@ extern "C" fn _oro_syscall_handler(stack_ptr: *const UnsafeCell<StackFrame>) -> 
 	}
 }
 
+/// Resumes a thread that was previously switched out of via a `sysret`.
+///
+/// This function **does** modify the local core's
+/// TSS pointers to point to the stack frame base
+/// on DPL=3 -> DPL=0 code.
+///
+/// # Safety
+/// The previous context switch out of this task **MUST** have been a system call.
+/// While `iret` can be used to return from a `syscall`,
+/// **do not use this to return from an IRQ.**
+///
+/// The given task context MUST be ready for a context switch,
+/// must NOT be run anywhere else, and the CPU must be ready
+/// to receive interrupts (kernel initialized, IDT installed, etc).
+///
+/// This function **may not** be used to switch into kernel (ring 0)
+/// code.
+///
+/// **All locks or other stack-based stateful objects must be destroyed
+/// prior to this function being called.** The kernel is entirely
+/// destroyed when this function is called.
+pub unsafe fn sysret_context(cr3: u64, response: SystemCallResponse) -> ! {
+	unsafe extern "C" {
+		#[link_name = "_oro_syscall_return"]
+		fn oro_syscall_return(cr3: u64, irq_frame_base: u64, res: *const SystemCallResponse) -> !;
+	}
+
+	let irq_stack_base = AddressSpaceLayout::irq_stack_base(PagingLevel::current_from_cpu()) as u64;
+
+	// SAFETY: We can guarantee that we're the only users of this handle
+	// SAFETY: given that `Kernel` handles are core-local.
+	unsafe {
+		(*crate::Kernel::get().handle().tss.get())
+			.rsp0
+			.write(irq_stack_base);
+	}
+
+	let irq_frame_base = irq_stack_base - core::mem::size_of::<StackFrame>() as u64;
+
+	oro_syscall_return(cr3, irq_frame_base, &raw const response);
+}
+
 #[doc(hidden)]
 #[cfg(debug_assertions)]
 macro_rules! define_syscall_handlers {
@@ -144,6 +186,10 @@ global_asm! {
 	FLAGS_OFFSET = const core::mem::offset_of!(StackFrame, flags),
 	IP_OFFSET = const core::mem::offset_of!(StackFrame, ip),
 	IV_OFFSET = const core::mem::offset_of!(StackFrame, iv),
+	FSBASE_OFFSET = const core::mem::offset_of!(StackFrame, fsbase),
+	GSBASE_OFFSET = const core::mem::offset_of!(StackFrame, gsbase),
+	SYS_RES_ERROR_OFFSET = const core::mem::offset_of!(SystemCallResponse, error),
+	SYS_RES_RET_OFFSET = const core::mem::offset_of!(SystemCallResponse, ret),
 	KERNEL_STACK_BASE_L4 = const AddressSpaceLayout::kernel_stack_base(PagingLevel::Level4),
 	KERNEL_STACK_BASE_L5 = const AddressSpaceLayout::kernel_stack_base(PagingLevel::Level5),
 }

@@ -319,6 +319,7 @@ impl<A: Arch> Kernel<A> {
 						pf.address,
 					)
 				}
+				event::PreemptionEvent::SystemCall(req) => sched.event_system_call(&req),
 				unknown => {
 					todo!("unknown incoming preemption event: {unknown:?}");
 				}

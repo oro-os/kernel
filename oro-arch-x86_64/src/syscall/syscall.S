@@ -65,6 +65,68 @@
 		//; Now we're ready to jump.
 		jmp _oro_syscall_handler
 		ud2
+
+	///; Handles returning to userspace via a `sysret` instruction.
+	.global _oro_syscall_return
+	_oro_syscall_return: //; fn(cr3=rdi, irq_frame_base=rsi, *const response: rdx)
+		//; Set the page tables for the thread.
+		mov cr3, rdi
+
+		//; Set the stack to the base of the IRQ frame.
+		mov rsp, rsi
+		\CHECK_STACK_ALIGNMENT 4096, (4096 - {STACK_FRAME_SIZE})
+
+		//; First, set the base pointer, We do this here because
+		//; we're about to clobber RDX with our wrmsr instructions.
+		mov rbp, rdx
+
+		//; gsbase MSR (we do it here since it clobbers EAX)
+		mov rdx, [rsp + {GSBASE_OFFSET}]
+		mov eax, edx
+		shr rdx, 32
+		mov ecx, 0xC0000101
+		wrmsr
+
+		//; fsbase MSR
+		mov rdx, [rsp + {FSBASE_OFFSET}]
+		mov eax, edx
+		shr rdx, 32
+		mov ecx, 0xC0000100
+		wrmsr
+
+		//; Then, extract the bits from our response into the
+		//; appropriate Oro ABI response registers. We do this
+		//; *after* the wrmsr because they clobber rax.
+		mov rax, [rbp + {SYS_RES_ERROR_OFFSET}]
+		mov r9, [rbp + {SYS_RES_RET_OFFSET}]
+
+		//; Now restore the registers
+		mov r15, [rsp + {R15_OFFSET}]
+		mov r14, [rsp + {R14_OFFSET}]
+		mov r13, [rsp + {R13_OFFSET}]
+		mov r12, [rsp + {R12_OFFSET}]
+		mov rbp, [rsp + {RBP_OFFSET}]
+		mov rbx, [rsp + {RBX_OFFSET}]
+		mov r11, [rsp + {FLAGS_OFFSET}] //; x86_64 puts RFLAGS into R11 before jumping here
+		mov rcx, [rsp + {IP_OFFSET}] //; similarly, the original RIP goes into RCX
+
+		//; We're done with the stack now; restore it.
+		mov r8, [rsp + {SP_OFFSET}]
+		mov rsp, r8
+
+		//; Ensure a canonical return address.
+		and rcx, ORO_SYSCALL_CANONICAL_ADDRESS_MASK
+
+		//; Zero clobbered registers.
+		xor rdx, rdx
+		xor r8, r8
+		xor r10, r10
+		xor rdi, rdi
+		xor rsi, rsi
+
+		//; Return
+		sysretq
+		ud2
 .endmacro
 
 .popsection

@@ -2,6 +2,7 @@
 
 use core::{cell::UnsafeCell, mem::ManuallyDrop, ptr::null_mut};
 
+use oro_kernel::event::SystemCallResponse;
 use oro_mem::{
 	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
@@ -45,6 +46,15 @@ impl ThreadHandle {
 	#[inline]
 	pub unsafe fn iret(&self) -> ! {
 		crate::interrupt::iret_context(self.mapper.base_phys)
+	}
+
+	/// Performs a `sysret` back into this thread's userspace context.
+	///
+	/// # Safety
+	/// See [`crate::syscall::sysret_context`] for safety considerations.
+	#[inline]
+	pub unsafe fn sysret(&self, res: SystemCallResponse) -> ! {
+		crate::syscall::sysret_context(self.mapper.base_phys, res);
 	}
 
 	/// Returns the current `fsbase` denoted in the thread's stack frame.

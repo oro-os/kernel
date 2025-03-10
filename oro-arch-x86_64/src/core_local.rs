@@ -55,9 +55,7 @@ unsafe impl oro_kernel::arch::CoreHandle<crate::Arch> for CoreHandle {
 
 			match resumption {
 				None => (*context.get()).iret(),
-				Some(_) => {
-					todo!("Some() resumption (not yet migrated)");
-				}
+				Some(Resumption::SystemCall(res)) => (*context.get()).sysret(res),
 			}
 		} else {
 			// Go to sleep.

@@ -95,6 +95,7 @@ pub enum Resumption {
 
 /// System call response data.
 #[derive(Debug, Clone)]
+#[repr(C)]
 pub struct SystemCallResponse {
 	/// The error code.
 	pub error: oro::syscall::Error,
