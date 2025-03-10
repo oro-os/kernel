@@ -168,7 +168,7 @@ global_asm! {
 	include_str!("../common-post.S"),
 	STACK_FRAME_SIZE = const core::mem::size_of::<StackFrame>(),
 	USER_CS = const crate::gdt::USER_CS | 3,
-	USER_SS = const crate::gdt::USER_DS | 3,
+	USER_DS = const crate::gdt::USER_DS | 3,
 	CS_OFFSET = const core::mem::offset_of!(StackFrame, cs),
 	SS_OFFSET = const core::mem::offset_of!(StackFrame, ss),
 	SP_OFFSET = const core::mem::offset_of!(StackFrame, sp),

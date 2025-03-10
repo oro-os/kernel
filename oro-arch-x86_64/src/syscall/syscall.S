@@ -33,7 +33,7 @@
 
 		//; Now populate the registers needed by the system call.
 		mov QWORD PTR [rsp + {CS_OFFSET}], {USER_CS}
-		mov QWORD PTR [rsp + {SS_OFFSET}], {USER_SS}
+		mov QWORD PTR [rsp + {SS_OFFSET}], {USER_DS}
 		mov [rsp + {SP_OFFSET}], r8
 		mov [rsp + {R15_OFFSET}], r15
 		mov [rsp + {R14_OFFSET}], r14
