@@ -368,7 +368,15 @@ extern "C" fn _oro_isr_rust_handler(stack_ptr: *const UnsafeCell<StackFrame>) ->
 			"_oro_isr_rust_handler called with kernel exception (core panic handler wasn't called)"
 		);
 
-		let preemption_event = match (*fp.get()).iv {
+		let kernel = crate::Kernel::get();
+		let iv = (*fp.get()).iv;
+
+		if iv >= 32 {
+			// Tell the PIC to de-assert.
+			kernel.handle().lapic.eoi();
+		}
+
+		let preemption_event = match iv {
 			// Invalid opcode.
 			0x06 => {
 				PreemptionEvent::InvalidInstruction(InvalidInstruction {
@@ -405,7 +413,7 @@ extern "C" fn _oro_isr_rust_handler(stack_ptr: *const UnsafeCell<StackFrame>) ->
 			iv => PreemptionEvent::Interrupt(iv),
 		};
 
-		crate::Kernel::get().handle_event(preemption_event);
+		kernel.handle_event(preemption_event);
 	}
 }
 
