@@ -40,6 +40,7 @@ impl GdtEntry {
 			.with_accessed()
 			.with_long_mode()
 			.with_ring(Dpl::Ring0)
+			.with_rw()
 			.with_executable()
 	}
 
@@ -49,7 +50,7 @@ impl GdtEntry {
 		Self::new()
 			.with_present()
 			.with_accessed()
-			.with_writable()
+			.with_rw()
 			.with_long_mode()
 			.with_ring(Dpl::Ring0)
 	}
@@ -62,7 +63,9 @@ impl GdtEntry {
 			.with_accessed()
 			.with_long_mode()
 			.with_ring(Dpl::Ring3)
+			.with_rw()
 			.with_executable()
+			.with_conforming()
 	}
 
 	/// Returns the user data segment descriptor
@@ -71,9 +74,10 @@ impl GdtEntry {
 		Self::new()
 			.with_present()
 			.with_accessed()
-			.with_writable()
+			.with_rw()
 			.with_long_mode()
 			.with_ring(Dpl::Ring3)
+			.with_conforming()
 	}
 
 	/// Setting this flag will prevents the GDT from
@@ -83,8 +87,9 @@ impl GdtEntry {
 	}
 
 	/// Setting this flag allows the segment to be
-	/// written to.
-	pub const fn with_writable(self) -> Self {
+	/// written to (if it's a data segment) or read
+	/// from (if it's a code segment).
+	pub const fn with_rw(self) -> Self {
 		Self(self.0 | (1 << 41))
 	}
 
@@ -111,6 +116,12 @@ impl GdtEntry {
 	/// Must be set for all valid descriptors.
 	pub const fn with_long_mode(self) -> Self {
 		Self(self.0 | (1 << 53))
+	}
+
+	/// Allows rings lower than or equal to the CPL
+	/// to interact with this segment.
+	pub const fn with_conforming(self) -> Self {
+		Self(self.0 | (1 << 42))
 	}
 }
 
