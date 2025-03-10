@@ -180,6 +180,8 @@ unsafe impl oro_kernel::arch::ThreadHandle<crate::Arch> for ThreadHandle {
 				ss: u64::from(crate::gdt::USER_DS | 3),
 				sp: stack_ptr as u64,
 				ip: entry_point as u64,
+				// TODO(qix-): Set up a bitstruct for this
+				flags: 0x2 | 0x200 | 0x00040000,
 				..Default::default()
 			}));
 		}
