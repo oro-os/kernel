@@ -11,7 +11,7 @@
 	_oro_syscall_enter:
 		//; NOTE(qix-): We don't need to `cli`/`cld`; CPU already
 		//; does that for us (we specify it in the flags mask
-		//; during `syscall` installation; see `syscall/mod.rs`.
+		//; during `syscall` installation; see `syscall/mod.rs`).
 
 		//; First, we need to set the IRQ stack base.
 		//; We also store the user stack in r8 (documented
