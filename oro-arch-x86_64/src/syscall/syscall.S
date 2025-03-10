@@ -52,6 +52,9 @@
 		//; Further, the IV is set to `!0` to indicate a system call.
 		mov QWORD PTR [rsp + {IV_OFFSET}], 0xFFFFFFFFFFFFFFFF
 
+		//; NOTE(qix-): We do not need to manually populate the FSBASE/GSBASE registers here
+		//; NOTE(qix-): as they are only modifiable by syscalls.
+
 		//; We have now fully initialized the stack frame; it may hold "garbage"
 		//; data but only ever from the currently running task's previous time slices.
 		//;
