@@ -46,7 +46,7 @@ pub unsafe fn install_syscall_handler() {
 	// See the `STAR` constant in the `gid` module for more information.
 	#[doc(hidden)]
 	const STAR: u64 = ((must_be_u16(crate::gdt::STAR_KERNEL) as u64) << 32)
-		| ((must_be_u16(crate::gdt::STAR_USER) as u64) << 48);
+		| ((must_be_u16(crate::gdt::STAR_USER | 3) as u64) << 48);
 
 	wrmsr(0xC000_0081, STAR);
 
