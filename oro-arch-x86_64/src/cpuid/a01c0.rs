@@ -5,8 +5,6 @@ use oro_macro::bitstruct;
 bitstruct! {
 	/// Gets the `ebx` register values for the CPUID `eax=01, ecx=0` leaf.
 	pub struct Eax(u32) {
-		// NOTE(qix-): Not all bits are defined here, only the ones we care about.
-
 		/// The local APIC ID. This **is not reliable** but may be useful
 		/// for debugging purposes on a best-effort basis. For reliable APIC
 		/// ID fetching, use APIC tables.
