@@ -14,6 +14,10 @@ pub use a07c1::CpuidA07C1;
 pub use a07c2::CpuidA07C2;
 
 /// Determines if the CPU supports the `CPUID` instruction.
+///
+/// # Side Effects
+/// Note that this function _does_ enable CPUID support (if
+/// it's supported), technically changing CPU state.
 #[must_use]
 #[cold]
 fn has_cpuid() -> bool {
