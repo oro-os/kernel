@@ -336,6 +336,10 @@ pub struct StackFrame {
 	pub ss:     u64,
 }
 
+const _: () = {
+	::oro_macro::assert::fits::<StackFrame, 4096>();
+};
+
 impl Default for StackFrame {
 	#[inline]
 	fn default() -> Self {
