@@ -4,7 +4,7 @@ use oro_macro::bitstruct;
 
 bitstruct! {
 	/// Gets the `ebx` register values for the CPUID `eax=01, ecx=0` leaf.
-	pub struct Eax(u32) {
+	pub struct Ebx(u32) {
 		/// The local APIC ID. This **is not reliable** but may be useful
 		/// for debugging purposes on a best-effort basis. For reliable APIC
 		/// ID fetching, use APIC tables.
@@ -14,8 +14,8 @@ bitstruct! {
 
 /// Processor Info and Feature Bits
 pub struct CpuidA01C0 {
-	/// The `eax` register of the cpuid call.
-	pub eax: Eax,
+	/// The `ebx` register of the cpuid call.
+	pub ebx: Ebx,
 }
 
 impl CpuidA01C0 {
@@ -29,6 +29,6 @@ impl CpuidA01C0 {
 	/// result should be cached.
 	#[must_use]
 	pub fn get() -> Option<Self> {
-		super::cpuid(0x01, 0x00).map(|r| Self { eax: Eax(r.eax) })
+		super::cpuid(0x01, 0x00).map(|r| Self { ebx: Ebx(r.ebx) })
 	}
 }

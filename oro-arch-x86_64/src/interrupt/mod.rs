@@ -550,7 +550,7 @@ extern "C" fn _oro_isr_rust_core_panic(stack_ptr: *const UnsafeCell<StackFrame>)
 		let cr2: u64 = crate::asm::cr2();
 		let cr3: u64 = crate::asm::cr3();
 		let cr4: u64 = crate::reg::Cr4::load().into();
-		let lapic_id_u8 = crate::cpuid::CpuidA01C0::get().map(|v| v.eax.local_apic_id());
+		let lapic_id_u8 = crate::cpuid::CpuidA01C0::get().map(|v| v.ebx.local_apic_id());
 
 		log_field!("IV", iv);
 		log_field!("IP", ip);
