@@ -5,7 +5,9 @@ mod a01c0;
 mod a07c0;
 mod a07c1;
 mod a07c2;
+mod a0dc0;
 
+pub use a0dc0::CpuidA0DC0;
 pub use a01c0::CpuidA01C0;
 pub use a07c0::CpuidA07C0;
 pub use a07c1::CpuidA07C1;
