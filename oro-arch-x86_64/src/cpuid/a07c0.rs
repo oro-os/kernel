@@ -175,6 +175,7 @@ bitstruct! {
 }
 
 /// Extended Features (`ecx=0`)
+#[derive(Debug)]
 pub struct CpuidA07C0 {
 	/// The `ebx` register of the cpuid call.
 	pub ebx: Ebx,

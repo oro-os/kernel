@@ -106,6 +106,45 @@ pub fn finalize_boot_and_run() -> ! {
 		);
 	}
 
+	#[cfg(all(debug_assertions, feature = "dump-cpuid"))]
+	{
+		use oro_sync::{Lock, Mutex};
+		static CPUID_DUMP_LOCK: Mutex<()> = Mutex::new(());
+
+		let lock = CPUID_DUMP_LOCK.lock();
+
+		dbg!(
+			"--------------- CPUID :: CPU {} ---------------",
+			kernel.id()
+		);
+		dbg!(
+			"CPUID:EAX=01:ECX=00 = {:#?}",
+			crate::cpuid::CpuidA01C0::get()
+		);
+		dbg!(
+			"CPUID:EAX=07:ECX=00 = {:#?}",
+			crate::cpuid::CpuidA07C0::get()
+		);
+		dbg!(
+			"CPUID:EAX=07:ECX=01 = {:#?}",
+			crate::cpuid::CpuidA07C1::get()
+		);
+		dbg!(
+			"CPUID:EAX=07:ECX=02 = {:#?}",
+			crate::cpuid::CpuidA07C2::get()
+		);
+		dbg!(
+			"CPUID:EAX=0D:ECX=00 = {:#?}",
+			crate::cpuid::CpuidA0DC0::get()
+		);
+		dbg!(
+			"------------- END CPUID :: CPU {} -------------",
+			kernel.id()
+		);
+
+		drop(lock);
+	}
+
 	// Run the kernel, never returning.
 	dbg!("booting core {}", kernel.id());
 

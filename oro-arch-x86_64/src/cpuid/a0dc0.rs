@@ -51,6 +51,7 @@ bitstruct! {
 }
 
 /// XSAVE Features and State Components
+#[derive(Debug)]
 pub struct CpuidA0DC0 {
 	/// Maximum size (in bytes) of XSAVE save area for the set of state-components currently set in `XCR0`.
 	pub max_xsave_area:     u32,

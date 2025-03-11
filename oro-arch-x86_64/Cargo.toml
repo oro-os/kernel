@@ -21,6 +21,12 @@ default = []
 # regardless of what's in the ACPI tables.
 force-singlecore = []
 
+# Prints all supported CPUID fields at boot for each core.
+# Considerable logging overhead; each core will wait for
+# any other core also trying to dump CPUID information.
+# Ignored in release builds.
+dump-cpuid = []
+
 [lib]
 path = "src/lib.rs"
 

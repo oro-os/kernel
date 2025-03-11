@@ -13,6 +13,7 @@ bitstruct! {
 }
 
 /// Processor Info and Feature Bits
+#[derive(Debug)]
 pub struct CpuidA01C0 {
 	/// The `ebx` register of the cpuid call.
 	pub ebx: Ebx,

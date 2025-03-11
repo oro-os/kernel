@@ -25,6 +25,7 @@ bitstruct! {
 }
 
 /// Extended Features (`ecx=2`)
+#[derive(Debug)]
 pub struct CpuidA07C2 {
 	/// The `edx` register of the cpuid call.
 	pub edx: Edx,
