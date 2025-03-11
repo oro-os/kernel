@@ -30,7 +30,7 @@ fn has_cpuid() -> bool {
 			"popfq",
 			"and rax, 0x200000",
 			out("rax") r,
-			options(nostack, preserves_flags),
+			options(nostack),
 		);
 	}
 	r != 0
