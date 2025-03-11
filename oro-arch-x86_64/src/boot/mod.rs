@@ -85,7 +85,7 @@ pub fn finalize_boot_and_run() -> ! {
 		crate::asm::load_tss(crate::gdt::TSS_GDT_OFFSET);
 	}
 
-	if crate::cpuid::CpuidA07C0B::get().is_some_and(|c| c.fsgsbase()) {
+	if crate::cpuid::CpuidA07C0::get().is_some_and(|c| c.ebx.fsgsbase()) {
 		// Allow userspace applications to directly modify FS/GS registers.
 		// Further, we disable (for now) the timestamp instruction outside of
 		// ring 0.

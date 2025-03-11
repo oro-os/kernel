@@ -1,10 +1,10 @@
-//! Implements the CPUID 01:0 lookup structure.
+//! Implements the CPUID 01:0 lookup structure, _Processor Info and Feature Bits_.
 
 use oro_macro::bitstruct;
 
 bitstruct! {
 	/// Gets the `ebx` register values for the CPUID `eax=01, ecx=0` leaf.
-	pub struct CpuidA01C0B(u32) {
+	pub struct Eax(u32) {
 		// NOTE(qix-): Not all bits are defined here, only the ones we care about.
 
 		/// The local APIC ID. This **is not reliable** but may be useful
@@ -14,40 +14,23 @@ bitstruct! {
 	}
 }
 
-impl CpuidA01C0B {
-	/// Returns the `ebx` register value for the CPUID `eax=01, ecx=0` leaf.
+/// Processor Info and Feature Bits
+pub struct CpuidA01C0 {
+	/// The `eax` register of the cpuid call.
+	pub eax: Eax,
+}
+
+impl CpuidA01C0 {
+	/// Executes CPUID with `eax=1, ecx=0`, which provides processor information
+	/// and feature bits.
 	///
 	/// Returns `None` if either `cpuid` is not supported or the leaf is not supported.
+	///
+	/// # Performance
+	/// This is an incredibly slow and **serializing** operation. If used frequently, its
+	/// result should be cached.
 	#[must_use]
 	pub fn get() -> Option<Self> {
-		// NOTE(qix-): `highest_leaf` returns None if `cpuid` is not supported.
-		if super::highest_leaf()? < 0x01 {
-			return None;
-		}
-
-		let r: u32;
-		unsafe {
-			core::arch::asm!(
-				// NOTE(qix-): LLVM uses `rbx` internally, so we have to preserve it.
-				"push rbx",
-				"mov eax, 0x01",
-				"xor ecx, ecx",
-				// NOTE(qix-): On older CPUs, unused output registers for `cpuid` were
-				// NOTE(qix-): left untouched in some cases and not others, namely on
-				// NOTE(qix-): capabilities checks. It's always a good idea to zero them
-				// NOTE(qix-): out before calling `cpuid`.
-				"xor edx, edx",
-				"xor ebx, ebx",
-				"cpuid",
-				"mov eax, ebx",
-				"pop rbx",
-				lateout("eax") r,
-				out("ecx") _,
-				out("edx") _,
-				options(nostack, preserves_flags),
-			);
-		}
-
-		Some(Self(r))
+		super::cpuid(0x01, 0x00).map(|r| Self { eax: Eax(r.eax) })
 	}
 }
