@@ -16,16 +16,14 @@ use crate::{
 pub struct CoreHandle {
 	/// The LAPIC (Local Advanced Programmable Interrupt Controller)
 	/// for the core.
-	pub lapic:        lapic::Lapic,
+	pub lapic: lapic::Lapic,
 	/// The core's local GDT
 	///
 	/// Only valid after the Kernel has been initialized
 	/// and properly mapped.
-	pub gdt:          UnsafeCell<MaybeUninit<gdt::Gdt<8>>>,
+	pub gdt:   UnsafeCell<MaybeUninit<gdt::Gdt<8>>>,
 	/// The TSS (Task State Segment) for the core.
-	pub tss:          UnsafeCell<tss::Tss>,
-	/// The kernel's stored stack pointer.
-	pub kernel_stack: UnsafeCell<u64>,
+	pub tss:   UnsafeCell<tss::Tss>,
 }
 
 unsafe impl oro_kernel::arch::CoreHandle<crate::Arch> for CoreHandle {

@@ -43,7 +43,6 @@ pub unsafe fn initialize_core_local(lapic: Lapic) {
 			lapic,
 			gdt: UnsafeCell::new(MaybeUninit::uninit()),
 			tss: UnsafeCell::new(Tss::default()),
-			kernel_stack: UnsafeCell::new(0),
 		},
 	)
 	.expect("failed to initialize kernel");
