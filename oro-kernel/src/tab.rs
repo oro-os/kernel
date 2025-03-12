@@ -1198,6 +1198,8 @@ pub enum TabType {
 	Token         = 6,
 	/// A [`crate::port::PortState`].
 	PortState     = 7,
+	/// A [`crate::scheduler::Scheduler`].
+	Scheduler     = 8,
 }
 
 impl<A: Arch> Tabbed for crate::thread::Thread<A> {
@@ -1226,4 +1228,8 @@ impl Tabbed for crate::token::Token {
 
 impl Tabbed for crate::port::PortState {
 	const TY: TabType = TabType::PortState;
+}
+
+impl<A: Arch> Tabbed for crate::scheduler::Scheduler<A> {
+	const TY: TabType = TabType::Scheduler;
 }

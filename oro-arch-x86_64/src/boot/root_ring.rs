@@ -33,7 +33,7 @@ pub unsafe fn initialize_root_ring() {
 		let modules = core::ptr::read_volatile(modules.assume_init_ref());
 		let mut next = modules.next;
 
-		let root_ring = kernel.state().root_ring();
+		let root_ring = kernel.global_state().root_ring();
 
 		while next != 0 {
 			let Some(module) =

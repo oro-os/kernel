@@ -402,7 +402,7 @@ impl<A: Arch> Thread<A> {
 	pub fn spawn(this: Tab<Thread<A>>) {
 		if this.with(|t| matches!(t.state, State::Unallocated)) {
 			crate::Kernel::<A>::get()
-				.state()
+				.global_state()
 				.submit_unclaimed_thread(this);
 		}
 	}

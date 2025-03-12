@@ -91,12 +91,12 @@ impl<A: Arch> Scheduler<A> {
 					self.kernel.id(),
 					thread.id()
 				);
-				self.kernel.state().submit_unclaimed_thread(thread);
+				self.kernel.global_state().submit_unclaimed_thread(thread);
 			}
 		}
 
 		loop {
-			let selected = match self.kernel.state().try_claim_thread() {
+			let selected = match self.kernel.global_state().try_claim_thread() {
 				Some(thread) => thread,
 				None => {
 					match self.thread_rx.try_dequeue() {
@@ -312,7 +312,7 @@ impl<A: Arch> Drop for Scheduler<A> {
 	fn drop(&mut self) {
 		// Drain the thread queue.
 		while let Ok(thread) = self.thread_rx.try_dequeue() {
-			self.kernel.state().submit_unclaimed_thread(thread);
+			self.kernel.global_state().submit_unclaimed_thread(thread);
 		}
 	}
 }

@@ -29,7 +29,7 @@ pub fn try_dispatch_get<A: Arch>(
 	key: u64,
 ) -> Option<InterfaceResponse> {
 	crate::Kernel::<A>::get()
-		.state()
+		.global_state()
 		.kernel_interfaces
 		.get(type_id)
 		.map(|iface| iface.get(thread, index, key))
@@ -48,7 +48,7 @@ pub fn try_dispatch_set<A: Arch>(
 	value: u64,
 ) -> Option<InterfaceResponse> {
 	crate::Kernel::<A>::get()
-		.state()
+		.global_state()
 		.kernel_interfaces
 		.get(type_id)
 		.map(|iface| iface.set(thread, index, key, value))

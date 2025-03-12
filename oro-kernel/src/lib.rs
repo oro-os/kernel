@@ -65,7 +65,6 @@ use oro_mem::{
 	mapper::{AddressSegment, AddressSpace as _, MapError},
 	pfa::Alloc,
 };
-use oro_sync::{Lock, TicketMutex};
 
 use self::{arch::Arch, interface::RingInterface, scheduler::Scheduler, tab::Tab, thread::Thread};
 
@@ -84,25 +83,34 @@ use self::{arch::Arch, interface::RingInterface, scheduler::Scheduler, tab::Tab,
 /// all cores in the system, else undefined behavior WILL occur.
 pub struct Kernel<A: Arch> {
 	/// The core's ID.
-	id:        u32,
+	id:           u32,
 	/// Global reference to the shared kernel state.
-	state:     &'static GlobalKernelState<A>,
+	global_state: &'static GlobalKernelState<A>,
+	/// Cached mapper handle for the kernel.
+	mapper:       SupervisorHandle<A>,
+	/// Core-local, architecture-specific handle.
+	handle:       A::CoreHandle,
 	/// The kernel scheduler.
 	///
 	/// Guaranteed valid after a successful call to `initialize_for_core`.
-	scheduler: MaybeUninit<TicketMutex<Scheduler<A>>>,
-	/// Cached mapper handle for the kernel.
-	mapper:    SupervisorHandle<A>,
-	/// Core-local, architecture-specific handle.
-	handle:    A::CoreHandle,
+	scheduler:    MaybeUninit<Tab<Scheduler<A>>>,
 }
 
 impl<A: Arch> Kernel<A> {
+	/// Returns the core's ID.
+	#[must_use]
+	pub fn id(&self) -> u32 {
+		self.id
+	}
+
 	/// Initializes a new core-local instance of the Oro kernel.
 	///
 	/// The [`oro_mem::mapper::AddressSpace::kernel_core_local()`] segment must
 	/// be empty prior to calling this function, else it will
 	/// return [`MapError::Exists`].
+	///
+	/// # Panics
+	/// Panics if the system runs out of memory.
 	///
 	/// # Safety
 	/// Must only be called once per CPU session (i.e.
@@ -142,7 +150,7 @@ impl<A: Arch> Kernel<A> {
 			kernel_ptr.write(Self {
 				id,
 				handle,
-				state: global_state,
+				global_state,
 				scheduler: MaybeUninit::uninit(),
 				mapper,
 			});
@@ -159,9 +167,11 @@ impl<A: Arch> Kernel<A> {
 
 		// SAFETY: We've just written the kernel instance to the core-local segment; it's safe to read.
 		unsafe {
-			(*kernel_ptr)
-				.scheduler
-				.write(TicketMutex::new(Scheduler::new(&*kernel_ptr)));
+			(*kernel_ptr).scheduler.write(
+				tab::get()
+					.add(Scheduler::new(&*kernel_ptr))
+					.expect("failed to allocate scheduler; out of memory"),
+			);
 		}
 
 		if !global_state.has_initialized_root.swap(true, SeqCst) {
@@ -218,16 +228,10 @@ impl<A: Arch> Kernel<A> {
 		unsafe { &*(AddressSpace::<A>::kernel_core_local().range().0 as *const Self) }
 	}
 
-	/// Returns the core's ID.
-	#[must_use]
-	pub fn id(&self) -> u32 {
-		self.id
-	}
-
 	/// Returns the underlying [`GlobalKernelState`] for this kernel instance.
 	#[must_use]
-	pub fn state(&self) -> &'static GlobalKernelState<A> {
-		self.state
+	pub fn global_state(&self) -> &'static GlobalKernelState<A> {
+		self.global_state
 	}
 
 	/// Returns the architecture-specific core local handle reference.
@@ -246,18 +250,6 @@ impl<A: Arch> Kernel<A> {
 	#[must_use]
 	pub fn mapper(&self) -> &SupervisorHandle<A> {
 		&self.mapper
-	}
-
-	/// Gets a reference to the scheduler.
-	///
-	/// # Safety
-	/// Before locking the scheduler, the caller must ensure that
-	/// interrupts are disabled; the spinlock is _not_ a critical
-	/// spinlock and thus does not disable interrupts.
-	#[must_use]
-	pub unsafe fn scheduler(&self) -> &TicketMutex<Scheduler<A>> {
-		// SAFETY: Always valid if we have a valid `self` reference.
-		unsafe { self.scheduler.assume_init_ref() }
 	}
 
 	/// Runs the kernel's main loop.
@@ -288,6 +280,18 @@ impl<A: Arch> Kernel<A> {
 		}
 	}
 
+	/// Gets a reference to the scheduler.
+	///
+	/// # Safety
+	/// Before locking the scheduler, the caller must ensure that
+	/// interrupts are disabled; the spinlock is _not_ a critical
+	/// spinlock and thus does not disable interrupts.
+	#[must_use]
+	pub unsafe fn scheduler(&self) -> &Tab<Scheduler<A>> {
+		// SAFETY: Always valid if we have a valid `self` reference.
+		unsafe { self.scheduler.assume_init_ref() }
+	}
+
 	/// Handles a preemption event.
 	///
 	/// # Safety
@@ -307,44 +311,47 @@ impl<A: Arch> Kernel<A> {
 		// TODO(qix-): at least in its current form. This is temporary.
 		// SAFETY: The kernel is initialized if we're inside this method.
 		unsafe {
-			let mut sched = self.scheduler().lock();
-			let switch = match &event {
-				event::PreemptionEvent::Timer => sched.event_timer_expired(),
-				event::PreemptionEvent::PageFault(pf) => {
-					sched.event_page_fault(
-						match pf.access {
-							event::PageFaultAccess::Execute => scheduler::PageFaultType::Execute,
-							event::PageFaultAccess::Write => scheduler::PageFaultType::Write,
-							event::PageFaultAccess::Read => scheduler::PageFaultType::Read,
-						},
-						pf.address,
-					)
-				}
-				event::PreemptionEvent::SystemCall(req) => sched.event_system_call(req),
-				unknown => {
-					todo!("unknown incoming preemption event: {unknown:?}");
-				}
-			};
+			let (ctx, ticks, resumption) = self.scheduler().with_mut(|sched| {
+				let switch = match &event {
+					event::PreemptionEvent::Timer => sched.event_timer_expired(),
+					event::PreemptionEvent::PageFault(pf) => {
+						sched.event_page_fault(
+							match pf.access {
+								event::PageFaultAccess::Execute => {
+									scheduler::PageFaultType::Execute
+								}
+								event::PageFaultAccess::Write => scheduler::PageFaultType::Write,
+								event::PageFaultAccess::Read => scheduler::PageFaultType::Read,
+							},
+							pf.address,
+						)
+					}
+					event::PreemptionEvent::SystemCall(req) => sched.event_system_call(req),
+					unknown => {
+						todo!("unknown incoming preemption event: {unknown:?}");
+					}
+				};
 
-			match switch {
-				scheduler::Switch::KernelResume | scheduler::Switch::UserToKernel => {
-					drop(sched);
-					self.handle.run_context(None, Some(1000), None);
-				}
-				scheduler::Switch::KernelToUser(thr, sys)
-				| scheduler::Switch::UserResume(thr, sys)
-				| scheduler::Switch::UserToUser(thr, sys) => {
-					let sys = sys.map(Resumption::SystemCall);
+				match switch {
+					scheduler::Switch::KernelResume | scheduler::Switch::UserToKernel => {
+						(None, Some(1000), None)
+					}
+					scheduler::Switch::KernelToUser(thr, sys)
+					| scheduler::Switch::UserResume(thr, sys)
+					| scheduler::Switch::UserToUser(thr, sys) => {
+						let sys = sys.map(Resumption::SystemCall);
 
-					// SAFETY: This isn't. It's highly unsafe. But should work for now.
-					let handle = &*thr
-						.with(|t| core::ptr::from_ref(t.handle()))
-						.cast::<UnsafeCell<_>>();
+						// SAFETY: This isn't. It's highly unsafe. But should work for now.
+						let handle = &*thr
+							.with(|t| core::ptr::from_ref(t.handle()))
+							.cast::<UnsafeCell<_>>();
 
-					drop(sched);
-					self.handle.run_context(Some(handle), Some(1000), sys);
+						(Some(handle), Some(1000), sys)
+					}
 				}
-			}
+			});
+
+			self.handle.run_context(ctx, ticks, resumption);
 		}
 	}
 }
