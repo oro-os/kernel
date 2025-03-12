@@ -31,6 +31,7 @@
 
 pub mod arch;
 pub mod event;
+pub mod hash;
 pub mod iface;
 pub mod instance;
 pub mod interface;
