@@ -56,19 +56,19 @@ oro-sync.path = "oro-sync"
 oro-pci.path = "oro-pci"
 oro.path = "oro"
 
-limine = "0.3.1"
-uart_16550 = "0.3.0"
-volatile-register = "0.2.2"
-buddy_system_allocator = "0.11.0"
-hashbrown = { version = "0.15.2", default-features = false, features = ["nightly", "inline-more", "allocator-api2"] }
-foldhash = { version = "0.1.4", default-features = false }
-nolock = { version = "0.4.1", default-features = false, features = ["queues"] }
+limine = "=0.3.1"
+uart_16550 = "=0.3.2"
+volatile-register = "=0.2.2"
+buddy_system_allocator = "=0.11.0"
+hashbrown = { version = "=0.15.2", default-features = false, features = ["nightly", "inline-more", "allocator-api2"] }
+foldhash = { version = "=0.1.4", default-features = false }
+nolock = { version = "=0.4.1", default-features = false, features = ["queues"] }
 
-bindgen = "0.71.1"
-syn = { version = "2.0.60", features = ["full", "printing"] }
-quote = "1.0.36"
-proc-macro2 = { version = "1.0.81", features = ["proc-macro"] }
-convert_case = "0.6.0"
+bindgen = "=0.71.1"
+syn = { version = "=2.0.100", features = ["full", "printing"] }
+quote = "=1.0.40"
+proc-macro2 = { version = "=1.0.94", features = ["proc-macro"] }
+convert_case = "=0.6.0"
 
 [workspace.lints.rust]
 missing_docs = "warn"
