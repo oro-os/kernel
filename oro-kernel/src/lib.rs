@@ -86,7 +86,7 @@ pub struct Kernel<A: Arch> {
 	/// The core's ID.
 	id:        u32,
 	/// Global reference to the shared kernel state.
-	state:     &'static KernelState<A>,
+	state:     &'static GlobalKernelState<A>,
 	/// The kernel scheduler.
 	///
 	/// Guaranteed valid after a successful call to `initialize_for_core`.
@@ -119,7 +119,7 @@ impl<A: Arch> Kernel<A> {
 	/// be the final one that will be used for the lifetime of the core.
 	pub unsafe fn initialize_for_core(
 		id: u32,
-		global_state: &'static KernelState<A>,
+		global_state: &'static GlobalKernelState<A>,
 		handle: A::CoreHandle,
 	) -> Result<&'static Self, MapError> {
 		assert::fits::<Self, 4096>();
@@ -224,9 +224,9 @@ impl<A: Arch> Kernel<A> {
 		self.id
 	}
 
-	/// Returns the underlying [`KernelState`] for this kernel instance.
+	/// Returns the underlying [`GlobalKernelState`] for this kernel instance.
 	#[must_use]
-	pub fn state(&self) -> &'static KernelState<A> {
+	pub fn state(&self) -> &'static GlobalKernelState<A> {
 		self.state
 	}
 
@@ -351,7 +351,7 @@ impl<A: Arch> Kernel<A> {
 
 /// Global state shared by all [`Kernel`] instances across
 /// core boot/powerdown/bringup cycles.
-pub struct KernelState<A: Arch> {
+pub struct GlobalKernelState<A: Arch> {
 	/// Unclaimed thread deque sender.
 	thread_tx: Sender<Tab<Thread<A>>>,
 	/// Unclaimed thread deque receiver.
@@ -368,7 +368,7 @@ pub struct KernelState<A: Arch> {
 	has_initialized_root: AtomicBool,
 }
 
-impl<A: Arch> KernelState<A> {
+impl<A: Arch> GlobalKernelState<A> {
 	/// Creates a new instance of the kernel state. Meant to be called
 	/// once for all cores at boot time.
 	///

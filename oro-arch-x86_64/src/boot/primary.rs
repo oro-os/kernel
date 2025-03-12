@@ -6,7 +6,7 @@ use oro_acpi::{
 };
 use oro_boot_protocol::acpi::AcpiKind;
 use oro_debug::{dbg, dbg_warn};
-use oro_kernel::KernelState;
+use oro_kernel::GlobalKernelState;
 use oro_mem::{
 	mapper::AddressSpace,
 	phys::{Phys, PhysAddr},
@@ -173,7 +173,8 @@ pub unsafe fn boot() -> ! {
 
 	// SAFETY(qix-): This is the only place we take a mutable reference to it.
 	#[expect(static_mut_refs)]
-	KernelState::init(&mut super::KERNEL_STATE).expect("failed to create global kernel state");
+	GlobalKernelState::init(&mut super::KERNEL_STATE)
+		.expect("failed to create global kernel state");
 
 	super::initialize_core_local(lapic);
 	// SAFETY: This is the only place where the root ring is being initialized.

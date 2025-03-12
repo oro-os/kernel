@@ -3,11 +3,11 @@
 
 use core::mem::MaybeUninit;
 
-use oro_kernel::KernelState;
+use oro_kernel::GlobalKernelState;
 
 /// The global kernel state. Initialized once during boot
 /// and re-used across all cores.
-pub static mut KERNEL_STATE: MaybeUninit<KernelState<crate::Arch>> = MaybeUninit::uninit();
+pub static mut KERNEL_STATE: MaybeUninit<GlobalKernelState<crate::Arch>> = MaybeUninit::uninit();
 
 /// Initializes the global state of the architecture.
 ///
@@ -33,7 +33,7 @@ pub unsafe fn initialize_primary() {
 
 	// SAFETY(qix-): We know what we're doing here.
 	#[expect(static_mut_refs)]
-	KernelState::init(&mut KERNEL_STATE).expect("failed to create global kernel state");
+	GlobalKernelState::init(&mut KERNEL_STATE).expect("failed to create global kernel state");
 }
 
 /// Main boot sequence for all cores for each bringup

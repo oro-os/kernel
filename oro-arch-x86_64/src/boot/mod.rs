@@ -9,7 +9,7 @@ pub mod secondary;
 use core::{cell::UnsafeCell, mem::MaybeUninit};
 
 use oro_debug::{dbg, dbg_warn};
-use oro_kernel::KernelState;
+use oro_kernel::GlobalKernelState;
 
 use crate::{
 	gdt::{Gdt, SysEntry},
@@ -19,7 +19,7 @@ use crate::{
 
 /// The global kernel state. Initialized once during boot
 /// and re-used across all cores.
-pub static mut KERNEL_STATE: MaybeUninit<KernelState<crate::Arch>> = MaybeUninit::uninit();
+pub static mut KERNEL_STATE: MaybeUninit<GlobalKernelState<crate::Arch>> = MaybeUninit::uninit();
 
 /// Initializes the core local kernel.
 ///
