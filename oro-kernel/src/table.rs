@@ -146,7 +146,7 @@ impl<Alloc: Allocator + Default> TypeTable<Alloc> {
 
 	/// Gets the given type from the table, inserting the value from the given closure if it doesn't exist.
 	#[inline]
-	pub fn get_or_insert_with<T: Any, F: FnOnce() -> T>(&mut self, f: F) -> &mut T {
+	pub fn get_or_insert_with<T: Any>(&mut self, f: impl FnOnce() -> T) -> &mut T {
 		// SAFETY: We know that the type is `T` because we're passing it in.
 		// SAFETY: Therefore we can guarantee we're getting the right type.
 		unsafe {
