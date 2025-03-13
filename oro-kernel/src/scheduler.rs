@@ -35,11 +35,6 @@ pub struct Scheduler<A: Arch> {
 	thread_rx: Receiver<Tab<Thread<A>>>,
 }
 
-// XXX(qix-): Temporary workaround to make things compile
-// XXX(qix-): prior to heap allocation and scheduler refactor.
-unsafe impl<A: Arch> Send for Scheduler<A> {}
-unsafe impl<A: Arch> Sync for Scheduler<A> {}
-
 impl<A: Arch> Scheduler<A> {
 	/// Creates a new scheduler instance.
 	pub(crate) fn new(kernel: &'static Kernel<A>) -> Self {
