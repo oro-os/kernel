@@ -75,7 +75,9 @@ missing_docs = "warn"
 elided_lifetimes_in_paths = "deny"
 
 [workspace.lints.rustdoc]
+all = { level = "deny", priority = -1 }
 private_doc_tests = "allow"
+private_intra_doc_links = "allow"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
