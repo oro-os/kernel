@@ -12,13 +12,39 @@
 #![expect(internal_features)]
 #![feature(core_intrinsics)]
 
+use oro_sync::{Lock, TicketMutex};
+
 #[cfg(any(doc, all(debug_assertions, feature = "pl011")))]
 mod pl011;
+mod ringbuffer;
 #[cfg(any(
 	doc,
 	all(debug_assertions, target_arch = "x86_64", feature = "uart16550")
 ))]
 mod uart16550;
+
+/// The size of the internal ring buffer.
+const RING_BUFFER_SIZE: usize = 4096;
+
+/// Static ring buffer that receives all bytes logged.
+static RING_BUFFER: TicketMutex<ringbuffer::RingBuffer<RING_BUFFER_SIZE>> =
+	TicketMutex::new(ringbuffer::RingBuffer::new());
+
+/// Returns the length of the internal ring buffer used for
+/// retrieving log data by e.g. the boot logger.
+#[must_use]
+pub const fn ring_buffer_len() -> usize {
+	RING_BUFFER_SIZE
+}
+
+/// Reads a single `u64` from the ring buffer.
+///
+/// See [`ringbuffer::RingBuffer::read()`] for more information.
+#[must_use]
+#[inline]
+pub fn ring_buffer_read() -> u64 {
+	RING_BUFFER.lock().read()
+}
 
 /// Initializes the debug logger with a linear map offset, if one is enabled.
 ///
@@ -47,11 +73,11 @@ pub fn init() {
 /// Logs a module-level debug line to the debug logger.
 ///
 /// To be used only by the root-ring kernel debug output interface.
-#[allow(unused_variables, dead_code)]
 #[cfg(debug_assertions)]
 pub fn log_debug_bytes(line: &[u8]) {
 	#[cfg(feature = "kernel-debug")]
 	{
+		#[allow(dead_code)]
 		#[doc(hidden)]
 		const PREFIX: &str = "D:<module>:0:";
 		#[cfg(feature = "pl011")]
@@ -59,6 +85,12 @@ pub fn log_debug_bytes(line: &[u8]) {
 		#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
 		self::uart16550::log_debug_bytes(PREFIX, line);
 	}
+
+	let mut buf = RING_BUFFER.lock();
+	buf.write(b"  ");
+	buf.write(line);
+	buf.write(b"\n");
+	drop(buf);
 }
 
 /// Logs a message to the debug logger.
@@ -74,11 +106,17 @@ pub fn log(message: core::fmt::Arguments<'_>) {
 		#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
 		self::uart16550::log(message);
 	}
+}
 
-	#[cfg(not(feature = "kernel-debug"))]
-	{
-		let _ = message;
-	}
+/// Logs a message directly to the ring buffer.
+///
+/// Shouldn't be used directly; use the `dbg!` macros instead.
+pub fn log_ring_fmt(message: core::fmt::Arguments<'_>) {
+	use core::fmt::Write;
+	let mut buf = RING_BUFFER.lock();
+	let _ = buf.write_fmt(message);
+	buf.write(b"\n");
+	drop(buf);
 }
 
 /// Sends a general debug message to the archiecture-specific debug endpoint.
@@ -89,10 +127,8 @@ macro_rules! dbg {
 		{
 			$crate::log(format_args!("I:{}:{}:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
 		}
-		#[cfg(not(debug_assertions))]
-		{
-			let _ = format_args!($($arg)*);
-		}
+
+		$crate::log_ring_fmt(format_args!("  {}", format_args!($($arg)*)));
 	}};
 }
 
@@ -104,10 +140,8 @@ macro_rules! dbg_err {
 		{
 			$crate::log(format_args!("E:{}:{}:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
 		}
-		#[cfg(not(debug_assertions))]
-		{
-			let _ = format_args!($($arg)*);
-		}
+
+		$crate::log_ring_fmt(format_args!("? {}", format_args!($($arg)*)));
 	}};
 }
 
@@ -119,10 +153,8 @@ macro_rules! dbg_warn {
 		{
 			$crate::log(format_args!("W:{}:{}:{}", ::core::file!(), ::core::line!(), format_args!($($arg)*)));
 		}
-		#[cfg(not(debug_assertions))]
-		{
-			let _ = format_args!($($arg)*);
-		}
+
+		$crate::log_ring_fmt(format_args!("! {}", format_args!($($arg)*)));
 	}};
 }
 
@@ -144,10 +176,7 @@ impl core::fmt::Write for DebugWriter {
 			self::uart16550::log_str_raw(s);
 		}
 
-		#[cfg(not(feature = "kernel-debug"))]
-		{
-			let _ = s;
-		}
+		let _ = RING_BUFFER.lock().write_str(s);
 
 		Ok(())
 	}

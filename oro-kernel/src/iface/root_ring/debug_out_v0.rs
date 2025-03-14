@@ -132,6 +132,8 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 			}
 			key!("hard_max") => InterfaceResponse::ok(HARD_MAXIMUM),
 			key!("hard_min") => InterfaceResponse::ok(HARD_MINIMUM),
+			key!("ring_sz") => InterfaceResponse::ok(oro_debug::ring_buffer_len() as u64),
+			key!("ring_u64") => InterfaceResponse::ok(oro_debug::ring_buffer_read()),
 			_ => InterfaceResponse::immediate(SysError::BadKey, 0),
 		}
 	}
@@ -162,7 +164,7 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 
 				InterfaceResponse::ok(0)
 			}
-			key!("hard_max") | key!("hard_min") => {
+			key!("hard_max") | key!("hard_min") | key!("ring_sz") | key!("ring_u64") => {
 				InterfaceResponse::immediate(SysError::ReadOnly, 0)
 			}
 			_ => InterfaceResponse::immediate(SysError::BadKey, 0),
