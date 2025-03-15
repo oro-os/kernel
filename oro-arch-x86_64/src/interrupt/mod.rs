@@ -80,6 +80,20 @@ impl Idt {
 	}
 }
 
+impl core::ops::IndexMut<usize> for Idt {
+	fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+		&mut self.entries[index]
+	}
+}
+
+impl core::ops::Index<usize> for Idt {
+	type Output = IdtEntry;
+
+	fn index(&self, index: usize) -> &Self::Output {
+		&self.entries[index]
+	}
+}
+
 /// A stack frame for an interrupt handler.
 #[expect(missing_docs)]
 #[derive(Debug)]

@@ -10,9 +10,11 @@ use core::{cell::UnsafeCell, mem::MaybeUninit};
 
 use oro_debug::{dbg, dbg_warn};
 use oro_kernel::GlobalKernelState;
+use oro_mem::alloc::boxed::Box;
 
 use crate::{
 	gdt::{Gdt, SysEntry},
+	interrupt::Idt,
 	lapic::Lapic,
 	tss::Tss,
 };
@@ -34,6 +36,9 @@ pub static mut KERNEL_STATE: MaybeUninit<GlobalKernelState<crate::Arch>> = Maybe
 /// [`KERNEL_STATE`] must be initialized before calling this function.
 /// It's only to be initialized by the primary core at system boot.
 /// Secondary cores should assume it's initialized.
+///
+/// This installs the core local IDT. See [`crate::interrupt::install::install_idt`]
+/// for safety concerns.
 pub unsafe fn initialize_core_local(lapic: Lapic) {
 	#[expect(static_mut_refs)]
 	crate::Kernel::initialize_for_core(
@@ -43,9 +48,13 @@ pub unsafe fn initialize_core_local(lapic: Lapic) {
 			lapic,
 			gdt: UnsafeCell::new(MaybeUninit::uninit()),
 			tss: UnsafeCell::new(Tss::default()),
+			idt: Box::new(Idt::new()),
 		},
 	)
 	.expect("failed to initialize kernel");
+
+	// Install the local IDT.
+	crate::Kernel::get().handle().idt.install();
 }
 
 /// Common boot routines for the x86_64 architecture.

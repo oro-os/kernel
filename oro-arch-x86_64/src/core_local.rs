@@ -3,11 +3,14 @@
 use core::{cell::UnsafeCell, mem::MaybeUninit};
 
 use oro_kernel::{arch::Arch, event::Resumption};
+use oro_mem::alloc::boxed::Box;
 
 use crate::{
-	gdt, lapic,
+	gdt::Gdt,
+	interrupt::Idt,
+	lapic,
 	mem::{address_space::AddressSpaceLayout, paging_level::PagingLevel},
-	tss,
+	tss::Tss,
 };
 
 /// Core local kernel handle for the x86_64 architecture.
@@ -21,9 +24,11 @@ pub struct CoreHandle {
 	///
 	/// Only valid after the Kernel has been initialized
 	/// and properly mapped.
-	pub gdt:   UnsafeCell<MaybeUninit<gdt::Gdt<8>>>,
+	pub gdt:   UnsafeCell<MaybeUninit<Gdt<8>>>,
 	/// The TSS (Task State Segment) for the core.
-	pub tss:   UnsafeCell<tss::Tss>,
+	pub tss:   UnsafeCell<Tss>,
+	/// The core local IDT.
+	pub idt:   Box<Idt>,
 }
 
 unsafe impl oro_kernel::arch::CoreHandle<crate::Arch> for CoreHandle {
