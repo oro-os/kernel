@@ -76,6 +76,7 @@ pub mod boot;
 pub mod core_local;
 pub mod cpuid;
 pub mod gdt;
+pub mod hpet;
 pub mod iface;
 pub mod instance;
 pub mod interrupt;

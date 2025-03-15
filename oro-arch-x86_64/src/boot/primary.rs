@@ -92,6 +92,8 @@ pub unsafe fn boot() -> ! {
 	let lapic_id = lapic.id();
 	dbg!("local APIC ID: {lapic_id}");
 
+	crate::hpet::initialize();
+
 	{
 		#[doc(hidden)]
 		#[cfg(not(feature = "force-singlecore"))]
@@ -128,8 +130,6 @@ pub unsafe fn boot() -> ! {
 					} else {
 						dbg!("cpu {}: not booting (disabled)", apic.id());
 					}
-				} else {
-					dbg_warn!("unhandled MADT entry: {entry:#X?}");
 				}
 			}
 
