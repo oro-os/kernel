@@ -42,10 +42,10 @@ impl ThreadHandle {
 	/// Performs an `iret` back into this thread's userspace context.
 	///
 	/// # Safety
-	/// See [`crate::interrupt::iret_context`] for safety considerations.
+	/// See [`crate::interrupt::isr::iret_context`] for safety considerations.
 	#[inline]
 	pub unsafe fn iret(&self) -> ! {
-		crate::interrupt::iret_context(self.mapper.base_phys)
+		crate::interrupt::isr::iret_context(self.mapper.base_phys)
 	}
 
 	/// Performs a `sysret` back into this thread's userspace context.

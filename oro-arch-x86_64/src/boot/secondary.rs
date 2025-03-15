@@ -424,7 +424,7 @@ asm_buffer! {
 unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	crate::asm::flush_tlb();
 	crate::gdt::GDT.install();
-	crate::interrupt::install();
+	crate::interrupt::install_default();
 
 	let stubs = Phys::from_address_unchecked(0x8000)
 		.as_ref::<UnsafeCell<BootMeta>>()
