@@ -4,7 +4,6 @@ use oro_acpi::{
 	madt::{LocalApicEx as _, MadtEntry},
 	sys as acpi_sys,
 };
-use oro_boot_protocol::acpi::AcpiKind;
 use oro_debug::{dbg, dbg_warn};
 use oro_kernel::GlobalKernelState;
 use oro_mem::{
@@ -12,7 +11,7 @@ use oro_mem::{
 	phys::{Phys, PhysAddr},
 };
 
-use super::{memory, protocol, secondary};
+use super::{memory, secondary};
 use crate::mem::address_space::AddressSpaceLayout;
 
 /// Temporary value for the number of stack pages to allocate for secondary cores.
@@ -45,26 +44,7 @@ pub unsafe fn boot() -> ! {
 
 	dbg!("booting primary core");
 
-	// Get the RSDP from the bootloader.
-	let AcpiKind::V0(rsdp_response) = protocol::ACPI_REQUEST
-		.response()
-		.expect("ACPI request was not populated")
-	else {
-		panic!("ACPI request and response revision number differ");
-	};
-
-	let rsdp_phys = core::ptr::read_volatile(&rsdp_response.assume_init_ref().rsdp);
-	dbg!("ACPI response OK: RSDP at {rsdp_phys:016?}");
-
-	let rsdp = oro_acpi::Rsdp::get(rsdp_phys).expect("RSDP failed to validate; check RSDP pointer");
-	dbg!("RSDP revision: {}", rsdp.revision());
-
-	let sdt = rsdp
-		.sdt()
-		.expect("ACPI tables are missing either the RSDT or XSDT table");
-
-	let fadt = sdt
-		.find::<oro_acpi::Fadt>()
+	let fadt = crate::boot::protocol::find_acpi_table::<oro_acpi::Fadt>()
 		.expect("FADT table not found in ACPI tables");
 	let fadt = fadt.inner_ref();
 
@@ -93,8 +73,7 @@ pub unsafe fn boot() -> ! {
 		dbg!("ACPI already enabled");
 	}
 
-	let madt = sdt
-		.find::<oro_acpi::Madt>()
+	let madt = crate::boot::protocol::find_acpi_table::<oro_acpi::Madt>()
 		.expect("MADT table not found in ACPI tables");
 
 	if madt.has_8259() {
