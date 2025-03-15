@@ -78,7 +78,7 @@ pub fn finalize_boot_and_run() -> ! {
 	// SAFETY: This is the boot sequence, which is the only place where these functions
 	// SAFETY: are called.
 	unsafe {
-		crate::interrupt::initialize_lapic_irqs();
+		crate::lapic::initialize_lapic_irqs();
 		crate::syscall::install_syscall_handler();
 		crate::asm::load_tss(crate::gdt::TSS_GDT_OFFSET);
 	}

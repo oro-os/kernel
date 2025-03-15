@@ -12,15 +12,7 @@ use oro_kernel::event::{InvalidInstruction, PageFault, PageFaultAccess, Preempti
 use oro_macro::paste;
 use oro_sync::{Lock, Mutex};
 
-use crate::{
-	lapic::{ApicSvr, ApicTimerConfig, ApicTimerMode},
-	mem::{address_space::AddressSpaceLayout, paging_level::PagingLevel},
-};
-
-/// The vector number for the APIC spurious interrupt.
-const APIC_SVR_VECTOR: u8 = 0xFF;
-/// The vector number for the system timer interrupt.
-const TIMER_VECTOR: u8 = 0x20;
+use crate::mem::{address_space::AddressSpaceLayout, paging_level::PagingLevel};
 
 pub mod idt;
 
@@ -272,31 +264,6 @@ pub unsafe fn install() {
 	unsafe {
 		idt::install_idt(idt_ref);
 	}
-}
-
-/// Initializes the APIC (Advanced Programmable Interrupt Controller)
-/// for interrupt handling.
-///
-/// # Safety
-/// Modifies global state, and must be called only once per core.
-///
-/// The kernel MUST be fully initialized before calling this function.
-pub unsafe fn initialize_lapic_irqs() {
-	let lapic = &crate::Kernel::get().handle().lapic;
-
-	lapic.set_spurious_vector(
-		ApicSvr::new()
-			.with_vector(APIC_SVR_VECTOR)
-			.with_software_enable(),
-	);
-
-	lapic.set_timer_divider(crate::lapic::ApicTimerDivideBy::Div128);
-
-	lapic.configure_timer(
-		ApicTimerConfig::new()
-			.with_vector(TIMER_VECTOR)
-			.with_mode(ApicTimerMode::OneShot),
-	);
 }
 
 /// A stack frame for an interrupt handler.

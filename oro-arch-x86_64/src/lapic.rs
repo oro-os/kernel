@@ -7,6 +7,36 @@ use core::fmt;
 
 use oro_type::Volatile;
 
+/// The vector number for the APIC spurious interrupt.
+const APIC_SVR_VECTOR: u8 = 0xFF;
+/// The vector number for the system timer interrupt.
+const PIT_TIMER_VECTOR: u8 = 0x20;
+
+/// Initializes the APIC (Advanced Programmable Interrupt Controller)
+/// for interrupt handling.
+///
+/// # Safety
+/// Modifies global state, and must be called only once per core.
+///
+/// The kernel MUST be fully initialized before calling this function.
+pub unsafe fn initialize_lapic_irqs() {
+	let lapic = &crate::Kernel::get().handle().lapic;
+
+	lapic.set_spurious_vector(
+		ApicSvr::new()
+			.with_vector(APIC_SVR_VECTOR)
+			.with_software_enable(),
+	);
+
+	lapic.set_timer_divider(crate::lapic::ApicTimerDivideBy::Div128);
+
+	lapic.configure_timer(
+		ApicTimerConfig::new()
+			.with_vector(PIT_TIMER_VECTOR)
+			.with_mode(ApicTimerMode::OneShot),
+	);
+}
+
 /// A single 32-bit, read-only LAPIC register.
 #[repr(C, align(16))]
 struct RO32 {
