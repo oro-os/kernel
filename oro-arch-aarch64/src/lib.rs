@@ -43,6 +43,7 @@ pub mod mem;
 pub mod psci;
 pub mod reg;
 pub mod thread;
+pub mod time;
 
 pub(crate) mod init;
 

@@ -2,14 +2,18 @@
 
 use core::{cell::UnsafeCell, mem::MaybeUninit};
 
-use oro_kernel::{arch::Arch, event::Resumption};
-use oro_mem::alloc::boxed::Box;
+use oro_kernel::{
+	arch::{Arch, InstantResult},
+	event::Resumption,
+};
+use oro_mem::alloc::{boxed::Box, sync::Arc};
 
 use crate::{
 	gdt::Gdt,
 	interrupt::Idt,
 	lapic,
 	mem::{address_space::AddressSpaceLayout, paging_level::PagingLevel},
+	time::GetInstant,
 	tss::Tss,
 };
 
@@ -19,25 +23,33 @@ use crate::{
 pub struct CoreHandle {
 	/// The LAPIC (Local Advanced Programmable Interrupt Controller)
 	/// for the core.
-	pub lapic: lapic::Lapic,
+	pub lapic:       lapic::Lapic,
 	/// The core's local GDT
 	///
 	/// Only valid after the Kernel has been initialized
 	/// and properly mapped.
-	pub gdt:   UnsafeCell<MaybeUninit<Gdt<8>>>,
+	pub gdt:         UnsafeCell<MaybeUninit<Gdt<8>>>,
 	/// The TSS (Task State Segment) for the core.
-	pub tss:   UnsafeCell<Tss>,
+	pub tss:         UnsafeCell<Tss>,
 	/// The core local IDT.
-	pub idt:   Box<Idt>,
+	pub idt:         Box<Idt>,
+	/// The implementation of the timestamp fetcher.
+	pub instant_gen: Arc<dyn GetInstant>,
 }
 
 unsafe impl oro_kernel::arch::CoreHandle<crate::Arch> for CoreHandle {
+	type Instant = crate::time::Instant;
+
 	fn schedule_timer(&self, ticks: u32) {
 		self.lapic.set_timer_initial_count(ticks);
 	}
 
 	fn cancel_timer(&self) {
 		self.lapic.cancel_timer();
+	}
+
+	fn now(&self) -> InstantResult<Self::Instant> {
+		InstantResult::Ok(self.instant_gen.now())
 	}
 
 	unsafe fn run_context(

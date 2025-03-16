@@ -8,11 +8,17 @@ use oro_kernel::{arch::Arch, event::Resumption};
 pub struct CoreHandle;
 
 unsafe impl oro_kernel::arch::CoreHandle<crate::Arch> for CoreHandle {
+	type Instant = crate::time::Instant;
+
 	fn schedule_timer(&self, _ticks: u32) {
 		todo!();
 	}
 
 	fn cancel_timer(&self) {
+		todo!();
+	}
+
+	fn now(&self) -> oro_kernel::arch::InstantResult<Self::Instant> {
 		todo!();
 	}
 

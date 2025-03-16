@@ -2,7 +2,7 @@
 
 use core::{
 	cell::UnsafeCell,
-	mem::offset_of,
+	mem::{ManuallyDrop, offset_of},
 	sync::atomic::{
 		AtomicBool, AtomicU64,
 		Ordering::{Acquire, Relaxed, Release},
@@ -14,6 +14,7 @@ use oro_boot_protocol::acpi::AcpiKind;
 use oro_debug::{dbg, dbg_err};
 use oro_macro::{asm_buffer, assert};
 use oro_mem::{
+	alloc::sync::Arc,
 	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	pfa::Alloc,
@@ -26,6 +27,7 @@ use crate::{
 		address_space::{AddressSpaceHandle, AddressSpaceLayout},
 		segment::MapperHandle,
 	},
+	time::GetInstant,
 };
 
 /// Indicates that the primary has finished initializing the core state
@@ -86,6 +88,8 @@ struct BootMeta {
 	null_idt: [u8; 6],
 	/// The CR4 bits.
 	cr4_bits: u32,
+	/// The timekeeper to use.
+	timekeeper: ManuallyDrop<Arc<dyn GetInstant>>,
 	/// The GDT bytes.
 	gdt: [u8; 0x100],
 }
@@ -112,6 +116,7 @@ pub unsafe fn boot(
 	lapic: &Lapic,
 	secondary_lapic_id: u8,
 	stack_pages: usize,
+	timekeeper: Arc<dyn GetInstant>,
 ) -> Result<(), BootError> {
 	let stubs = Phys::from_address_unchecked(0x8000)
 		.as_ref::<UnsafeCell<BootMeta>>()
@@ -248,6 +253,9 @@ pub unsafe fn boot(
 	let gdtr_descriptor_slice = &mut (*stubs.get()).gdtr;
 	gdtr_descriptor_slice[0..2].copy_from_slice(&(gdt_slice.len() as u16 - 1).to_le_bytes());
 	gdtr_descriptor_slice[2..6].copy_from_slice(&gdt_base.to_le_bytes());
+
+	// Write the timekeeper implementation so the secondary cores can use it.
+	(*stubs.get()).timekeeper = ManuallyDrop::new(timekeeper);
 
 	// Make sure all cores see the change.
 	crate::asm::strong_memory_fence();
@@ -430,6 +438,9 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 		.as_ref::<UnsafeCell<BootMeta>>()
 		.unwrap();
 
+	// Take the timekeeper, not dropping it later on.
+	let timekeeper = ManuallyDrop::take(&mut (*stubs.get()).timekeeper);
+
 	// Pull the RSDP from the boot protocol
 	// SAFETY(qix-): We can just unwrap these values as they're guaranteed to be OK
 	// SAFETY(qix-): since the primary core has already validated them to even boot
@@ -538,6 +549,6 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 		"secondary core booted but primary didn't signal to continue in a timely fashion"
 	);
 
-	super::initialize_core_local(lapic);
+	super::initialize_core_local(lapic, timekeeper);
 	super::finalize_boot_and_run();
 }

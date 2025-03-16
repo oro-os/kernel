@@ -1,6 +1,6 @@
 //! Types and traits for implementing architecture-specific (CPU) core handles.
 
-use core::cell::UnsafeCell;
+use core::{cell::UnsafeCell, time::Duration};
 
 use crate::{arch::Arch, event::Resumption};
 
@@ -13,6 +13,10 @@ use crate::{arch::Arch, event::Resumption};
 /// great care that **all** invariants for **each individual method**
 /// are upheld.
 pub unsafe trait CoreHandle<A: Arch> {
+	/// A single 'instant' in time; used only for comparison of
+	/// timestamps, etc.
+	type Instant: Instant;
+
 	/// Tells a one-off timer to expire after `ticks`.
 	/// The architecture should not transform the number
 	/// of ticks unless it has good reason to.
@@ -62,4 +66,49 @@ pub unsafe trait CoreHandle<A: Arch> {
 		ticks: Option<u32>,
 		resumption: Option<Resumption>,
 	) -> !;
+
+	/// Returns the current timestamp of the system.
+	///
+	/// This timestamp **must** be up to date at least at kernel event handler
+	/// entry, and must always increase, never decrease.
+	///
+	/// This timestamp **does not** need to be the same clock source
+	/// across all cores; each core may use its own clock source,
+	/// as long as all other requirements are upheld.
+	///
+	/// This function may return the same timestamp across multiple calls
+	/// within a single kernel context switch; it must be updated whenever
+	/// a kernel event occurs (interrupt, system call, etc.), at the latest
+	/// upon first call to this function within the kernel timeslice.
+	///
+	/// Further, this may return [`InstantResult::Overflow`] multiple times
+	/// for the same kernel slice.
+	fn now(&self) -> InstantResult<Self::Instant>;
+}
+
+/// A single 'instant' in time.
+pub trait Instant: Sized + Clone + Copy + PartialEq + Eq + core::cmp::Ord {
+	/// Adds the given [`Duration`] to this timestamp. If the timestamp overflows,
+	fn checked_add(&self, duration: &Duration) -> InstantResult<Self>;
+
+	/// Gets the time since the given instant that this instant occurred.
+	///
+	/// Returns `None` if the given instant is newer than this instant,
+	/// or if the duration overflows a 64-bit nanosecond value.
+	fn checked_duration_since(&self, other: &Self) -> Option<Duration>;
+}
+
+/// A result type for [`Instant`] queries and calculations.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum InstantResult<I: Instant> {
+	/// No wrapping occurred.
+	Ok(I),
+	/// The timestamp overflowed when calculating
+	/// querying for it.
+	///
+	/// The given timestamp contains the remainder
+	/// after the overflow, and thus will likely be
+	/// **less than** a previous timestamp (but that
+	/// is **not guaranteed**).
+	Overflow(I),
 }

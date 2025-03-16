@@ -85,6 +85,7 @@ pub mod mem;
 pub mod reg;
 pub mod syscall;
 pub mod thread;
+pub mod time;
 pub mod tss;
 
 use oro_elf::{ElfClass, ElfEndianness, ElfMachine};

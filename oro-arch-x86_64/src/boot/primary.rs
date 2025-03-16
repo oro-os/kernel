@@ -7,12 +7,13 @@ use oro_acpi::{
 use oro_debug::{dbg, dbg_warn};
 use oro_kernel::GlobalKernelState;
 use oro_mem::{
+	alloc::sync::Arc,
 	mapper::AddressSpace,
 	phys::{Phys, PhysAddr},
 };
 
 use super::{memory, secondary};
-use crate::mem::address_space::AddressSpaceLayout;
+use crate::{mem::address_space::AddressSpaceLayout, time::GetInstant};
 
 /// Temporary value for the number of stack pages to allocate for secondary cores.
 // TODO(qix-): Discover the stack size of the primary core and use that instead.
@@ -92,7 +93,7 @@ pub unsafe fn boot() -> ! {
 	let lapic_id = lapic.id();
 	dbg!("local APIC ID: {lapic_id}");
 
-	crate::hpet::initialize();
+	let timekeeper: Arc<dyn GetInstant> = crate::hpet::initialize();
 
 	{
 		#[doc(hidden)]
@@ -117,8 +118,13 @@ pub unsafe fn boot() -> ! {
 							dbg!("cpu {}: not booting (primary core)", apic.id());
 						} else {
 							dbg!("cpu {}: booting...", apic.id());
-							match secondary::boot(&mapper, &lapic, apic.id(), SECONDARY_STACK_PAGES)
-							{
+							match secondary::boot(
+								&mapper,
+								&lapic,
+								apic.id(),
+								SECONDARY_STACK_PAGES,
+								timekeeper.clone(),
+							) {
 								Ok(()) => {
 									num_cores += 1;
 								}
@@ -155,7 +161,7 @@ pub unsafe fn boot() -> ! {
 	GlobalKernelState::init(&mut super::KERNEL_STATE)
 		.expect("failed to create global kernel state");
 
-	super::initialize_core_local(lapic);
+	super::initialize_core_local(lapic, timekeeper);
 	// SAFETY: This is the only place where the root ring is being initialized.
 	unsafe {
 		super::root_ring::initialize_root_ring();

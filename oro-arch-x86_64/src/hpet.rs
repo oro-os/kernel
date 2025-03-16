@@ -4,11 +4,19 @@
 	reason = "Some functionality isn't used but included to help document some of the spec"
 )]
 
+use core::sync::atomic::{AtomicU64, Ordering::Relaxed};
+
 use oro_acpi::AcpiTable;
 use oro_debug::dbg;
 use oro_macro::bitstruct;
-use oro_mem::phys::{Phys, PhysAddr};
+use oro_mem::{
+	alloc::sync::Arc,
+	phys::{Phys, PhysAddr},
+};
+use oro_sync::{Lock, Mutex};
 use oro_type::Volatile;
+
+use crate::time::GetInstant;
 
 /// Initializes the HPET.
 ///
@@ -17,7 +25,9 @@ use oro_type::Volatile;
 ///
 /// # Safety
 /// Must **only** be called by the primary core, exactly once at system boot.
-pub unsafe fn initialize() {
+#[must_use]
+#[cold]
+pub unsafe fn initialize() -> Arc<dyn GetInstant> {
 	// Find the HPET table in the ACPI tables.
 	// TODO(qix-): Once more timekeepng mechanisms are supported, don't
 	// TODO(qix-): make this panic.
@@ -37,24 +47,59 @@ pub unsafe fn initialize() {
 		.as_ref::<HpetRegisters>()
 		.expect("virtual address of HPET base registers is misaligned");
 
-	dbg!("HPET caps and ID: {:#X?}", registers.caps_and_id.get());
-
-	// XXX(qix-): Let's see if it works.
+	// Start the timer.
 	registers
 		.gen_cfg
 		.set(registers.gen_cfg.get().with_enable_cfg(false));
-	registers.main_counter.set(0);
+	registers.main_counter.store(0, Relaxed);
 	crate::asm::strong_memory_fence();
 	registers
 		.gen_cfg
 		.set(registers.gen_cfg.get().with_enable_cfg(true));
 	crate::asm::strong_memory_fence();
 
-	for read_no in 0..10 {
-		for _ in 0..100_000 {
-			core::hint::spin_loop();
-		}
-		dbg!("HPET read {read_no}: {}", registers.main_counter.get());
+	let fs_per_tick = registers.caps_and_id.get().counter_clk_period();
+
+	Arc::new(Mutex::new(HpetHandle {
+		base_registers:    registers,
+		counter:           0,
+		femtosecond_magic: crate::time::calculate_fsns_magic(fs_per_tick),
+	}))
+}
+
+/// A handle to the HPET from which instants can be fetched.
+pub struct HpetHandle {
+	/// A reference to the base registers of the HPET.
+	base_registers:    &'static HpetRegisters,
+	/// The current counter, in "fembiseconds" (see [`Self::femtosecond_magic`]).
+	counter:           u128,
+	/// The constant multiplier to apply to new counter
+	/// values to arrive at "fembiseconds" - a power-of-two
+	/// femtoseconds approximation. This value can be right-shifted
+	/// by 20 to arrive at nanoseconds.
+	///
+	/// This is a cached value of the HPET's configuration
+	/// field.
+	femtosecond_magic: u128,
+}
+
+// SAFETY: We can guarantee this is `Send` as it's available system-wide.
+unsafe impl Send for HpetHandle {}
+
+impl GetInstant for Mutex<HpetHandle> {
+	fn now(&self) -> crate::time::Instant {
+		let mut this = self.lock();
+		// Disable, read, reset, re-enable.
+		let old_cfg = this.base_registers.gen_cfg.get().with_enable_cfg(true);
+		this.base_registers
+			.gen_cfg
+			.set(old_cfg.with_enable_cfg(false));
+		let new_counts = this.base_registers.main_counter.swap(0, Relaxed);
+		this.base_registers.gen_cfg.set(old_cfg);
+		this.counter += u128::from(new_counts);
+		let ts = this.counter * this.femtosecond_magic;
+		drop(this);
+		crate::time::Instant::new(ts)
 	}
 }
 
@@ -87,7 +132,8 @@ struct HpetRegisters {
 	///
 	/// - Writes to this register should only be done while the counter is halted.
 	/// - 32-bit counters will always return 0 for the upper 32-bits of this register.
-	main_counter: Volatile<u64>,
+	/// - Reads and writes to this counter must be atomic.
+	main_counter: AtomicU64,
 	_reserved3:   u64,
 	/// Timer 0.
 	timer0:       HpetTimer,

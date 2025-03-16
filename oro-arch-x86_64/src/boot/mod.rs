@@ -10,12 +10,13 @@ use core::{cell::UnsafeCell, mem::MaybeUninit};
 
 use oro_debug::{dbg, dbg_warn};
 use oro_kernel::GlobalKernelState;
-use oro_mem::alloc::boxed::Box;
+use oro_mem::alloc::{boxed::Box, sync::Arc};
 
 use crate::{
 	gdt::{Gdt, SysEntry},
 	interrupt::Idt,
 	lapic::Lapic,
+	time::GetInstant,
 	tss::Tss,
 };
 
@@ -39,7 +40,7 @@ pub static mut KERNEL_STATE: MaybeUninit<GlobalKernelState<crate::Arch>> = Maybe
 ///
 /// This installs the core local IDT. See [`crate::interrupt::install::install_idt`]
 /// for safety concerns.
-pub unsafe fn initialize_core_local(lapic: Lapic) {
+pub unsafe fn initialize_core_local(lapic: Lapic, timekeeper: Arc<dyn GetInstant>) {
 	#[expect(static_mut_refs)]
 	crate::Kernel::initialize_for_core(
 		lapic.id().into(),
@@ -49,6 +50,7 @@ pub unsafe fn initialize_core_local(lapic: Lapic) {
 			gdt: UnsafeCell::new(MaybeUninit::uninit()),
 			tss: UnsafeCell::new(Tss::default()),
 			idt: Box::new(Idt::new()),
+			instant_gen: timekeeper,
 		},
 	)
 	.expect("failed to initialize kernel");
