@@ -7,7 +7,6 @@
 use core::sync::atomic::{AtomicU64, Ordering::Relaxed};
 
 use oro_acpi::AcpiTable;
-use oro_debug::dbg;
 use oro_macro::bitstruct;
 use oro_mem::{
 	alloc::sync::Arc,
@@ -34,8 +33,6 @@ pub unsafe fn initialize() -> Arc<dyn GetInstant> {
 	let Some(hpet) = crate::boot::protocol::find_acpi_table::<oro_acpi::Hpet>() else {
 		panic!("no HPET found");
 	};
-
-	dbg!("HPET: {hpet:#?}");
 
 	assert!(
 		hpet.inner_ref().Address.SpaceId.read() == 0,
