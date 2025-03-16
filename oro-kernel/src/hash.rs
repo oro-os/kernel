@@ -5,15 +5,15 @@
 
 use core::hash::{BuildHasher, Hasher};
 
-/// Builder for a [`StrictIdentityHasher`].
+/// Builder for a [`U64IdentityHasher`].
 #[derive(Clone, Copy, Debug, Default)]
-pub struct StrictIdentityBuildHasher;
+pub struct U64IdentityBuildHasher;
 
-impl BuildHasher for StrictIdentityBuildHasher {
-	type Hasher = StrictIdentityHasher;
+impl BuildHasher for U64IdentityBuildHasher {
+	type Hasher = U64IdentityHasher;
 
 	fn build_hasher(&self) -> Self::Hasher {
-		StrictIdentityHasher::default()
+		U64IdentityHasher::default()
 	}
 }
 
@@ -36,7 +36,7 @@ impl BuildHasher for StrictIdentityBuildHasher {
 /// for other hash types in release builds, as opposed to a
 /// `debug_assert!` in debug builds.
 #[derive(Clone, Copy, Debug, Default)]
-pub struct StrictIdentityHasher {
+pub struct U64IdentityHasher {
 	/// The hashed value, or 0 if it's not been hashed.
 	value: u64,
 	/// Debug-only: whether the hasher has populated a value.
@@ -44,9 +44,9 @@ pub struct StrictIdentityHasher {
 	used:  bool,
 }
 
-impl Hasher for StrictIdentityHasher {
+impl Hasher for U64IdentityHasher {
 	fn write(&mut self, _bytes: &[u8]) {
-		debug_assert!(false, "StrictIdentityHasher::write called");
+		debug_assert!(false, "U64IdentityHasher::write called");
 		unreachable!();
 	}
 
@@ -59,7 +59,7 @@ impl Hasher for StrictIdentityHasher {
 		{
 			debug_assert!(
 				self.used,
-				"StrictIdentityHasher::finish called before any writes"
+				"U64IdentityHasher::finish called before any writes"
 			);
 		}
 
@@ -71,7 +71,7 @@ impl Hasher for StrictIdentityHasher {
 		{
 			debug_assert!(
 				!self.used,
-				"StrictIdentityHasher::write_u64 called multiple times"
+				"U64IdentityHasher::write_u64 called multiple times"
 			);
 
 			self.used = true;
@@ -81,57 +81,57 @@ impl Hasher for StrictIdentityHasher {
 	}
 
 	fn write_i128(&mut self, _i: i128) {
-		debug_assert!(false, "StrictIdentityHasher::write_i128 called");
+		debug_assert!(false, "U64IdentityHasher::write_i128 called");
 		unreachable!();
 	}
 
 	fn write_i16(&mut self, _i: i16) {
-		debug_assert!(false, "StrictIdentityHasher::write_i16 called");
+		debug_assert!(false, "U64IdentityHasher::write_i16 called");
 		unreachable!();
 	}
 
 	fn write_i32(&mut self, _i: i32) {
-		debug_assert!(false, "StrictIdentityHasher::write_i32 called");
+		debug_assert!(false, "U64IdentityHasher::write_i32 called");
 		unreachable!();
 	}
 
 	fn write_i64(&mut self, _i: i64) {
-		debug_assert!(false, "StrictIdentityHasher::write_i64 called");
+		debug_assert!(false, "U64IdentityHasher::write_i64 called");
 		unreachable!();
 	}
 
 	fn write_i8(&mut self, _i: i8) {
-		debug_assert!(false, "StrictIdentityHasher::write_i8 called");
+		debug_assert!(false, "U64IdentityHasher::write_i8 called");
 		unreachable!();
 	}
 
 	fn write_isize(&mut self, _i: isize) {
-		debug_assert!(false, "StrictIdentityHasher::write_isize called");
+		debug_assert!(false, "U64IdentityHasher::write_isize called");
 		unreachable!();
 	}
 
 	fn write_u128(&mut self, _i: u128) {
-		debug_assert!(false, "StrictIdentityHasher::write_u128 called");
+		debug_assert!(false, "U64IdentityHasher::write_u128 called");
 		unreachable!();
 	}
 
 	fn write_u16(&mut self, _i: u16) {
-		debug_assert!(false, "StrictIdentityHasher::write_u16 called");
+		debug_assert!(false, "U64IdentityHasher::write_u16 called");
 		unreachable!();
 	}
 
 	fn write_u32(&mut self, _i: u32) {
-		debug_assert!(false, "StrictIdentityHasher::write_u32 called");
+		debug_assert!(false, "U64IdentityHasher::write_u32 called");
 		unreachable!();
 	}
 
 	fn write_u8(&mut self, _i: u8) {
-		debug_assert!(false, "StrictIdentityHasher::write_u8 called");
+		debug_assert!(false, "U64IdentityHasher::write_u8 called");
 		unreachable!();
 	}
 
 	fn write_usize(&mut self, _i: usize) {
-		debug_assert!(false, "StrictIdentityHasher::write_usize called");
+		debug_assert!(false, "U64IdentityHasher::write_usize called");
 		unreachable!();
 	}
 }

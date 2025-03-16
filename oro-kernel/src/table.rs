@@ -11,14 +11,14 @@ use core::{
 use hashbrown::HashMap;
 use oro_mem::alloc::{alloc::Global, boxed::Box};
 
-use crate::{hash::StrictIdentityBuildHasher, tab::TabId};
+use crate::{hash::U64IdentityBuildHasher, tab::TabId};
 
 /// A table of values indexed by a unique ID.
 ///
 /// Allows the insertion of values with an automatically guaranteed system-wide unique ID.
 #[repr(transparent)]
 pub struct Table<T: Sized, Alloc: Allocator + Default = Global>(
-	HashMap<u64, T, StrictIdentityBuildHasher, Alloc>,
+	HashMap<u64, T, U64IdentityBuildHasher, Alloc>,
 );
 
 impl<T: Sized, Alloc: Allocator + Default> Table<T, Alloc> {
