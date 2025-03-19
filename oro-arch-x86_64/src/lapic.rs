@@ -28,7 +28,7 @@ pub unsafe fn initialize_lapic_irqs() {
 			.with_software_enable(),
 	);
 
-	lapic.set_timer_divider(crate::lapic::ApicTimerDivideBy::Div128);
+	lapic.set_timer_divider(ApicTimerDivideBy::Div128);
 
 	lapic.configure_timer(
 		ApicTimerConfig::new()

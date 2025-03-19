@@ -237,8 +237,7 @@ pub trait AcpiTable: Sized {
 			// SAFETY(qix-): We perform a static assertion to make sure the convertion
 			// SAFETY(qix-): from u32 to usize won't truncate.
 			assert::fits_within::<u32, usize>();
-			let len =
-				header.Length.read() as usize - core::mem::size_of::<sys::acpi_table_header>();
+			let len = header.Length.read() as usize - size_of::<sys::acpi_table_header>();
 			let data_base = from_ref(header).add(1).cast::<u8>();
 			core::slice::from_raw_parts(data_base, len)
 		}
@@ -260,7 +259,7 @@ pub trait AcpiTable: Sized {
 		unsafe {
 			let header = self.header();
 			assert::fits_within::<u32, usize>();
-			let len = header.Length.read() as usize - core::mem::size_of::<Self::SysTable>();
+			let len = header.Length.read() as usize - size_of::<Self::SysTable>();
 			let data_base = from_ref(self.inner_ref()).add(1).cast::<u8>();
 			core::slice::from_raw_parts(data_base, len)
 		}

@@ -16,7 +16,7 @@ pub trait Arch: Sized + Send + Sync + 'static {
 	/// The architecture-specific thread handle.
 	type ThreadHandle: ThreadHandle<Self>;
 	/// The architecture-specific address space layout.
-	type AddressSpace: oro_mem::mapper::AddressSpace;
+	type AddressSpace: AddressSpace;
 	/// The architecture-specific instance handle.
 	type InstanceHandle: InstanceHandle<Self>;
 	/// The architecture-specific core handle.

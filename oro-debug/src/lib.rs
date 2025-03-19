@@ -56,9 +56,9 @@ pub fn init_with_offset(offset: usize) {
 	#[cfg(feature = "kernel-debug")]
 	{
 		#[cfg(feature = "pl011")]
-		self::pl011::init(offset);
+		pl011::init(offset);
 		#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
-		self::uart16550::init();
+		uart16550::init();
 	}
 }
 
@@ -81,9 +81,9 @@ pub fn log_debug_bytes(line: &[u8]) {
 		#[doc(hidden)]
 		const PREFIX: &str = "D:<module>:0:";
 		#[cfg(feature = "pl011")]
-		self::pl011::log_debug_bytes(PREFIX, line);
+		pl011::log_debug_bytes(PREFIX, line);
 		#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
-		self::uart16550::log_debug_bytes(PREFIX, line);
+		uart16550::log_debug_bytes(PREFIX, line);
 	}
 
 	let mut buf = RING_BUFFER.lock();
@@ -102,9 +102,9 @@ pub fn log(message: core::fmt::Arguments<'_>) {
 	#[cfg(feature = "kernel-debug")]
 	{
 		#[cfg(feature = "pl011")]
-		self::pl011::log(message);
+		pl011::log(message);
 		#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
-		self::uart16550::log(message);
+		uart16550::log(message);
 	}
 }
 
@@ -171,9 +171,9 @@ impl core::fmt::Write for DebugWriter {
 		#[cfg(feature = "kernel-debug")]
 		{
 			#[cfg(feature = "pl011")]
-			self::pl011::log_str_raw(s);
+			pl011::log_str_raw(s);
 			#[cfg(all(target_arch = "x86_64", feature = "uart16550"))]
-			self::uart16550::log_str_raw(s);
+			uart16550::log_str_raw(s);
 		}
 
 		let _ = RING_BUFFER.lock().write_str(s);

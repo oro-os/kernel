@@ -201,7 +201,7 @@ impl<'a> Iterator for RequestScannerIter<'a> {
 /// you should probably use higher level methods
 /// or direct field accesses instead, as this trait
 /// is only enabled with the `utils` feature.
-pub trait RequestData: crate::RequestTag {
+pub trait RequestData: RequestTag {
 	/// Returns a mutable pointer to the base of the response data.
 	///
 	/// Used internally by the request scanner; you should probably

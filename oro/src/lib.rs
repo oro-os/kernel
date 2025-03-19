@@ -48,8 +48,8 @@ impl<const TYPE_ID: u64> LazyIfaceId<TYPE_ID> {
 			// SAFETY: Getting the type ID is safe.
 			let iface = unsafe {
 				crate::syscall_get!(
-					crate::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0,
-					crate::id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0,
+					id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0,
+					id::iface::KERNEL_IFACE_QUERY_BY_TYPE_V0,
 					TYPE_ID,
 					0
 				)

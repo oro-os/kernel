@@ -169,7 +169,7 @@ unsafe impl oro_kernel::arch::ThreadHandle<crate::Arch> for ThreadHandle {
 		// SAFETY(qix-): We know that these are valid addresses.
 		unsafe {
 			r.stack_frame.0 = Phys::from_address_unchecked(
-				irq_stack_phys + (0x1000 - core::mem::size_of::<StackFrame>()) as u64,
+				irq_stack_phys + (0x1000 - size_of::<StackFrame>()) as u64,
 			)
 			.as_mut_ptr_unchecked();
 

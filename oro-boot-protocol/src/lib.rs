@@ -230,10 +230,10 @@ impl Default for Module {
 }
 
 #[cfg(feature = "utils")]
-impl crate::macros::Sealed for Module {}
+impl macros::Sealed for Module {}
 
 #[cfg(feature = "utils")]
-impl crate::util::SetNext for Module {
+impl util::SetNext for Module {
 	fn set_next(&mut self, next: u64) {
 		self.next = next;
 	}
@@ -344,10 +344,10 @@ pub struct RGBVideoBuffer {
 }
 
 #[cfg(feature = "utils")]
-impl crate::macros::Sealed for RGBVideoBuffer {}
+impl macros::Sealed for RGBVideoBuffer {}
 
 #[cfg(feature = "utils")]
-impl crate::util::SetNext for RGBVideoBuffer {
+impl util::SetNext for RGBVideoBuffer {
 	fn set_next(&mut self, next: u64) {
 		self.next = next;
 	}

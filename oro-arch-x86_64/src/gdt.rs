@@ -161,7 +161,7 @@ impl SysEntry {
 		Self::new()
 			.with_granularity(true)
 			.with_long_mode()
-			.with_limit(core::mem::size_of::<Tss>() as u32 - 1)
+			.with_limit(size_of::<Tss>() as u32 - 1)
 			.with_present()
 			.with_type(SysType::TssAvail)
 			.with_ring(Dpl::Ring0)
@@ -356,10 +356,7 @@ impl<const COUNT: usize> Gdt<COUNT> {
 	pub fn as_bytes(&self) -> &'static [u8] {
 		// SAFETY(qix-): The GDT is a static array, so it's always valid.
 		unsafe {
-			core::slice::from_raw_parts(
-				self.entries.as_ptr().cast::<u8>(),
-				core::mem::size_of_val(&GDT),
-			)
+			core::slice::from_raw_parts(self.entries.as_ptr().cast::<u8>(), size_of_val(&GDT))
 		}
 	}
 
@@ -383,7 +380,7 @@ impl<const COUNT: usize> Gdt<COUNT> {
 		}
 
 		let base = self.entries.as_ptr() as u64;
-		let gdt_size = core::mem::size_of_val(self);
+		let gdt_size = size_of_val(self);
 		#[expect(clippy::cast_possible_truncation)]
 		let limit = (gdt_size - 1) as u16;
 

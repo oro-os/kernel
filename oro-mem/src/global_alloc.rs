@@ -52,7 +52,7 @@ where
 			try_rescue_heap::<L>(&mut heap);
 
 			heap.alloc(layout)
-				.map(core::ptr::NonNull::as_ptr)
+				.map(NonNull::as_ptr)
 				.unwrap_or(core::ptr::null_mut())
 		}
 	}

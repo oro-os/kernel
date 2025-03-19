@@ -202,6 +202,7 @@ pub unsafe fn boot_secondaries(stack_pages: usize) -> usize {
 
 /// Error type for secondary core booting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[expect(variant_size_differences)]
 enum SecondaryBootError {
 	/// The system ran out of memory when allocating space for the secondary core.
 	OutOfMemory,

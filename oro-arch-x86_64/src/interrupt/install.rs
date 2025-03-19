@@ -20,13 +20,13 @@ pub(crate) unsafe fn install_idt(idt: &'static [IdtEntry]) {
 	}
 
 	debug_assert!(
-		u16::try_from(core::mem::size_of_val(idt)).is_ok(),
+		u16::try_from(size_of_val(idt)).is_ok(),
 		"given IDT is too large"
 	);
 
 	#[allow(static_mut_refs)]
 	let idtr = Idtr {
-		limit: (core::mem::size_of_val(idt) - 1) as u16,
+		limit: (size_of_val(idt) - 1) as u16,
 		base:  &raw const idt[0],
 	};
 

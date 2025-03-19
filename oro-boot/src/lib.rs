@@ -74,7 +74,7 @@ pub struct OroBootstrapper<
 	/// The PFA used to write variable length bootloader protocol structures to memory.
 	pfa: pfa::UnsafePrebootPfa<M, I>,
 	/// The supervisor space
-	supervisor_space: self::target::SupervisorHandle,
+	supervisor_space: target::SupervisorHandle,
 	/// The mapped kernel's request section scanner.
 	scanner: RequestScanner,
 	/// The entry point of the kernel (in the target address space).
@@ -143,10 +143,10 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 			.ok_or(Error::MapError(MapError::OutOfMemory))?;
 
 		let (kernel_entry, scanner) =
-			self::map::map_kernel_to_supervisor_space(&pfa, &supervisor_space, &kernel)?;
+			map::map_kernel_to_supervisor_space(&pfa, &supervisor_space, &kernel)?;
 
 		// Map in a stack
-		let stack_addr = self::map::map_kernel_stack(&pfa, &supervisor_space, stack_pages)?;
+		let stack_addr = map::map_kernel_stack(&pfa, &supervisor_space, stack_pages)?;
 
 		Ok(Self {
 			pfa,
@@ -229,9 +229,13 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 	pub fn boot_to_kernel(mut self) -> Result<!> {
 		// SAFETY(qix-): There's nothing we can really do to make this 'safe' by marking it as such;
 		// SAFETY(qix-): the bootstrap class removes most of the danger associated with this method.
-		#[allow(clippy::let_unit_value, clippy::semicolon_if_nothing_returned)]
+		#[allow(
+			clippy::let_unit_value,
+			clippy::semicolon_if_nothing_returned,
+			unit_bindings
+		)]
 		let transfer_data =
-			unsafe { self::target::prepare_transfer(&mut self.supervisor_space, &mut self.pfa)? };
+			unsafe { target::prepare_transfer(&mut self.supervisor_space, &mut self.pfa)? };
 
 		// Consume the PFA and write out the memory map.
 		// SAFETY: We're only accessing the PFA for a short moment.
@@ -250,7 +254,7 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 		// SAFETY: We can assume the kernel entry point is valid given that it's
 		// SAFETY: coming from the ELF and validated by the mapper.
 		unsafe {
-			self::target::transfer(
+			target::transfer(
 				&mut self.supervisor_space,
 				self.kernel_entry,
 				self.stack_addr,

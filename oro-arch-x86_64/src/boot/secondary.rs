@@ -45,6 +45,7 @@ pub(super) static SECONDARIES_MAY_BOOT: AtomicBool = AtomicBool::new(false);
 
 /// The error type for booting a secondary core.
 #[derive(Debug)]
+#[expect(variant_size_differences)]
 pub enum BootError {
 	/// The system is out of memory.
 	OutOfMemory,

@@ -73,6 +73,16 @@ convert_case = "=0.6.0"
 [workspace.lints.rust]
 missing_docs = "warn"
 elided_lifetimes_in_paths = "deny"
+future-incompatible = "warn"
+missing-unsafe-on-extern = "warn"
+unused-lifetimes = "warn"
+unused-qualifications = "warn"
+unused-import-braces = "warn"
+#unused-crate-dependencies = "warn" # TODO(qix-): Sadly, super bugged: https://github.com/rust-lang/rust/issues/57274
+variant-size-differences = "warn"
+trivial-numeric-casts = "warn"
+unit-bindings = "warn"
+unused-features = "warn" # TODO(qix-): Doesn't do what I'd like it to: https://github.com/rust-lang/rust/issues/23528
 
 [workspace.lints.rustdoc]
 all = { level = "deny", priority = -1 }

@@ -288,7 +288,7 @@ pub unsafe fn iret_context(cr3: u64) -> ! {
 			.write(irq_stack_base);
 	}
 
-	let irq_frame_base = irq_stack_base - core::mem::size_of::<StackFrame>() as u64;
+	let irq_frame_base = irq_stack_base - size_of::<StackFrame>() as u64;
 
 	oro_isr_iret(cr3, irq_frame_base)
 }

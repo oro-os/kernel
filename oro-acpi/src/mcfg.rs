@@ -45,10 +45,10 @@ impl Iterator for McfgIterator {
 			return None;
 		}
 
-		assert!(core::mem::size_of::<McfgEntry>() <= self.slice.len() - self.pos);
+		assert!(size_of::<McfgEntry>() <= self.slice.len() - self.pos);
 		let un = core::ptr::from_ref::<u8>(&self.slice[self.pos]).cast::<McfgEntry>();
 
-		self.pos += core::mem::size_of::<McfgEntry>();
+		self.pos += size_of::<McfgEntry>();
 
 		// SAFETY(qix-): We're guaranteed to be creating a valid slice,
 		// SAFETY(qix-): assuming ACPI has reported the correct length.

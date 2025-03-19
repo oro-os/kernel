@@ -87,7 +87,7 @@ pub unsafe trait CoreHandle<A: Arch> {
 }
 
 /// A single 'instant' in time.
-pub trait Instant: Sized + Clone + Copy + PartialEq + Eq + core::cmp::Ord {
+pub trait Instant: Sized + Clone + Copy + PartialEq + Eq + Ord {
 	/// Adds the given [`Duration`] to this timestamp. If the timestamp overflows,
 	fn checked_add(&self, duration: &Duration) -> InstantResult<Self>;
 

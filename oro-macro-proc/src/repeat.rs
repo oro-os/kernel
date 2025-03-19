@@ -15,7 +15,7 @@ struct AsSpec {
 }
 
 impl Parse for AsSpec {
-	fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+	fn parse(input: ParseStream<'_>) -> Result<Self> {
 		Ok(Self {
 			_dollar: input.parse()?,
 			ident:   input.parse()?,
@@ -92,7 +92,7 @@ impl Repeat {
 }
 
 impl Parse for Repeat {
-	fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+	fn parse(input: ParseStream<'_>) -> Result<Self> {
 		let content;
 		Ok(Self {
 			delim_spec: input.parse()?,

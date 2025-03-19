@@ -104,10 +104,10 @@ pub const ELF_MACHINE: ElfMachine = ElfMachine::X86_64;
 pub struct Arch;
 
 impl oro_kernel::arch::Arch for Arch {
-	type AddressSpace = crate::mem::address_space::AddressSpaceLayout;
-	type CoreHandle = self::core_local::CoreHandle;
-	type InstanceHandle = self::instance::InstanceHandle;
-	type ThreadHandle = self::thread::ThreadHandle;
+	type AddressSpace = mem::address_space::AddressSpaceLayout;
+	type CoreHandle = core_local::CoreHandle;
+	type InstanceHandle = instance::InstanceHandle;
+	type ThreadHandle = thread::ThreadHandle;
 
 	fn fence() {
 		// NOTE(qix-): This might be too strong for what we need.

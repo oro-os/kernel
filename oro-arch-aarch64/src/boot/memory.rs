@@ -166,7 +166,7 @@ unsafe fn linear_map_regions<'a>(
 			continue;
 		}
 
-		const RIDX: usize = crate::mem::address_space::AddressSpaceLayout::RECURSIVE_ENTRY_IDX.0;
+		const RIDX: usize = AddressSpaceLayout::RECURSIVE_ENTRY_IDX.0;
 
 		let mut total_mappings = 0;
 
@@ -186,7 +186,7 @@ unsafe fn linear_map_regions<'a>(
 				| ((RIDX + 1) << 30)
 				| ((RIDX + 2) << 21)
 				| ((RIDX + 3) << 12)
-				| (l0_idx * core::mem::size_of::<PageTableEntry>());
+				| (l0_idx * size_of::<PageTableEntry>());
 
 			crate::asm::invalidate_tlb_el1(l0_page_table_entry_virt as *const ());
 
@@ -225,7 +225,7 @@ unsafe fn linear_map_regions<'a>(
 				| ((RIDX + 1) << 30)
 				| ((RIDX + 2) << 21)
 				| (l0_idx << 12)
-				| (l1_idx * core::mem::size_of::<PageTableEntry>());
+				| (l1_idx * size_of::<PageTableEntry>());
 
 			crate::asm::invalidate_tlb_el1(l1_page_table_entry_virt as *const ());
 
@@ -273,7 +273,7 @@ unsafe fn linear_map_regions<'a>(
 				| ((RIDX + 1) << 30)
 				| (l0_idx << 21)
 				| (l1_idx << 12)
-				| (l2_idx * core::mem::size_of::<PageTableEntry>());
+				| (l2_idx * size_of::<PageTableEntry>());
 
 			crate::asm::invalidate_tlb_el1(l1_page_table_entry_virt as *const ());
 			crate::asm::invalidate_tlb_el1(l2_page_table_entry_virt as *const ());
@@ -510,8 +510,8 @@ impl OnTheFlyMapper {
 		// Assuming the recursive map exists (it does if we're here),
 		// we can calculate the virtual address of the L1 page table
 		// for the OTF region.
-		const RIDX: usize = crate::mem::address_space::AddressSpaceLayout::RECURSIVE_ENTRY_IDX.0;
-		const OTF_IDX: usize = crate::mem::address_space::AddressSpaceLayout::BOOT_RESERVED_IDX;
+		const RIDX: usize = AddressSpaceLayout::RECURSIVE_ENTRY_IDX.0;
+		const OTF_IDX: usize = AddressSpaceLayout::BOOT_RESERVED_IDX;
 
 		debug_assert!(OTF_IDX < 512, "OTF_IDX is out of bounds");
 		debug_assert!(RIDX < 512, "OTF_IDX is out of bounds");
@@ -533,7 +533,7 @@ impl OnTheFlyMapper {
 			| ((RIDX + 1) << 30)
 			| ((RIDX + 2) << 21)
 			| ((RIDX + 3) << 12)
-			| (OTF_IDX * core::mem::size_of::<L3PageTableBlockDescriptor>());
+			| (OTF_IDX * size_of::<L3PageTableBlockDescriptor>());
 
 		let l3_page_table_entry = l3_page_table_entry as *mut L3PageTableBlockDescriptor;
 
@@ -568,7 +568,7 @@ impl OnTheFlyMapper {
 		assert::fits::<T, 4096>();
 		let offset = addr % 4096;
 		let phys_base = addr - offset;
-		let end_offset = offset + core::mem::size_of::<T>() as u64;
+		let end_offset = offset + size_of::<T>() as u64;
 		self.map_phys(phys_base);
 
 		let mut result = core::mem::MaybeUninit::<T>::uninit();
@@ -599,7 +599,7 @@ impl OnTheFlyMapper {
 			);
 			self.map_phys(phys_base + 4096);
 
-			let result_offset = core::mem::size_of::<T>() - first_page_size;
+			let result_offset = size_of::<T>() - first_page_size;
 			for i in 0..next_page_end_offset as usize {
 				*result.as_mut_ptr().cast::<u8>().add(result_offset + i) =
 					self.base_virt.add(i).read_volatile();

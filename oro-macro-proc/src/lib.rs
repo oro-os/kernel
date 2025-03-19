@@ -42,7 +42,7 @@ mod repeat;
 /// ```
 #[proc_macro_derive(EnumIterator)]
 pub fn derive_enum_iterator(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	self::enum_iterator::derive_enum_iterator(input)
+	enum_iterator::derive_enum_iterator(input)
 }
 
 /// Proc macro that provides pasting tokens together into identifiers.
@@ -120,7 +120,7 @@ pub fn derive_enum_iterator(input: proc_macro::TokenStream) -> proc_macro::Token
 /// ```
 #[proc_macro]
 pub fn paste(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	match self::paste::paste(input) {
+	match paste::paste(input) {
 		Ok(output) => output,
 		Err(err) => err.to_compile_error().into(),
 	}
@@ -130,28 +130,28 @@ pub fn paste(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// converted to/from a `u64`.
 #[proc_macro_derive(AsU64)]
 pub fn enum_as_u64(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	self::enum_as::enum_as_u64(input)
+	enum_as::enum_as_u64(input)
 }
 
 /// Derive macro that allows unit enums with designators to be safely
 /// converted to/from a `u32`.
 #[proc_macro_derive(AsU32)]
 pub fn enum_as_u32(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	self::enum_as::enum_as_u32(input)
+	enum_as::enum_as_u32(input)
 }
 
 /// Loads a python script from a file and embeds it into the binary
 /// as an inline GDB autoload script.
 #[proc_macro]
 pub fn gdb_autoload_inline(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	self::gdb_autoload::gdb_autoload_inline(input)
+	gdb_autoload::gdb_autoload_inline(input)
 }
 
 /// Defines a bit structure wrapper type around a primitive integer type,
 /// along with a set of field accessors, associated constants, and other utility functionality
 #[proc_macro]
 pub fn bitstruct(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	match self::bitstruct::bitstruct(input) {
+	match bitstruct::bitstruct(input) {
 		Ok(ts) => ts.to_token_stream().into(),
 		Err(e) => e.to_compile_error().to_token_stream().into(),
 	}
@@ -171,7 +171,7 @@ pub fn bitstruct(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// ```
 #[proc_macro]
 pub fn repeat(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	match self::repeat::repeat(input) {
+	match repeat::repeat(input) {
 		Ok(ts) => ts.into(),
 		Err(e) => e.to_compile_error().into(),
 	}

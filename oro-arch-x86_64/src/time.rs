@@ -43,7 +43,7 @@ impl Instant {
 }
 
 impl oro_kernel::arch::Instant for Instant {
-	fn checked_add(&self, duration: &core::time::Duration) -> InstantResult<Self> {
+	fn checked_add(&self, duration: &Duration) -> InstantResult<Self> {
 		// NOTE(qix-): Under normal circumstances, this is obviously
 		// NOTE(qix-): overkill. Femtoseconds in a u128 will only wrap
 		// NOTE(qix-): after the age of the universe times 780,000.

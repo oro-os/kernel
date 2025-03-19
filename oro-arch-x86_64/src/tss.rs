@@ -43,7 +43,7 @@ impl Default for Tss {
 			res3:        0,
 			res4:        0,
 			res5:        0,
-			iopb_offset: core::mem::size_of::<Tss>() as u16,
+			iopb_offset: size_of::<Tss>() as u16,
 		}
 	}
 }

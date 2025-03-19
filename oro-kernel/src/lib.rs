@@ -52,8 +52,9 @@ use core::{
 	sync::atomic::{AtomicBool, Ordering::SeqCst},
 };
 
-use arch::CoreHandle;
+use arch::{Arch, CoreHandle};
 use event::Resumption;
+use interface::RingInterface;
 use nolock::queues::{
 	DequeueError,
 	mpmc::bounded::scq::{Receiver, Sender},
@@ -65,8 +66,9 @@ use oro_mem::{
 	mapper::{AddressSegment, AddressSpace as _, MapError},
 	pfa::Alloc,
 };
-
-use self::{arch::Arch, interface::RingInterface, scheduler::Scheduler, tab::Tab, thread::Thread};
+use scheduler::Scheduler;
+use tab::Tab;
+use thread::Thread;
 
 /// Core-local instance of the Oro kernel.
 ///
@@ -178,7 +180,7 @@ impl<A: Arch> Kernel<A> {
 			global_state.root_ring.with_mut(|root_ring| {
 				root_ring
 					.register_interface(RingInterface::<A>::new(
-						self::iface::root_ring::debug_out_v0::DebugOutV0::new(),
+						iface::root_ring::debug_out_v0::DebugOutV0::new(),
 						global_state.root_ring.id(),
 					))
 					.ok_or(MapError::OutOfMemory)
@@ -187,7 +189,7 @@ impl<A: Arch> Kernel<A> {
 			global_state.root_ring.with_mut(|root_ring| {
 				root_ring
 					.register_interface(RingInterface::<A>::new(
-						self::iface::root_ring::test_ports::RootTestPorts::new(),
+						iface::root_ring::test_ports::RootTestPorts::new(),
 						global_state.root_ring.id(),
 					))
 					.ok_or(MapError::OutOfMemory)
@@ -198,7 +200,7 @@ impl<A: Arch> Kernel<A> {
 				global_state.root_ring.with_mut(|root_ring| {
 					root_ring
 						.register_interface(RingInterface::<A>::new(
-							self::iface::root_ring::boot_vbuf_v0::BootVbufV0::new(),
+							iface::root_ring::boot_vbuf_v0::BootVbufV0::new(),
 							global_state.root_ring.id(),
 						))
 						.ok_or(MapError::OutOfMemory)
@@ -219,7 +221,7 @@ impl<A: Arch> Kernel<A> {
 	/// called before the kernel is initialized, undefined behavior
 	/// will occur.
 	///
-	/// Architectures **must** make sure [`Self::initialize_for_core()`]
+	/// Architectures **must** make sure [`Kernel::initialize_for_core()`]
 	/// has been called as soon as possible after the core boots.
 	#[must_use]
 	pub fn get() -> &'static Self {
@@ -364,9 +366,9 @@ pub struct GlobalKernelState<A: Arch> {
 	/// Unclaimed thread deque receiver.
 	thread_rx: Receiver<Tab<Thread<A>>>,
 	/// The root ring.
-	root_ring: tab::Tab<ring::Ring<A>>,
+	root_ring: Tab<ring::Ring<A>>,
 	/// Kernel interfaces, made globall available.
-	kernel_interfaces: table::Table<Box<dyn self::iface::kernel::KernelInterface<A>>>,
+	kernel_interfaces: table::Table<Box<dyn iface::kernel::KernelInterface<A>>>,
 	/// Whether or not the root ring has been initialized.
 	///
 	/// We have to do this on a per-core basis because allocators
@@ -392,7 +394,7 @@ impl<A: Arch> GlobalKernelState<A> {
 	pub unsafe fn init(this: &'static mut MaybeUninit<Self>) -> Result<(), MapError> {
 		// SAFETY: Must be first, before anything else happens in the kernel.
 		unsafe {
-			self::sync::install_dummy_kernel_id_fn();
+			sync::install_dummy_kernel_id_fn();
 		}
 
 		// SAFETY: We've offloaded the requirement of being called once for the entire
@@ -402,7 +404,7 @@ impl<A: Arch> GlobalKernelState<A> {
 		let (thread_rx, thread_tx) = nolock::queues::mpmc::bounded::scq::queue(128);
 
 		let mut kernel_interfaces = table::Table::new();
-		crate::iface::kernel::register_kernel_interfaces(&mut kernel_interfaces);
+		iface::kernel::register_kernel_interfaces(&mut kernel_interfaces);
 		A::register_kernel_interfaces(&mut kernel_interfaces);
 
 		this.write(Self {
@@ -417,7 +419,7 @@ impl<A: Arch> GlobalKernelState<A> {
 	}
 
 	/// Returns a handle to the root ring.
-	pub fn root_ring(&self) -> &tab::Tab<ring::Ring<A>> {
+	pub fn root_ring(&self) -> &Tab<ring::Ring<A>> {
 		&self.root_ring
 	}
 

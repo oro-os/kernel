@@ -13,7 +13,7 @@ pub mod install;
 pub mod isr;
 
 /// The static IDT, used by all cores.
-static IDT: Mutex<Option<UnsafeCell<[idt::IdtEntry; 256]>>> = Mutex::new(None);
+static IDT: Mutex<Option<UnsafeCell<[IdtEntry; 256]>>> = Mutex::new(None);
 
 /// Initializes the default IDT if it isn't already.
 fn initialize_default_idt() {

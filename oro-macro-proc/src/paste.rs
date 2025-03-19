@@ -234,7 +234,7 @@ where
 				Some(Ok(TokenTree::Ident(ident)))
 			}
 			unknown => {
-				Some(Err(syn::Error::new(
+				Some(Err(Error::new(
 					op_span,
 					format!("unknown `paste!` operation: {unknown}"),
 				)))

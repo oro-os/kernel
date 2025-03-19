@@ -72,6 +72,7 @@ macro_rules! hook_functions {
 			#[allow(clippy::cast_lossless)]
 			pub extern "C" fn $name($($param: $ty),*) {
 				#[cfg(any(debug_assertions, feature = "force-hooks"))]
+				#[allow(trivial_numeric_casts)]
 				unsafe {
 					::core::arch::asm!(
 						$(concat!("/*{}", stringify!($param), "*/"), )*

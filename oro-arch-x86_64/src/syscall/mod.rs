@@ -141,7 +141,7 @@ pub unsafe fn sysret_context(cr3: u64, response: &SystemCallResponse) -> ! {
 			.write(irq_stack_base);
 	}
 
-	let irq_frame_base = irq_stack_base - core::mem::size_of::<StackFrame>() as u64;
+	let irq_frame_base = irq_stack_base - size_of::<StackFrame>() as u64;
 
 	oro_syscall_return(cr3, irq_frame_base, response);
 }
@@ -166,7 +166,7 @@ global_asm! {
 	include_str!("./syscall.S"),
 	define_syscall_handlers!(),
 	include_str!("../common-post.S"),
-	STACK_FRAME_SIZE = const core::mem::size_of::<StackFrame>(),
+	STACK_FRAME_SIZE = const size_of::<StackFrame>(),
 	SP_OFFSET = const core::mem::offset_of!(StackFrame, sp),
 	R15_OFFSET = const core::mem::offset_of!(StackFrame, r15),
 	R14_OFFSET = const core::mem::offset_of!(StackFrame, r14),

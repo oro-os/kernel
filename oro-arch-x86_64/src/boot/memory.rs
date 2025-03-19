@@ -65,7 +65,7 @@ pub struct PreparedMemory {
 #[must_use]
 pub unsafe fn prepare_memory() -> PreparedMemory {
 	// First, let's make sure the recursive entry is mapped.
-	const RIDX: usize = crate::mem::address_space::AddressSpaceLayout::RECURSIVE_IDX;
+	const RIDX: usize = AddressSpaceLayout::RECURSIVE_IDX;
 	let cr3 = crate::asm::cr3();
 	let paging_level = PagingLevel::current_from_cpu();
 
@@ -82,7 +82,7 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 		PagingLevel::Level5 => crate::mem::segment::sign_extend!(L5, current_addr),
 	};
 
-	let pt = &*(recursive_virt as *const crate::mem::paging::PageTable);
+	let pt = &*(recursive_virt as *const PageTable);
 
 	// Realistically speaking, this panic probably won't even
 	// be reached if it's not mapped, as we'd be incurring a page fault
@@ -254,7 +254,7 @@ unsafe fn linear_map_regions<'a>(
 			continue;
 		}
 
-		const RIDX: usize = crate::mem::address_space::AddressSpaceLayout::RECURSIVE_IDX;
+		const RIDX: usize = AddressSpaceLayout::RECURSIVE_IDX;
 
 		let start_of_region = base_virt;
 
@@ -520,7 +520,7 @@ impl OnTheFlyMapper {
 		// Assuming the recursive map exists (it does if we're here),
 		// we can calculate the virtual address of the L1 page table
 		// for the OTF region.
-		const RIDX: usize = crate::mem::address_space::AddressSpaceLayout::RECURSIVE_IDX;
+		const RIDX: usize = AddressSpaceLayout::RECURSIVE_IDX;
 		let paging_level = PagingLevel::current_from_cpu();
 		let levels = paging_level as usize;
 
@@ -543,7 +543,7 @@ impl OnTheFlyMapper {
 			current_level -= 1;
 			l1_page_table |= RIDX << (current_level * 9 + 12);
 		}
-		let l1_page_table_entry = l1_page_table + OTF_IDX * core::mem::size_of::<PageTableEntry>();
+		let l1_page_table_entry = l1_page_table + OTF_IDX * size_of::<PageTableEntry>();
 		let l1_page_table_entry = match paging_level {
 			PagingLevel::Level4 => crate::mem::segment::sign_extend!(L4, l1_page_table_entry),
 			PagingLevel::Level5 => crate::mem::segment::sign_extend!(L5, l1_page_table_entry),
@@ -582,7 +582,7 @@ impl OnTheFlyMapper {
 		assert::fits::<T, 4096>();
 		let offset = addr % 4096;
 		let phys_base = addr - offset;
-		let end_offset = offset + core::mem::size_of::<T>() as u64;
+		let end_offset = offset + size_of::<T>() as u64;
 		self.map_phys(phys_base);
 
 		let mut result = core::mem::MaybeUninit::<T>::uninit();
@@ -613,7 +613,7 @@ impl OnTheFlyMapper {
 			);
 			self.map_phys(phys_base + 4096);
 
-			let result_offset = core::mem::size_of::<T>() - first_page_size;
+			let result_offset = size_of::<T>() - first_page_size;
 			for i in 0..next_page_end_offset as usize {
 				*result.as_mut_ptr().cast::<u8>().add(result_offset + i) =
 					self.base_virt.add(i).read_volatile();
