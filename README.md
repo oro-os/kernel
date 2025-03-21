@@ -43,12 +43,6 @@ cargo limine-x86_64
 cargo limine-aarch64
 ```
 
-To build the example modules:
-
-```shell
-cargo oro-examples
-```
-
 ## Documentation
 The Oro kernel is thoroughly documented. You may generate a local copy of
 the documentation with:
