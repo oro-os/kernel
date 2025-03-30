@@ -2,9 +2,8 @@
 //! requests that a physical address be mapped into a specific range of virtual
 //! addresses.
 
-use core::cell::UnsafeCell;
+use core::{cell::UnsafeCell, intrinsics::unlikely};
 
-use oro_macro::unlikely;
 use oro_mem::{
 	mapper::{AddressSegment as Segment, MapError, UnmapError},
 	pfa::Alloc,
@@ -76,7 +75,7 @@ impl AddressSegment {
 	where
 		A: Alloc,
 	{
-		if unlikely!(virt & 0xFFF != 0) {
+		if unlikely(virt & 0xFFF != 0) {
 			return Err(MapError::VirtNotAligned);
 		}
 
@@ -85,7 +84,7 @@ impl AddressSegment {
 				PagingLevel::Level4 => (virt >> 39) & 0x1FF,
 				PagingLevel::Level5 => (virt >> 48) & 0x1FF,
 			};
-			if unlikely!(root_index < self.valid_range.0 || root_index > self.valid_range.1) {
+			if unlikely(root_index < self.valid_range.0 || root_index > self.valid_range.1) {
 				return Err(MapError::VirtOutOfRange);
 			}
 		}
@@ -148,14 +147,14 @@ impl AddressSegment {
 	where
 		A: Alloc,
 	{
-		if unlikely!(virt & 0xFFF != 0) {
+		if unlikely(virt & 0xFFF != 0) {
 			return Err(UnmapError::VirtNotAligned);
 		}
 
 		let l4_index = (virt >> 39) & 0x1FF;
 
 		{
-			if unlikely!(l4_index < self.valid_range.0 || l4_index > self.valid_range.1) {
+			if unlikely(l4_index < self.valid_range.0 || l4_index > self.valid_range.1) {
 				return Err(UnmapError::VirtOutOfRange);
 			}
 		}
@@ -240,14 +239,14 @@ impl AddressSegment {
 	where
 		A: Alloc,
 	{
-		if unlikely!(virt & 0xFFF != 0) {
+		if unlikely(virt & 0xFFF != 0) {
 			return Err(UnmapError::VirtNotAligned);
 		}
 
 		let l5_index = (virt >> 48) & 0x1FF;
 
 		{
-			if unlikely!(l5_index < self.valid_range.0 || l5_index > self.valid_range.1) {
+			if unlikely(l5_index < self.valid_range.0 || l5_index > self.valid_range.1) {
 				return Err(UnmapError::VirtOutOfRange);
 			}
 		}

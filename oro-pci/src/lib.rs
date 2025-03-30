@@ -3,8 +3,10 @@
 //! **Note:** Requires the global allocator to be set up,
 //! as well as the linear mapper to be configured.
 #![no_std]
+#![expect(internal_features)]
+#![feature(core_intrinsics)]
 
-use core::fmt;
+use core::{fmt, intrinsics::unlikely};
 
 use oro_macro::{assert, bitstruct};
 use oro_type::{Endian, LittleEndian};
@@ -727,7 +729,7 @@ impl TryFrom<&[u32]> for BaseAddressRegister {
 		if is_mem {
 			let ty = (u0 >> 1) & 0b11;
 
-			if oro_macro::unlikely!(ty == 0b11) {
+			if unlikely(ty == 0b11) {
 				// Reserved.
 				return Err(BarParseError::Invalid);
 			}

@@ -28,6 +28,9 @@
 // SAFETY(qix-): This is almost stabilized.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/70142
 #![feature(result_flattening)]
+// SAFETY(qix-): Needed for `likely`/`unlikely` macros.
+#![expect(internal_features)]
+#![feature(core_intrinsics)]
 
 pub mod arch;
 pub mod event;

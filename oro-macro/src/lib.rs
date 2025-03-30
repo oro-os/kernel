@@ -12,7 +12,6 @@ mod tests;
 
 pub mod asm_buffer;
 pub mod assert;
-pub mod likely;
 pub mod unsafe_macros;
 
 pub use oro_macro_proc::*;

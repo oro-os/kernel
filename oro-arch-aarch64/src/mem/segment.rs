@@ -8,9 +8,8 @@
 //! It also assumes a 48-bit virtual address space (where `T0SZ`/`T1SZ` of `TCR_EL1`
 //! is set to 16).
 
-use core::panic;
+use core::{intrinsics::unlikely, panic};
 
-use oro_macro::unlikely;
 use oro_mem::{
 	mapper::{AddressSegment, MapError, UnmapError},
 	pfa::Alloc,
@@ -64,7 +63,7 @@ impl Segment {
 		A: Alloc,
 		Handle: TtbrHandle,
 	{
-		if unlikely!((virt & Handle::VIRT_START) != Handle::VIRT_START) {
+		if unlikely((virt & Handle::VIRT_START) != Handle::VIRT_START) {
 			return Err(MapError::VirtOutOfAddressSpaceRange);
 		}
 
@@ -192,20 +191,20 @@ impl Segment {
 		A: Alloc,
 		Handle: TtbrHandle,
 	{
-		if unlikely!((virt & Handle::VIRT_START) != Handle::VIRT_START) {
+		if unlikely((virt & Handle::VIRT_START) != Handle::VIRT_START) {
 			return Err(UnmapError::VirtOutOfAddressSpaceRange);
 		}
 
 		let virt = virt - Handle::VIRT_START;
 
-		if unlikely!(virt & 0xFFF != 0) {
+		if unlikely(virt & 0xFFF != 0) {
 			return Err(UnmapError::VirtNotAligned);
 		}
 
 		let l0_index = (virt >> 39) & 0x1FF;
 
 		{
-			if unlikely!(l0_index < self.valid_range.0 || l0_index > self.valid_range.1) {
+			if unlikely(l0_index < self.valid_range.0 || l0_index > self.valid_range.1) {
 				return Err(UnmapError::VirtOutOfRange);
 			}
 		}
