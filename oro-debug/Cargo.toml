@@ -1,15 +1,13 @@
 [package]
-name = "oro-debug"
+name              = "oro-debug"
 version.workspace = true
-description = "Debugging utilities for the Oro kernel and bootloader development"
-publish = false
-edition = "2024"
-authors = [
-	"Josh Junon (https//github.com/qix-)"
-]
-homepage = "https://oro.sh"
-repository = "https://github.com/oro-os/kernel"
-license = "MPL-2.0"
+description       = "Debugging utilities for the Oro kernel and bootloader development"
+publish           = false
+edition           = "2024"
+authors           = ["Josh Junon (https//github.com/qix-)"]
+homepage          = "https://oro.sh"
+repository        = "https://github.com/oro-os/kernel"
+license           = "MPL-2.0"
 
 [lib]
 doctest = false
@@ -19,11 +17,11 @@ default = ["kernel-debug"]
 # If not enabled, disables ALL logging regardless of any backends being enabled.
 # dbg!() macros are no-ops.
 kernel-debug = []
-pl011 = []
-uart16550 = []
+pl011        = []
+uart16550    = []
 
 [dependencies]
-oro-kernel-sync.workspace = true
+oro-kernel-sync.workspace   = true
 volatile-register.workspace = true
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]

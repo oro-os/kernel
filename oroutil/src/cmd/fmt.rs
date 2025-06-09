@@ -77,7 +77,7 @@ fn format_toml(source: &str) -> String {
 			indent_string: "\t".into(),
 			trailing_newline: true,
 			reorder_arrays: true,
-			reorder_inline_tables: true,
+			reorder_inline_tables: false,
 			reorder_keys: false,
 			crlf: false,
 		},

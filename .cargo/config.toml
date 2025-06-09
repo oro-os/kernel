@@ -1,4 +1,6 @@
 [alias]
+oro = "run -p oroutil --bin oroutil"
+
 kernel-x86_64 = """build \
 	--target oro-kernel-arch-x86_64/x86_64-unknown-oro.json \
 	--features oro-debug/uart16550 \

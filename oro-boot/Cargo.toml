@@ -1,26 +1,24 @@
 [package]
-name = "oro-boot"
+name              = "oro-boot"
 version.workspace = true
-description = "Boot routine for the Oro kernel"
-publish = false
-edition = "2024"
-authors = [
-	"Josh Junon (https//github.com/qix-)"
-]
-homepage = "https://oro.sh"
-repository = "https://github.com/oro-os/kernel"
-license = "MPL-2.0"
+description       = "Boot routine for the Oro kernel"
+publish           = false
+edition           = "2024"
+authors           = ["Josh Junon (https//github.com/qix-)"]
+homepage          = "https://oro.sh"
+repository        = "https://github.com/oro-os/kernel"
+license           = "MPL-2.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-oro-kernel-mem.workspace = true
+oro-kernel-mem.workspace   = true
 oro-kernel-macro.workspace = true
-oro-kernel-elf.workspace = true
-oro-debug.workspace = true
-oro-boot-protocol = { workspace = true, features = ["utils"] }
-oro-dbgutil.workspace = true
+oro-kernel-elf.workspace   = true
+oro-debug.workspace        = true
+oro-boot-protocol          = { workspace = true, features = ["utils"] }
+oro-dbgutil.workspace      = true
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 oro-kernel-arch-x86_64.workspace = true

@@ -1,15 +1,13 @@
 [package]
-name = "oro-kernel"
+name              = "oro-kernel"
 version.workspace = true
-description = "Oro operating system kernel"
-publish = false
-edition = "2024"
-authors = [
-	"Josh Junon (https//github.com/qix-)"
-]
-homepage = "https://oro.sh"
-repository = "https://github.com/oro-os/kernel"
-license = "MPL-2.0"
+description       = "Oro operating system kernel"
+publish           = false
+edition           = "2024"
+authors           = ["Josh Junon (https//github.com/qix-)"]
+homepage          = "https://oro.sh"
+repository        = "https://github.com/oro-os/kernel"
+license           = "MPL-2.0"
 
 [features]
 default = ["boot-vbuf-v0"]
@@ -28,17 +26,17 @@ zombie-tombs = []
 debug-tombs = []
 
 [dependencies]
-oro-kernel-mem.workspace = true
+oro-kernel-mem.workspace   = true
 oro-kernel-macro.workspace = true
-oro-debug.workspace = true
-oro-kernel-sync.workspace = true
-oro.workspace = true
-oro-boot-protocol = { workspace = true, optional = true, features = ["utils"] }
-oro-dbgutil.workspace = true
+oro-debug.workspace        = true
+oro-kernel-sync.workspace  = true
+oro.workspace              = true
+oro-boot-protocol          = { workspace = true, optional = true, features = ["utils"] }
+oro-dbgutil.workspace      = true
 
 hashbrown.workspace = true
-foldhash = { workspace = true, default-features = false }
-nolock = { workspace = true, default-features = false, features = ["queues"] }
+foldhash            = { workspace = true, default-features = false }
+nolock              = { workspace = true, default-features = false, features = ["queues"] }
 
 [lints]
 workspace = true

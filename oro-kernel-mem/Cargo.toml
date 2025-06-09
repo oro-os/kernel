@@ -1,15 +1,13 @@
 [package]
-name = "oro-kernel-mem"
+name              = "oro-kernel-mem"
 version.workspace = true
-description = "Common memory management utilities for the Oro operating system."
-publish = false
-edition = "2024"
-authors = [
-	"Josh Junon (https//github.com/qix-)"
-]
-homepage = "https://oro.sh"
-repository = "https://github.com/oro-os/kernel"
-license = "MPL-2.0"
+description       = "Common memory management utilities for the Oro operating system."
+publish           = false
+edition           = "2024"
+authors           = ["Josh Junon (https//github.com/qix-)"]
+homepage          = "https://oro.sh"
+repository        = "https://github.com/oro-os/kernel"
+license           = "MPL-2.0"
 
 [lib]
 doctest = false
@@ -32,10 +30,10 @@ std-alloc = []
 
 [dependencies]
 oro-kernel-macro.workspace = true
-oro-kernel-elf.workspace = true
-oro-debug.workspace = true
-oro-dbgutil.workspace = true
-oro-kernel-sync.workspace = true
+oro-kernel-elf.workspace   = true
+oro-debug.workspace        = true
+oro-dbgutil.workspace      = true
+oro-kernel-sync.workspace  = true
 
 buddy_system_allocator.workspace = true
 

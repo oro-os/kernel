@@ -1,16 +1,14 @@
 [package]
-name = "oro-kernel-arch-aarch64"
+name              = "oro-kernel-arch-aarch64"
 version.workspace = true
-description = "Oro operating system AArch64 architecture kernel implementation"
-publish = false
-edition = "2024"
-authors = [
-	"Josh Junon (https//github.com/qix-)"
-]
-homepage = "https://oro.sh"
-repository = "https://github.com/oro-os/kernel"
-license = "MPL-2.0"
-autobins = false
+description       = "Oro operating system AArch64 architecture kernel implementation"
+publish           = false
+edition           = "2024"
+authors           = ["Josh Junon (https//github.com/qix-)"]
+homepage          = "https://oro.sh"
+repository        = "https://github.com/oro-os/kernel"
+license           = "MPL-2.0"
+autobins          = false
 
 build = "build.rs"
 
@@ -20,19 +18,19 @@ path = "src/lib.rs"
 [[bin]]
 name = "oro-kernel-aarch64"
 path = "entry.rs"
-doc = false
+doc  = false
 
 [dependencies]
-oro-kernel.workspace = true
+oro-kernel.workspace        = true
 oro-boot-protocol.workspace = true
-oro-kernel-mem.workspace = true
-oro-kernel-macro.workspace = true
-oro-kernel-elf.workspace = true
-oro-debug.workspace = true
-oro-dbgutil.workspace = true
-oro-kernel-dtb.workspace = true
-oro-kernel-type.workspace = true
-oro-kernel-sync.workspace = true
+oro-kernel-mem.workspace    = true
+oro-kernel-macro.workspace  = true
+oro-kernel-elf.workspace    = true
+oro-debug.workspace         = true
+oro-dbgutil.workspace       = true
+oro-kernel-dtb.workspace    = true
+oro-kernel-type.workspace   = true
+oro-kernel-sync.workspace   = true
 
 # Work around non-composability of `test` profile and global allocator conflicts in unit test runner.
 [dev-dependencies]

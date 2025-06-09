@@ -1,15 +1,13 @@
 [package]
-name = "oro-kernel-pci"
+name              = "oro-kernel-pci"
 version.workspace = true
-description = "PCI support for the Oro kernel"
-publish = false
-edition = "2024"
-authors = [
-	"Josh Junon (https//github.com/qix-)"
-]
-homepage = "https://oro.sh"
-repository = "https://github.com/oro-os/kernel"
-license = "MPL-2.0"
+description       = "PCI support for the Oro kernel"
+publish           = false
+edition           = "2024"
+authors           = ["Josh Junon (https//github.com/qix-)"]
+homepage          = "https://oro.sh"
+repository        = "https://github.com/oro-os/kernel"
+license           = "MPL-2.0"
 
 [lib]
 doctest = false
@@ -18,5 +16,5 @@ doctest = false
 workspace = true
 
 [dependencies]
-oro-kernel-type.workspace = true
+oro-kernel-type.workspace  = true
 oro-kernel-macro.workspace = true

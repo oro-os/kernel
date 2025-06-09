@@ -1,23 +1,23 @@
 [package]
-name = "oroutil"
-description = "Utility CLI for various development tasks"
-edition = "2024"
-publish = false
-homepage.workspace = true
+name                 = "oroutil"
+description          = "Utility CLI for various development tasks"
+edition              = "2024"
+publish              = false
+homepage.workspace   = true
 repository.workspace = true
-license.workspace = true
-version.workspace = true
+license.workspace    = true
+version.workspace    = true
 
 [dependencies]
-fast-glob.workspace = true
-clap.workspace = true
-log.workspace = true
-colog.workspace = true
-serde.workspace = true
+fast-glob.workspace  = true
+clap.workspace       = true
+log.workspace        = true
+colog.workspace      = true
+serde.workspace      = true
 serde_json.workspace = true
-ignore.workspace = true
-similar.workspace = true
-taplo.workspace = true
+ignore.workspace     = true
+similar.workspace    = true
+taplo.workspace      = true
 
 [lints]
 workspace = true

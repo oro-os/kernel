@@ -337,8 +337,6 @@ impl TypeEx for Type {
 }
 
 /// Defines a register (or register-like) wrapper type around a primitive integer type,
-///
-/// See [`crate::register`] for more information.
 pub fn bitstruct(input: proc_macro::TokenStream) -> Result<impl quote::ToTokens> {
 	let Bitstruct {
 		attributes,

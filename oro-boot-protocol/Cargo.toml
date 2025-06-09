@@ -1,15 +1,13 @@
 [package]
-name = "oro-boot-protocol"
+name              = "oro-boot-protocol"
 version.workspace = true
-description = "Boot protocol for the Oro kernel"
-publish = false
-edition = "2024"
-authors = [
-	"Josh Junon (https//github.com/qix-)"
-]
-homepage = "https://oro.sh"
-repository = "https://github.com/oro-os/kernel"
-license = "MPL-2.0"
+description       = "Boot protocol for the Oro kernel"
+publish           = false
+edition           = "2024"
+authors           = ["Josh Junon (https//github.com/qix-)"]
+homepage          = "https://oro.sh"
+repository        = "https://github.com/oro-os/kernel"
+license           = "MPL-2.0"
 
 build = "build.rs"
 
@@ -18,13 +16,13 @@ doctest = false
 
 [features]
 default = []
-utils = []
+utils   = []
 
 [dependencies]
 oro-kernel-macro.workspace = true
 
 [build-dependencies]
-syn.workspace = true
+syn.workspace          = true
 convert_case.workspace = true
 
 [lints]

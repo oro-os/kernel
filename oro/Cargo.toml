@@ -1,15 +1,13 @@
 [package]
-name = "oro"
+name              = "oro"
 version.workspace = true
-description = "High level module API and build tooling."
-publish = true
-edition = "2024"
-authors = [
-	"Josh Junon (https//github.com/qix-)"
-]
-homepage = "https://oro.sh"
-repository = "https://github.com/oro-os/kernel"
-license = "MIT OR Apache-2.0"
+description       = "High level module API and build tooling."
+publish           = true
+edition           = "2024"
+authors           = ["Josh Junon (https//github.com/qix-)"]
+homepage          = "https://oro.sh"
+repository        = "https://github.com/oro-os/kernel"
+license           = "MIT OR Apache-2.0"
 
 [lib]
 doctest = false
@@ -21,14 +19,14 @@ workspace = true
 default = []
 nightly = []
 rustc-dep-of-std = [
-	"core",
-	"compiler_builtins",
-	"compiler_builtins/rustc-dep-of-std",
 	"cfg-if",
 	"cfg-if/rustc-dep-of-std",
+	"compiler_builtins",
+	"compiler_builtins/rustc-dep-of-std",
+	"core",
 ]
 
 [dependencies]
-cfg-if = { version = "*", optional = true }
-core = { version = "*", optional = true, package = "rustc-std-workspace-core" }
+cfg-if            = { version = "*", optional = true }
+core              = { version = "*", optional = true, package = "rustc-std-workspace-core" }
 compiler_builtins = { version = "*", optional = true }

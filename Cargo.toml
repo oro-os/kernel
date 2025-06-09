@@ -1,136 +1,132 @@
 [workspace.package]
-homepage = "https://oro.sh"
+homepage   = "https://oro.sh"
 repository = "https://github.com/oro-os/kernel"
-license = "MPL-2.0"
-version = "0.0.0"
+license    = "MPL-2.0"
+version    = "0.0.0"
 
 [workspace]
 resolver = "2"
-default-members = [
-	"oroutil",
-]
 
 members = [
+	"oro",
+	"oro-boot",
+	"oro-boot-protocol",
+	"oro-bootloader-limine",
+	"oro-dbgutil",
+	"oro-debug",
+	"oro-kernel",
 	"oro-kernel-acpi",
 	"oro-kernel-acpica-sys",
 	"oro-kernel-arch-aarch64",
 	"oro-kernel-arch-x86_64",
-	"oro-boot",
-	"oro-boot-protocol",
-	"oro-bootloader-limine",
-	"oro-kernel-mem",
+	"oro-kernel-dtb",
 	"oro-kernel-elf",
 	"oro-kernel-macro",
 	"oro-kernel-macro-proc",
-	"oro-kernel",
-	"oro-debug",
-	"oro-kernel-type",
-	"oro-kernel-dtb",
-	"oro-dbgutil",
-	"oro-kernel-sync",
+	"oro-kernel-mem",
 	"oro-kernel-pci",
-	"oro", "oroutil",
+	"oro-kernel-sync",
+	"oro-kernel-type",
+	"oroutil",
 ]
 
 [workspace.dependencies]
-oro-kernel-acpi.path = "oro-kernel-acpi"
-oro-kernel-acpica-sys.path = "oro-kernel-acpica-sys"
+oro-kernel-acpi.path         = "oro-kernel-acpi"
+oro-kernel-acpica-sys.path   = "oro-kernel-acpica-sys"
 oro-kernel-arch-aarch64.path = "oro-kernel-arch-aarch64"
-oro-kernel-arch-x86_64.path = "oro-kernel-arch-x86_64"
-oro-boot.path = "oro-boot"
-oro-boot-protocol.path = "oro-boot-protocol"
-oro-kernel-mem.path = "oro-kernel-mem"
-oro-kernel-macro.path = "oro-kernel-macro"
-oro-kernel-macro-proc.path = "oro-kernel-macro-proc"
-oro-kernel-elf.path = "oro-kernel-elf"
-oro-kernel.path = "oro-kernel"
-oro-debug.path = "oro-debug"
-oro-kernel-type.path = "oro-kernel-type"
-oro-kernel-dtb.path = "oro-kernel-dtb"
-oro-dbgutil.path = "oro-dbgutil"
-oro-kernel-sync.path = "oro-kernel-sync"
-oro-kernel-pci.path = "oro-kernel-pci"
-oro.path = "oro"
+oro-kernel-arch-x86_64.path  = "oro-kernel-arch-x86_64"
+oro-boot.path                = "oro-boot"
+oro-boot-protocol.path       = "oro-boot-protocol"
+oro-kernel-mem.path          = "oro-kernel-mem"
+oro-kernel-macro.path        = "oro-kernel-macro"
+oro-kernel-macro-proc.path   = "oro-kernel-macro-proc"
+oro-kernel-elf.path          = "oro-kernel-elf"
+oro-kernel.path              = "oro-kernel"
+oro-debug.path               = "oro-debug"
+oro-kernel-type.path         = "oro-kernel-type"
+oro-kernel-dtb.path          = "oro-kernel-dtb"
+oro-dbgutil.path             = "oro-dbgutil"
+oro-kernel-sync.path         = "oro-kernel-sync"
+oro-kernel-pci.path          = "oro-kernel-pci"
+oro.path                     = "oro"
 
 # External dependencies
-limine = "=0.3.1"
-uart_16550 = "=0.3.2"
-volatile-register = "=0.2.2"
+limine                 = "=0.3.1"
+uart_16550             = "=0.3.2"
+volatile-register      = "=0.2.2"
 buddy_system_allocator = "=0.11.0"
-hashbrown = { version = "=0.15.2", default-features = false, features = ["nightly", "inline-more", "allocator-api2"] }
-foldhash = { version = "=0.1.4", default-features = false }
-nolock = { version = "=0.4.1", default-features = false, features = ["queues"] }
+hashbrown              = { version = "=0.15.2", default-features = false, features = ["allocator-api2", "inline-more", "nightly"] }
+foldhash               = { version = "=0.1.4", default-features = false }
+nolock                 = { version = "=0.4.1", default-features = false, features = ["queues"] }
 
 # Development dependencies
-bindgen = "=0.71.1"
-syn = { version = "=2.0.100", features = ["full", "printing"] }
-quote = "=1.0.40"
-proc-macro2 = { version = "=1.0.94", features = ["proc-macro"] }
+bindgen      = "=0.71.1"
+syn          = { version = "=2.0.100", features = ["full", "printing"] }
+quote        = "=1.0.40"
+proc-macro2  = { version = "=1.0.94", features = ["proc-macro"] }
 convert_case = "=0.6.0"
 
 # `oroutil` dependencies
-fast-glob = "=0.4.5"
-clap = { version = "=4.5.40", features = ["derive"] }
-log = "=0.4.27"
-colog = "=1.3.0"
-serde = { version = "=1.0.219", features = ["derive"] }
+fast-glob  = "=0.4.5"
+clap       = { version = "=4.5.40", features = ["derive"] }
+log        = "=0.4.27"
+colog      = "=1.3.0"
+serde      = { version = "=1.0.219", features = ["derive"] }
 serde_json = "=1.0.140"
-ignore = "=0.4.23"
-similar = "=2.7.0"
-taplo = "=0.14.0"
+ignore     = "=0.4.23"
+similar    = "=2.7.0"
+taplo      = "=0.14.0"
 
 [workspace.lints.rust]
-missing_docs = "warn"
+missing_docs              = "warn"
 elided_lifetimes_in_paths = "deny"
-future-incompatible = "warn"
-missing-unsafe-on-extern = "warn"
-unused-lifetimes = "warn"
-unused-qualifications = "warn"
-unused-import-braces = "warn"
-#unused-crate-dependencies = "warn" # TODO(qix-): Sadly, super bugged: https://github.com/rust-lang/rust/issues/57274
-variant-size-differences = "warn"
-trivial-numeric-casts = "warn"
-unit-bindings = "warn"
-unused-features = "warn" # TODO(qix-): Doesn't do what I'd like it to: https://github.com/rust-lang/rust/issues/23528
+future-incompatible       = "warn"
+missing-unsafe-on-extern  = "warn"
+unused-lifetimes          = "warn"
+unused-qualifications     = "warn"
+unused-import-braces      = "warn"
+variant-size-differences  = "warn"
+trivial-numeric-casts     = "warn"
+unit-bindings             = "warn"
+unused-features           = "warn" # TODO(qix-): Doesn't do what I'd like it to: https://github.com/rust-lang/rust/issues/23528
 
 [workspace.lints.rustdoc]
-all = { level = "deny", priority = -1 }
-private_doc_tests = "allow"
+all                     = { level = "deny", priority = -1 }
+private_doc_tests       = "allow"
 private_intra_doc_links = "allow"
 
 [workspace.lints.clippy]
-all = { level = "warn", priority = -1 }
-pedantic = { level = "warn", priority = -1 }
-missing_docs_in_private_items = "warn"
-integer_division = "warn"
-module_name_repetitions = "allow"
-verbose_bit_mask = "allow"
-too_many_lines = "allow"
-missing_errors_doc = "allow"
-struct_field_names = "allow"
-items_after_statements = "allow"
-cast_possible_truncation = "allow" # TODO(qix-): Temporary until the virt/phys types land.
-assertions_on_constants = "allow"
-new_without_default = "allow"
-needless_doctest_main = "allow"
-tabs_in_doc_comments = "allow"
+all                                = { level = "warn", priority = -1 }
+pedantic                           = { level = "warn", priority = -1 }
+missing_docs_in_private_items      = "warn"
+integer_division                   = "warn"
+module_name_repetitions            = "allow"
+verbose_bit_mask                   = "allow"
+too_many_lines                     = "allow"
+missing_errors_doc                 = "allow"
+struct_field_names                 = "allow"
+items_after_statements             = "allow"
+cast_possible_truncation           = "allow"
+assertions_on_constants            = "allow"
+new_without_default                = "allow"
+needless_doctest_main              = "allow"
+tabs_in_doc_comments               = "allow"
 redundant_closure_for_method_calls = "allow"
-#undocumented_unsafe_blocks = "warn"
 
 [profile.dev]
-panic = "abort"            # Use "abort" panic strategy
-debug = "full"             # Full debugging symbols
+panic = "abort" # Use "abort" panic strategy
+debug = "full"  # Full debugging symbols
 
 [profile.release]
-opt-level = 3              # Maximum optimizations
-lto = "fat"                # Perform LTO across all crates
-codegen-units = 1          # Reduce number of codegen units to increase optimizations.
-strip = true               # Strip symbols from binary
-incremental = false        # Disable incremental building
-panic = "abort"            # Use "abort" panic strategy
-debug = 0                  # Do not generate debug information
+opt-level     = 3       # Maximum optimizations
+lto           = "fat"   # Perform LTO across all crates
+codegen-units = 1       # Reduce number of codegen units to increase optimizations.
+strip         = true    # Strip symbols from binary
+incremental   = false   # Disable incremental building
+panic         = "abort" # Use "abort" panic strategy
+debug         = 0       # Do not generate debug information
 
 [profile.relwithdebinfo]
 inherits = "release"
-debug = "full"             # Full debugging symbols
-strip = false              # Don't strip symbols from binary
+debug    = "full"    # Full debugging symbols
+strip    = false     # Don't strip symbols from binary

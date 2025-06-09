@@ -1,15 +1,13 @@
 [package]
-name = "oro-dbgutil"
+name              = "oro-dbgutil"
 version.workspace = true
-description = "Dbgutil stubs for the Oro kernel"
-publish = false
-edition = "2024"
-authors = [
-	"Josh Junon (https//github.com/qix-)"
-]
-homepage = "https://oro.sh"
-repository = "https://github.com/oro-os/kernel"
-license = "MPL-2.0"
+description       = "Dbgutil stubs for the Oro kernel"
+publish           = false
+edition           = "2024"
+authors           = ["Josh Junon (https//github.com/qix-)"]
+homepage          = "https://oro.sh"
+repository        = "https://github.com/oro-os/kernel"
+license           = "MPL-2.0"
 
 [lib]
 doctest = false

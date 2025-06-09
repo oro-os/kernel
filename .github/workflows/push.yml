@@ -9,15 +9,15 @@ env:
   RUST_BACKTRACE: full
 
 jobs:
-  lint-rustfmt:
+  lint-oroutil-fmt:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - uses: ./.github/actions/rust
-      - name: Lint (rustfmt)
-        run: cargo fmt --all -- --check
+      - name: Lint (`oro fmt`)
+        run: cargo oro fmt --check
   lint-clippy:
     runs-on: ubuntu-latest
     strategy:
