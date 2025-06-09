@@ -12,8 +12,8 @@ use core::{
 	},
 };
 
-use oro_macro::assert;
-use oro_mem::{
+use oro_kernel_macro::assert;
+use oro_kernel_mem::{
 	alloc::boxed::Box,
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},
@@ -347,7 +347,7 @@ impl<T: Default + 'static> EncodedAtomicPtr<T> {
 		if ptr == (!0) as *mut T {
 			return Some(Encoded::Tomb);
 		} else if ptr.is_null() {
-			let p_raw = ::oro_mem::global_alloc::GlobalPfa.allocate()?;
+			let p_raw = ::oro_kernel_mem::global_alloc::GlobalPfa.allocate()?;
 			// SAFETY: We just allocated this memory, so it's safe to use.
 			let p = unsafe { Phys::from_address_unchecked(p_raw) };
 			assert::aligns_to::<T, 4096>();
@@ -360,7 +360,7 @@ impl<T: Default + 'static> EncodedAtomicPtr<T> {
 			if let Err(new_ptr) = self.0.compare_exchange(ptr, new_ptr, Relaxed, Relaxed) {
 				// SAFETY: We just allocated this memory, so it's safe to free ourselves.
 				unsafe {
-					::oro_mem::global_alloc::GlobalPfa.free(p_raw);
+					::oro_kernel_mem::global_alloc::GlobalPfa.free(p_raw);
 				}
 				::oro_dbgutil::__oro_dbgutil_tab_page_already_allocated(p_raw, LEVEL);
 				ptr = new_ptr;
@@ -583,7 +583,7 @@ impl Drop for AnyTab {
 	}
 }
 
-/// A "tab" is essentially an [`oro_mem::alloc::sync::Arc`] that can be indexed
+/// A "tab" is essentially an [`oro_kernel_mem::alloc::sync::Arc`] that can be indexed
 /// by the global table and given a unique ID that can be shared, safely,
 /// to userspace programs.
 ///
@@ -787,7 +787,7 @@ struct Slot {
 }
 
 const _: () = {
-	oro_macro::assert_offset_of!(Slot, data, 0);
+	oro_kernel_macro::assert_offset_of!(Slot, data, 0);
 };
 
 /// A list of slots, fit snugly into a page.
@@ -848,7 +848,7 @@ impl Drop for SlotReaderGuard<'_> {
 			self.slot.ty() as u64,
 			::core::ptr::from_ref(self.slot).addr(),
 			(prev_value & ((1 << 31) - 1)) - 1,
-			unsafe { crate::sync::oro_sync_current_core_id() },
+			unsafe { crate::sync::oro_kernel_sync_current_core_id() },
 		);
 
 		#[cfg(debug_assertions)]
@@ -881,7 +881,7 @@ impl Drop for SlotWriterGuard<'_> {
 			let count = loaded & ((1 << 31) - 1);
 			let kernel_id = (loaded >> 31) as u32;
 			// SAFETY: This is just for debugging.
-			let our_id = unsafe { crate::sync::oro_sync_current_core_id() };
+			let our_id = unsafe { crate::sync::oro_kernel_sync_current_core_id() };
 			debug_assert!(
 				!is_reader && count > 0 && kernel_id == our_id,
 				"precondition failed: on writer guard drop: our_id={our_id}, \
@@ -908,7 +908,7 @@ impl Drop for SlotWriterGuard<'_> {
 					::core::ptr::from_ref(self.slot).addr(),
 					new_value & ((1 << 31) - 1),
 					(loaded >> 31) as u32,
-					unsafe { crate::sync::oro_sync_current_core_id() },
+					unsafe { crate::sync::oro_kernel_sync_current_core_id() },
 				);
 				break;
 			}
@@ -1083,7 +1083,7 @@ impl Slot {
 				self.ty() as u64,
 				::core::ptr::from_ref(self).addr(),
 				lock_count + 1,
-				unsafe { crate::sync::oro_sync_current_core_id() },
+				unsafe { crate::sync::oro_kernel_sync_current_core_id() },
 			);
 			Some(SlotReaderGuard { slot: self })
 		}
@@ -1115,7 +1115,7 @@ impl Slot {
 		let is_locked_for_reading = loaded > 0 && is_reader;
 		let is_at_maximum_locks = lock_count == ((1 << 31) - 1);
 		// SAFETY: There's nothing unsafe about this, it's just an extern prototype.
-		let our_core = unsafe { crate::sync::oro_sync_current_core_id() };
+		let our_core = unsafe { crate::sync::oro_kernel_sync_current_core_id() };
 		let is_locked_by_another_core = loaded > 0 && kernel_id != our_core;
 
 		if is_locked_for_reading || is_locked_by_another_core || is_at_maximum_locks {

@@ -62,8 +62,8 @@ use nolock::queues::{
 	DequeueError,
 	mpmc::bounded::scq::{Receiver, Sender},
 };
-use oro_macro::assert;
-use oro_mem::{
+use oro_kernel_macro::assert;
+use oro_kernel_mem::{
 	alloc::boxed::Box,
 	global_alloc::GlobalPfa,
 	mapper::{AddressSegment, AddressSpace as _, MapError},
@@ -110,7 +110,7 @@ impl<A: Arch> Kernel<A> {
 
 	/// Initializes a new core-local instance of the Oro kernel.
 	///
-	/// The [`oro_mem::mapper::AddressSpace::kernel_core_local()`] segment must
+	/// The [`oro_kernel_mem::mapper::AddressSpace::kernel_core_local()`] segment must
 	/// be empty prior to calling this function, else it will
 	/// return [`MapError::Exists`].
 	///
@@ -301,7 +301,7 @@ impl<A: Arch> Kernel<A> {
 	///
 	/// # Safety
 	/// - The caller must ensure that the stack is restored to the top of the
-	///   kernel stack segment ([`oro_mem::mapper::AddressSpace::kernel_stack()`]).
+	///   kernel stack segment ([`oro_kernel_mem::mapper::AddressSpace::kernel_stack()`]).
 	/// - Interrupts must be disabled. Any NMI handlers must be primed to dump core
 	///   and kernel panic; **this function is non-reentrant**.
 	/// - This function must only be called **exactly once** per context switch.
@@ -463,6 +463,7 @@ impl<A: Arch> GlobalKernelState<A> {
 pub(crate) type AddressSpace<A> = <A as Arch>::AddressSpace;
 /// Helper trait association type for `Arch::AddrSpace::SupervisorHandle`.
 pub(crate) type SupervisorHandle<A> =
-	<AddressSpace<A> as oro_mem::mapper::AddressSpace>::SupervisorHandle;
+	<AddressSpace<A> as oro_kernel_mem::mapper::AddressSpace>::SupervisorHandle;
 /// Helper trait association type for `Arch::AddrSpace::UserHandle`.
-pub(crate) type UserHandle<A> = <AddressSpace<A> as oro_mem::mapper::AddressSpace>::UserHandle;
+pub(crate) type UserHandle<A> =
+	<AddressSpace<A> as oro_kernel_mem::mapper::AddressSpace>::UserHandle;

@@ -10,7 +10,7 @@ use core::{
 };
 
 use oro::syscall::{Error, Opcode};
-use oro_mem::alloc::sync::Arc;
+use oro_kernel_mem::alloc::sync::Arc;
 
 use crate::{
 	arch::Arch,

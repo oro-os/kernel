@@ -10,50 +10,50 @@ resolver = "2"
 default-members = [
 	"oro-bootloader-limine",
 	"oro-kernel",
-	"oro-arch-x86_64",
-	"oro-arch-aarch64",
+	"oro-kernel-arch-x86_64",
+	"oro-kernel-arch-aarch64",
 ]
 
 members = [
-	"oro-acpi",
-	"oro-acpica-sys",
-	"oro-arch-aarch64",
-	"oro-arch-x86_64",
+	"oro-kernel-acpi",
+	"oro-kernel-acpica-sys",
+	"oro-kernel-arch-aarch64",
+	"oro-kernel-arch-x86_64",
 	"oro-boot",
 	"oro-boot-protocol",
 	"oro-bootloader-limine",
-	"oro-mem",
-	"oro-elf",
-	"oro-macro",
-	"oro-macro-proc",
+	"oro-kernel-mem",
+	"oro-kernel-elf",
+	"oro-kernel-macro",
+	"oro-kernel-macro-proc",
 	"oro-kernel",
 	"oro-debug",
-	"oro-type",
-	"oro-dtb",
+	"oro-kernel-type",
+	"oro-kernel-dtb",
 	"oro-dbgutil",
-	"oro-sync",
-	"oro-pci",
+	"oro-kernel-sync",
+	"oro-kernel-pci",
 	"oro",
 ]
 
 [workspace.dependencies]
-oro-acpi.path = "oro-acpi"
-oro-acpica-sys.path = "oro-acpica-sys"
-oro-arch-aarch64.path = "oro-arch-aarch64"
-oro-arch-x86_64.path = "oro-arch-x86_64"
+oro-kernel-acpi.path = "oro-kernel-acpi"
+oro-kernel-acpica-sys.path = "oro-kernel-acpica-sys"
+oro-kernel-arch-aarch64.path = "oro-kernel-arch-aarch64"
+oro-kernel-arch-x86_64.path = "oro-kernel-arch-x86_64"
 oro-boot.path = "oro-boot"
 oro-boot-protocol.path = "oro-boot-protocol"
-oro-mem.path = "oro-mem"
-oro-macro.path = "oro-macro"
-oro-macro-proc.path = "oro-macro-proc"
-oro-elf.path = "oro-elf"
+oro-kernel-mem.path = "oro-kernel-mem"
+oro-kernel-macro.path = "oro-kernel-macro"
+oro-kernel-macro-proc.path = "oro-kernel-macro-proc"
+oro-kernel-elf.path = "oro-kernel-elf"
 oro-kernel.path = "oro-kernel"
 oro-debug.path = "oro-debug"
-oro-type.path = "oro-type"
-oro-dtb.path = "oro-dtb"
+oro-kernel-type.path = "oro-kernel-type"
+oro-kernel-dtb.path = "oro-kernel-dtb"
 oro-dbgutil.path = "oro-dbgutil"
-oro-sync.path = "oro-sync"
-oro-pci.path = "oro-pci"
+oro-kernel-sync.path = "oro-kernel-sync"
+oro-kernel-pci.path = "oro-kernel-pci"
 oro.path = "oro"
 
 limine = "=0.3.1"

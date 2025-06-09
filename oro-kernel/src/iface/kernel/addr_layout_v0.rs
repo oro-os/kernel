@@ -3,7 +3,7 @@
 use core::marker::PhantomData;
 
 use oro::{key, syscall::Error as SysError};
-use oro_mem::mapper::{AddressSpace as _, AddressSegment};
+use oro_kernel_mem::mapper::{AddressSpace as _, AddressSegment};
 
 use super::KernelInterface;
 use crate::{AddressSpace, arch::Arch, syscall::InterfaceResponse, tab::Tab, thread::Thread};
@@ -20,7 +20,7 @@ impl<A: Arch> KernelInterface<A> for AddrLayoutV0<A> {
 			_ => return InterfaceResponse::immediate(SysError::BadIndex, 0),
 		};
 
-		::oro_macro::assert::fits_within::<usize, u64>();
+		::oro_kernel_macro::assert::fits_within::<usize, u64>();
 
 		match key {
 			key!("start") => InterfaceResponse::ok(segment.range().0 as u64),

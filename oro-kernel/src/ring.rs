@@ -1,6 +1,6 @@
 //! Implements Oro rings in the kernel.
 
-use oro_mem::{alloc::vec::Vec, mapper::MapError};
+use oro_kernel_mem::{alloc::vec::Vec, mapper::MapError};
 
 use crate::{
 	arch::Arch,

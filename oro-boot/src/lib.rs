@@ -37,9 +37,9 @@ use oro_boot_protocol::{
 	util::{RequestData, RequestScanner, TrySendError},
 };
 use oro_debug::{dbg, dbg_warn};
-use oro_elf::ElfSegmentType;
-use oro_mem::mapper::AddressSpace;
-pub use oro_mem::mapper::MapError;
+use oro_kernel_elf::ElfSegmentType;
+use oro_kernel_mem::mapper::AddressSpace;
+pub use oro_kernel_mem::mapper::MapError;
 
 /// The bootstrapper error type.
 #[derive(Debug, Clone, Copy)]
@@ -48,7 +48,7 @@ pub enum Error {
 	/// the new supervisor space.
 	MapError(MapError),
 	/// An error occurred when parsing the kernel ELF file.
-	ElfError(oro_elf::ElfError),
+	ElfError(oro_kernel_elf::ElfError),
 	/// The provided kernel ELF file has no kernel segments.
 	NoKernelSegments,
 	/// The provided kernel ELF file has an invalid segment.
@@ -136,7 +136,7 @@ impl<M: Into<oro_boot_protocol::MemoryMapEntry> + Clone, I: Iterator<Item = M> +
 		// Tell the memory subsystem where our linear offset is.
 		// SAFETY: We indicate in the safety requirements of this method that
 		// SAFETY: this is only to be called once.
-		unsafe { oro_mem::translate::set_global_map_offset(linear_offset) };
+		unsafe { oro_kernel_mem::translate::set_global_map_offset(linear_offset) };
 
 		let pfa = pfa::UnsafePrebootPfa::new(iter, linear_offset);
 		let supervisor_space = target::AddressSpace::new_supervisor_space_in(&pfa)

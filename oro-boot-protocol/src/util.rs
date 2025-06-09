@@ -3,7 +3,7 @@
 //! This module is **optional** and is enabled via the `utils` feature.
 //! See the crate documentation for information on how to populate
 //! the kernel requests without using this module.
-use oro_macro::assert;
+use oro_kernel_macro::assert;
 
 use crate::{Request, RequestHeader, RequestTag, Tag};
 

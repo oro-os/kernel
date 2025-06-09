@@ -310,71 +310,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "oro-acpi"
-version = "0.0.0"
-dependencies = [
- "oro-acpica-sys",
- "oro-macro",
- "oro-mem",
-]
-
-[[package]]
-name = "oro-acpica-sys"
-version = "20240322.0.2"
-dependencies = [
- "bindgen",
- "convert_case",
- "oro-type",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "oro-arch-aarch64"
-version = "0.0.0"
-dependencies = [
- "oro-boot-protocol",
- "oro-dbgutil",
- "oro-debug",
- "oro-dtb",
- "oro-elf",
- "oro-kernel",
- "oro-macro",
- "oro-mem",
- "oro-sync",
- "oro-type",
-]
-
-[[package]]
-name = "oro-arch-x86_64"
-version = "0.0.0"
-dependencies = [
- "oro",
- "oro-acpi",
- "oro-boot-protocol",
- "oro-dbgutil",
- "oro-debug",
- "oro-elf",
- "oro-kernel",
- "oro-macro",
- "oro-mem",
- "oro-pci",
- "oro-sync",
- "oro-type",
-]
-
-[[package]]
 name = "oro-boot"
 version = "0.0.0"
 dependencies = [
- "oro-arch-aarch64",
- "oro-arch-x86_64",
  "oro-boot-protocol",
  "oro-dbgutil",
  "oro-debug",
- "oro-elf",
- "oro-macro",
- "oro-mem",
+ "oro-kernel-arch-aarch64",
+ "oro-kernel-arch-x86_64",
+ "oro-kernel-elf",
+ "oro-kernel-macro",
+ "oro-kernel-mem",
 ]
 
 [[package]]
@@ -382,7 +328,7 @@ name = "oro-boot-protocol"
 version = "0.0.0"
 dependencies = [
  "convert_case",
- "oro-macro",
+ "oro-kernel-macro",
  "syn",
 ]
 
@@ -400,30 +346,16 @@ dependencies = [
 name = "oro-dbgutil"
 version = "0.0.0"
 dependencies = [
- "oro-macro",
+ "oro-kernel-macro",
 ]
 
 [[package]]
 name = "oro-debug"
 version = "0.0.0"
 dependencies = [
- "oro-sync",
+ "oro-kernel-sync",
  "uart_16550",
  "volatile-register",
-]
-
-[[package]]
-name = "oro-dtb"
-version = "0.0.0"
-dependencies = [
- "oro-type",
-]
-
-[[package]]
-name = "oro-elf"
-version = "0.0.0"
-dependencies = [
- "oro-macro",
 ]
 
 [[package]]
@@ -437,20 +369,88 @@ dependencies = [
  "oro-boot-protocol",
  "oro-dbgutil",
  "oro-debug",
- "oro-macro",
- "oro-mem",
- "oro-sync",
+ "oro-kernel-macro",
+ "oro-kernel-mem",
+ "oro-kernel-sync",
 ]
 
 [[package]]
-name = "oro-macro"
+name = "oro-kernel-acpi"
 version = "0.0.0"
 dependencies = [
- "oro-macro-proc",
+ "oro-kernel-acpica-sys",
+ "oro-kernel-macro",
+ "oro-kernel-mem",
 ]
 
 [[package]]
-name = "oro-macro-proc"
+name = "oro-kernel-acpica-sys"
+version = "20240322.0.2"
+dependencies = [
+ "bindgen",
+ "convert_case",
+ "oro-kernel-type",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "oro-kernel-arch-aarch64"
+version = "0.0.0"
+dependencies = [
+ "oro-boot-protocol",
+ "oro-dbgutil",
+ "oro-debug",
+ "oro-kernel",
+ "oro-kernel-dtb",
+ "oro-kernel-elf",
+ "oro-kernel-macro",
+ "oro-kernel-mem",
+ "oro-kernel-sync",
+ "oro-kernel-type",
+]
+
+[[package]]
+name = "oro-kernel-arch-x86_64"
+version = "0.0.0"
+dependencies = [
+ "oro",
+ "oro-boot-protocol",
+ "oro-dbgutil",
+ "oro-debug",
+ "oro-kernel",
+ "oro-kernel-acpi",
+ "oro-kernel-elf",
+ "oro-kernel-macro",
+ "oro-kernel-mem",
+ "oro-kernel-pci",
+ "oro-kernel-sync",
+ "oro-kernel-type",
+]
+
+[[package]]
+name = "oro-kernel-dtb"
+version = "0.0.0"
+dependencies = [
+ "oro-kernel-type",
+]
+
+[[package]]
+name = "oro-kernel-elf"
+version = "0.0.0"
+dependencies = [
+ "oro-kernel-macro",
+]
+
+[[package]]
+name = "oro-kernel-macro"
+version = "0.0.0"
+dependencies = [
+ "oro-kernel-macro-proc",
+]
+
+[[package]]
+name = "oro-kernel-macro-proc"
 version = "0.0.0"
 dependencies = [
  "convert_case",
@@ -460,34 +460,34 @@ dependencies = [
 ]
 
 [[package]]
-name = "oro-mem"
+name = "oro-kernel-mem"
 version = "0.0.0"
 dependencies = [
  "buddy_system_allocator",
  "oro-dbgutil",
  "oro-debug",
- "oro-elf",
- "oro-macro",
- "oro-sync",
+ "oro-kernel-elf",
+ "oro-kernel-macro",
+ "oro-kernel-sync",
 ]
 
 [[package]]
-name = "oro-pci"
+name = "oro-kernel-pci"
 version = "0.0.0"
 dependencies = [
- "oro-macro",
- "oro-type",
+ "oro-kernel-macro",
+ "oro-kernel-type",
 ]
 
 [[package]]
-name = "oro-sync"
+name = "oro-kernel-sync"
 version = "0.0.0"
 dependencies = [
  "oro-dbgutil",
 ]
 
 [[package]]
-name = "oro-type"
+name = "oro-kernel-type"
 version = "0.0.0"
 
 [[package]]

@@ -25,12 +25,12 @@ use core::marker::PhantomData;
 use oro::{key, syscall::Error as SysError};
 use oro_boot_protocol::{RGBVideoBuffer, VideoBuffersRequest, video_buffers::VideoBuffersKind};
 use oro_debug::{dbg, dbg_warn};
-use oro_mem::{
+use oro_kernel_mem::{
 	alloc::vec::Vec,
 	mapper::{AddressSegment, AddressSpace, MapError},
 	phys::{Phys, PhysAddr},
 };
-use oro_sync::{Lock, Mutex};
+use oro_kernel_sync::{Lock, Mutex};
 
 use crate::{
 	arch::Arch, interface::Interface, syscall::InterfaceResponse, tab::Tab, thread::Thread,

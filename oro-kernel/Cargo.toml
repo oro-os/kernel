@@ -28,10 +28,10 @@ zombie-tombs = []
 debug-tombs = []
 
 [dependencies]
-oro-mem.workspace = true
-oro-macro.workspace = true
+oro-kernel-mem.workspace = true
+oro-kernel-macro.workspace = true
 oro-debug.workspace = true
-oro-sync.workspace = true
+oro-kernel-sync.workspace = true
 oro.workspace = true
 oro-boot-protocol = { workspace = true, optional = true, features = ["utils"] }
 oro-dbgutil.workspace = true

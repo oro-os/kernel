@@ -20,7 +20,7 @@ default = []
 force-hooks = []
 
 [dependencies]
-oro-macro.workspace = true
+oro-kernel-macro.workspace = true
 
 [lints]
 workspace = true

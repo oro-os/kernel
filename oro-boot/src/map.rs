@@ -2,8 +2,8 @@
 //! into a supervisor address space.
 
 use oro_debug::dbg;
-use oro_elf::{Elf, ElfSegment, ElfSegmentType};
-use oro_mem::{
+use oro_kernel_elf::{Elf, ElfSegment, ElfSegmentType};
+use oro_kernel_mem::{
 	mapper::{AddressSegment, AddressSpace, MapError, UnmapError},
 	phys::{Phys, PhysAddr},
 };

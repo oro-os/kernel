@@ -7,7 +7,7 @@ mod driver;
 
 use core::fmt::{self, Write};
 
-use oro_sync::{Lock, TicketMutex};
+use oro_kernel_sync::{Lock, TicketMutex};
 
 /// The shared serial port for the system.
 // NOTE(qix-): This is a temporary solution until pre-boot module loading

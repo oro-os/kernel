@@ -16,7 +16,7 @@
 use core::{cmp::Ordering, marker::PhantomData};
 
 use oro::{key, syscall::Error as SysError};
-use oro_mem::alloc::vec::Vec;
+use oro_kernel_mem::alloc::vec::Vec;
 
 use crate::{
 	arch::Arch, interface::Interface, syscall::InterfaceResponse, tab::Tab, thread::Thread,

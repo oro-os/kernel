@@ -12,7 +12,7 @@
 #![expect(internal_features)]
 #![feature(core_intrinsics)]
 
-use oro_sync::{Lock, TicketMutex};
+use oro_kernel_sync::{Lock, TicketMutex};
 
 #[cfg(any(doc, all(debug_assertions, feature = "pl011")))]
 mod pl011;

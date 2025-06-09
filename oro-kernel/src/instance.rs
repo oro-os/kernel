@@ -1,6 +1,6 @@
 //! Module instance types and functionality.
 
-use oro_mem::mapper::{AddressSegment, AddressSpace as _, MapError};
+use oro_kernel_mem::mapper::{AddressSegment, AddressSpace as _, MapError};
 
 use crate::{
 	AddressSpace, Kernel, UserHandle,

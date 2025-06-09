@@ -1,7 +1,7 @@
 //! Types and traits for Oro interfaces, exposed by modules and the kernel.
 
 use oro::syscall::Error as SysError;
-use oro_mem::alloc::boxed::Box;
+use oro_kernel_mem::alloc::boxed::Box;
 
 use crate::{
 	arch::Arch, event::SystemCallResponse, syscall::InterfaceResponse, tab::Tab, thread::Thread,

@@ -17,7 +17,7 @@
 //! **Please exercise extreme caution when using tokens.**
 
 use oro::key;
-use oro_mem::{
+use oro_kernel_mem::{
 	alloc::vec::Vec,
 	global_alloc::GlobalPfa,
 	pfa::Alloc,

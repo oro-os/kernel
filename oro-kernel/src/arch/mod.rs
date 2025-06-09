@@ -1,6 +1,6 @@
 //! Defines traits that for items that must be provided by the architecture.
 
-use oro_mem::{
+use oro_kernel_mem::{
 	alloc::boxed::Box,
 	mapper::{AddressSpace, MapError},
 };
@@ -51,7 +51,7 @@ pub unsafe trait ThreadHandle<A: Arch>: Sized + Send {
 	///
 	/// # Invariants
 	/// Implementors must be aware existing mappings may be present, but assuming
-	/// that all invariants of the [`oro_mem::mapper::AddressSpace`] segments are
+	/// that all invariants of the [`oro_kernel_mem::mapper::AddressSpace`] segments are
 	/// upheld, no conflicts should arise.
 	///
 	/// The stack has already been mapped by the kernel. No additional stack preparation
@@ -64,7 +64,7 @@ pub unsafe trait ThreadHandle<A: Arch>: Sized + Send {
 	/// **must not** free any memory that was not allocated by this method.
 	///
 	/// Upon drop or error, the mapper **must be freed without reclaim**
-	/// via [`oro_mem::mapper::AddressSpace::free_user_space_handle`].
+	/// via [`oro_kernel_mem::mapper::AddressSpace::free_user_space_handle`].
 	fn new(
 		mapper: <<A as Arch>::AddressSpace as AddressSpace>::UserHandle,
 		stack_ptr: usize,
@@ -106,7 +106,7 @@ pub unsafe trait InstanceHandle<A: Arch>: Sized + Send {
 	///
 	/// # Invariants
 	/// Implementors must be aware existing mappings may be present, but assuming
-	/// that all invariants of the [`oro_mem::mapper::AddressSpace`] segments are
+	/// that all invariants of the [`oro_kernel_mem::mapper::AddressSpace`] segments are
 	/// upheld, no conflicts should arise.
 	//
 	/// Must make the given instance mapper unique, either by duplicating
@@ -117,7 +117,7 @@ pub unsafe trait InstanceHandle<A: Arch>: Sized + Send {
 	/// **must not** free any memory that was not allocated by this method.
 	///
 	/// Upon drop or error, the mapper **must be freed without reclaim**
-	/// via [`oro_mem::mapper::AddressSpace::free_user_space_handle`].
+	/// via [`oro_kernel_mem::mapper::AddressSpace::free_user_space_handle`].
 	fn new(
 		mapper: <<A as Arch>::AddressSpace as AddressSpace>::UserHandle,
 	) -> Result<Self, MapError>;

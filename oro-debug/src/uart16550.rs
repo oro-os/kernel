@@ -1,7 +1,7 @@
 //! Early-stage debugging support for the 16550 UART on x86_64
 use core::fmt::{self, Write};
 
-use oro_sync::{Lock, TicketMutex};
+use oro_kernel_sync::{Lock, TicketMutex};
 use uart_16550::SerialPort;
 
 /// The shared serial port for the system.

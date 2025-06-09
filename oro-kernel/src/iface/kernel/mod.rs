@@ -2,7 +2,7 @@
 //!
 //! Always available, regardless of the caller's ring.
 
-use oro_mem::alloc::boxed::Box;
+use oro_kernel_mem::alloc::boxed::Box;
 
 use crate::{arch::Arch, syscall::InterfaceResponse, tab::Tab, table::Table, thread::Thread};
 

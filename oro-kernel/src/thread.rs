@@ -11,8 +11,8 @@
 
 use oro::{key, syscall::Error as SysError};
 use oro_debug::dbg_warn;
-use oro_macro::AsU64;
-use oro_mem::{
+use oro_kernel_macro::AsU64;
+use oro_kernel_mem::{
 	alloc::vec::Vec,
 	mapper::{AddressSegment, AddressSpace as _, MapError},
 	phys::PhysAddr,
@@ -749,7 +749,7 @@ pub enum TokenMapError {
 /// Checks if the given virtual address resides within the given address segment.
 #[inline]
 fn virt_resides_within<A: Arch>(
-	segment: &<AddressSpace<A> as ::oro_mem::mapper::AddressSpace>::UserSegment,
+	segment: &<AddressSpace<A> as ::oro_kernel_mem::mapper::AddressSpace>::UserSegment,
 	virt: usize,
 ) -> bool {
 	// NOTE(qix-): Range is *inclusive*.

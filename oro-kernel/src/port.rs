@@ -6,7 +6,7 @@ use core::{
 };
 
 use oro::key;
-use oro_mem::{
+use oro_kernel_mem::{
 	global_alloc::GlobalPfa,
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},

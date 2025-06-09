@@ -23,7 +23,7 @@ pl011 = []
 uart16550 = []
 
 [dependencies]
-oro-sync.workspace = true
+oro-kernel-sync.workspace = true
 volatile-register.workspace = true
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]

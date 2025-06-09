@@ -19,14 +19,14 @@ static HAS_SET_KERNEL_ID_FN: core::sync::atomic::AtomicBool =
 	core::sync::atomic::AtomicBool::new(false);
 
 /// Retrieves the current core's kernel ID. This is linked to by `oro-sync` for the
-/// [`oro_sync::ReentrantLock`] implementation.
+/// [`oro_kernel_sync::ReentrantLock`] implementation.
 ///
 /// # Safety
 /// This function is **not** safe to call directly. It is intended to be called by
 /// `oro-sync` only.
 #[doc(hidden)]
 #[unsafe(no_mangle)]
-pub(crate) unsafe extern "C" fn oro_sync_current_core_id() -> u32 {
+pub(crate) unsafe extern "C" fn oro_kernel_sync_current_core_id() -> u32 {
 	#[cfg(debug_assertions)]
 	{
 		assert!(
@@ -52,7 +52,7 @@ fn get_arch_kernel_id<A: Arch>() -> u32 {
 /// Initializes the kernel ID function pointer.
 ///
 /// # Safety
-/// This must be called **exactly once** prior to any [`oro_sync::ReentrantMutex`] locking.
+/// This must be called **exactly once** prior to any [`oro_kernel_sync::ReentrantMutex`] locking.
 ///
 /// Further, `A` **must** be the same [`Arch`] type as the kernel being initialized,
 /// and **must** be the same across **all cores**.
@@ -74,7 +74,7 @@ pub unsafe fn initialize_kernel_id_fn<A: Arch>() {
 ///
 /// # Safety
 /// This function *may* be called prior to [`initialize_kernel_id_fn`], but
-/// **must** be called prior to any locking with [`oro_sync::ReentrantMutex`]
+/// **must** be called prior to any locking with [`oro_kernel_sync::ReentrantMutex`]
 /// if it is.
 ///
 /// **The handler installed by this function must not be used once multiple

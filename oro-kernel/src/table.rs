@@ -9,7 +9,7 @@ use core::{
 };
 
 use hashbrown::HashMap;
-use oro_mem::alloc::{alloc::Global, boxed::Box};
+use oro_kernel_mem::alloc::{alloc::Global, boxed::Box};
 
 use crate::{hash::U64IdentityBuildHasher, tab::TabId};
 

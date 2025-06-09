@@ -8,7 +8,7 @@
 #![allow(unused_variables, clippy::inline_always)]
 
 #[cfg(debug_assertions)]
-use oro_macro::gdb_autoload_inline;
+use oro_kernel_macro::gdb_autoload_inline;
 
 #[cfg(debug_assertions)]
 gdb_autoload_inline!("dbgutil.py");

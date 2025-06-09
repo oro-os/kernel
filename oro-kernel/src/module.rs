@@ -1,7 +1,7 @@
 //! Implements Oro module instances in the kernel.
 
-use oro_macro::assert;
-use oro_mem::{
+use oro_kernel_macro::assert;
+use oro_kernel_mem::{
 	alloc::vec::Vec,
 	mapper::{AddressSpace as _, MapError},
 };

@@ -3,15 +3,15 @@
 
 use core::arch::asm;
 
-use oro_arch_x86_64::mem::{
+use oro_kernel_arch_x86_64::mem::{
 	address_space::{AddressSpaceHandle, AddressSpaceLayout},
 	paging::PageTableEntry,
 	paging_level::PagingLevel,
 	segment::{AddressSegment, MapperHandle},
 };
-pub use oro_arch_x86_64::{ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
-use oro_macro::asm_buffer;
-use oro_mem::{
+pub use oro_kernel_arch_x86_64::{ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
+use oro_kernel_macro::asm_buffer;
+use oro_kernel_mem::{
 	mapper::{AddressSegment as _, AddressSpace as _, MapError, UnmapError},
 	pfa::Alloc,
 	phys::PhysAddr,

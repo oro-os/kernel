@@ -54,7 +54,7 @@ impl<A: Arch> KernelInterface<A> for MemTokenV0<A> {
 				Token::Normal(token) | Token::NormalThreadStack(token) => {
 					// SAFETY(qix-): Ensure that the `usize` fits within a `u64`,
 					// SAFETY(qix-): otherwise the below `as` casts will truncate.
-					::oro_macro::assert::fits_within::<usize, u64>();
+					::oro_kernel_macro::assert::fits_within::<usize, u64>();
 
 					match key {
 						key!("type") => InterfaceResponse::ok(t.type_id()),
