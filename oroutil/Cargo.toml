@@ -9,15 +9,24 @@ license.workspace    = true
 version.workspace    = true
 
 [dependencies]
-fast-glob.workspace  = true
-clap.workspace       = true
-log.workspace        = true
-colog.workspace      = true
-serde.workspace      = true
-serde_json.workspace = true
-ignore.workspace     = true
-similar.workspace    = true
-taplo.workspace      = true
+fast-glob.workspace            = true
+clap.workspace                 = true
+log.workspace                  = true
+colog.workspace                = true
+serde.workspace                = true
+serde_json.workspace           = true
+ignore.workspace               = true
+similar.workspace              = true
+taplo.workspace                = true
+strum.workspace                = true
+cargo_metadata.workspace       = true
+indicatif.workspace            = true
+indicatif-log-bridge.workspace = true
+build-plan.workspace           = true
 
 [lints]
 workspace = true
+
+[features]
+default        = []
+run-from-cargo = []

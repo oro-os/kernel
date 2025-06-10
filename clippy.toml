@@ -1,5 +1,5 @@
 doc-valid-idents = [
-	"..",         # Include the built-in valid idents list
+	"..", # Include the built-in valid idents list
 	"AArch64",
 	"ANDing",
 	"ARMv8",

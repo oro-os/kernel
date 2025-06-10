@@ -1,8 +1,6 @@
 //! Implements the whole-crate formatter.
 
-use crate::FmtArgs;
-
-pub fn run(args: FmtArgs) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(args: crate::FmtArgs) -> Result<(), Box<dyn std::error::Error>> {
 	// First, shell out to the normal rustfmt command via cargo.
 	let mut cmd = crate::util::cargo_command();
 
@@ -16,6 +14,7 @@ pub fn run(args: FmtArgs) -> Result<(), Box<dyn std::error::Error>> {
 			.stdout(std::process::Stdio::piped())
 			.spawn()?
 			.wait_with_output()?;
+
 		if !output.status.success() {
 			return Err(format!("`cargo fmt` failed with status: {}", output.status).into());
 		}
@@ -103,7 +102,7 @@ fn format_toml(source: &str) -> String {
 		source,
 		taplo::formatter::Options {
 			align_entries: true,
-			align_comments: true,
+			align_comments: false,
 			align_single_comments: true,
 			array_trailing_comma: true,
 			array_auto_expand: true,

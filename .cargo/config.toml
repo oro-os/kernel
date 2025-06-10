@@ -1,5 +1,5 @@
 [alias]
-oro = "run -p oroutil --bin oroutil"
+oro = "run --quiet -p oroutil --bin oroutil --features run-from-cargo -- --_run_from_cargo_oro"
 
 kernel-x86_64 = """build \
 	--target oro-kernel-arch-x86_64/x86_64-unknown-oro.json \

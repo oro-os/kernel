@@ -67,15 +67,20 @@ proc-macro2  = { version = "=1.0.94", features = ["proc-macro"] }
 convert_case = "=0.6.0"
 
 # `oroutil` dependencies
-fast-glob  = "=0.4.5"
-clap       = { version = "=4.5.40", features = ["derive"] }
-log        = "=0.4.27"
-colog      = "=1.3.0"
-serde      = { version = "=1.0.219", features = ["derive"] }
-serde_json = "=1.0.140"
-ignore     = "=0.4.23"
-similar    = "=2.7.0"
-taplo      = "=0.14.0"
+fast-glob            = "=0.4.5"
+clap                 = { version = "=4.5.40", features = ["derive"] }
+log                  = "=0.4.27"
+colog                = "=1.3.0"
+serde                = { version = "=1.0.219", features = ["derive"] }
+serde_json           = "=1.0.140"
+ignore               = "=0.4.23"
+similar              = "=2.7.0"
+taplo                = "=0.14.0"
+strum                = { version = "=0.27.1", features = ["derive"] }
+cargo_metadata       = "=0.20.0"
+indicatif            = "=0.17.9"
+indicatif-log-bridge = "=0.2.3"
+build-plan           = "=0.1.1"
 
 [workspace.lints.rust]
 missing_docs              = "warn"
@@ -115,18 +120,18 @@ redundant_closure_for_method_calls = "allow"
 
 [profile.dev]
 panic = "abort" # Use "abort" panic strategy
-debug = "full"  # Full debugging symbols
+debug = "full" # Full debugging symbols
 
 [profile.release]
-opt-level     = 3       # Maximum optimizations
-lto           = "fat"   # Perform LTO across all crates
-codegen-units = 1       # Reduce number of codegen units to increase optimizations.
-strip         = true    # Strip symbols from binary
-incremental   = false   # Disable incremental building
+opt-level     = 3 # Maximum optimizations
+lto           = "fat" # Perform LTO across all crates
+codegen-units = 1 # Reduce number of codegen units to increase optimizations.
+strip         = true # Strip symbols from binary
+incremental   = false # Disable incremental building
 panic         = "abort" # Use "abort" panic strategy
-debug         = 0       # Do not generate debug information
+debug         = 0 # Do not generate debug information
 
 [profile.relwithdebinfo]
 inherits = "release"
-debug    = "full"    # Full debugging symbols
-strip    = false     # Don't strip symbols from binary
+debug    = "full" # Full debugging symbols
+strip    = false # Don't strip symbols from binary
