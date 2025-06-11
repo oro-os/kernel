@@ -2,11 +2,11 @@
 
 use std::{path::PathBuf, process::Command};
 
-use cargo_metadata::Message;
+use cargo_metadata::{Message, diagnostic::DiagnosticLevel};
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
 use indicatif_log_bridge::LogWrapper;
 
-use crate::build_plan::{BuildPlan, Invocation};
+use crate::build_plan::BuildPlan;
 
 pub fn run(
 	args: crate::BuildArgs,
@@ -58,23 +58,13 @@ pub fn run(
 
 	let mut success = true;
 
-	struct MatrixInvocation {
-		credit:     usize,
-		invocation: Invocation,
-	}
-
-	let mut invocations = Vec::<MatrixInvocation>::new();
-
-	for (
-		i,
-		BuildMatrix {
-			profile,
-			arch,
-			component,
-			pb,
-			skip,
-		},
-	) in matrix.iter_mut().enumerate()
+	for BuildMatrix {
+		profile,
+		arch,
+		component,
+		pb,
+		skip,
+	} in matrix.iter_mut()
 	{
 		pb.set_message("compiling build plan...");
 
@@ -137,29 +127,20 @@ pub fn run(
 
 		pb.set_length(plan.invocations.len() as u64);
 
-		invocations.extend(plan.invocations.into_iter().map(|inv| {
-			MatrixInvocation {
-				credit:     i,
-				invocation: inv,
-			}
-		}));
-
 		pb.set_message("waiting...");
 		pb.reset_elapsed();
 		pb.set_position(0);
 		pb.set_style(
 			ProgressStyle::default_bar()
 				.template(
-					"{spinner:.cyan}   [{elapsed_precise:.dim}] [{prefix:.yellow}] {msg} \
-					 {wide_bar} {pos:>4}/{len:4}",
+					"{spinner:.cyan}   [{elapsed_precise:.dim}] [{prefix:.yellow}] {wide_msg} \
+					 {bar:40} {pos:>4}/{len:4}",
 				)
 				.unwrap()
 				.progress_chars("->."),
 		);
 		pb.tick();
 	}
-
-	log::debug!("found {} invocations", invocations.len());
 
 	for BuildMatrix {
 		profile,
@@ -211,18 +192,39 @@ pub fn run(
 
 		for message in Message::parse_stream(reader) {
 			for BuildMatrix { pb, .. } in &matrix {
-				pb.tick();
+				if !pb.is_finished() {
+					pb.tick();
+				}
 			}
 
 			match message? {
-				Message::CompilerMessage(_msg) => {
-					log::debug!("COMPILER MESSAGE {:#?}", _msg);
+				Message::CompilerMessage(msg) => {
+					match msg.message.level {
+						DiagnosticLevel::Error | DiagnosticLevel::Ice => {
+							if let Some(rendered) = &msg.message.rendered {
+								log::error!("{}", rendered);
+							}
+							build_success = false;
+						}
+						DiagnosticLevel::Warning => {
+							if let Some(rendered) = &msg.message.rendered {
+								log::warn!("{}", rendered);
+							}
+						}
+						_ => {
+							if let Some(rendered) = &msg.message.rendered {
+								log::info!("{}", rendered);
+							}
+						}
+					}
 				}
 				Message::CompilerArtifact(artifact) => {
 					pb.inc(1);
+					log::debug!("built artifact: {}", artifact.target.name);
 				}
 				Message::BuildScriptExecuted(script) => {
 					pb.inc(1);
+					log::debug!("build script: {}", script.package_id);
 				}
 				Message::TextLine(line) => {
 					log::info!("{line}");
@@ -252,6 +254,8 @@ pub fn run(
 			pb.set_message("FAIL");
 			success = false;
 		}
+
+		pb.finish();
 	}
 
 	if success {
