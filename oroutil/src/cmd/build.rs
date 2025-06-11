@@ -1,6 +1,13 @@
 //! Implements the main build scripts for the Oro kernel.
 
-use std::{path::PathBuf, process::Command};
+use std::{
+	path::PathBuf,
+	process::Command,
+	sync::{
+		Arc,
+		atomic::{AtomicBool, Ordering::Relaxed},
+	},
+};
 
 use cargo_metadata::{Message, diagnostic::DiagnosticLevel};
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
@@ -21,7 +28,7 @@ pub fn run(
 		arch:      crate::TargetArch,
 		component: crate::Component,
 		pb:        ProgressBar,
-		skip:      bool,
+		skip:      Arc<AtomicBool>,
 	}
 
 	let mut matrix = args
@@ -51,12 +58,12 @@ pub fn run(
 					pb
 				},
 
-				skip: false,
+				skip: Arc::new(AtomicBool::new(false)),
 			}
 		})
 		.collect::<Vec<_>>();
 
-	let mut success = true;
+	let success = Arc::new(AtomicBool::new(true));
 
 	for BuildMatrix {
 		profile,
@@ -100,8 +107,8 @@ pub fn run(
 			);
 			pb.set_message("FAIL");
 			pb.finish_using_style();
-			success = false;
-			*skip = true;
+
+			skip.store(true, Relaxed);
 			continue;
 		}
 
@@ -119,8 +126,8 @@ pub fn run(
 				);
 				pb.set_message("FAIL");
 				pb.finish_using_style();
-				success = false;
-				*skip = true;
+				success.store(false, Relaxed);
+				skip.store(true, Relaxed);
 				continue;
 			}
 		};
@@ -142,6 +149,8 @@ pub fn run(
 		pb.tick();
 	}
 
+	let mut join_handles = vec![];
+
 	for BuildMatrix {
 		profile,
 		arch,
@@ -150,7 +159,7 @@ pub fn run(
 		skip,
 	} in &matrix
 	{
-		if *skip {
+		if skip.load(Relaxed) {
 			log::debug!(
 				"skipping build for {component} on {arch} with profile {profile} (build plan \
 				 failed)"
@@ -180,85 +189,120 @@ pub fn run(
 
 		log::trace!("{cmd:?}");
 
-		let mut cmd = cmd.spawn()?;
+		let join_handle = std::thread::spawn({
+			let pb = pb.clone();
+			let success = success.clone();
 
-		let reader = std::io::BufReader::new(
-			cmd.stdout
-				.take()
-				.ok_or("failed to take `cargo build` stdout")?,
-		);
+			move || -> Result<(), std::io::Error> {
+				let mut cmd = cmd.spawn()?;
 
-		let mut build_success = true;
+				let reader = std::io::BufReader::new(cmd.stdout.take().unwrap());
 
-		for message in Message::parse_stream(reader) {
-			for BuildMatrix { pb, .. } in &matrix {
-				if !pb.is_finished() {
-					pb.tick();
-				}
-			}
+				let mut build_success = true;
 
-			match message? {
-				Message::CompilerMessage(msg) => {
-					match msg.message.level {
-						DiagnosticLevel::Error | DiagnosticLevel::Ice => {
-							if let Some(rendered) = &msg.message.rendered {
-								log::error!("{}", rendered);
-							}
-							build_success = false;
-						}
-						DiagnosticLevel::Warning => {
-							if let Some(rendered) = &msg.message.rendered {
-								log::warn!("{}", rendered);
-							}
-						}
-						_ => {
-							if let Some(rendered) = &msg.message.rendered {
-								log::info!("{}", rendered);
+				for message in Message::parse_stream(reader) {
+					match message? {
+						Message::CompilerMessage(msg) => {
+							match msg.message.level {
+								DiagnosticLevel::Error | DiagnosticLevel::Ice => {
+									if let Some(rendered) = &msg.message.rendered {
+										log::error!("{}", rendered);
+									}
+									build_success = false;
+								}
+								DiagnosticLevel::Warning => {
+									if let Some(rendered) = &msg.message.rendered {
+										log::warn!("{}", rendered);
+									}
+								}
+								_ => {
+									if let Some(rendered) = &msg.message.rendered {
+										log::info!("{}", rendered);
+									}
+								}
 							}
 						}
+						Message::CompilerArtifact(artifact) => {
+							pb.inc(1);
+							log::debug!("built artifact: {}", artifact.target.name);
+						}
+						Message::BuildScriptExecuted(script) => {
+							pb.inc(1);
+							log::debug!("build script: {}", script.package_id);
+						}
+						Message::TextLine(line) => {
+							log::info!("{line}");
+						}
+						Message::BuildFinished(finished) => {
+							build_success = build_success && finished.success;
+						}
+						_ => (), // Unknown message
 					}
 				}
-				Message::CompilerArtifact(artifact) => {
-					pb.inc(1);
-					log::debug!("built artifact: {}", artifact.target.name);
+
+				build_success = build_success && cmd.wait()?.success();
+
+				if build_success {
+					pb.set_style(
+						ProgressStyle::default_bar()
+							.template(
+								"{spinner:.green}   [{elapsed_precise:.dim}] [{prefix:.green}] \
+								 {msg}",
+							)
+							.unwrap(),
+					);
+					pb.set_message("OK");
+				} else {
+					pb.set_style(
+						ProgressStyle::default_bar()
+							.template(
+								"{spinner:.red}   [{elapsed_precise:.dim}] [{prefix:.red}] {msg}",
+							)
+							.unwrap(),
+					);
+					pb.set_message("FAIL");
+					success.store(false, Relaxed);
 				}
-				Message::BuildScriptExecuted(script) => {
-					pb.inc(1);
-					log::debug!("build script: {}", script.package_id);
+
+				pb.finish();
+
+				Ok(())
+			}
+		});
+
+		if !args.config.single_threaded {
+			join_handles.push((join_handle, pb));
+		} else {
+			match join_handle.join() {
+				Ok(Ok(())) => {
+					log::debug!("build completed successfully: {}", pb.prefix());
 				}
-				Message::TextLine(line) => {
-					log::info!("{line}");
+				Ok(Err(e)) => {
+					log::error!("build failed: {}: {e}", pb.prefix());
 				}
-				Message::BuildFinished(finished) => {
-					build_success = build_success && finished.success;
+				Err(e) => {
+					log::error!("build thread panicked: {}: {e:?}", pb.prefix());
 				}
-				_ => (), // Unknown message
 			}
 		}
-
-		build_success = build_success && cmd.wait()?.success();
-
-		if build_success {
-			pb.set_style(
-				ProgressStyle::default_bar()
-					.template("{spinner:.green}   [{elapsed_precise:.dim}] [{prefix:.green}] {msg}")
-					.unwrap(),
-			);
-			pb.set_message("OK");
-		} else {
-			pb.set_style(
-				ProgressStyle::default_bar()
-					.template("{spinner:.red}   [{elapsed_precise:.dim}] [{prefix:.red}] {msg}")
-					.unwrap(),
-			);
-			pb.set_message("FAIL");
-			success = false;
-		}
-
-		pb.finish();
 	}
 
-	if success {
+	for join_handle in join_handles {
+		let (handle, pb) = join_handle;
+		match handle.join() {
+			Ok(Ok(())) => {
+				log::debug!("build completed successfully: {}", pb.prefix());
+			}
+			Ok(Err(e)) => {
+				log::error!("build failed: {}: {e}", pb.prefix());
+			}
+			Err(e) => {
+				log::error!("build thread panicked: {}: {e:?}", pb.prefix());
+			}
+		}
+	}
+
+	if success.load(Relaxed) {
 		Ok(())
 	} else {
 		Err("some builds failed".into())

@@ -77,6 +77,10 @@ pub(crate) struct BuildConfig {
 		]).map(|s| s.parse::<Component>().unwrap())
 	)]
 	pub component: Vec<Component>,
+
+	/// Only run one build task at a time.
+	#[clap(long, short = 's')]
+	pub single_threaded: bool,
 }
 
 impl BuildConfig {
