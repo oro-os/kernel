@@ -3,13 +3,11 @@
 
 use core::{cell::UnsafeCell, mem::MaybeUninit};
 
-use idt::IdtEntry;
+use oro_arch_x86_64::idt::IdtEntry;
 use oro_kernel::event::{InvalidInstruction, PageFault, PageFaultAccess, PreemptionEvent};
 use oro_kernel_sync::{Lock, Mutex};
 
 pub mod default;
-pub mod idt;
-pub mod install;
 pub mod isr;
 
 /// The static IDT, used by all cores.
@@ -38,7 +36,7 @@ fn initialize_default_idt() {
 /// [`Idt`] should be created and installed for the local core as soon as possible.
 ///
 /// # Safety
-/// See [`install::install_idt`] for safety considerations.
+/// See [`oro_arch_x86_64::idt::install_idt()`] for safety considerations.
 #[expect(clippy::missing_panics_doc)]
 pub unsafe fn install_default() {
 	initialize_default_idt();
@@ -47,7 +45,7 @@ pub unsafe fn install_default() {
 	// SAFETY: Further, we can guarantee that the unsafe cell
 	// SAFETY: is only ever referenced immutably.
 	unsafe {
-		install::install_idt(&*IDT.lock().as_ref().unwrap().get());
+		oro_arch_x86_64::idt::install_idt(&*IDT.lock().as_ref().unwrap().get());
 	}
 }
 
@@ -74,9 +72,9 @@ impl Idt {
 	/// Installs the IDT.
 	///
 	/// # Safety
-	/// See [`install::install_idt`] for safety considerations.
+	/// See [`oro_arch_x86_64::idt::install_idt()`] for safety considerations.
 	pub unsafe fn install(&'static self) {
-		install::install_idt(&self.entries);
+		oro_arch_x86_64::idt::install_idt(&self.entries);
 	}
 }
 

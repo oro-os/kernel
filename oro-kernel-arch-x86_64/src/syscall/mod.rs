@@ -2,13 +2,10 @@
 
 use core::{arch::global_asm, cell::UnsafeCell};
 
+use oro_arch_x86_64::{paging::PagingLevel, rdmsr, wrmsr};
 use oro_kernel::event::{PreemptionEvent, SystemCallRequest, SystemCallResponse};
 
-use crate::{
-	asm::{rdmsr, wrmsr},
-	interrupt::StackFrame,
-	mem::{address_space::AddressSpaceLayout, paging_level::PagingLevel},
-};
+use crate::{interrupt::StackFrame, mem::address_space::AddressSpaceLayout};
 
 /// Caches the system's paging level.
 #[unsafe(no_mangle)]
@@ -45,8 +42,8 @@ pub unsafe fn install_syscall_handler() {
 	// Tell the CPU which CS and SS selectors to use when executing a syscall.
 	// See the `STAR` constant in the `gid` module for more information.
 	#[doc(hidden)]
-	const STAR: u64 = ((must_be_u16(crate::gdt::STAR_KERNEL) as u64) << 32)
-		| ((must_be_u16(crate::gdt::STAR_USER | 3) as u64) << 48);
+	const STAR: u64 = ((must_be_u16(oro_arch_x86_64::gdt::STAR_KERNEL) as u64) << 32)
+		| ((must_be_u16(oro_arch_x86_64::gdt::STAR_USER | 3) as u64) << 48);
 
 	wrmsr(0xC000_0081, STAR);
 

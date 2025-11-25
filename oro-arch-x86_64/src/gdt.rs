@@ -250,8 +250,9 @@ pub enum SysType {
 	TssBusy  = 0xB,
 }
 
-/// A basic GDT that can be used for early-stage booting.
-pub static GDT: Gdt<6> = Gdt::<6>::new();
+/// A basic GDT that can be used for early-stage booting
+/// or basic setups.
+pub static STANDARD_GDT: Gdt<6> = Gdt::<6>::new();
 
 /// A global descriptor table (GDT).
 #[must_use]
@@ -286,6 +287,11 @@ pub const STAR_USER: u16 = USER_CS;
 pub const TSS_GDT_OFFSET: u16 = 0x30;
 
 impl<const COUNT: usize> Gdt<COUNT> {
+	/// Creates a new GDT with no entries.
+	pub const fn empty() -> Gdt<0> {
+		Gdt { entries: [] }
+	}
+
 	/// Creates a new GDT with the standard entries (see the `*_CS` and `*_DS` constants).
 	pub const fn new() -> Gdt<6> {
 		Gdt {
@@ -356,7 +362,10 @@ impl<const COUNT: usize> Gdt<COUNT> {
 	pub fn as_bytes(&self) -> &'static [u8] {
 		// SAFETY(qix-): The GDT is a static array, so it's always valid.
 		unsafe {
-			core::slice::from_raw_parts(self.entries.as_ptr().cast::<u8>(), size_of_val(&GDT))
+			core::slice::from_raw_parts(
+				self.entries.as_ptr().cast::<u8>(),
+				self.entries.len() * size_of::<GdtEntry>(),
+			)
 		}
 	}
 
@@ -386,36 +395,38 @@ impl<const COUNT: usize> Gdt<COUNT> {
 
 		let gdt_descriptor = GdtDescriptor { limit, base };
 
-		// SAFETY(qix-): The offsets in this function must only refer
-		// SAFETY(qix-): to the forced offsets defined in `Gdt`.
-		asm! {
-			// Load the GDT.
-			"lgdt [{0}]",
-			// Set up code segment.
-			// CS is at offset 0x08, and we can't just move into CS,
-			// so we must push the segment selector onto the stack and
-			// then return to it.
-			"sub rsp, 16",
-			"mov qword ptr[rsp + 8], 0x08",
-			"lea rax, [rip + 2f]",
-			"mov qword ptr[rsp], rax",
-			"retfq",
-			// Using 2f instead of 0/1 due to LLVM bug
-			// (https://bugs.llvm.org/show_bug.cgi?id=36144)
-			// causing them to be parsed as binary literals
-			// under intel syntax.
-			"2:",
-			// Set up non-code segments.
-			"mov ax, 0x10",
-			"mov ds, ax",
-			"mov es, ax",
-			"mov ss, ax",
-			// Make sure that fs/gs segment registers are NULL descriptors.
-			"mov ax, 0",
-			"mov fs, ax",
-			"mov gs, ax",
-			in(reg) &gdt_descriptor,
-			out("rax") _,
-		};
+		// SAFETY: The offsets in this function must only refer
+		// SAFETY: to the forced offsets defined in `Gdt`.
+		unsafe {
+			asm! {
+				// Load the GDT.
+				"lgdt [{0}]",
+				// Set up code segment.
+				// CS is at offset 0x08, and we can't just move into CS,
+				// so we must push the segment selector onto the stack and
+				// then return to it.
+				"sub rsp, 16",
+				"mov qword ptr[rsp + 8], 0x08",
+				"lea rax, [rip + 2f]",
+				"mov qword ptr[rsp], rax",
+				"retfq",
+				// Using 2f instead of 0/1 due to LLVM bug
+				// (https://bugs.llvm.org/show_bug.cgi?id=36144)
+				// causing them to be parsed as binary literals
+				// under intel syntax.
+				"2:",
+				// Set up non-code segments.
+				"mov ax, 0x10",
+				"mov ds, ax",
+				"mov es, ax",
+				"mov ss, ax",
+				// Make sure that fs/gs segment registers are NULL descriptors.
+				"mov ax, 0",
+				"mov fs, ax",
+				"mov gs, ax",
+				in(reg) &gdt_descriptor,
+				out("rax") _,
+			};
+		}
 	}
 }

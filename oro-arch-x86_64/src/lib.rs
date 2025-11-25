@@ -1,10 +1,27 @@
-//! Assembly instruction stubs for the x86_64 architecture.
-#![expect(clippy::inline_always, unused_unsafe)]
+//! x86_64 abstraction layer for the Oro operating system kernel.
+//!
+//! All functionality in this crate is x86_64 specific but entirely
+//! _platform_ agnostic. Oro-specific functionality should go
+//! into `oro-kernel-arch-x86_64`.
+#![no_std]
+#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![expect(incomplete_features)]
+#![feature(generic_const_exprs)]
+#![deny(unsafe_op_in_unsafe_fn)]
+
+pub mod cpuid;
+pub mod gdt;
+pub mod idt;
+pub mod lapic;
+pub mod paging;
+pub mod reg;
+pub mod tss;
 
 use core::arch::asm;
 
 /// Invalidates a single page in the Translation Lookaside Buffer (TLB)
 /// given a `virtual_address`.
+#[expect(clippy::inline_always)]
 #[inline(always)]
 pub fn invlpg<T>(virtual_address: *const T) {
 	unsafe {
@@ -21,6 +38,7 @@ pub fn invlpg<T>(virtual_address: *const T) {
 /// This is *very* expensive and should be used sparingly.
 ///
 /// Assumes there's a stack.
+#[expect(clippy::inline_always)]
 #[inline(always)]
 pub fn flush_tlb() {
 	unsafe {
@@ -47,6 +65,7 @@ pub fn flush_tlb() {
 }
 
 /// Returns the current value of the `cr3` register
+#[expect(clippy::inline_always)]
 #[inline(always)]
 #[must_use]
 pub fn cr3() -> u64 {
@@ -58,6 +77,7 @@ pub fn cr3() -> u64 {
 }
 
 /// Returns the current value of the `cr2` register
+#[expect(clippy::inline_always)]
 #[inline(always)]
 #[must_use]
 pub fn cr2() -> u64 {
@@ -74,7 +94,6 @@ pub fn cr2() -> u64 {
 /// If `disconnect_imcr` is true, the IMCR (Interrupt Mode Control Register)
 /// must have been detected beforehand. Calling this function with `true`
 /// when the IMCR is not present is undefined behavior.
-#[inline(always)]
 pub unsafe fn disable_8259(disconnect_imcr: bool) {
 	// SAFETY: This is always safe.
 	unsafe {
@@ -94,6 +113,7 @@ pub unsafe fn disable_8259(disconnect_imcr: bool) {
 }
 
 /// Disables all interrupts.
+#[expect(clippy::inline_always)]
 #[inline(always)]
 pub fn disable_interrupts() {
 	unsafe {
@@ -102,6 +122,7 @@ pub fn disable_interrupts() {
 }
 
 /// Enables all interrupts.
+#[expect(clippy::inline_always)]
 #[inline(always)]
 pub fn enable_interrupts() {
 	unsafe {
@@ -121,8 +142,13 @@ pub fn interrupts_enabled() -> bool {
 }
 
 /// Sends a byte to the specified I/O port.
+///
+/// # Safety
+/// Improper use of I/O ports can lead to undefined behavior
+/// or system instability.
+#[expect(clippy::inline_always)]
 #[inline(always)]
-pub fn outb(port: u16, value: u8) {
+pub unsafe fn outb(port: u16, value: u8) {
 	unsafe {
 		asm!(
 			"out dx, al",
@@ -134,9 +160,14 @@ pub fn outb(port: u16, value: u8) {
 }
 
 /// Reads a word from the specified I/O port.
+///
+/// # Safety
+/// Improper use of I/O ports can lead to undefined behavior
+/// or system instability.
+#[expect(clippy::inline_always)]
 #[inline(always)]
 #[must_use]
-pub fn inw(port: u16) -> u16 {
+pub unsafe fn inw(port: u16) -> u16 {
 	let value: u16;
 	unsafe {
 		asm!(
@@ -150,7 +181,12 @@ pub fn inw(port: u16) -> u16 {
 }
 
 /// Halts, indefinitely, the CPU (disabling interrupts).
-pub fn hang() -> ! {
+///
+/// # Safety
+/// This function disables interrupts and halts the CPU in an infinite loop,
+/// effectively making the system unresponsive. It should only be used in
+/// critical situations where recovery is not possible.
+pub unsafe fn hang() -> ! {
 	unsafe {
 		asm!("cli");
 	}
@@ -160,6 +196,8 @@ pub fn hang() -> ! {
 }
 
 /// Halts the CPU once and waits for an interrupt.
+#[expect(clippy::inline_always)]
+#[inline(always)]
 pub fn halt_once() {
 	unsafe {
 		asm!("hlt");
@@ -167,6 +205,7 @@ pub fn halt_once() {
 }
 
 /// Performs a strong memory serialization fence.
+#[expect(clippy::inline_always)]
 #[inline(always)]
 pub fn strong_memory_fence() {
 	unsafe {
@@ -175,6 +214,7 @@ pub fn strong_memory_fence() {
 }
 
 /// Reads the value of an MSR
+#[expect(clippy::inline_always)]
 #[inline(always)]
 #[must_use]
 pub fn rdmsr(msr: u32) -> u64 {
@@ -194,6 +234,7 @@ pub fn rdmsr(msr: u32) -> u64 {
 }
 
 /// Writes a value to an MSR
+#[expect(clippy::inline_always)]
 #[inline(always)]
 pub fn wrmsr(msr: u32, value: u64) {
 	let val_a = value as u32;
@@ -210,6 +251,7 @@ pub fn wrmsr(msr: u32, value: u64) {
 }
 
 /// Loads (sets) the given GDT offset as the TSS (Task State Segment) for the current core.
+#[expect(clippy::inline_always)]
 #[inline(always)]
 pub fn load_tss(offset: u16) {
 	unsafe {
@@ -222,6 +264,7 @@ pub fn load_tss(offset: u16) {
 }
 
 /// Returns the current RFLAGS value
+#[expect(clippy::inline_always)]
 #[inline(always)]
 #[must_use]
 pub fn rflags() -> u64 {
@@ -233,18 +276,21 @@ pub fn rflags() -> u64 {
 }
 
 /// Sets the FS base pointer MSR to the given `value`.
+#[expect(clippy::inline_always)]
 #[inline(always)]
 pub fn set_fs_msr(value: u64) {
 	wrmsr(0xC000_0100, value);
 }
 
 /// Sets the GS base pointer MSR to the given `value`.
+#[expect(clippy::inline_always)]
 #[inline(always)]
 pub fn set_gs_msr(value: u64) {
 	wrmsr(0xC000_0101, value);
 }
 
 /// Gets the FS base pointer MSR.
+#[expect(clippy::inline_always)]
 #[inline(always)]
 #[must_use]
 pub fn get_fs_msr() -> u64 {
@@ -252,6 +298,7 @@ pub fn get_fs_msr() -> u64 {
 }
 
 /// Gets the GS base pointer MSR.
+#[expect(clippy::inline_always)]
 #[inline(always)]
 #[must_use]
 pub fn get_gs_msr() -> u64 {

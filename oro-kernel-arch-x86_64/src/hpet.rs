@@ -49,11 +49,11 @@ pub unsafe fn initialize() -> Arc<dyn GetInstant> {
 		.gen_cfg
 		.set(registers.gen_cfg.get().with_enable_cfg(false));
 	registers.main_counter.store(0, Relaxed);
-	crate::asm::strong_memory_fence();
+	oro_arch_x86_64::strong_memory_fence();
 	registers
 		.gen_cfg
 		.set(registers.gen_cfg.get().with_enable_cfg(true));
-	crate::asm::strong_memory_fence();
+	oro_arch_x86_64::strong_memory_fence();
 
 	let fs_per_tick = registers.caps_and_id.get().counter_clk_period();
 

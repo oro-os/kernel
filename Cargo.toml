@@ -3,12 +3,14 @@ homepage   = "https://oro.sh"
 repository = "https://github.com/oro-os/kernel"
 license    = "MPL-2.0"
 version    = "0.0.0"
+edition    = "2024"
 
 [workspace]
 resolver = "2"
 
 members = [
 	"oro",
+	"oro-arch-x86_64",
 	"oro-boot",
 	"oro-boot-protocol",
 	"oro-bootloader-limine",
@@ -31,6 +33,7 @@ members = [
 ]
 
 [workspace.dependencies]
+oro-arch-x86_64.path         = "oro-arch-x86_64"
 oro-kernel-acpi.path         = "oro-kernel-acpi"
 oro-kernel-acpica-sys.path   = "oro-kernel-acpica-sys"
 oro-kernel-arch-aarch64.path = "oro-kernel-arch-aarch64"

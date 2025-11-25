@@ -2,20 +2,14 @@
 
 use core::{cell::UnsafeCell, mem::MaybeUninit};
 
+use oro_arch_x86_64::{gdt::Gdt, lapic::Lapic, paging::PagingLevel, tss::Tss};
 use oro_kernel::{
 	arch::{Arch, InstantResult},
 	event::Resumption,
 };
 use oro_kernel_mem::alloc::{boxed::Box, sync::Arc};
 
-use crate::{
-	gdt::Gdt,
-	interrupt::Idt,
-	lapic,
-	mem::{address_space::AddressSpaceLayout, paging_level::PagingLevel},
-	time::GetInstant,
-	tss::Tss,
-};
+use crate::{interrupt::Idt, mem::address_space::AddressSpaceLayout, time::GetInstant};
 
 /// Core local kernel handle for the x86_64 architecture.
 ///
@@ -23,7 +17,7 @@ use crate::{
 pub struct CoreHandle {
 	/// The LAPIC (Local Advanced Programmable Interrupt Controller)
 	/// for the core.
-	pub lapic:       lapic::Lapic,
+	pub lapic:       Lapic,
 	/// The core's local GDT
 	///
 	/// Only valid after the Kernel has been initialized

@@ -4,9 +4,8 @@
 
 use core::arch::naked_asm;
 
+use oro_arch_x86_64::idt::IdtEntry;
 use oro_kernel_macro::paste;
-
-use crate::interrupt::idt::IdtEntry;
 
 /// Creates a new default IDT.
 pub fn new_default() -> [IdtEntry; 256] {

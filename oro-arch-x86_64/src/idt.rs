@@ -1,5 +1,7 @@
 //! The Interrupt Descriptor Table (IDT) and related structures.
 
+use core::arch::asm;
+
 /// A single IDT (Interrupt Descriptor Table) entry.
 #[derive(Debug, Clone, Copy, Default)]
 #[repr(C, packed)]
@@ -71,5 +73,43 @@ impl IdtEntry {
 	pub const fn with_attributes(mut self, attributes: u8) -> Self {
 		self.attributes = attributes;
 		self
+	}
+}
+
+/// Installs the given IDT (Interrupt Descriptor Table).
+///
+/// # Safety
+/// Modifies CPU mode and global state.
+pub unsafe fn install_idt(idt: &'static [IdtEntry]) {
+	/// The IDTR (Interrupt Descriptor Table Register) structure,
+	/// read in by the `lidt` instruction.
+	#[repr(C, packed)]
+	struct Idtr {
+		/// How long the IDT is in bytes, minus 1.
+		limit: u16,
+		/// The base address of the IDT.
+		base:  *const IdtEntry,
+	}
+
+	debug_assert!(
+		u16::try_from(size_of_val(idt)).is_ok(),
+		"given IDT is too large"
+	);
+
+	#[allow(static_mut_refs)]
+	let idtr = Idtr {
+		limit: (size_of_val(idt) - 1) as u16,
+		base:  &raw const idt[0],
+	};
+
+	// We load the IDT as early as possible, prior to telling the APIC
+	// it can fire events at us.
+	// SAFETY: We ensure that the IDT is valid and properly formed.
+	unsafe {
+		asm!(
+			"lidt [{}]",
+			in(reg) &idtr,
+			options(nostack)
+		);
 	}
 }

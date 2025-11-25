@@ -8,7 +8,11 @@
 #[panic_handler]
 unsafe fn panic(info: &::core::panic::PanicInfo<'_>) -> ! {
 	oro_debug::dbg_err!("panic: {info:?}");
-	oro_kernel_arch_x86_64::asm::hang();
+
+	// SAFETY: Hanging is intentional here. The system is panicking.
+	unsafe {
+		oro_arch_x86_64::hang();
+	}
 }
 
 /// Main entry point for the Oro kernel. Bootloaders jump

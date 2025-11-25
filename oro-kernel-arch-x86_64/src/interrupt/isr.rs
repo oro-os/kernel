@@ -2,9 +2,11 @@
 
 use core::{arch::global_asm, cell::UnsafeCell};
 
+use oro_arch_x86_64::paging::PagingLevel;
+
 use crate::{
 	interrupt::{InvalidInstruction, PageFault, PageFaultAccess, PreemptionEvent, StackFrame},
-	mem::{address_space::AddressSpaceLayout, paging_level::PagingLevel},
+	mem::address_space::AddressSpaceLayout,
 };
 
 /// Common entry point for the ISR handlers.
@@ -48,7 +50,7 @@ extern "C" fn _oro_isr_rust_handler(stack_ptr: *const UnsafeCell<StackFrame>) ->
 			// Page fault.
 			0x0E => {
 				PreemptionEvent::PageFault(PageFault {
-					address: crate::asm::cr2() as usize,
+					address: oro_arch_x86_64::cr2() as usize,
 					ip:      Some((*fp.get()).ip as usize),
 					access:  {
 						let err = (*fp.get()).err;
@@ -208,11 +210,11 @@ extern "C" fn _oro_isr_rust_core_panic(stack_ptr: *const UnsafeCell<StackFrame>)
 			};
 		}
 
-		let cr0: u64 = crate::reg::Cr0::load().into();
-		let cr2: u64 = crate::asm::cr2();
-		let cr3: u64 = crate::asm::cr3();
-		let cr4: u64 = crate::reg::Cr4::load().into();
-		let lapic_id_u8 = crate::cpuid::CpuidA01C0::get().map(|v| v.ebx.local_apic_id());
+		let cr0: u64 = oro_arch_x86_64::reg::Cr0::load().into();
+		let cr2: u64 = oro_arch_x86_64::cr2();
+		let cr3: u64 = oro_arch_x86_64::cr3();
+		let cr4: u64 = oro_arch_x86_64::reg::Cr4::load().into();
+		let lapic_id_u8 = oro_arch_x86_64::cpuid::CpuidA01C0::get().map(|v| v.ebx.local_apic_id());
 
 		log_field!("IV", iv);
 		log_field!("IP", ip);

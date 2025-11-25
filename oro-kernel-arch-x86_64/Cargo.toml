@@ -1,14 +1,14 @@
 [package]
-name              = "oro-kernel-arch-x86_64"
-version.workspace = true
-description       = "Oro operating system x86_64 architecture kernel implementation"
-publish           = false
-edition           = "2024"
-authors           = ["Josh Junon (https//github.com/qix-)"]
-homepage          = "https://oro.sh"
-repository        = "https://github.com/oro-os/kernel"
-license           = "MPL-2.0"
-autobins          = false
+name                 = "oro-kernel-arch-x86_64"
+version.workspace    = true
+description          = "Oro operating system x86_64 architecture kernel implementation"
+publish              = false
+edition.workspace    = true
+authors              = ["Josh Junon (https//github.com/qix-)"]
+homepage.workspace   = true
+repository.workspace = true
+license.workspace    = true
+autobins             = false
 
 build = "build.rs"
 
@@ -46,6 +46,7 @@ oro-kernel-sync.workspace   = true
 oro.workspace               = true
 oro-kernel-pci.workspace    = true
 oro-kernel-type.workspace   = true
+oro-arch-x86_64.workspace   = true
 
 # Work around non-composability of `test` profile and global allocator conflicts in unit test runner.
 [dev-dependencies]

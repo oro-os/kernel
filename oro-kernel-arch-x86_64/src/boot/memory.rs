@@ -6,6 +6,7 @@
 
 use core::cell::UnsafeCell;
 
+use oro_arch_x86_64::paging::{PageTable, PageTableEntry, PagingLevel};
 use oro_boot_protocol::{MemoryMapEntry, MemoryMapEntryType, memory_map::MemoryMapKind};
 use oro_debug::{dbg, dbg_warn};
 use oro_kernel_macro::assert;
@@ -15,11 +16,7 @@ use oro_kernel_mem::{
 	phys::{Phys, PhysAddr},
 };
 
-use crate::mem::{
-	address_space::AddressSpaceLayout,
-	paging::{PageTable, PageTableEntry},
-	paging_level::PagingLevel,
-};
+use crate::mem::address_space::AddressSpaceLayout;
 
 /// The index of the page table entry at the highest (4/5) level
 /// that is used for the on-the-fly mapper. It doesn't really
@@ -66,7 +63,7 @@ pub struct PreparedMemory {
 pub unsafe fn prepare_memory() -> PreparedMemory {
 	// First, let's make sure the recursive entry is mapped.
 	const RIDX: usize = AddressSpaceLayout::RECURSIVE_IDX;
-	let cr3 = crate::asm::cr3();
+	let cr3 = oro_arch_x86_64::cr3();
 	let paging_level = PagingLevel::current_from_cpu();
 
 	let mut current_level = paging_level as usize;
@@ -152,7 +149,7 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	}
 
 	// Uninstall the recursive mapping.
-	let l4 = Phys::from_address_unchecked(crate::asm::cr3()).as_mut_unchecked::<PageTable>();
+	let l4 = Phys::from_address_unchecked(oro_arch_x86_64::cr3()).as_mut_unchecked::<PageTable>();
 	l4[RIDX].reset();
 
 	// Unmap anything in the lower half.
@@ -166,9 +163,9 @@ pub unsafe fn prepare_memory() -> PreparedMemory {
 	}
 
 	// Flush the TLB
-	let cr4 = crate::reg::Cr4::load();
+	let cr4 = oro_arch_x86_64::reg::Cr4::load();
 	cr4.with_pge(false).store();
-	crate::asm::flush_tlb();
+	oro_arch_x86_64::flush_tlb();
 	cr4.store();
 
 	PreparedMemory {
@@ -352,9 +349,9 @@ unsafe fn linear_map_regions<'a>(
 		);
 	}
 
-	let cr4 = crate::reg::Cr4::load();
+	let cr4 = oro_arch_x86_64::reg::Cr4::load();
 	cr4.with_pge(false).store();
-	crate::asm::flush_tlb();
+	oro_arch_x86_64::flush_tlb();
 	cr4.store();
 
 	Some(mmap_offset)
@@ -567,7 +564,7 @@ impl OnTheFlyMapper {
 			.with_write_through()
 			.with_no_exec()
 			.with_address(phys);
-		crate::asm::invlpg(self.base_virt);
+		oro_arch_x86_64::invlpg(self.base_virt);
 	}
 
 	/// Reads a value from somewhere in physical memory.

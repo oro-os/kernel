@@ -3,10 +3,9 @@
 
 use core::arch::asm;
 
+use oro_arch_x86_64::paging::{PageTableEntry, PagingLevel};
 use oro_kernel_arch_x86_64::mem::{
 	address_space::{AddressSpaceHandle, AddressSpaceLayout},
-	paging::PageTableEntry,
-	paging_level::PagingLevel,
 	segment::{AddressSegment, MapperHandle},
 };
 pub use oro_kernel_arch_x86_64::{ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};

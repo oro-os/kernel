@@ -1,7 +1,6 @@
 //! Memory paging (page tables, etc.) structures and implementations
 //! for the x86_64 architecture.
-
-#![expect(clippy::unusual_byte_groupings)]
+#![expect(clippy::unusual_byte_groupings, clippy::inline_always)]
 
 use core::{
 	fmt,
@@ -9,6 +8,38 @@ use core::{
 };
 
 use oro_kernel_macro::assert;
+
+/// The number of levels in the page table hierarchy,
+/// as determined by the CPU flags.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(usize)]
+pub enum PagingLevel {
+	/// 4-level paging
+	Level4 = 4,
+	/// 5-level paging
+	Level5 = 5,
+}
+
+impl PagingLevel {
+	/// Returns the number of levels in the page table hierarchy.
+	#[inline(always)]
+	#[must_use]
+	pub fn as_usize(self) -> usize {
+		self as usize
+	}
+
+	/// Returns the current paging level based on CPU register flags.
+	#[inline]
+	#[cold]
+	#[must_use]
+	pub fn current_from_cpu() -> Self {
+		if crate::reg::Cr4::load().la57() {
+			Self::Level5
+		} else {
+			Self::Level4
+		}
+	}
+}
 
 /// A page table for the x86_64 architecture.
 #[derive(Debug, Clone)]

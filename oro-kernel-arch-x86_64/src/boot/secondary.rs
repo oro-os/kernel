@@ -9,6 +9,7 @@ use core::{
 	},
 };
 
+use oro_arch_x86_64::lapic::Lapic;
 use oro_boot_protocol::acpi::AcpiKind;
 use oro_debug::{dbg, dbg_err};
 use oro_kernel_acpi::{Madt, Rsdp};
@@ -22,7 +23,6 @@ use oro_kernel_mem::{
 };
 
 use crate::{
-	lapic::Lapic,
 	mem::{
 		address_space::{AddressSpaceHandle, AddressSpaceLayout},
 		segment::MapperHandle,
@@ -203,7 +203,7 @@ pub unsafe fn boot(
 	long_mode_stub_slice.copy_from_slice(&SECONDARY_BOOT_LONG_MODE_STUB);
 
 	// The GDT is copied as-is, just placed in a well-known location.
-	let gdt_slice = crate::gdt::GDT.as_bytes();
+	let gdt_slice = oro_arch_x86_64::gdt::STANDARD_GDT.as_bytes();
 	// TODO(qix-): Somehow make this a compile-time assertion.
 	debug_assert!(
 		gdt_slice.len() <= (*stubs.get()).gdt.len(),
@@ -225,11 +225,11 @@ pub unsafe fn boot(
 	(*stubs.get()).entry_point = entry_point_ptr;
 
 	// Write the actual CR0 value so that the long mode stub can install it.
-	let cr0_value: u64 = crate::reg::Cr0::load().into();
+	let cr0_value: u64 = oro_arch_x86_64::reg::Cr0::load().into();
 	(*stubs.get()).actual_cr0_value = cr0_value;
 
 	// Write the actual CR4 value so that the long mode stub can install it.
-	let cr4_value: u64 = crate::reg::Cr4::load().into();
+	let cr4_value: u64 = oro_arch_x86_64::reg::Cr4::load().into();
 	(*stubs.get()).actual_cr4_value = cr4_value;
 
 	// Write the actual CR3 value so that the long mode stub can switch to it.
@@ -246,7 +246,7 @@ pub unsafe fn boot(
 	// without enabling anything that might screw up 16-bit initialization.
 	// We treat CR4 here as a 32-bit since this field is being accessed
 	// by the 32-bit stub.
-	let cr4_bits: u64 = crate::reg::Cr4::load().with_pge(false).into();
+	let cr4_bits: u64 = oro_arch_x86_64::reg::Cr4::load().with_pge(false).into();
 	(*stubs.get()).cr4_bits = cr4_bits as u32;
 
 	// Write the GDT pointer into the last 6 bytes of the page.
@@ -259,7 +259,7 @@ pub unsafe fn boot(
 	(*stubs.get()).timekeeper = ManuallyDrop::new(timekeeper);
 
 	// Make sure all cores see the change.
-	crate::asm::strong_memory_fence();
+	oro_arch_x86_64::strong_memory_fence();
 
 	// Finally, tell the processor to start executing at page 8 (0x8000).
 	// NOTE(qix-): Specifying other pages doesn't seem to work. The documentation
@@ -431,8 +431,8 @@ asm_buffer! {
 /// the *actual* long mode environment.
 #[unsafe(no_mangle)]
 unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
-	crate::asm::flush_tlb();
-	crate::gdt::GDT.install();
+	oro_arch_x86_64::flush_tlb();
+	oro_arch_x86_64::gdt::STANDARD_GDT.install();
 	crate::interrupt::install_default();
 
 	let stubs = Phys::from_address_unchecked(0x8000)
@@ -458,7 +458,7 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 		(*stubs.get())
 			.secondary_flag
 			.store(0xFFFF_FFFF_FFFF_FFFE, Release);
-		crate::asm::hang();
+		oro_arch_x86_64::hang();
 	};
 
 	let Some(lapic) = sdt
@@ -473,7 +473,7 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 		(*stubs.get())
 			.secondary_flag
 			.store(0xFFFF_FFFF_FFFF_FFFE, Release);
-		crate::asm::hang();
+		oro_arch_x86_64::hang();
 	};
 
 	dbg!("local APIC version: {:?}", lapic.version());
@@ -488,7 +488,7 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 		(*stubs.get())
 			.secondary_flag
 			.store(0xFFFF_FFFF_FFFF_FFFE, Release);
-		crate::asm::hang();
+		oro_arch_x86_64::hang();
 	}
 
 	dbg!("secondary core booted with LAPIC ID {}", lapic_id);
@@ -522,7 +522,7 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 			.secondary_flag
 			.store(0xFFFF_FFFF_FFFF_FFFE, Release);
 
-		crate::asm::hang();
+		oro_arch_x86_64::hang();
 	}
 
 	// We've been given the green light.

@@ -4,14 +4,14 @@
 
 use core::{cell::UnsafeCell, intrinsics::unlikely};
 
+use oro_arch_x86_64::paging::{PageTable, PageTableEntry, PagingLevel};
 use oro_kernel_mem::{
 	mapper::{AddressSegment as Segment, MapError, UnmapError},
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
 
-use super::{address_space::AddressSpaceHandle, paging::PageTable};
-use crate::mem::{paging::PageTableEntry, paging_level::PagingLevel};
+use crate::mem::address_space::AddressSpaceHandle;
 
 /// Sign-extends a value to the appropriate size for the current paging level.
 #[macro_export]
@@ -119,7 +119,7 @@ impl AddressSegment {
 					.intermediate_entry_template
 					.with_address(frame_phys_addr);
 
-				crate::asm::invlpg(frame_virt_addr);
+				oro_arch_x86_64::invlpg(frame_virt_addr);
 				#[expect(clippy::cast_ptr_alignment)]
 				let pt = frame_virt_addr.cast::<UnsafeCell<PageTable>>();
 				debug_assert!(pt.is_aligned());
@@ -187,7 +187,7 @@ impl AddressSegment {
 						// NOTE: not a FREE.
 						let phys = l1_entry.address();
 						l1_entry.reset();
-						crate::asm::invlpg(virt as *const ());
+						oro_arch_x86_64::invlpg(virt as *const ());
 						Some(phys)
 					} else {
 						None
@@ -286,7 +286,7 @@ impl AddressSegment {
 							// NOTE: not a FREE.
 							let phys = l1_entry.address();
 							l1_entry.reset();
-							crate::asm::invlpg(virt as *const ());
+							oro_arch_x86_64::invlpg(virt as *const ());
 							Some(phys)
 						} else {
 							None
@@ -520,7 +520,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		}
 
 		*entry = self.entry_template.with_address(phys);
-		crate::asm::invlpg(virt as *const ());
+		oro_arch_x86_64::invlpg(virt as *const ());
 
 		Ok(())
 	}
@@ -561,7 +561,7 @@ unsafe impl Segment<AddressSpaceHandle> for &'static AddressSegment {
 		};
 
 		*entry = self.entry_template.with_address(phys);
-		crate::asm::invlpg(virt as *const ());
+		oro_arch_x86_64::invlpg(virt as *const ());
 
 		Ok(old_phys)
 	}

@@ -28,9 +28,9 @@ const SECONDARY_STACK_PAGES: usize = 16;
 /// # Panics
 /// Panics if any of the boot requests are missing or malformed.
 pub unsafe fn boot() -> ! {
-	crate::asm::disable_interrupts();
-	crate::asm::flush_tlb();
-	crate::gdt::GDT.install();
+	oro_arch_x86_64::disable_interrupts();
+	oro_arch_x86_64::flush_tlb();
+	oro_arch_x86_64::gdt::STANDARD_GDT.install();
 	crate::interrupt::install_default();
 
 	#[cfg(debug_assertions)]
@@ -56,7 +56,7 @@ pub unsafe fn boot() -> ! {
 			&& (fadt.Pm1aControlBlock.read() & 1) != 0)
 	{
 		dbg!("enabling ACPI");
-		crate::asm::outb(
+		oro_arch_x86_64::outb(
 			u16::try_from(fadt.SmiCommand.read())
 				.expect("ACPI provided an SMI command port that was too large"),
 			fadt.AcpiEnable.read(),
@@ -65,7 +65,7 @@ pub unsafe fn boot() -> ! {
 		dbg!("enabled ACPI; waiting for it to take effect...");
 		let pma1 = u16::try_from(fadt.Pm1aControlBlock.read())
 			.expect("ACPI provided a PM1A control block port that was too large");
-		while (crate::asm::inw(pma1) & 1) == 0 {
+		while (oro_arch_x86_64::inw(pma1) & 1) == 0 {
 			core::hint::spin_loop();
 		}
 
@@ -82,11 +82,11 @@ pub unsafe fn boot() -> ! {
 		// TODO(qix-): Detect if the IMCR is enabled before passing `true`.
 		// TODO(qix-): https://github.com/oro-os/development-notes/blob/master/Development%20Notes/x86/Scheduler%20Refactor%20(Mar%20'25).md#7-march-2025-apic-troubles
 		unsafe {
-			crate::asm::disable_8259(true);
+			oro_arch_x86_64::disable_8259(true);
 		}
 	}
 
-	let lapic = crate::lapic::Lapic::new(
+	let lapic = oro_arch_x86_64::lapic::Lapic::new(
 		Phys::from_address_unchecked(madt.lapic_phys()).as_mut_ptr_unchecked::<u8>(),
 	);
 	dbg!("local APIC version: {:?}", lapic.version());

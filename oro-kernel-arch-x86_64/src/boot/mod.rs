@@ -8,17 +8,16 @@ pub mod secondary;
 
 use core::{cell::UnsafeCell, mem::MaybeUninit};
 
+use oro_arch_x86_64::{
+	gdt::{Gdt, SysEntry},
+	lapic::Lapic,
+	tss::Tss,
+};
 use oro_debug::{dbg, dbg_warn};
 use oro_kernel::GlobalKernelState;
 use oro_kernel_mem::alloc::{boxed::Box, sync::Arc};
 
-use crate::{
-	gdt::{Gdt, SysEntry},
-	interrupt::Idt,
-	lapic::Lapic,
-	time::GetInstant,
-	tss::Tss,
-};
+use crate::{interrupt::Idt, time::GetInstant};
 
 /// The global kernel state. Initialized once during boot
 /// and re-used across all cores.
@@ -38,7 +37,7 @@ pub static mut KERNEL_STATE: MaybeUninit<GlobalKernelState<crate::Arch>> = Maybe
 /// It's only to be initialized by the primary core at system boot.
 /// Secondary cores should assume it's initialized.
 ///
-/// This installs the core local IDT. See [`crate::interrupt::install::install_idt`]
+/// This installs the core local IDT. See [`oro_arch_x86_64::idt::install_idt()`]
 /// for safety concerns.
 pub unsafe fn initialize_core_local(lapic: Lapic, timekeeper: Arc<dyn GetInstant>) {
 	#[expect(static_mut_refs)]
@@ -72,7 +71,7 @@ pub fn finalize_boot_and_run() -> ! {
 
 	debug_assert_eq!(
 		tss_offset,
-		crate::gdt::TSS_GDT_OFFSET,
+		oro_arch_x86_64::gdt::TSS_GDT_OFFSET,
 		"TSS offset mismatch"
 	);
 
@@ -91,10 +90,10 @@ pub fn finalize_boot_and_run() -> ! {
 	unsafe {
 		crate::lapic::initialize_lapic_irqs();
 		crate::syscall::install_syscall_handler();
-		crate::asm::load_tss(crate::gdt::TSS_GDT_OFFSET);
+		oro_arch_x86_64::load_tss(oro_arch_x86_64::gdt::TSS_GDT_OFFSET);
 	}
 
-	if crate::cpuid::CpuidA07C0::get().is_some_and(|c| c.ebx.fsgsbase()) {
+	if oro_arch_x86_64::cpuid::CpuidA07C0::get().is_some_and(|c| c.ebx.fsgsbase()) {
 		// Allow userspace applications to directly modify FS/GS registers.
 		// Further, we disable (for now) the timestamp instruction outside of
 		// ring 0.
@@ -103,7 +102,7 @@ pub fn finalize_boot_and_run() -> ! {
 		// SAFETY: We're not modifying any critical flags here that would alter the Rust VM's
 		// SAFETY: assumptions about the system state or memory layout.
 		unsafe {
-			crate::reg::Cr4::load()
+			oro_arch_x86_64::reg::Cr4::load()
 				.with_fsgsbase(true)
 				.with_tsd(true /* true = cr0 only */)
 				.store();
@@ -128,23 +127,23 @@ pub fn finalize_boot_and_run() -> ! {
 		);
 		dbg!(
 			"CPUID:EAX=01:ECX=00 = {:#?}",
-			crate::cpuid::CpuidA01C0::get()
+			oro_arch_x86_64::cpuid::CpuidA01C0::get()
 		);
 		dbg!(
 			"CPUID:EAX=07:ECX=00 = {:#?}",
-			crate::cpuid::CpuidA07C0::get()
+			oro_arch_x86_64::cpuid::CpuidA07C0::get()
 		);
 		dbg!(
 			"CPUID:EAX=07:ECX=01 = {:#?}",
-			crate::cpuid::CpuidA07C1::get()
+			oro_arch_x86_64::cpuid::CpuidA07C1::get()
 		);
 		dbg!(
 			"CPUID:EAX=07:ECX=02 = {:#?}",
-			crate::cpuid::CpuidA07C2::get()
+			oro_arch_x86_64::cpuid::CpuidA07C2::get()
 		);
 		dbg!(
 			"CPUID:EAX=0D:ECX=00 = {:#?}",
-			crate::cpuid::CpuidA0DC0::get()
+			oro_arch_x86_64::cpuid::CpuidA0DC0::get()
 		);
 		dbg!(
 			"------------- END CPUID :: CPU {} -------------",

@@ -2,20 +2,14 @@
 //!
 //! This code describes the overall address space layout used by the kernel and userspace processes.
 
+use oro_arch_x86_64::paging::{PageTable, PageTableEntry, PagingLevel};
 use oro_kernel_mem::{
 	mapper::{AddressSegment as _, AddressSpace},
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
 
-use crate::{
-	asm::cr3,
-	mem::{
-		paging::{PageTable, PageTableEntry},
-		paging_level::PagingLevel,
-		segment::{AddressSegment, MapperHandle},
-	},
-};
+use crate::mem::segment::{AddressSegment, MapperHandle};
 
 /// A handle to an address space for the x86_64 architecture.
 ///
@@ -285,7 +279,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 
 	unsafe fn current_supervisor_space() -> Self::SupervisorHandle {
 		Self::SupervisorHandle {
-			base_phys:    cr3(),
+			base_phys:    oro_arch_x86_64::cr3(),
 			paging_level: PagingLevel::current_from_cpu(),
 		}
 	}

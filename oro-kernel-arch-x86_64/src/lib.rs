@@ -71,22 +71,17 @@
 // TODO(qix-): This is a temporary measure; it'll be removed at some point.
 #![expect(unsafe_op_in_unsafe_fn)]
 
-pub mod asm;
 pub mod boot;
 pub mod core_local;
-pub mod cpuid;
-pub mod gdt;
 pub mod hpet;
 pub mod iface;
 pub mod instance;
 pub mod interrupt;
 pub mod lapic;
 pub mod mem;
-pub mod reg;
 pub mod syscall;
 pub mod thread;
 pub mod time;
-pub mod tss;
 
 use oro_kernel::{iface::kernel::KernelInterface, table::Table};
 use oro_kernel_elf::{ElfClass, ElfEndianness, ElfMachine};
@@ -111,7 +106,7 @@ impl oro_kernel::arch::Arch for Arch {
 
 	fn fence() {
 		// NOTE(qix-): This might be too strong for what we need.
-		asm::strong_memory_fence();
+		oro_arch_x86_64::strong_memory_fence();
 	}
 
 	fn register_kernel_interfaces(table: &mut Table<Box<dyn KernelInterface<Self>>>) {
