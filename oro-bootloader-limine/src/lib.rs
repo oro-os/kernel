@@ -295,16 +295,20 @@ pub unsafe fn init() -> ! {
 /// Do **NOT** call this function directly.
 /// It is only called by the architecture-specific binaries.
 pub unsafe fn panic(info: &::core::panic::PanicInfo<'_>) -> ! {
-	use core::arch::asm;
-
 	dbg_err!("panic: {:?}", info);
+
+	// SAFETY: Halting the CPU here is expected behavior in a panic function.
+	#[cfg(target_arch = "x86_64")]
+	unsafe {
+		oro_arch_x86_64::hang();
+	}
+
+	#[cfg(not(target_arch = "x86_64"))]
 	loop {
 		// SAFETY: Inline assembly is required to halt the CPU.
 		unsafe {
-			#[cfg(target_arch = "x86_64")]
-			asm!("hlt");
 			#[cfg(target_arch = "aarch64")]
-			asm!("wfi");
+			core::arch::asm!("wfi");
 		}
 	}
 }

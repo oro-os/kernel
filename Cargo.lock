@@ -1011,6 +1011,7 @@ name = "oro-bootloader-limine"
 version = "0.0.0"
 dependencies = [
  "limine",
+ "oro-arch-x86_64",
  "oro-boot",
  "oro-boot-protocol",
  "oro-debug",
