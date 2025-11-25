@@ -132,6 +132,9 @@ unsafe impl<Smaller: Sized, Larger: Sized> AssertAlignsWithin<Larger> for Smalle
 
 /// One-off assertion that a type has equal or less alignment requirements
 /// than a given size.
+///
+/// # Panics
+/// Panics if `Smaller` does not align to `ALIGN`.
 pub const fn aligns_to<Smaller: Sized, const ALIGN: usize>() {
 	() = assert!(ALIGN.is_power_of_two(), "ALIGN must be a power of two");
 	// This is a sanity check; it should always be true.
@@ -148,6 +151,9 @@ pub const fn aligns_to<Smaller: Sized, const ALIGN: usize>() {
 
 /// One-off assertion that a type has equal or less alignment requirements
 /// than another type.
+///
+/// # Panics
+/// Panics if `Smaller` does not align within `Larger`.
 pub const fn aligns_within<Smaller: Sized, Larger: Sized>() {
 	// These are sanity checks; they should always be true.
 	// If they're not, a language-level guarantee has been violated.

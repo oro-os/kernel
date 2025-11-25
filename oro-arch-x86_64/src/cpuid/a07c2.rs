@@ -5,15 +5,15 @@ use oro_kernel_macro::bitstruct;
 bitstruct! {
 	/// Gets the `edx` register values for the CPUID `eax=07, ecx=07` leaf.
 	pub struct Edx(u32) {
-		/// Fast Store Forwarding Predictor disable supported. (SPEC_CTRL (MSR 48h) bit 7)
+		/// Fast Store Forwarding Predictor disable supported. (`SPEC_CTRL` (MSR 48h) bit 7)
 		pub psfd[0] => as bool,
-		/// IPRED_DIS controls supported. (SPEC_CTRL bits 3 and 4)
+		/// `IPRED_DIS` controls supported. (`SPEC_CTRL` bits 3 and 4)
 		pub ipred_ctrl[1] => as bool,
-		/// RRSBA behavior disable supported. (SPEC_CTRL bits 5 and 6)
+		/// `RRSBA` behavior disable supported. (`SPEC_CTRL` bits 5 and 6)
 		pub rrsba_ctrl[2] => as bool,
-		/// Data Dependent Prefetcher disable supported. (SPEC_CTRL bit 8)
+		/// Data Dependent Prefetcher disable supported. (`SPEC_CTRL` bit 8)
 		pub ddpd_u[3] => as bool,
-		/// BHI_DIS_S behavior enable supported. (SPEC_CTRL bit 10)
+		/// `BHI_DIS_S` behavior enable supported. (`SPEC_CTRL` bit 10)
 		pub bhi_ctrl[4] => as bool,
 		/// If set, the processor does not exhibit MXCSR configuration dependent timing.
 		pub mcdt_no[5] => as bool,

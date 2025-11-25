@@ -20,7 +20,7 @@ impl<A: Arch> KernelInterface<A> for IfaceQueryTypeMetaV0<A> {
 
 			if let Some(iface_list) = interfaces.get(index) {
 				match key {
-					key!("icount") => InterfaceResponse::ok(iface_list.len() as u64),
+					k if k == key!("icount") => InterfaceResponse::ok(iface_list.len() as u64),
 					_ => InterfaceResponse::immediate(SysError::BadKey, 0),
 				}
 			} else {

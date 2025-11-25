@@ -223,8 +223,7 @@ macro_rules! oro_boot_protocol {
 					/// or if the revision number is not recognized.
 					#[must_use]
 					#[cfg(feature = "utils")]
-					#[expect(clippy::needless_lifetimes)]
-					pub fn response<'a>(&'a self) -> Option<%<snake_case:$ReqName>%::$ReqName %% Kind<'a>> {
+					pub fn response(&self) -> Option<%<snake_case:$ReqName>%::$ReqName %% Kind<'_>> {
 						if unsafe { core::ptr::read_volatile(&self.populated) } == 0 {
 							return None;
 						}
@@ -254,8 +253,7 @@ macro_rules! oro_boot_protocol {
 					/// is being accessed.
 					#[cfg(feature = "utils")]
 					#[must_use]
-					#[expect(clippy::needless_lifetimes)]
-					pub unsafe fn response_mut_unchecked<'a>(&'a mut self) -> Option<%<snake_case:$ReqName>%::$ReqName %% KindMut<'a>> {
+					pub unsafe fn response_mut_unchecked(&mut self) -> Option<%<snake_case:$ReqName>%::$ReqName %% KindMut<'_>> {
 						match unsafe { core::ptr::read_volatile(&self.header.revision) } {
 							$(
 								$revision => {

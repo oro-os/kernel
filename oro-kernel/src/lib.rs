@@ -4,30 +4,18 @@
 //! etc. and provides a common interface for architectures to implement
 //! the Oro kernel on their respective platforms.
 #![no_std]
-// SAFETY(qix-): Needed to make the system call key checks work inline.
-// SAFETY(qix-): https://github.com/rust-lang/rust/issues/76001
-#![feature(inline_const_pat)]
 // SAFETY(qix-): Necessary to make the hashbrown crate wrapper work.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/32838
 #![feature(allocator_api)]
-// SAFETY(qix-): Needed for the global table to initialize arrays of null pointers
-// SAFETY(qix-): safely, in order not to assume that `null == 0` (which is true on
-// SAFETY(qix-): most platforms, but is not specified anywhere). Technically we could
-// SAFETY(qix-): eschew this given that _we're the ones making a platform_ but it's still
-// SAFETY(qix-): a good idea to be explicit.
-#![feature(maybe_uninit_uninit_array)]
 // SAFETY(qix-): To be stabilized soon. Needed for the global table.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/96097
 #![feature(maybe_uninit_array_assume_init)]
-#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(doc, feature(doc_cfg))]
 // SAFETY(qix-): This is either going to be stabilized, or the workaround
 // SAFETY(qix-): for it to be pulled will have a trivial workaround that
 // SAFETY(qix-): has equally good codegen. Either, way this is zero risk.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/90850
 #![feature(downcast_unchecked)]
-// SAFETY(qix-): This is almost stabilized.
-// SAFETY(qix-): https://github.com/rust-lang/rust/issues/70142
-#![feature(result_flattening)]
 // SAFETY(qix-): Needed for `likely`/`unlikely` macros.
 #![expect(internal_features)]
 #![feature(core_intrinsics)]

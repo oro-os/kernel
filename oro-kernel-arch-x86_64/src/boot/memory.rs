@@ -269,7 +269,7 @@ unsafe fn linear_map_regions<'a>(
 
 				let page_table = &*(page_table_virt as *const UnsafeCell<PageTable>);
 				let entry_idx = (base_virt >> (12 + 9 * (level - 1))) & 0x1FF;
-				let entry = &mut (*page_table.get())[entry_idx as usize];
+				let entry = &mut (&mut (*page_table.get()))[entry_idx as usize];
 
 				if !entry.present() {
 					if level == 2 && (base_virt & ((1 << 21) - 1)) == 0 && length >= (1 << 21) {
@@ -398,7 +398,7 @@ impl Iterator for MemoryMapPfa<'_> {
 			}
 
 			// Are we page aligned?
-			if self.current_entry.base % 4096 != 0 {
+			if !self.current_entry.base.is_multiple_of(4096) {
 				let next_page = (self.current_entry.base + 4095) & !4095;
 				let align = next_page - self.current_entry.base;
 				self.current_entry.base += align;
@@ -407,7 +407,7 @@ impl Iterator for MemoryMapPfa<'_> {
 		}
 
 		debug_assert!(self.current_entry.length >= 4096);
-		debug_assert!((self.current_entry.base % 4096) == 0);
+		debug_assert!(self.current_entry.base.is_multiple_of(4096));
 		debug_assert!(self.current_entry.ty == MemoryMapEntryType::Usable);
 
 		let result = self.current_entry.base;
@@ -454,7 +454,7 @@ impl<'a> MemoryMapIterator<'a> {
 				// SAFETY(qix-): to ensure we've gotten at least the correct revision of the memory map,
 				// SAFETY(qix-): so to the best of our ability to determine the memory map is valid (though
 				// SAFETY(qix-): it's really up to the bootloader to make sure it is).
-				unsafe { core::ptr::read_volatile(&res.assume_init_ref().next) }
+				unsafe { core::ptr::read_volatile(&raw const res.assume_init_ref().next) }
 			},
 			otf,
 		}
@@ -557,7 +557,10 @@ impl OnTheFlyMapper {
 
 	/// Maps in the given physical page to the OTF region slot.
 	unsafe fn map_phys(&self, phys: u64) {
-		debug_assert!(phys % 4096 == 0, "physical address is not page-aligned");
+		debug_assert!(
+			phys.is_multiple_of(4096),
+			"physical address is not page-aligned"
+		);
 		*self.l1_page_table_entry = PageTableEntry::new()
 			.with_present()
 			.with_writable()

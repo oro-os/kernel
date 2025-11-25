@@ -309,27 +309,25 @@ trait TypeEx {
 
 impl TypeEx for Type {
 	fn get_unsigned_primitive(&self) -> Option<String> {
-		if let Type::Path(p) = self {
-			if let Some(segment) = p.path.segments.last() {
-				if segment.ident == "u8"
-					|| segment.ident == "u16"
-					|| segment.ident == "u32"
-					|| segment.ident == "u64"
-					|| segment.ident == "u128"
-				{
-					return Some(segment.ident.to_string());
-				}
-			}
+		if let Type::Path(p) = self
+			&& let Some(segment) = p.path.segments.last()
+			&& (segment.ident == "u8"
+				|| segment.ident == "u16"
+				|| segment.ident == "u32"
+				|| segment.ident == "u64"
+				|| segment.ident == "u128")
+		{
+			return Some(segment.ident.to_string());
 		}
 
 		None
 	}
 
 	fn is_bool(&self) -> bool {
-		if let Type::Path(p) = self {
-			if let Some(segment) = p.path.segments.last() {
-				return segment.ident == "bool";
-			}
+		if let Type::Path(p) = self
+			&& let Some(segment) = p.path.segments.last()
+		{
+			return segment.ident == "bool";
 		}
 
 		false

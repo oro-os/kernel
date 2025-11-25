@@ -33,8 +33,8 @@ impl<A: Arch> KernelInterface<A> for ThreadV0<A> {
 		let target = crate::iface_resolve_thread_target!(A, thread, index);
 
 		match key {
-			key!("id") => InterfaceResponse::ok(target.id()),
-			key!("status") => InterfaceResponse::ok(target.with(|t| t.run_state()) as u64),
+			k if k ==key!("id") => InterfaceResponse::ok(target.id()),
+			k if k ==key!("status") => InterfaceResponse::ok(target.with(|t| t.run_state()) as u64),
 			_ => InterfaceResponse::immediate(SysError::BadKey, 0),
 		}
 	}
@@ -43,8 +43,8 @@ impl<A: Arch> KernelInterface<A> for ThreadV0<A> {
 		let target = crate::iface_resolve_thread_target!(A, thread, index);
 
 		match key {
-			key!("id") => InterfaceResponse::immediate(SysError::ReadOnly, 0),
-			key!("status") => {
+			k if k == key!("id") => InterfaceResponse::immediate(SysError::ReadOnly, 0),
+			k if k == key!("status") => {
 				let Ok(new_state) = RunState::try_from(value) else {
 					return InterfaceResponse::immediate(
 						SysError::InterfaceError,

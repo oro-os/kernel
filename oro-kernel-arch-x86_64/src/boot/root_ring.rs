@@ -46,7 +46,7 @@ pub unsafe fn initialize_root_ring() {
 				continue;
 			};
 
-			next = core::ptr::read_volatile(&module.next);
+			next = core::ptr::read_volatile(&raw const module.next);
 
 			dbg!("loading module: {:016X} ({})", module.base, module.length);
 

@@ -199,17 +199,16 @@ impl<I: Iterator<Item = TokenTree>> Iterator for ExpandIterator<I> {
 				)));
 			}
 
-			if let TokenTree::Punct(punct) = &next {
-				if punct.as_char() == '$' && punct.spacing() == Spacing::Alone {
-					if let Some(TokenTree::Ident(ident)) = self.iter.peek() {
-						if ident == delim_ident {
-							self.iter.next();
-							return Some(TokenTree::Literal(Literal::usize_unsuffixed(
-								self.current_count,
-							)));
-						}
-					}
-				}
+			if let TokenTree::Punct(punct) = &next
+				&& punct.as_char() == '$'
+				&& punct.spacing() == Spacing::Alone
+				&& let Some(TokenTree::Ident(ident)) = self.iter.peek()
+				&& ident == delim_ident
+			{
+				self.iter.next();
+				return Some(TokenTree::Literal(Literal::usize_unsuffixed(
+					self.current_count,
+				)));
 			}
 		}
 

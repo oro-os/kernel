@@ -528,9 +528,9 @@ bitstruct! {
 		pub fast_back_to_back[9] => as bool,
 		/// The interrupt disable bit.
 		///
-		/// This bit disables the device/function from asserting INTx#. A value of
-		/// 0 enables the assertion of its INTx# signal. A value of 1 disables the
-		/// assertion of its INTx# signal. This bit’s state after RST# is 0.
+		/// This bit disables the device/function from asserting `INTx`#. A value of
+		/// 0 enables the assertion of its `INTx`# signal. A value of 1 disables the
+		/// assertion of its `INTx`# signal. This bit’s state after RST# is 0.
 		pub interrupt_disable[10] => as bool,
 	}
 }
@@ -543,7 +543,7 @@ bitstruct! {
 		/// This read-only bit reflects the state of the interrupt in the
 		/// device/function. Only when the Interrupt Disable bit in the command
 		/// register is a 0 and this Interrupt Status bit is a 1, will the
-		/// device’s/function’s INTx# signal be asserted. Setting the Interrupt
+		/// device’s/function’s `INTx`# signal be asserted. Setting the Interrupt
 		/// Disable bit to a 1 has no effect on the state of this bit.
 		pub interrupt_status[3] => as bool,
 		/// Capabilities list.

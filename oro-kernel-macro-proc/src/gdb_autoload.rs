@@ -13,7 +13,7 @@ pub fn gdb_autoload_inline(input: proc_macro::TokenStream) -> proc_macro::TokenS
 	};
 	let span = tok.span();
 	let byte_span = span.byte_range();
-	let source_path = span.source_file().path();
+	let source_path = span.local_file().expect("failed to get source file");
 
 	let path_lit = syn::parse_macro_input!(input as syn::LitStr);
 
@@ -34,7 +34,7 @@ pub fn gdb_autoload_inline(input: proc_macro::TokenStream) -> proc_macro::TokenS
 		Err(e) => {
 			return Error::new(
 				Span::call_site(),
-				format!("failed to load script: {e}: {rel_path:?}"),
+				format!("failed to load script: {e}: {}", rel_path.display()),
 			)
 			.to_compile_error()
 			.into();

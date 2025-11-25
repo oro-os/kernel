@@ -70,6 +70,7 @@ impl RequestScanner {
 	///
 	/// To better enforce this, we enforce that the returned reference
 	/// not outlive this scanner object.
+	#[expect(clippy::mut_from_ref)]
 	#[must_use]
 	pub unsafe fn get<T: RequestTag>(&self) -> Option<&mut T> {
 		let mut ptr = self.base;

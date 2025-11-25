@@ -86,7 +86,10 @@ unsafe impl core::alloc::GlobalAlloc for HeapAllocator {
 					return core::ptr::null_mut();
 				};
 
-				debug_assert!(inner.base % 4096 == 0, "inner.base is not page-aligned");
+				debug_assert!(
+					inner.base.is_multiple_of(4096),
+					"inner.base is not page-aligned"
+				);
 
 				// SAFETY: We've checked that the base area is unused.
 				let result = unsafe {
@@ -141,7 +144,7 @@ unsafe impl core::alloc::GlobalAlloc for HeapAllocator {
 				.heap
 				.alloc(layout)
 				.map(|p| p.as_ptr())
-				.unwrap_or(core::ptr::null_mut());
+				.unwrap_or_default();
 
 			// Keep the space ship flying.
 			drop(inner);

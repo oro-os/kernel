@@ -389,7 +389,7 @@ impl Iterator for MemoryMapPfa<'_> {
 			self.current_entry = self.iterator.next()?;
 
 			// Are we page aligned?
-			if self.current_entry.base % 4096 != 0 {
+			if !self.current_entry.base.is_multiple_of(4096) {
 				let next_page = (self.current_entry.base + 4095) & !4095;
 				let align = next_page - self.current_entry.base;
 				self.current_entry.base += align;
@@ -398,7 +398,7 @@ impl Iterator for MemoryMapPfa<'_> {
 		}
 
 		debug_assert!(self.current_entry.length >= 4096);
-		debug_assert!((self.current_entry.base % 4096) == 0);
+		debug_assert!(self.current_entry.base.is_multiple_of(4096));
 		debug_assert!(self.current_entry.ty == MemoryMapEntryType::Usable);
 
 		let result = self.current_entry.base;
@@ -545,7 +545,10 @@ impl OnTheFlyMapper {
 
 	/// Maps in the given physical page to the OTF region slot.
 	unsafe fn map_phys(&self, phys: u64) {
-		debug_assert!(phys % 4096 == 0, "physical address is not page-aligned");
+		debug_assert!(
+			phys.is_multiple_of(4096),
+			"physical address is not page-aligned"
+		);
 		*self.l3_page_table_entry = L3PageTableBlockDescriptor::new()
 			.with_address(phys)
 			.with_block_access_permissions(PageTableEntryBlockAccessPerm::KernelRWUserNoAccess)

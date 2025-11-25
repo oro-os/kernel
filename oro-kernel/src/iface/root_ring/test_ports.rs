@@ -56,8 +56,8 @@ impl<A: Arch> Interface<A> for RootTestPorts<A> {
 		}
 
 		match key {
-			key!("health") => InterfaceResponse::ok(1337),
-			key!("prodtkn") | key!("cnsmtkn") => {
+			k if k == key!("health") => InterfaceResponse::ok(1337),
+			k if k == key!("prodtkn") | key!("cnsmtkn") => {
 				match PortState::endpoint(
 					&self.0,
 					if key == key!("prodtkn") {
@@ -104,7 +104,7 @@ impl<A: Arch> Interface<A> for RootTestPorts<A> {
 		}
 
 		match key {
-			key!("health") | key!("prodtkn") | key!("cnsmtkn") => {
+			k if k == key!("health") || k == key!("prodtkn") || k == key!("cnsmtkn") => {
 				InterfaceResponse::immediate(SysError::ReadOnly, 0)
 			}
 			_ => InterfaceResponse::immediate(SysError::BadKey, 0),

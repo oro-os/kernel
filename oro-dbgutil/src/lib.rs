@@ -3,8 +3,7 @@
 //! See the `dbgutil` directory in the Oro kernel
 //! repository for more information.
 #![cfg_attr(not(test), no_std)]
-#![feature(naked_functions)]
-#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(doc, feature(doc_cfg))]
 #![allow(unused_variables, clippy::inline_always)]
 
 #[cfg(debug_assertions)]
@@ -22,12 +21,9 @@ gdb_autoload_inline!("dbgutil.py");
 #[cfg(any(debug_assertions, feature = "force-hooks"))]
 #[unsafe(link_section = ".text.force_keep")]
 #[unsafe(no_mangle)]
-#[naked]
+#[unsafe(naked)]
 pub extern "C" fn __oro_dbgutil_ATS1E1R() -> ! {
-	use core::arch::naked_asm;
-	unsafe {
-		naked_asm!("AT S1E1R, x0", "nop");
-	}
+	core::arch::naked_asm!("AT S1E1R, x0", "nop");
 }
 
 /// Generates GDB tracker service hook functions.
@@ -69,7 +65,7 @@ macro_rules! hook_functions {
 			)]
 			#[cfg_attr(not(any(debug_assertions, feature = "force-hooks")), inline(always))]
 			#[cfg_attr(any(debug_assertions, feature = "force-hooks"), inline(never))]
-			#[allow(clippy::cast_lossless)]
+			#[allow(unused_attributes, clippy::cast_lossless)]
 			pub extern "C" fn $name($($param: $ty),*) {
 				#[cfg(any(debug_assertions, feature = "force-hooks"))]
 				#[allow(trivial_numeric_casts)]

@@ -38,7 +38,8 @@ pub fn find_acpi_table<T: oro_kernel_acpi::AcpiTable>() -> Option<T> {
 		panic!("ACPI request and response revision number differ");
 	};
 	// SAFETY: We have to assume this is safe; otherwise it's a bug in the OEM's ACPI tables.
-	let rsdp_phys = unsafe { core::ptr::read_volatile(&rsdp_response.assume_init_ref().rsdp) };
+	let rsdp_phys =
+		unsafe { core::ptr::read_volatile(&raw const rsdp_response.assume_init_ref().rsdp) };
 	// SAFETY: We have to assume this is safe; otherwise it's either a bug in the OEM's ACPI
 	// SAFETY: tables or a bug in the bootloader.
 	let rsdp = unsafe { oro_kernel_acpi::Rsdp::get(rsdp_phys)? };

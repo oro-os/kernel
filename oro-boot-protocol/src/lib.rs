@@ -90,7 +90,7 @@
 //! The resulting header file is emitted to `$CARGO_TARGET_DIR/oro-boot.h`.
 #![cfg_attr(not(test), no_std)]
 #![expect(clippy::too_many_lines)] // Seems to be a bug in clippy with the macro expansion
-#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(doc, feature(doc_cfg))]
 
 // NOTE(qix-): This module is quite hairy with macros, both procedural and otherwise.
 // NOTE(qix-): If you're trying to make sense of the types in here, it's probably

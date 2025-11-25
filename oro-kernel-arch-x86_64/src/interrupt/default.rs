@@ -12,17 +12,15 @@ pub fn new_default() -> [IdtEntry; 256] {
 	macro_rules! isr {
 		(@@@ $vec_nr:tt $(, exc $exception:tt)? $(, push $push_err:literal)? $(,)?) => {{
 			paste! {
-				#[naked]
+				#[unsafe(naked)]
 				#[unsafe(no_mangle)]
 				extern "C" fn _oro_isr_handler_ %% $vec_nr () -> ! {
 					// SAFETY: inherently unsafe.
-					unsafe {
-						naked_asm! {
-							"cli", "cld",
-							$($push_err,)?
-							concat!("push ", stringify!($vec_nr)),
-							concat!("jmp _oro_isr_common", $($exception,)?),
-						}
+					naked_asm! {
+						"cli", "cld",
+						$($push_err,)?
+						concat!("push ", stringify!($vec_nr)),
+						concat!("jmp _oro_isr_common", $($exception,)?),
 					}
 				}
 

@@ -122,18 +122,18 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 		}
 
 		match key {
-			key!("write") => InterfaceResponse::immediate(SysError::WriteOnly, 0),
-			key!("line_max") => {
+			k if k == key!("write") => InterfaceResponse::immediate(SysError::WriteOnly, 0),
+			k if k == key!("line_max") => {
 				InterfaceResponse::ok(thread.with(|t| {
 					t.data()
 						.try_get::<BufferState>()
 						.map_or_else(|| DEFAULT_LINE_BUFFER, |b| b.line_buffer) as u64
 				}))
 			}
-			key!("hard_max") => InterfaceResponse::ok(HARD_MAXIMUM),
-			key!("hard_min") => InterfaceResponse::ok(HARD_MINIMUM),
-			key!("ring_sz") => InterfaceResponse::ok(oro_debug::ring_buffer_len() as u64),
-			key!("ring_u64") => InterfaceResponse::ok(oro_debug::ring_buffer_read()),
+			k if k == key!("hard_max") => InterfaceResponse::ok(HARD_MAXIMUM),
+			k if k == key!("hard_min") => InterfaceResponse::ok(HARD_MINIMUM),
+			k if k == key!("ring_sz") => InterfaceResponse::ok(oro_debug::ring_buffer_len() as u64),
+			k if k == key!("ring_u64") => InterfaceResponse::ok(oro_debug::ring_buffer_read()),
 			_ => InterfaceResponse::immediate(SysError::BadKey, 0),
 		}
 	}
@@ -144,12 +144,12 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 		}
 
 		match key {
-			key!("line_max") => {
+			k if k == key!("line_max") => {
 				let value = value.clamp(HARD_MINIMUM, HARD_MAXIMUM);
 				thread.with_mut(|t| t.data_mut().get::<BufferState>().set_max(value as usize));
 				InterfaceResponse::ok(0)
 			}
-			key!("write") => {
+			k if k == key!("write") => {
 				// The value itself holds the bytes; we consume each of the 8 bytes
 				// from `value` until we encounter a `0` byte, after which we ignore
 				// the rest.
@@ -164,7 +164,11 @@ impl<A: Arch> Interface<A> for DebugOutV0<A> {
 
 				InterfaceResponse::ok(0)
 			}
-			key!("hard_max") | key!("hard_min") | key!("ring_sz") | key!("ring_u64") => {
+			k if k == key!("hard_max")
+				|| k == key!("hard_min")
+				|| k == key!("ring_sz")
+				|| k == key!("ring_u64") =>
+			{
 				InterfaceResponse::immediate(SysError::ReadOnly, 0)
 			}
 			_ => InterfaceResponse::immediate(SysError::BadKey, 0),

@@ -66,6 +66,11 @@ pub struct AddressSegment {
 impl AddressSegment {
 	/// Returns the page table entry for the given virtual address,
 	/// allocating intermediate page tables as necessary.
+	///
+	/// SAFETY: Caller must ensure that the page table entry is only
+	/// SAFETY: held by one owner at a time, else the multiple mutable
+	/// SAFETY: references will violate Rust's aliasing rules.
+	#[expect(clippy::mut_from_ref)]
 	unsafe fn entry<'a, A, Handle: MapperHandle>(
 		&'a self,
 		space: &'a Handle,
@@ -95,7 +100,7 @@ impl AddressSegment {
 
 		for level in (1..space.paging_level().as_usize()).rev() {
 			let index = (virt >> (12 + level * 9)) & 0x1FF;
-			let entry = &mut (*current_page_table.get())[index];
+			let entry = &mut (&mut (*current_page_table.get()))[index];
 
 			current_page_table = if entry.present() {
 				Phys::from_address_unchecked(entry.address()).as_ref_unchecked()
@@ -127,7 +132,7 @@ impl AddressSegment {
 			};
 		}
 
-		let entry = &mut (*current_page_table.get())[(virt >> 12) & 0x1FF];
+		let entry = &mut (&mut (*current_page_table.get()))[(virt >> 12) & 0x1FF];
 
 		Ok(entry)
 	}
@@ -343,7 +348,7 @@ impl AddressSegment {
 	/// Caller must ensure that ALL pages under the given entry are reclaimable and
 	/// that the entry itself is reclaimable, and that none of the reclaimed pages
 	/// are still being used.
-	#[expect(clippy::only_used_in_recursion)] // false positive
+	#[expect(clippy::self_only_used_in_recursion)]
 	unsafe fn unmap_and_reclaim_entry<A>(&self, entry: &mut PageTableEntry, alloc: &A, level: usize)
 	where
 		A: Alloc,

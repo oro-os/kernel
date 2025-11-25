@@ -6,7 +6,7 @@
 //! and individual, architecture-specific binaries.
 //! See the `bin/` directory for architecture-specific entry points.
 #![no_std]
-#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(doc, feature(doc_cfg))]
 
 use core::ffi::CStr;
 

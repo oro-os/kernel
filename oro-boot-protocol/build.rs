@@ -92,7 +92,10 @@ fn main() {
 	};
 
 	let mut out = std::fs::File::create(&output_file).unwrap_or_else(|_| {
-		panic!("failed to create Oro boot protocol header file: {output_file:?}")
+		panic!(
+			"failed to create Oro boot protocol header file: {}",
+			output_file.display()
+		)
 	});
 
 	writeln!(out, "#ifndef ORO_BOOT__H").unwrap();
@@ -210,60 +213,59 @@ fn process_tags<W: Write>(items: &[syn::Item], w: &mut W) -> Result<()> {
 	}
 
 	for item in items {
-		if let syn::Item::Impl(item) = item {
-			if let Some((None, trt, _)) = &item.trait_ {
-				let seg = trt.segments.last().unwrap();
-				if seg.ident == "RequestTag" {
-					let target = &item.self_ty;
-					let syn::Type::Path(ref target) = **target else {
-						return Err(format!(
-							"expected a path type for RequestTag impl, found {target:?}"
-						)
-						.into());
-					};
+		if let syn::Item::Impl(item) = item
+			&& let Some((None, trt, _)) = &item.trait_
+		{
+			let seg = trt.segments.last().unwrap();
+			if seg.ident == "RequestTag" {
+				let target = &item.self_ty;
+				let syn::Type::Path(ref target) = **target else {
+					return Err(format!(
+						"expected a path type for RequestTag impl, found {target:?}"
+					)
+					.into());
+				};
 
-					let target_ident = target.path.segments.last().unwrap().ident.to_string();
+				let target_ident = target.path.segments.last().unwrap().ident.to_string();
 
-					let Some(tag_item) = item.items.iter().find(|item| {
-						if let syn::ImplItem::Const(item) = item {
-							item.ident == "TAG"
-						} else {
-							false
-						}
-					}) else {
-						return Err(format!(
-							"missing TAG constant for RequestTag impl: {target_ident}"
-						)
-						.into());
-					};
+				let Some(tag_item) = item.items.iter().find(|item| {
+					if let syn::ImplItem::Const(item) = item {
+						item.ident == "TAG"
+					} else {
+						false
+					}
+				}) else {
+					return Err(format!(
+						"missing TAG constant for RequestTag impl: {target_ident}"
+					)
+					.into());
+				};
 
-					let syn::ImplItem::Const(syn::ImplItemConst { expr, .. }) = &tag_item else {
-						return Err(format!(
-							"expected a constant for RequestTag impl, found {tag_item:?}"
-						)
-						.into());
-					};
+				let syn::ImplItem::Const(syn::ImplItemConst { expr, .. }) = &tag_item else {
+					return Err(format!(
+						"expected a constant for RequestTag impl, found {tag_item:?}"
+					)
+					.into());
+				};
 
-					let syn::Expr::Lit(syn::ExprLit { lit, .. }) = expr else {
-						return Err(format!(
-							"expected a literal for RequestTag impl, found {expr:?}"
-						)
-						.into());
-					};
+				let syn::Expr::Lit(syn::ExprLit { lit, .. }) = expr else {
+					return Err(
+						format!("expected a literal for RequestTag impl, found {expr:?}").into(),
+					);
+				};
 
-					let syn::Lit::ByteStr(bs) = lit else {
-						return Err(format!(
-							"expected a byte string for RequestTag impl, found {lit:?}"
-						)
-						.into());
-					};
+				let syn::Lit::ByteStr(bs) = lit else {
+					return Err(format!(
+						"expected a byte string for RequestTag impl, found {lit:?}"
+					)
+					.into());
+				};
 
-					let target_ident = target_ident.to_case(Case::ScreamingSnake);
+				let target_ident = target_ident.to_case(Case::ScreamingSnake);
 
-					write!(w, "#define ORO_BOOT_REQ_{target_ident}_ID (*(oro_tag_t*)\"")?;
-					w.write_all(&bs.value())?;
-					writeln!(w, "\")")?;
-				}
+				write!(w, "#define ORO_BOOT_REQ_{target_ident}_ID (*(oro_tag_t*)\"")?;
+				w.write_all(&bs.value())?;
+				writeln!(w, "\")")?;
 			}
 		}
 	}
@@ -289,10 +291,10 @@ fn process_mod<W: Write>(items: &[syn::Item], w: &mut W) -> Result<()> {
 	for item in items {
 		match item {
 			syn::Item::Mod(item) => {
-				if !BLACKLIST_MODS.contains(&item.ident.to_string().as_str()) {
-					if let Some(items) = &item.content {
-						process_mod(&items.1, w)?;
-					}
+				if !BLACKLIST_MODS.contains(&item.ident.to_string().as_str())
+					&& let Some(items) = &item.content
+				{
+					process_mod(&items.1, w)?;
 				}
 			}
 			syn::Item::Struct(item) => {
@@ -673,28 +675,27 @@ fn to_hungarian(s: &str) -> String {
 fn extract_doc_comment(attrs: &[syn::Attribute], indent_level: usize) -> Option<String> {
 	let mut lines = Vec::new();
 	for attr in attrs {
-		if attr.path().is_ident("doc") {
-			if let syn::Meta::NameValue(syn::MetaNameValue {
+		if attr.path().is_ident("doc")
+			&& let syn::Meta::NameValue(syn::MetaNameValue {
 				value: syn::Expr::Lit(syn::ExprLit {
 					lit: syn::Lit::Str(lit),
 					..
 				}),
 				..
 			}) = &attr.meta
-			{
-				// We do this so that `.lines()` doesn't drop leading/trailing empty lines,
-				// giving us the exact output as the original source.
-				let doc = " ".to_owned() + &lit.value() + " ";
-				let new_lines = doc
-					.lines()
-					.map(|s| {
-						// Special handling: remove any instances of "super::".
-						s.replace("super::", "")
-					})
-					.map(|s| s.trim().to_owned())
-					.collect::<Vec<_>>();
-				lines.extend(new_lines);
-			}
+		{
+			// We do this so that `.lines()` doesn't drop leading/trailing empty lines,
+			// giving us the exact output as the original source.
+			let doc = " ".to_owned() + &lit.value() + " ";
+			let new_lines = doc
+				.lines()
+				.map(|s| {
+					// Special handling: remove any instances of "super::".
+					s.replace("super::", "")
+				})
+				.map(|s| s.trim().to_owned())
+				.collect::<Vec<_>>();
+			lines.extend(new_lines);
 		}
 	}
 

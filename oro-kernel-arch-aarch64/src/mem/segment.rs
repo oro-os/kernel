@@ -52,7 +52,12 @@ impl Segment {
 	/// intermediate page table level entries as necessary.
 	/// Always returns a valid reference to an L3 page table entry (or an error
 	/// if mapping intermediate table entries failed).
+	///
+	/// SAFETY: Caller must ensure that the page table entry is only
+	/// SAFETY: held by one owner at a time, else the multiple mutable
+	/// SAFETY: references will violate Rust's aliasing rules.
 	// XXX DEBUG(qix-): Set this back to private
+	#[expect(clippy::mut_from_ref)]
 	pub(crate) fn entry<'a, A, Handle>(
 		&'a self,
 		space: &'a Handle,

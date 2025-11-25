@@ -421,7 +421,8 @@ impl<T: Default + 'static> SubTable<T> {
 
 		// TODO(qix-): If this becomes a bottleneck, let's throw in a feature
 		// TODO(qix-): called `null-is-zero` and zero it instead if enabled.
-		let mut table: [MaybeUninit<EncodedAtomicPtr<T>>; 512] = MaybeUninit::uninit_array();
+		let mut table: [MaybeUninit<EncodedAtomicPtr<T>>; 512] =
+			[const { MaybeUninit::uninit() }; 512];
 		for ptr in &mut table {
 			ptr.write(EncodedAtomicPtr::new(core::ptr::null_mut()));
 		}
@@ -807,7 +808,7 @@ impl SlotList {
 	/// Creates a new slot list.
 	fn new() -> Self {
 		assert::size_of::<Self, 4096>();
-		let mut slots: [MaybeUninit<Slot>; 128] = MaybeUninit::uninit_array();
+		let mut slots: [MaybeUninit<Slot>; 128] = [const { MaybeUninit::uninit() }; 128];
 		for slot in &mut slots {
 			slot.write(Slot::default());
 		}

@@ -1,5 +1,4 @@
 //! Interrupt handling for x86_64 architecture.
-#![expect(rustdoc::private_intra_doc_links)]
 
 use core::{cell::UnsafeCell, mem::MaybeUninit};
 
@@ -23,7 +22,7 @@ fn initialize_default_idt() {
 		// SAFETY: We can guarantee the memory is valid and we're the only
 		// SAFETY: ones writing to it.
 		unsafe {
-			core::ptr::write_volatile(&mut *idt, Some(UnsafeCell::new(new_idt)));
+			core::ptr::write_volatile(&raw mut *idt, Some(UnsafeCell::new(new_idt)));
 		}
 	}
 

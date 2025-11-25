@@ -46,7 +46,7 @@ impl<A: Arch> KernelInterface<A> for PageAllocV0<A> {
 		}
 
 		match key {
-			key!("4kib") => {
+			k if k == key!("4kib") => {
 				usize::try_from(index).map_or(
 					InterfaceResponse::immediate(
 						SysError::InterfaceError,

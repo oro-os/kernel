@@ -1,3 +1,6 @@
+[future-incompat-report]
+frequency = "always"
+
 [alias]
 oro = "run -p oroutil --bin oroutil --features run-from-cargo -- --_run_from_cargo_oro"
 

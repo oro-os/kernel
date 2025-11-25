@@ -5,7 +5,7 @@
 //!
 //! It also houses the tests for the procedural macros.
 #![cfg_attr(not(test), no_std)]
-#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(doc, feature(doc_cfg))]
 
 #[cfg(test)]
 mod tests;

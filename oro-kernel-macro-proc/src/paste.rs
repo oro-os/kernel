@@ -210,25 +210,25 @@ where
 
 		match op.as_str() {
 			"snake_case" => {
-				let ident = ident.to_string();
+				let ident = ident.clone();
 				let snake_case = ident.to_case(Case::Snake);
 				let ident = Ident::new(&snake_case, ident_span);
 				Some(Ok(TokenTree::Ident(ident)))
 			}
 			"title_case" => {
-				let ident = ident.to_string();
+				let ident = ident.clone();
 				let title_case = ident.to_case(Case::Pascal);
 				let ident = Ident::new(&title_case, ident_span);
 				Some(Ok(TokenTree::Ident(ident)))
 			}
 			"camel_case" => {
-				let ident = ident.to_string();
+				let ident = ident.clone();
 				let camel_case = ident.to_case(Case::Camel);
 				let ident = Ident::new(&camel_case, ident_span);
 				Some(Ok(TokenTree::Ident(ident)))
 			}
 			"const_case" => {
-				let ident = ident.to_string();
+				let ident = ident.clone();
 				let const_case = ident.to_case(Case::ScreamingSnake);
 				let ident = Ident::new(&const_case, ident_span);
 				Some(Ok(TokenTree::Ident(ident)))

@@ -9,7 +9,9 @@
 // SAFETY(qix-): in the MADT tables.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/122034
 #![feature(ptr_as_ref_unchecked)]
-#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(doc, feature(doc_cfg))]
+// Ignored for the acpica-sys bindings.
+#![expect(clippy::doc_markdown)]
 
 use core::ptr::from_ref;
 

@@ -1,5 +1,4 @@
 //! Implements various CPUID lookup structures and functions.
-#![expect(clippy::similar_names)]
 
 mod a01c0;
 mod a07c0;

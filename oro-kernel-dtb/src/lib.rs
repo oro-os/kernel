@@ -1,6 +1,6 @@
 //! DeviceTree blob reader support for the Oro kernel.
 #![cfg_attr(not(test), no_std)]
-#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(doc, feature(doc_cfg))]
 
 use core::{ffi::CStr, mem::size_of, ptr::from_ref};
 
@@ -78,13 +78,13 @@ impl FdtHeader {
 
 		let this = unsafe { &*ptr };
 
-		if let Some(len) = len {
-			if this.totalsize.read() != len {
-				return Err(ValidationError::LengthMismatch {
-					expected: len,
-					reported: this.totalsize.read(),
-				});
-			}
+		if let Some(len) = len
+			&& this.totalsize.read() != len
+		{
+			return Err(ValidationError::LengthMismatch {
+				expected: len,
+				reported: this.totalsize.read(),
+			});
 		}
 
 		if this.version.read() != 17 && this.last_comp_version.read() > 17 {
@@ -135,7 +135,7 @@ impl FdtHeader {
 	}
 
 	/// Returns an iterator over the raw DTB tokens.
-	#[expect(clippy::needless_lifetimes)]
+	#[expect(clippy::elidable_lifetime_names)]
 	pub fn iter<'a>(&'a self) -> impl Iterator<Item = FdtToken<'a>> + 'a {
 		FdtIter::new(self).fuse()
 	}

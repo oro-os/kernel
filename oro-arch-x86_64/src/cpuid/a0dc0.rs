@@ -17,27 +17,27 @@ bitstruct! {
 		pub mpx_regs[4] => as bool,
 		/// AVX-512 state: opmask registers k0–k7; Enabled with: XCR0
 		pub avx512_opmask[5] => as bool,
-		/// AVX-512 "ZMM_Hi256" state: top halves of ZMM0–ZMM15; Enabled with: XCR0
+		/// AVX-512 `ZMM_Hi256` state: top halves of `ZMM0`–`ZMM15`; Enabled with: XCR0
 		pub avx512_zmm_hi256[6] => as bool,
-		/// AVX-512 "Hi16_ZMM" state: ZMM16–ZMM31; Enabled with: XCR0
+		/// AVX-512 `Hi16_ZMM` state: `ZMM16`–`ZMM31`; Enabled with: XCR0
 		pub avx512_hi16_zmm[7] => as bool,
-		/// Processor Trace state; Enabled with: IA32_XSS
+		/// Processor Trace state; Enabled with: `IA32_XSS`
 		pub processor_trace_state[8] => as bool,
 		/// PKRU (User Protection Keys) register; Enabled with: XCR0
 		pub pkru[9] => as bool,
-		/// PASID (Process Address Space ID) state; Enabled with: IA32_XSS
+		/// PASID (Process Address Space ID) state; Enabled with: `IA32_XSS`
 		pub pasid_state[10] => as bool,
-		/// CET_U state (Control-flow Enforcement Technology: user-mode functionality MSRs); Enabled with: IA32_XSS
+		/// `CET_U` state (Control-flow Enforcement Technology: user-mode functionality MSRs); Enabled with: `IA32_XSS`
 		pub cet_u_state[11] => as bool,
-		/// CET_S state (CET: shadow stack pointers for rings 0,1,2); Enabled with: IA32_XSS
+		/// `CET_S` state (CET: shadow stack pointers for rings 0,1,2); Enabled with: `IA32_XSS`
 		pub cet_s_state[12] => as bool,
-		/// HDC (Hardware Duty Cycling) state; Enabled with: IA32_XSS
+		/// HDC (Hardware Duty Cycling) state; Enabled with: `IA32_XSS`
 		pub hdc_state[13] => as bool,
-		/// UINTR (User-Mode Interrupts) state; Enabled with: IA32_XSS
+		/// UINTR (User-Mode Interrupts) state; Enabled with: `IA32_XSS`
 		pub uintr_state[14] => as bool,
-		/// LBR (Last Branch Record) state; Enabled with: IA32_XSS
+		/// LBR (Last Branch Record) state; Enabled with: `IA32_XSS`
 		pub lbr_state[15] => as bool,
-		/// HWP (Hardware P-state control) state; Enabled with: IA32_XSS
+		/// HWP (Hardware P-state control) state; Enabled with: `IA32_XSS`
 		pub hwp_state[16] => as bool,
 		/// AMX tile configuration state: TILECFG; Enabled with: XCR0
 		pub amx_tilecfg[17] => as bool,

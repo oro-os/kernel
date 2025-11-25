@@ -51,9 +51,7 @@ where
 		} else {
 			try_rescue_heap::<L>(&mut heap);
 
-			heap.alloc(layout)
-				.map(NonNull::as_ptr)
-				.unwrap_or(core::ptr::null_mut())
+			heap.alloc(layout).map(NonNull::as_ptr).unwrap_or_default()
 		}
 	}
 

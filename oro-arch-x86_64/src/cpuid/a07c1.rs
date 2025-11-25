@@ -19,7 +19,7 @@ bitstruct! {
 		pub avx512_bf16[5] => as bool,
 		/// Linear Address Space Separation (CR4 bit 27)
 		pub lass[6] => as bool,
-		/// CMPccXADD instructions
+		/// `CMPccXADD` instructions
 		pub cmpccxadd[7] => as bool,
 		/// Architectural Performance Monitoring Extended Leaf (EAX=23h)
 		pub archperf_monext[8] => as bool,
@@ -39,13 +39,13 @@ bitstruct! {
 		pub nmi_src[20] => as bool,
 		/// AMX instructions for FP16 numbers
 		pub amx_fp16[21] => as bool,
-		/// HRESET instruction, IA32_HRESET_ENABLE (17DAh) MSR, and Processor History Reset Leaf (EAX=20h)
+		/// HRESET instruction, `IA32_HRESET_ENABLE` (17DAh) MSR, and Processor History Reset Leaf (EAX=20h)
 		pub hreset[22] => as bool,
 		/// AVX IFMA instructions
 		pub avx_ifma[23] => as bool,
 		/// Linear Address Masking
 		pub lam[26] => as bool,
-		/// RDMSRLIST and WRMSRLIST instructions, and the IA32_BARRIER (02Fh) MSR
+		/// RDMSRLIST and WRMSRLIST instructions, and the `IA32_BARRIER` (02Fh) MSR
 		pub msrlist[27] => as bool,
 		/// If 1, supports INVD instruction execution prevention after BIOS Done.
 		pub invd_disable_post_bios_done[30] => as bool,
@@ -57,7 +57,7 @@ bitstruct! {
 bitstruct! {
 	/// Gets the `ebx` register values for the CPUID `eax=07, ecx=1` leaf.
 	pub struct Ebx(u32) {
-		/// Total Storage Encryption: PBNDKB instruction and TSE_CAPABILITY (9F1h) MSR.
+		/// Total Storage Encryption: PBNDKB instruction and `TSE_CAPABILITY` (9F1h) MSR.
 		pub pbndkb[1] => as bool,
 		/// If 1, then bit 22 of `IA32_MISC_ENABLE` cannot be set to 1 to limit the value returned by `CPUID.(EAX=0):EAX[7:0]`.
 		pub cpuid_maxval_lim_rmv[3] => as bool,
@@ -83,15 +83,15 @@ bitstruct! {
 		pub avx_vnni_int8[4] => as bool,
 		/// AVX no-exception FP conversion instructions (bfloat16↔FP32 and FP16→FP32)
 		pub avx_ne_convert[5] => as bool,
-		/// AMX support for "complex" tiles (TCMMIMFP16PS and TCMMRLFP16PS)
+		/// AMX support for "complex" tiles (`TCMMIMFP16PS` and `TCMMRLFP16PS`)
 		pub amx_complex[8] => as bool,
 		/// AVX VNNI INT16 instructions
 		pub avx_vnni_int16[10] => as bool,
-		/// User-timer events: IA32_UINTR_TIMER (1B00h) MSR
+		/// User-timer events: `IA32_UINTR_TIMER` (1B00h) MSR
 		pub utmr[13] => as bool,
-		/// Instruction-cache prefetch instructions (PREFETCHIT0 and PREFETCHIT1)
+		/// Instruction-cache prefetch instructions (`PREFETCHIT0` and `PREFETCHIT1`)
 		pub prefetchi[14] => as bool,
-		/// User-mode MSR access instructions (URDMSR and UWRMSR)
+		/// User-mode MSR access instructions (`URDMSR` and `UWRMSR`)
 		pub user_msr[15] => as bool,
 		/// UIRET (User Interrupt Return) sets UIF from bit 1 of RFLAGS
 		pub uiret_uif_from_rflags[17] => as bool,

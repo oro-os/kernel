@@ -225,9 +225,9 @@ bitstruct! {
 			/// preclude it from being operated in a 32-bit mode).
 			Bits64 = 1,
 		}
-		/// LegacyReplacement Route Capable
+		/// `LegacyReplacement` Route Capable
 		///
-		/// If this is `true`, it indicates that the hardware supports the LegacyReplacement Interrupt Route option.
+		/// If this is `true`, it indicates that the hardware supports the `LegacyReplacement` Interrupt Route option.
 		leg_rt_cap[15] => as bool,
 		/// This read-only field will be the same as what would be assigned if this logic was a PCI function.
 		vendor_id[31:16] => as u16,
@@ -257,10 +257,10 @@ bitstruct! {
 		/// When `true` the main counter will begin running, and interrupts
 		/// will be delivered (if configured).
 		enable_cfg[0] => as bool,
-		/// LegacyReplacement Route:
+		/// `LegacyReplacement` Route:
 		///
-		/// - `false` – Doesn’t support LegacyReplacement Route
-		/// – `true` - Supports LegacyReplacement Route
+		/// - `false` – Doesn’t support `LegacyReplacement` Route
+		/// – `true` - Supports `LegacyReplacement` Route
 		///
 		/// If the [`Self::enable_cfg`] bit and the `leg_rt_cfg` bit are both set,
 		/// then the interrupts will be routed as follows:
@@ -269,10 +269,10 @@ bitstruct! {
 		/// - Timer 1 will be routed to IRQ8 in Non-APIC or IRQ8 in the I/O APIC
 		/// - Timer 2-n will be routed as per the routing in the timer n config registers.
 		///
-		/// If the LegacyReplacement Route bit is set, the individual routing bits for timers 0 and 1
+		/// If the `LegacyReplacement` Route bit is set, the individual routing bits for timers 0 and 1
 		/// (APIC or FSB) will have no impact.
 		///
-		/// If the LegacyReplacement Route bit is not set, the individual routing bits for
+		/// If the `LegacyReplacement` Route bit is not set, the individual routing bits for
 		/// each of the timers are used.
 		leg_rt_cfg[1] => as bool,
 	}
@@ -505,7 +505,7 @@ bitstruct! {
 		/// If the value is not supported by this particular timer, then the value read back will not match what is written.
 		/// The software must only write valid values.
 		///
-		/// **Note:** If the LegacyReplacement Route bit is set, then Timers 0 and 1 will have a different routing,
+		/// **Note:** If the `LegacyReplacement` Route bit is set, then Timers 0 and 1 will have a different routing,
 		/// and this bit field has no effect for those two timers. Note: If the `Tn_FSB_INT_DEL_CNF` bit is set,
 		/// then the interrupt will be delivered directly to the FSB, and this bit field has no effect.
 		///

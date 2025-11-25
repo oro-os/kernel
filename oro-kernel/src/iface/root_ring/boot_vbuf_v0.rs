@@ -74,7 +74,7 @@ impl Default for Inner {
 			// SAFETY: The `response()` method has done as much checking as is possible.
 			// SAFETY: This is just inherently unsafe.
 			let buffers = unsafe { vbufs.assume_init_ref() };
-			let mut current_phys = unsafe { core::ptr::read_volatile(&buffers.next) };
+			let mut current_phys = unsafe { core::ptr::read_volatile(&raw const buffers.next) };
 
 			while current_phys != 0 {
 				let phys = unsafe { Phys::from_address_unchecked(current_phys) };
@@ -138,17 +138,17 @@ impl<A: Arch> Interface<A> for BootVbufV0<A> {
 		};
 
 		let value = match key {
-			key!("width") => buffer.width,
-			key!("height") => buffer.height,
-			key!("pitch") => buffer.row_pitch,
-			key!("bit_pp") => buffer.bits_per_pixel.into(),
-			key!("red_size") => buffer.red_mask.into(),
-			key!("grn_size") => buffer.green_mask.into(),
-			key!("blu_size") => buffer.blue_mask.into(),
-			key!("red_shft") => buffer.red_shift.into(),
-			key!("grn_shft") => buffer.green_shift.into(),
-			key!("blu_shft") => buffer.blue_shift.into(),
-			key!("!vmbase!") => {
+			k if k == key!("width") => buffer.width,
+			k if k == key!("height") => buffer.height,
+			k if k == key!("pitch") => buffer.row_pitch,
+			k if k == key!("bit_pp") => buffer.bits_per_pixel.into(),
+			k if k == key!("red_size") => buffer.red_mask.into(),
+			k if k == key!("grn_size") => buffer.green_mask.into(),
+			k if k == key!("blu_size") => buffer.blue_mask.into(),
+			k if k == key!("red_shft") => buffer.red_shift.into(),
+			k if k == key!("grn_shft") => buffer.green_shift.into(),
+			k if k == key!("blu_shft") => buffer.blue_shift.into(),
+			k if k == key!("!vmbase!") => {
 				return InterfaceResponse::immediate(SysError::WriteOnly, 0);
 			}
 			_ => {
@@ -167,17 +167,20 @@ impl<A: Arch> Interface<A> for BootVbufV0<A> {
 		};
 
 		match key {
-			key!("width")
-			| key!("height")
-			| key!("pitch")
-			| key!("bit_pp")
-			| key!("red_size")
-			| key!("grn_size")
-			| key!("blu_size")
-			| key!("red_shft")
-			| key!("grn_shft")
-			| key!("blu_shft") => InterfaceResponse::immediate(SysError::ReadOnly, 0),
-			key!("!vmbase!") => {
+			k if k == key!("width")
+				|| k == key!("height")
+				|| k == key!("pitch")
+				|| k == key!("bit_pp")
+				|| k == key!("red_size")
+				|| k == key!("grn_size")
+				|| k == key!("blu_size")
+				|| k == key!("red_shft")
+				|| k == key!("grn_shft")
+				|| k == key!("blu_shft") =>
+			{
+				InterfaceResponse::immediate(SysError::ReadOnly, 0)
+			}
+			k if k == key!("!vmbase!") => {
 				if value & 0xFFF != 0 {
 					return InterfaceResponse::immediate(
 						SysError::InterfaceError,

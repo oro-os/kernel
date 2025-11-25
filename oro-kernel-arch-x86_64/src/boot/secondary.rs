@@ -112,6 +112,7 @@ const _: () = {
 /// and the page at physical address 0x9000 as the secondary core's L4 page table.
 ///
 /// Caller must ensure these pages are mapped and accessible.
+#[expect(dangerous_implicit_autorefs)]
 pub unsafe fn boot(
 	primary_handle: &AddressSpaceHandle,
 	lapic: &Lapic,
@@ -449,10 +450,11 @@ unsafe extern "C" fn oro_kernel_x86_64_rust_secondary_core_entry() -> ! {
 	let AcpiKind::V0(acpi) = super::protocol::ACPI_REQUEST.response().unwrap() else {
 		unreachable!();
 	};
-	let Some(sdt) = Rsdp::get(core::ptr::read_volatile(&acpi.assume_init_ref().rsdp))
-		.as_ref()
-		.and_then(Rsdp::sdt)
-	else {
+	let Some(sdt) = Rsdp::get(core::ptr::read_volatile(
+		&raw const acpi.assume_init_ref().rsdp,
+	))
+	.as_ref()
+	.and_then(Rsdp::sdt) else {
 		// Tell the primary we failed.
 		dbg_err!("failed to get RSDT from ACPI tables");
 		(*stubs.get())

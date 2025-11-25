@@ -101,7 +101,7 @@ bitstruct! {
 		pub avx512_vpopcntdq[14] => as bool,
 		/// 5-level paging (57 address bits)
 		pub la57[16] => as bool,
-		/// `RDPID` (Read Processor ID) instruction and IA32_TSC_AUX MSR
+		/// `RDPID` (Read Processor ID) instruction and `IA32_TSC_AUX MSR`
 		pub rdpid[22] => as bool,
 		/// AES Key Locker
 		pub kl[23] => as bool,
@@ -143,7 +143,7 @@ bitstruct! {
 		pub md_clear[10] => as bool,
 		/// All TSX transactions are aborted
 		pub rtm_always_abort[11] => as bool,
-		/// TSX_FORCE_ABORT (MSR `0x10f`) is available
+		/// `TSX_FORCE_ABORT` (MSR `0x10f`) is available
 		pub rtm_force_abort[13] => as bool,
 		/// `SERIALIZE` instruction
 		pub serialize[14] => as bool,
@@ -167,9 +167,9 @@ bitstruct! {
 		pub ibrs_spec_ctrl[26] => as bool,
 		/// Single Thread Indirect Branch Predictor, part of IBC
 		pub stibp[27] => as bool,
-		/// IA32_FLUSH_CMD MSR
+		/// `IA32_FLUSH_CMD` MSR
 		pub l1d_flush[28] => as bool,
-		/// Speculative Store Bypass Disable, as mitigation for Speculative Store Bypass (IA32_SPEC_CTRL)
+		/// Speculative Store Bypass Disable, as mitigation for Speculative Store Bypass (`IA32_SPEC_CTRL`)
 		pub ssbd[31] => as bool,
 	}
 }

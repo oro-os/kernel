@@ -27,7 +27,7 @@ pub fn dispatch<A: Arch>(
 	request: &SystemCallRequest,
 ) -> InterfaceResponse {
 	let error = match request.opcode {
-		const { Opcode::Get as u64 } => {
+		x if x == const { Opcode::Get as u64 } => {
 			if (request.arg1 & oro::id::mask::KERNEL_ID) == 0 {
 				if let Some(res) = crate::iface::kernel::try_dispatch_get::<A>(
 					thread,
@@ -48,7 +48,7 @@ pub fn dispatch<A: Arch>(
 				}
 			}
 		}
-		const { Opcode::Set as u64 } => {
+		x if x == const { Opcode::Set as u64 } => {
 			if (request.arg1 & oro::id::mask::KERNEL_ID) == 0 {
 				if let Some(res) = crate::iface::kernel::try_dispatch_set::<A>(
 					thread,

@@ -57,27 +57,27 @@ impl<A: Arch> KernelInterface<A> for MemTokenV0<A> {
 					::oro_kernel_macro::assert::fits_within::<usize, u64>();
 
 					match key {
-						key!("type") => InterfaceResponse::ok(t.type_id()),
-						key!("subtype") => InterfaceResponse::ok(0),
-						key!("forget") => InterfaceResponse::immediate(SysError::WriteOnly, 0),
-						key!("pagesize") => InterfaceResponse::ok(token.page_size() as u64),
-						key!("pages") => InterfaceResponse::ok(token.page_count() as u64),
-						key!("size") => InterfaceResponse::ok(token.size() as u64),
-						key!("commit") => InterfaceResponse::ok(token.commit() as u64),
-						key!("base") => InterfaceResponse::immediate(SysError::WriteOnly, 0),
+						k if k == key!("type") => InterfaceResponse::ok(t.type_id()),
+						k if k == key!("subtype") => InterfaceResponse::ok(0),
+						k if k == key!("forget") => InterfaceResponse::immediate(SysError::WriteOnly, 0),
+						k if k == key!("pagesize") => InterfaceResponse::ok(token.page_size() as u64),
+						k if k == key!("pages") => InterfaceResponse::ok(token.page_count() as u64),
+						k if k == key!("size") => InterfaceResponse::ok(token.size() as u64),
+						k if k == key!("commit") => InterfaceResponse::ok(token.commit() as u64),
+						k if k == key!("base") => InterfaceResponse::immediate(SysError::WriteOnly, 0),
 						_ => InterfaceResponse::immediate(SysError::BadKey, 0),
 					}
 				}
 				Token::PortEndpoint(token) => {
 					match key {
-						key!("type") => InterfaceResponse::ok(t.type_id()),
-						key!("subtype") => InterfaceResponse::ok(token.side() as u64),
-						key!("forget") => InterfaceResponse::immediate(SysError::WriteOnly, 0),
-						key!("pagesize") => InterfaceResponse::ok(4096),
-						key!("pages") => InterfaceResponse::ok(1),
-						key!("size") => InterfaceResponse::ok(4096),
-						key!("commit") => InterfaceResponse::ok(1),
-						key!("base") => InterfaceResponse::immediate(SysError::WriteOnly, 0),
+						k if k == key!("type") => InterfaceResponse::ok(t.type_id()),
+						k if k == key!("subtype") => InterfaceResponse::ok(token.side() as u64),
+						k if k == key!("forget") => InterfaceResponse::immediate(SysError::WriteOnly, 0),
+						k if k == key!("pagesize") => InterfaceResponse::ok(4096),
+						k if k == key!("pages") => InterfaceResponse::ok(1),
+						k if k == key!("size") => InterfaceResponse::ok(4096),
+						k if k == key!("commit") => InterfaceResponse::ok(1),
+						k if k == key!("base") => InterfaceResponse::immediate(SysError::WriteOnly, 0),
 						_ => InterfaceResponse::immediate(SysError::BadKey, 0),
 					}
 				}
@@ -87,13 +87,13 @@ impl<A: Arch> KernelInterface<A> for MemTokenV0<A> {
 
 	fn set(&self, thread: &Tab<Thread<A>>, index: u64, key: u64, value: u64) -> InterfaceResponse {
 		match key {
-			key!("forget") => {
+			k if k == key!("forget") => {
 				thread.with_mut(|t| t.forget_token(index)).map_or_else(
 					|| InterfaceResponse::immediate(SysError::BadIndex, 0),
 					|_| InterfaceResponse::ok(0),
 				)
 			}
-			key!("base") => {
+			k if k == key!("base") => {
 				thread.with_mut(|t| {
 					let Some(token) = t.token(index) else {
 						return InterfaceResponse::immediate(SysError::BadIndex, 0);

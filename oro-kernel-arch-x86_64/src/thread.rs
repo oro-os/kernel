@@ -71,7 +71,7 @@ impl ThreadHandle {
 	pub fn fsbase(&self) -> u64 {
 		// SAFETY: We can more or less ignore any problems with this as the caller
 		// SAFETY: should not be using this in any way that is consequential.
-		unsafe { ::core::ptr::read_volatile(&(*(*self.stack_frame.0).get()).fsbase) }
+		unsafe { ::core::ptr::read_volatile(&raw const (*(*self.stack_frame.0).get()).fsbase) }
 	}
 
 	/// Returns the current `gsbase` denoted in the thread's stack frame.
@@ -88,7 +88,7 @@ impl ThreadHandle {
 	pub fn gsbase(&self) -> u64 {
 		// SAFETY: We can more or less ignore any problems with this as the caller
 		// SAFETY: should not be using this in any way that is consequential.
-		unsafe { ::core::ptr::read_volatile(&(*(*self.stack_frame.0).get()).gsbase) }
+		unsafe { ::core::ptr::read_volatile(&raw const (*(*self.stack_frame.0).get()).gsbase) }
 	}
 
 	/// Sets the thread's FS base.
@@ -102,7 +102,7 @@ impl ThreadHandle {
 	pub unsafe fn set_fsbase(&self, value: u64) {
 		// SAFETY: Safety considerations offloaded to the caller.
 		unsafe {
-			::core::ptr::write_volatile(&mut (*(*self.stack_frame.0).get()).fsbase, value);
+			::core::ptr::write_volatile(&raw mut (*(*self.stack_frame.0).get()).fsbase, value);
 		}
 	}
 
@@ -117,7 +117,7 @@ impl ThreadHandle {
 	pub unsafe fn set_gsbase(&self, value: u64) {
 		// SAFETY: Safety considerations offloaded to the caller.
 		unsafe {
-			::core::ptr::write_volatile(&mut (*(*self.stack_frame.0).get()).gsbase, value);
+			::core::ptr::write_volatile(&raw mut (*(*self.stack_frame.0).get()).gsbase, value);
 		}
 	}
 }

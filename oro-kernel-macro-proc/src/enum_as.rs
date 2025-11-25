@@ -61,7 +61,7 @@ pub fn enum_as_u64(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 		let variant_ident = &variant.ident;
 
 		variant_matches.push(quote! {
-			#discrim => Ok(#name::#variant_ident),
+			k if k == #discrim => Ok(#name::#variant_ident),
 		});
 	}
 

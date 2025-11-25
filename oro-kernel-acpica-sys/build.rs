@@ -31,7 +31,8 @@ fn main() {
 		.rust_target(::bindgen::RustTarget::nightly())
 		.size_t_is_usize(true)
 		.translate_enum_integer_types(true)
-		.detect_include_paths(true);
+		.detect_include_paths(true)
+		.raw_line("#[allow(clippy::doc_markdown)]");
 
 	#[cfg(target_arch = "x86_64")]
 	let bindings = bindings.clang_arg("-D__x86_64__");

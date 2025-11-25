@@ -5,7 +5,7 @@
 //! forced endianness types).
 #![cfg_attr(not(test), no_std)]
 #![expect(clippy::inline_always, clippy::wrong_self_convention)]
-#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(doc, feature(doc_cfg))]
 
 mod endian;
 mod volatile;

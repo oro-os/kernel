@@ -108,7 +108,7 @@ pub unsafe fn install_idt(idt: &'static [IdtEntry]) {
 	unsafe {
 		asm!(
 			"lidt [{}]",
-			in(reg) &idtr,
+			in(reg) &raw const idtr,
 			options(nostack)
 		);
 	}

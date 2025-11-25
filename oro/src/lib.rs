@@ -1,6 +1,6 @@
 //! High-level runtime support for Oro modules.
 #![cfg_attr(not(test), no_std)]
-#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(doc, feature(doc_cfg))]
 // SAFETY(qix-): This is for the `runtime::Key` debug helper, and purely for
 // SAFETY(qix-): ergonomics and strict adherence to the intention of the
 // SAFETY(qix-): `Key` type. It is not used in any unsafe context.

@@ -4,7 +4,7 @@
 //! _platform_ agnostic. Oro-specific functionality should go
 //! into `oro-kernel-arch-x86_64`.
 #![no_std]
-#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(doc, feature(doc_cfg))]
 #![expect(incomplete_features)]
 #![feature(generic_const_exprs)]
 #![deny(unsafe_op_in_unsafe_fn)]

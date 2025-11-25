@@ -49,7 +49,7 @@
 #![no_std]
 #![expect(internal_features)]
 #![cfg(any(doc, target_arch = "x86_64"))]
-#![feature(naked_functions, core_intrinsics)]
+#![feature(core_intrinsics)]
 // SAFETY(qix-): This is accepted, but moving slowly (in fact, probably the slowest
 // SAFETY(qix-): I've seen - predates Rust 1.0). It simplifies the amount of `#[allow]`
 // SAFETY(qix-): markers that have to be used when sign-extending addresses. The current
@@ -61,13 +61,10 @@
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/76560
 #![expect(incomplete_features)]
 #![feature(generic_const_exprs)]
-// SAFETY(qix-): Needed to make the system call key checks work inline.
-// SAFETY(qix-): https://github.com/rust-lang/rust/issues/76001
-#![feature(inline_const_pat)]
 // SAFETY(qix-): Needed for clean code surrounding the default IDT table.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/83527
 #![feature(macro_metavar_expr)]
-#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(doc, feature(doc_cfg))]
 // TODO(qix-): This is a temporary measure; it'll be removed at some point.
 #![expect(unsafe_op_in_unsafe_fn)]
 

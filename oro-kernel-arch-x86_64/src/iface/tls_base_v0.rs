@@ -16,11 +16,11 @@ impl KernelInterface<A> for TlsBaseV0 {
 		let thread = oro_kernel::iface_resolve_thread_target!(crate::Arch, thread, index);
 
 		match key {
-			key!("fsbase") => {
+			k if k == key!("fsbase") => {
 				let v = thread.with(|ctx| ctx.handle().fsbase());
 				InterfaceResponse::ok(v)
 			}
-			key!("gsbase") => {
+			k if k == key!("gsbase") => {
 				let v = thread.with(|ctx| ctx.handle().gsbase());
 				InterfaceResponse::ok(v)
 			}
@@ -38,7 +38,7 @@ impl KernelInterface<A> for TlsBaseV0 {
 		let thread = oro_kernel::iface_resolve_thread_target!(crate::Arch, thread, index);
 
 		match key {
-			key!("fsbase") => {
+			k if k == key!("fsbase") => {
 				// Set the FS base pointer. Will get picked up by the
 				// next context switch.
 				thread.with_mut(|ctx| {
@@ -48,7 +48,7 @@ impl KernelInterface<A> for TlsBaseV0 {
 				});
 				InterfaceResponse::ok(0)
 			},
-			key!("gsbase") => {
+			k if k == key!("gsbase") => {
 				// Set the GS base pointer. Will get picked up by the
 				// next context switch.
 				thread.with_mut(|ctx| {

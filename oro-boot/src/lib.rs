@@ -22,11 +22,7 @@
 // SAFETY(qix-): has some dependencies that need to be stabilized.
 // SAFETY(qix-): https://github.com/rust-lang/rust/issues/35121
 #![feature(never_type)]
-// SAFETY(qix-): Required for the transfer stubs.
-// SAFETY(qix-): Already accepted, just moving slowly.
-// SAFETY(qix-): https://github.com/rust-lang/rust/issues/90957
-#![feature(naked_functions)]
-#![cfg_attr(doc, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(doc, feature(doc_cfg))]
 
 mod map;
 mod pfa;
