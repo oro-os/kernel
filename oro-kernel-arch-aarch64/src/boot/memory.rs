@@ -85,7 +85,7 @@ pub unsafe fn prepare_memory() {
 	(*page_table)[RIDX + 3].reset();
 
 	// Flush everything and finish.
-	oro_arch_aarch64::invalid_tlb_el1_all();
+	oro_arch_aarch64::invalidate_tlb_el1_all();
 }
 
 /// Maps all regions to a linear map in the current virtual address space.
@@ -343,7 +343,7 @@ unsafe fn linear_map_regions<'a>(
 		);
 	}
 
-	oro_arch_aarch64::invalid_tlb_el1_all();
+	oro_arch_aarch64::invalidate_tlb_el1_all();
 
 	Some(mmap_offset)
 }

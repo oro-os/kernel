@@ -34,7 +34,7 @@ pub unsafe fn invalidate_tlb_el1<T>(virt: *const T) {
 }
 
 /// Invalidates the entire TLB.
-pub fn invalid_tlb_el1_all() {
+pub fn invalidate_tlb_el1_all() {
 	unsafe {
 		asm!(
 			"tlbi vmalle1",
