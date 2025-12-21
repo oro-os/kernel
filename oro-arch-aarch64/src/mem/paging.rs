@@ -48,6 +48,7 @@
 // NOTE(qix-): In the event const traits ever get fixed and stabilized, feel free to submit a PR
 // NOTE(qix-): to refactor this to use const traits instead. Check the commit log for around
 // NOTE(qix-): 18-20 June 2024 to see what this looked like before, for inspiration.
+#![expect(unsafe_op_in_unsafe_fn)]
 #![expect(clippy::inline_always, clippy::missing_docs_in_private_items)]
 
 // TODO(qix-): Very much not happy with how this is structured. It's way too rigid and will be

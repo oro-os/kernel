@@ -1,23 +1,20 @@
 //! Implements the Oro-specific address space layout for the Aarch64 architecture.
 
-use oro_arch_aarch64::reg::tcr_el1::TcrEl1;
+use oro_arch_aarch64::{
+	mem::paging::{
+		L0PageTableDescriptor, L1PageTableDescriptor, L2PageTableDescriptor,
+		L3PageTableBlockDescriptor, PageTable, PageTableEntryBlockAccessPerm,
+		PageTableEntryTableAccessPerm,
+	},
+	reg::tcr_el1::TcrEl1,
+};
 use oro_kernel_mem::{
 	mapper::AddressSpace,
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
 
-use crate::{
-	mair::MairEntry,
-	mem::{
-		paging::{
-			L0PageTableDescriptor, L1PageTableDescriptor, L2PageTableDescriptor,
-			L3PageTableBlockDescriptor, PageTable, PageTableEntryBlockAccessPerm,
-			PageTableEntryTableAccessPerm,
-		},
-		segment::Segment,
-	},
-};
+use crate::{mair::MairEntry, mem::segment::Segment};
 
 /// A lightweight handle to a TTBR1 address space.
 pub struct Ttbr1Handle {

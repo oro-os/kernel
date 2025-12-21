@@ -2,6 +2,11 @@
 
 use core::arch::asm;
 
+use oro_arch_aarch64::mem::paging::{
+	L0PageTableDescriptor, L1PageTableDescriptor, L2PageTableBlockDescriptor,
+	L2PageTableDescriptor, L3PageTableBlockDescriptor, PageTable, PageTableEntry,
+	PageTableEntryBlockAccessPerm, PageTableEntryTableAccessPerm,
+};
 use oro_boot_protocol::{MemoryMapEntry, MemoryMapEntryType, memory_map::MemoryMapKind};
 use oro_debug::{dbg, dbg_warn};
 use oro_kernel_macro::assert;
@@ -10,17 +15,7 @@ use oro_kernel_mem::{
 	phys::{Phys, PhysAddr},
 };
 
-use crate::{
-	mair::MairEntry,
-	mem::{
-		address_space::AddressSpaceLayout,
-		paging::{
-			L0PageTableDescriptor, L1PageTableDescriptor, L2PageTableBlockDescriptor,
-			L2PageTableDescriptor, L3PageTableBlockDescriptor, PageTable, PageTableEntry,
-			PageTableEntryBlockAccessPerm, PageTableEntryTableAccessPerm,
-		},
-	},
-};
+use crate::{mair::MairEntry, mem::address_space::AddressSpaceLayout};
 
 /// Prepares the kernel memory after transfer from the boot stage
 /// on AArch64.

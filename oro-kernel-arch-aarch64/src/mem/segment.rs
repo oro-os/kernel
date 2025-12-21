@@ -10,20 +10,18 @@
 
 use core::{intrinsics::unlikely, panic};
 
+use oro_arch_aarch64::mem::paging::{
+	L0PageTableDescriptor, L1PageTableDescriptor, L2PageTableDescriptor,
+	L3PageTableBlockDescriptor, PageTable, PageTableEntry, PageTableEntryType,
+	PageTableEntryTypeMut,
+};
 use oro_kernel_mem::{
 	mapper::{AddressSegment, MapError, UnmapError},
 	pfa::Alloc,
 	phys::{Phys, PhysAddr},
 };
 
-use super::{
-	address_space::TtbrHandle,
-	paging::{PageTableEntryType, PageTableEntryTypeMut},
-};
-use crate::mem::paging::{
-	L0PageTableDescriptor, L1PageTableDescriptor, L2PageTableDescriptor,
-	L3PageTableBlockDescriptor, PageTable, PageTableEntry,
-};
+use super::address_space::TtbrHandle;
 
 /// A singular address space segment within which allocations are made.
 ///

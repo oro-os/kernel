@@ -6,5 +6,7 @@
 #![no_std]
 #![cfg_attr(doc, feature(doc_cfg))]
 #![deny(unsafe_op_in_unsafe_fn)]
+#![feature(ptr_as_ref_unchecked)]
 
+pub mod mem;
 pub mod reg;
