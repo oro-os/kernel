@@ -78,8 +78,10 @@ impl MairRegister {
 	#[inline(always)]
 	pub unsafe fn get_ref(&self, index: usize) -> &MairAttributes {
 		debug_assert!(index < 8, "index must be 0..=7");
-		&*from_ref(&((&*from_ref::<u64>(&self.0).cast::<[u8; 8]>())[7 - index]))
-			.cast::<MairAttributes>()
+		unsafe {
+			&*from_ref(&((&*from_ref::<u64>(&self.0).cast::<[u8; 8]>())[7 - index]))
+				.cast::<MairAttributes>()
+		}
 	}
 
 	/// Gets a specific entry in the MAIR register
@@ -91,8 +93,10 @@ impl MairRegister {
 	#[inline(always)]
 	pub unsafe fn get_mut(&mut self, index: usize) -> &mut MairAttributes {
 		debug_assert!(index < 8, "index must be 0..=7");
-		&mut *from_mut(&mut ((&mut *from_mut::<u64>(&mut self.0).cast::<[u8; 8]>())[7 - index]))
-			.cast::<MairAttributes>()
+		unsafe {
+			&mut *from_mut(&mut ((&mut *from_mut::<u64>(&mut self.0).cast::<[u8; 8]>())[7 - index]))
+				.cast::<MairAttributes>()
+		}
 	}
 }
 

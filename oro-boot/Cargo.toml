@@ -26,6 +26,7 @@ oro-arch-x86_64.workspace        = true
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 oro-kernel-arch-aarch64.workspace = true
+oro-arch-aarch64.workspace        = true
 
 # Work around non-composability of `test` profile and global allocator conflicts in unit test runner.
 [dev-dependencies]

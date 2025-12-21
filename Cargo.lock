@@ -975,6 +975,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "oro-arch-aarch64"
+version = "0.0.0"
+dependencies = [
+ "oro-kernel-macro",
+ "oro-kernel-type",
+]
+
+[[package]]
 name = "oro-arch-x86_64"
 version = "0.0.0"
 dependencies = [
@@ -986,6 +994,7 @@ dependencies = [
 name = "oro-boot"
 version = "0.0.0"
 dependencies = [
+ "oro-arch-aarch64",
  "oro-arch-x86_64",
  "oro-boot-protocol",
  "oro-dbgutil",
@@ -1073,6 +1082,7 @@ dependencies = [
 name = "oro-kernel-arch-aarch64"
 version = "0.0.0"
 dependencies = [
+ "oro-arch-aarch64",
  "oro-boot-protocol",
  "oro-dbgutil",
  "oro-debug",

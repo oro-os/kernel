@@ -3,16 +3,14 @@
 
 use core::arch::asm;
 
+use oro_arch_aarch64::reg::{
+	self,
+	tcr_el1::{AsidSelect, AsidSize, Cacheability, Shareability, Tg0GranuleSize, Tg1GranuleSize},
+};
 pub use oro_kernel_arch_aarch64::{ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
 use oro_kernel_arch_aarch64::{
 	mair::MairEntry,
 	mem::address_space::{AddressSpaceLayout, Ttbr1Handle},
-	reg::{
-		self,
-		tcr_el1::{
-			AsidSelect, AsidSize, Cacheability, Shareability, Tg0GranuleSize, Tg1GranuleSize,
-		},
-	},
 };
 use oro_kernel_macro::asm_buffer;
 use oro_kernel_mem::{

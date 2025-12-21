@@ -1,5 +1,6 @@
 //! Implements the Oro-specific address space layout for the Aarch64 architecture.
 
+use oro_arch_aarch64::reg::tcr_el1::TcrEl1;
 use oro_kernel_mem::{
 	mapper::AddressSpace,
 	pfa::Alloc,
@@ -16,7 +17,6 @@ use crate::{
 		},
 		segment::Segment,
 	},
-	reg::tcr_el1::TcrEl1,
 };
 
 /// A lightweight handle to a TTBR1 address space.

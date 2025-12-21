@@ -375,7 +375,7 @@ unsafe fn boot_secondary(
 
 	// Get a copy of relevant registers from the primary core.
 	let mair_val: u64 = crate::mair::MairEntry::build_mair().into();
-	let tcr: u64 = crate::reg::tcr_el1::TcrEl1::load().into();
+	let tcr: u64 = oro_arch_aarch64::reg::tcr_el1::TcrEl1::load().into();
 
 	// Write the boot init block.
 	assert::fits::<BootInitBlock, 4096>();

@@ -41,7 +41,6 @@ pub mod instance;
 pub mod mair;
 pub mod mem;
 pub mod psci;
-pub mod reg;
 pub mod thread;
 pub mod time;
 

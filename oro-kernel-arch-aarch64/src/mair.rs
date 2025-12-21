@@ -1,9 +1,8 @@
 //! Defines the Oro-specific MAIR entries for the Aarch64 architecture.
 #![expect(clippy::inline_always)]
 
+use oro_arch_aarch64::reg::mair::{MairCacheability, MairDeviceAttribute, MairRegister};
 use oro_kernel_macro::EnumIterator;
-
-use crate::reg::mair::{MairCacheability, MairDeviceAttribute, MairRegister};
 
 /// The Oro-specific MAIR entries for the Aarch64 architecture.
 ///

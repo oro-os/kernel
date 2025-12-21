@@ -1,0 +1,17 @@
+[package]
+name                 = "oro-arch-aarch64"
+version.workspace    = true
+description          = "Oro operating system AArch64 architecture abstraction layer"
+edition.workspace    = true
+homepage.workspace   = true
+repository.workspace = true
+license.workspace    = true
+autobins             = false
+
+[dependencies]
+oro-kernel-macro.workspace = true
+oro-kernel-type.workspace  = true
+
+[lints]
+workspace = true
+

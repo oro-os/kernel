@@ -21,6 +21,7 @@ path = "entry.rs"
 doc  = false
 
 [dependencies]
+oro-arch-aarch64.workspace  = true
 oro-kernel.workspace        = true
 oro-boot-protocol.workspace = true
 oro-kernel-mem.workspace    = true
