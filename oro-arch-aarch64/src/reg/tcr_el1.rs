@@ -12,11 +12,11 @@ bitstruct! {
 		pub ds[59] => as bool,
 
 		/// Top Byte ignored - indicates whether the top byte of an address is used for address
-		/// match for the TTBR1_EL1 region, or ignored and used for tagged addresses.
+		/// match for the `TTBR1_EL1` region, or ignored and used for tagged addresses.
 		pub tbi1[38] => as bool,
 
 		/// Top Byte ignored - indicates whether the top byte of an address is used for address
-		/// match for the TTBR0_EL1 region, or ignored and used for tagged addresses.
+		/// match for the `TTBR0_EL1` region, or ignored and used for tagged addresses.
 		pub tbi0[37] => as bool,
 
 		/// ASID size - the number of bits in the ASID field.
@@ -51,7 +51,7 @@ bitstruct! {
 			Reserved = 0b111,
 		},
 
-		/// Granule size for TTBR1_EL1.
+		/// Granule size for `TTBR1_EL1`.
 		pub tg1[31:30] => enum Tg1GranuleSize(u64) {
 			/// Reserved value
 			Reserved = 0b00,
@@ -63,7 +63,7 @@ bitstruct! {
 			Kb64 = 0b11,
 		},
 
-		/// Shareability attribute for TTBR1_EL1.
+		/// Shareability attribute for `TTBR1_EL1`.
 		pub sh1[29:28] => enum Sh1Shareability(u64) {
 			/// Non-shareable
 			NonShareable = 0b00,
@@ -76,7 +76,7 @@ bitstruct! {
 		},
 
 		/// Outer cacheability attribute for memory associated with translation table walks using
-		/// TTBR1_EL1.
+		/// `TTBR1_EL1`.
 		pub orgn1[27:26] => enum Orgn1Cacheability(u64) {
 			/// Normal memory, Non-cacheable
 			NonCacheable = 0b00,
@@ -89,7 +89,7 @@ bitstruct! {
 		},
 
 		/// Inner cacheability attribute for memory associated with translation table walks using
-		/// TTBR1_EL1.
+		/// `TTBR1_EL1`.
 		pub irgn1[25:24] => enum Irgn1Cacheability(u64) {
 			/// Normal memory, Non-cacheable
 			NonCacheable = 0b00,
@@ -101,8 +101,8 @@ bitstruct! {
 			WriteBackNoWriteAllocate = 0b11,
 		},
 
-		/// Translation table walk disable for translations using TTBR1_EL1. When `true`, A TLB miss
-		/// on an address that is translated using TTBR1_EL1 generates a Translation fault. No
+		/// Translation table walk disable for translations using `TTBR1_EL1`. When `true`, A TLB miss
+		/// on an address that is translated using `TTBR1_EL1` generates a Translation fault. No
 		/// translation table walk is performed.
 		pub epd1[23] => as bool,
 
@@ -114,11 +114,11 @@ bitstruct! {
 			Ttbr1 = 1,
 		},
 
-		/// Size offset of the memory region addressed by TTBR1_EL1. The region size is
+		/// Size offset of the memory region addressed by `TTBR1_EL1`. The region size is
 		/// `2^(64-T1SZ)` bytes.
 		pub t1sz[21:16] => as u8,
 
-		/// Granule size for TTBR0_EL1.
+		/// Granule size for `TTBR0_EL1`.
 		pub tg0[15:14] => enum Tg0GranuleSize(u64) {
 			/// 4KiB granule size
 			Kb4 = 0b00,
@@ -130,7 +130,7 @@ bitstruct! {
 			Reserved = 0b11,
 		},
 
-		/// Shareability attribute for TTBR0_EL1.
+		/// Shareability attribute for `TTBR0_EL1`.
 		pub sh0[13:12] => enum Sh0Shareability(u64) {
 			/// Non-shareable
 			NonShareable = 0b00,
