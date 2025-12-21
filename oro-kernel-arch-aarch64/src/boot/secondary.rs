@@ -6,6 +6,7 @@ use core::{
 	sync::atomic::{AtomicBool, Ordering},
 };
 
+use oro_arch_aarch64::psci::PsciMethod;
 use oro_boot_protocol::device_tree::{DeviceTreeDataV0, DeviceTreeKind};
 use oro_debug::{dbg, dbg_err, dbg_warn};
 use oro_kernel_dtb::{FdtHeader, FdtPathFilter, FdtToken};
@@ -18,12 +19,9 @@ use oro_kernel_mem::{
 };
 use oro_kernel_type::Be;
 
-use crate::{
-	mem::{
-		address_space::{AddressSpaceLayout, Ttbr1Handle},
-		segment::Segment,
-	},
-	psci::PsciMethod,
+use crate::mem::{
+	address_space::{AddressSpaceLayout, Ttbr1Handle},
+	segment::Segment,
 };
 
 /// Brings up all secondary cores.
@@ -207,7 +205,7 @@ enum SecondaryBootError {
 	/// The system ran out of memory when allocating space for the secondary core.
 	OutOfMemory,
 	/// A PSCI error was returned
-	PsciError(crate::psci::Error),
+	PsciError(oro_arch_aarch64::psci::Error),
 	/// There was a failure when mapping memory into the secondary core.
 	MapError(MapError),
 }

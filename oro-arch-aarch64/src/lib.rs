@@ -12,6 +12,7 @@
 use core::arch::asm;
 
 pub mod mem;
+pub mod psci;
 pub mod reg;
 
 /// Invalidates the TLB entry for the given virtual address.

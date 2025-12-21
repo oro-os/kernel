@@ -85,9 +85,11 @@ impl PsciMethod {
 		let fnid: u32 = 0x8400_0000;
 		let r: u32;
 
-		match self {
-			PsciMethod::Hvc => asm!("hvc 0", in("w0") fnid, lateout("w0") r),
-			PsciMethod::Smc => asm!("smc 0", in("w0") fnid, lateout("w0") r),
+		unsafe {
+			match self {
+				PsciMethod::Hvc => asm!("hvc 0", in("w0") fnid, lateout("w0") r),
+				PsciMethod::Smc => asm!("smc 0", in("w0") fnid, lateout("w0") r),
+			}
 		}
 
 		Error::check32(r)
@@ -104,12 +106,14 @@ impl PsciMethod {
 		let fnid: u32 = 0xC400_0003;
 		let r: u64;
 
-		match self {
-			PsciMethod::Hvc => {
-				asm!("hvc 0", in("w0") fnid, in("x1") target_cpu, in("x2") entry_point, in("x3") context_id, lateout("x0") r);
-			}
-			PsciMethod::Smc => {
-				asm!("smc 0", in("w0") fnid, in("x1") target_cpu, in("x2") entry_point, in("x3") context_id, lateout("x0") r);
+		unsafe {
+			match self {
+				PsciMethod::Hvc => {
+					asm!("hvc 0", in("w0") fnid, in("x1") target_cpu, in("x2") entry_point, in("x3") context_id, lateout("x0") r);
+				}
+				PsciMethod::Smc => {
+					asm!("smc 0", in("w0") fnid, in("x1") target_cpu, in("x2") entry_point, in("x3") context_id, lateout("x0") r);
+				}
 			}
 		}
 

@@ -39,7 +39,6 @@ pub mod core_local;
 pub mod instance;
 pub mod mair;
 pub mod mem;
-pub mod psci;
 pub mod thread;
 pub mod time;
 
