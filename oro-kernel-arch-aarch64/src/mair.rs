@@ -6,7 +6,7 @@ use oro_kernel_macro::EnumIterator;
 
 /// The Oro-specific MAIR entries for the Aarch64 architecture.
 ///
-/// Unlike [`crate::reg::mair::MairRegister`], which is a general-purpose MAIR
+/// Unlike [`MairRegister`], which is a general-purpose MAIR
 /// manipulation structure, this enum is specific to Oro and contains
 /// the actual entries used by the kernel.
 ///

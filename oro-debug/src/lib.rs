@@ -14,13 +14,10 @@
 
 use oro_kernel_sync::{Lock, TicketMutex};
 
-#[cfg(any(doc, all(debug_assertions, feature = "pl011")))]
+#[cfg(all(debug_assertions, feature = "pl011"))]
 mod pl011;
 mod ringbuffer;
-#[cfg(any(
-	doc,
-	all(debug_assertions, target_arch = "x86_64", feature = "uart16550")
-))]
+#[cfg(all(debug_assertions, target_arch = "x86_64", feature = "uart16550"))]
 mod uart16550;
 
 /// The size of the internal ring buffer.

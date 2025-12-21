@@ -31,5 +31,8 @@ limine.workspace            = true
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 oro-arch-x86_64.workspace = true
 
+[package.metadata.oro]
+requires-arch = ["aarch64", "x86_64"]
+
 [lints]
 workspace = true

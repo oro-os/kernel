@@ -37,5 +37,8 @@ oro-kernel-sync.workspace   = true
 [dev-dependencies]
 oro-kernel-mem = { workspace = true, features = ["std-alloc"] }
 
+[package.metadata.oro]
+requires-arch = ["aarch64"]
+
 [lints]
 workspace = true

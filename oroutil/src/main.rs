@@ -2,6 +2,7 @@
 
 pub(crate) mod build_plan;
 pub(crate) mod cmd;
+pub(crate) mod crate_info;
 pub(crate) mod util;
 
 use clap::{Parser, builder::TypedValueParser};
@@ -34,6 +35,10 @@ enum Command {
 	Build(BuildArgs),
 	/// Formats all files in the project.
 	Fmt(FmtArgs),
+	/// Runs clippy on all crates, routing arch-specific crates appropriately.
+	Clippy(ClippyArgs),
+	/// Builds documentation, excluding arch-incompatible crates.
+	Doc(DocArgs),
 }
 
 /// Arguments for the `fmt` command
@@ -42,6 +47,30 @@ pub(crate) struct FmtArgs {
 	/// Whether or not to simply check the formatting
 	#[clap(long, short = 'c')]
 	pub check: bool,
+}
+
+/// Arguments for the `clippy` command
+#[derive(Parser, Debug)]
+pub(crate) struct ClippyArgs {
+	/// Build configuration arguments.
+	#[clap(flatten)]
+	pub config: BuildConfig,
+
+	/// Additional arguments to pass to clippy
+	#[clap(last = true)]
+	pub clippy_args: Vec<String>,
+}
+
+/// Arguments for the `doc` command
+#[derive(Parser, Debug)]
+pub(crate) struct DocArgs {
+	/// Build configuration arguments.
+	#[clap(flatten)]
+	pub config: BuildConfig,
+
+	/// Additional arguments to pass to rustdoc
+	#[clap(last = true)]
+	pub doc_args: Vec<String>,
 }
 
 /// Common arguments for build-like commands
@@ -206,6 +235,12 @@ fn pmain() -> Result<(), Box<dyn std::error::Error>> {
 		}
 		Command::Fmt(args) => {
 			cmd::fmt::run(args)?;
+		}
+		Command::Clippy(args) => {
+			cmd::clippy::run(args, logger)?;
+		}
+		Command::Doc(args) => {
+			cmd::doc::run(args, logger)?;
 		}
 	}
 

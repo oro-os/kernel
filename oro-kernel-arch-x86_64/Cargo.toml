@@ -52,5 +52,8 @@ oro-arch-x86_64.workspace   = true
 [dev-dependencies]
 oro-kernel-mem = { workspace = true, features = ["std-alloc"] }
 
+[package.metadata.oro]
+requires-arch = ["x86_64"]
+
 [lints]
 workspace = true
