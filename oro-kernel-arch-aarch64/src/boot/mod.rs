@@ -26,7 +26,7 @@ const SECONDARY_STACK_PAGES: usize = 16;
 /// # Panics
 /// Panics if the DeviceTree blob is not provided.
 pub unsafe fn boot_primary() -> ! {
-	crate::asm::disable_interrupts();
+	oro_arch_aarch64::disable_interrupts();
 
 	memory::prepare_memory();
 

@@ -34,7 +34,6 @@
 // TODO(qix-): This is a temporary measure; it'll be removed at some point.
 #![expect(unsafe_op_in_unsafe_fn)]
 
-pub mod asm;
 pub mod boot;
 pub mod core_local;
 pub mod instance;
@@ -69,7 +68,7 @@ impl oro_kernel::arch::Arch for Arch {
 
 	fn fence() {
 		// TODO(qix-): This may be too strong for what we need.
-		asm::strong_memory_barrier();
+		oro_arch_aarch64::strong_memory_barrier();
 	}
 }
 

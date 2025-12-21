@@ -423,7 +423,7 @@ unsafe extern "C" fn boot_secondary_entry() {
 	let boot_block_virt: u64;
 	asm!("", out("x0") boot_block_virt);
 
-	crate::asm::disable_interrupts();
+	oro_arch_aarch64::disable_interrupts();
 
 	let boot_block = &*(boot_block_virt as *const BootInitBlock);
 

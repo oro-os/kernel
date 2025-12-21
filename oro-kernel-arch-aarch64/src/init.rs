@@ -54,5 +54,5 @@ pub unsafe fn boot() -> ! {
 
 	oro_debug::dbg!("boot");
 
-	crate::asm::halt();
+	oro_arch_aarch64::halt();
 }

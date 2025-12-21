@@ -30,7 +30,7 @@ pub unsafe fn prepare_memory() {
 	// SAFETY(qix-): safe instruction to ask the CPU to resolve the virtual address
 	// SAFETY(qix-): for us, which won't fault if it fails but rather hand us
 	// SAFETY(qix-): back an error code.
-	let ttbr1 = crate::asm::load_ttbr1();
+	let ttbr1 = oro_arch_aarch64::load_ttbr1();
 	let addr = (0xFFFF << 48)
 		| (RIDX << 39)
 		| ((RIDX + 1) << 30)
@@ -77,15 +77,15 @@ pub unsafe fn prepare_memory() {
 	}
 
 	// Now unmap the recursive entry.
-	let page_table =
-		Phys::from_address_unchecked(crate::asm::load_ttbr1()).as_mut_unchecked::<PageTable>();
+	let page_table = Phys::from_address_unchecked(oro_arch_aarch64::load_ttbr1())
+		.as_mut_unchecked::<PageTable>();
 	(*page_table)[RIDX].reset();
 	(*page_table)[RIDX + 1].reset();
 	(*page_table)[RIDX + 2].reset();
 	(*page_table)[RIDX + 3].reset();
 
 	// Flush everything and finish.
-	crate::asm::invalid_tlb_el1_all();
+	oro_arch_aarch64::invalid_tlb_el1_all();
 }
 
 /// Maps all regions to a linear map in the current virtual address space.
@@ -183,7 +183,7 @@ unsafe fn linear_map_regions<'a>(
 				| ((RIDX + 3) << 12)
 				| (l0_idx * size_of::<PageTableEntry>());
 
-			crate::asm::invalidate_tlb_el1(l0_page_table_entry_virt as *const ());
+			oro_arch_aarch64::invalidate_tlb_el1(l0_page_table_entry_virt as *const ());
 
 			let l0_pte = l0_page_table_entry_virt as *mut PageTableEntry;
 
@@ -222,7 +222,7 @@ unsafe fn linear_map_regions<'a>(
 				| (l0_idx << 12)
 				| (l1_idx * size_of::<PageTableEntry>());
 
-			crate::asm::invalidate_tlb_el1(l1_page_table_entry_virt as *const ());
+			oro_arch_aarch64::invalidate_tlb_el1(l1_page_table_entry_virt as *const ());
 
 			let l1_pte = l1_page_table_entry_virt as *mut PageTableEntry;
 
@@ -270,8 +270,8 @@ unsafe fn linear_map_regions<'a>(
 				| (l1_idx << 12)
 				| (l2_idx * size_of::<PageTableEntry>());
 
-			crate::asm::invalidate_tlb_el1(l1_page_table_entry_virt as *const ());
-			crate::asm::invalidate_tlb_el1(l2_page_table_entry_virt as *const ());
+			oro_arch_aarch64::invalidate_tlb_el1(l1_page_table_entry_virt as *const ());
+			oro_arch_aarch64::invalidate_tlb_el1(l2_page_table_entry_virt as *const ());
 
 			let l2_pte = l2_page_table_entry_virt as *mut PageTableEntry;
 
@@ -343,7 +343,7 @@ unsafe fn linear_map_regions<'a>(
 		);
 	}
 
-	crate::asm::invalid_tlb_el1_all();
+	oro_arch_aarch64::invalid_tlb_el1_all();
 
 	Some(mmap_offset)
 }
@@ -551,7 +551,7 @@ impl OnTheFlyMapper {
 			.with_user_no_exec()
 			.with_not_secure()
 			.with_valid();
-		crate::asm::invalidate_tlb_el1(self.base_virt.cast_const());
+		oro_arch_aarch64::invalidate_tlb_el1(self.base_virt.cast_const());
 	}
 
 	/// Reads a value from somewhere in physical memory.

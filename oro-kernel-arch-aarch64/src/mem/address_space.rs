@@ -320,7 +320,7 @@ unsafe impl AddressSpace for AddressSpaceLayout {
 
 	unsafe fn current_supervisor_space() -> Self::SupervisorHandle {
 		Self::SupervisorHandle {
-			base_phys: Phys::from_address_unchecked(crate::asm::load_ttbr1()),
+			base_phys: Phys::from_address_unchecked(oro_arch_aarch64::load_ttbr1()),
 		}
 	}
 
