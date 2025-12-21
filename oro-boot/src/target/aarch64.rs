@@ -5,7 +5,10 @@ use core::arch::asm;
 
 use oro_arch_aarch64::reg::{
 	self,
-	tcr_el1::{AsidSelect, AsidSize, Cacheability, Shareability, Tg0GranuleSize, Tg1GranuleSize},
+	tcr_el1::{
+		AsidSelect, AsidSize, Irgn0Cacheability, Irgn1Cacheability, Orgn0Cacheability,
+		Orgn1Cacheability, Sh0Shareability, Sh1Shareability, Tg0GranuleSize, Tg1GranuleSize,
+	},
 };
 pub use oro_kernel_arch_aarch64::{ELF_CLASS, ELF_ENDIANNESS, ELF_MACHINE};
 use oro_kernel_arch_aarch64::{
@@ -158,12 +161,12 @@ pub unsafe fn transfer(
 	// TODO(qix-): Temporary measure to prevent any surprise behavior until it's properly implemented.
 	tcr_el1.set_ds(false);
 	// Set shareability and cacheability attributes
-	tcr_el1.set_orgn1(Cacheability::WriteBackWriteAllocate);
-	tcr_el1.set_irgn1(Cacheability::WriteBackWriteAllocate);
-	tcr_el1.set_orgn0(Cacheability::WriteBackWriteAllocate);
-	tcr_el1.set_irgn0(Cacheability::WriteBackWriteAllocate);
-	tcr_el1.set_sh0(Shareability::OuterShareable);
-	tcr_el1.set_sh1(Shareability::OuterShareable);
+	tcr_el1.set_orgn1(Orgn1Cacheability::WriteBackWriteAllocate);
+	tcr_el1.set_irgn1(Irgn1Cacheability::WriteBackWriteAllocate);
+	tcr_el1.set_orgn0(Orgn0Cacheability::WriteBackWriteAllocate);
+	tcr_el1.set_irgn0(Irgn0Cacheability::WriteBackWriteAllocate);
+	tcr_el1.set_sh0(Sh0Shareability::OuterShareable);
+	tcr_el1.set_sh1(Sh1Shareability::OuterShareable);
 	// Enable translations on both halves (false = enable)
 	tcr_el1.set_epd0(false);
 	tcr_el1.set_epd1(false);
