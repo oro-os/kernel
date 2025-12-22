@@ -13,7 +13,7 @@ autobins          = false
 build = "build.rs"
 
 [package.metadata.oro]
-artifact     = "kernel"
+component    = "kernel"
 target       = "aarch64"
 no-std       = true
 bins.aarch64 = "oro-kernel-aarch64"

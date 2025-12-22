@@ -5,16 +5,6 @@ use std::collections::HashMap;
 use cargo_metadata::{Metadata, Package, TargetKind};
 use serde::Deserialize;
 
-/// Type of artifact produced by a crate.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ArtifactType {
-	/// Kernel binary.
-	Kernel,
-	/// Bootloader binary.
-	Bootloader,
-}
-
 /// Target specification for a crate.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(untagged)]
@@ -60,9 +50,9 @@ impl Target {
 /// Metadata specific to Oro kernel crates.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct OroMetadata {
-	/// Type of artifact (kernel or bootloader).
+	/// Component type (e.g., "kernel", "limine").
 	#[serde(default)]
-	pub artifact: Option<ArtifactType>,
+	pub component: Option<String>,
 
 	/// Target specification (host, arch name, or multiple).
 	#[serde(default)]
@@ -93,7 +83,13 @@ pub struct WorkspaceTarget {
 pub struct WorkspaceOroMetadata {
 	/// Target configurations.
 	#[serde(default)]
-	pub targets: HashMap<String, WorkspaceTarget>,
+	pub target: HashMap<String, WorkspaceTarget>,
+	/// Build-std crates to use.
+	#[serde(default, rename = "build-std")]
+	pub build_std: Option<Vec<String>>,
+	/// Build-std features to enable.
+	#[serde(default, rename = "build-std-features")]
+	pub build_std_features: Option<Vec<String>>,
 }
 
 /// Information about a crate in the workspace.
@@ -230,13 +226,11 @@ impl WorkspaceCrates {
 #[derive(Debug, Default)]
 pub struct WorkspaceMap {
 	/// Crates that build for host.
-	pub host:        Vec<String>,
+	pub host:       Vec<String>,
 	/// Crates that build for specific architectures.
-	pub by_arch:     HashMap<String, Vec<String>>,
-	/// Kernel artifacts by architecture.
-	pub kernels:     HashMap<String, Vec<String>>,
-	/// Bootloader artifacts by architecture.
-	pub bootloaders: HashMap<String, Vec<String>>,
+	pub by_arch:    HashMap<String, Vec<String>>,
+	/// Crates with components, organized by component -> arch -> crates.
+	pub components: HashMap<String, HashMap<String, Vec<String>>>,
 }
 
 impl WorkspaceMap {
@@ -245,25 +239,17 @@ impl WorkspaceMap {
 		let mut map = WorkspaceMap::default();
 
 		for (name, info) in &workspace.crates {
-			// Categorize by artifact type
-			if let Some(artifact) = info.oro_metadata.artifact {
+			// Categorize by component type
+			if let Some(component) = &info.oro_metadata.component {
 				if let Some(target) = &info.oro_metadata.target {
 					let arches = target.arch_names();
 					for arch in arches {
-						match artifact {
-							ArtifactType::Kernel => {
-								map.kernels
-									.entry(arch.to_string())
-									.or_default()
-									.push(name.clone());
-							}
-							ArtifactType::Bootloader => {
-								map.bootloaders
-									.entry(arch.to_string())
-									.or_default()
-									.push(name.clone());
-							}
-						}
+						map.components
+							.entry(component.clone())
+							.or_default()
+							.entry(arch.to_string())
+							.or_default()
+							.push(name.clone());
 					}
 				}
 			}

@@ -13,11 +13,16 @@ pub fn run(
 	LogWrapper::new(mp.clone(), logger).try_init()?;
 
 	let workspace = WorkspaceCrates::load()?;
+	let targets = args.config.effective_targets(&workspace);
 
 	let mut tasks = Vec::new();
 
-	// Add pass for crates that build for host
-	let host_crates = workspace.host_crates();
+	// Add pass for crates that build for host (excluding oroutil itself)
+	let host_crates: Vec<_> = workspace
+		.host_crates()
+		.into_iter()
+		.filter(|c| c.package.name.as_str() != "oroutil")
+		.collect();
 	if !host_crates.is_empty() {
 		for &profile in &args.config.profile {
 			let pb = mp.add(ProgressBar::new_spinner());
@@ -35,13 +40,19 @@ pub fn run(
 
 	// Build a matrix of (profile, arch, crates) for arch-specific builds
 	for &profile in &args.config.profile {
-		for &arch in &args.config.target {
-			let arch_str = arch.to_string();
-			let crates_for_arch = workspace.for_arch(&arch_str);
+		for arch in &targets {
+			let crates_for_arch = workspace.for_arch(arch);
 
 			if crates_for_arch.is_empty() {
 				continue;
 			}
+
+			// Get target config from workspace
+			let target_config = workspace
+				.workspace_metadata
+				.target
+				.get(arch)
+				.ok_or_else(|| format!("Unknown target: {}", arch))?;
 
 			let pb = mp.add(ProgressBar::new_spinner());
 			pb.set_style(
@@ -52,18 +63,24 @@ pub fn run(
 			pb.set_prefix(format!("clippy {} {}", arch, profile));
 			pb.set_message("running...");
 
-			tasks.push((profile, Some(arch), crates_for_arch, pb));
+			tasks.push((
+				profile,
+				Some((arch.clone(), target_config.clone())),
+				crates_for_arch,
+				pb,
+			));
 		}
 	}
 
 	let mut success = true;
 
-	for (profile, arch_opt, crates, pb) in tasks {
+	for (profile, target_opt, crates, pb) in tasks {
 		let mut cmd = crate::util::cargo_command();
+		cmd.env("ORO_BUILD_TOOL", "1");
 		cmd.arg("clippy");
 
-		if let Some(arch) = arch_opt {
-			cmd.arg("--target").arg(arch.target_json_path());
+		if let Some((arch, target_config)) = target_opt {
+			cmd.arg("--target").arg(&target_config.target_json);
 
 			// Set unique target directory to avoid locking and cache invalidation
 			let base_target_dir =
@@ -71,12 +88,10 @@ pub fn run(
 			let target_dir = format!("{}/clippy-{}-{}", base_target_dir, arch, profile);
 			cmd.env("CARGO_TARGET_DIR", &target_dir);
 
-			// Add architecture-specific features
-			let features = match arch {
-				crate::TargetArch::X86_64 => "oro-debug/uart16550",
-				crate::TargetArch::Aarch64 => "oro-debug/pl011",
-			};
-			cmd.arg("--features").arg(features);
+			// Add architecture-specific features from workspace config
+			if !target_config.features.is_empty() {
+				cmd.arg("--features").arg(target_config.features.join(","));
+			}
 		}
 
 		cmd.arg("--profile").arg(profile.to_string());
@@ -92,9 +107,18 @@ pub fn run(
 			.any(|c| c.oro_metadata.no_std.unwrap_or(false));
 
 		if needs_build_std {
-			cmd.arg("-Zunstable-options")
-				.arg("-Zbuild-std=core,compiler_builtins,alloc")
-				.arg("-Zbuild-std-features=compiler-builtins-mem");
+			// Use workspace build-std configuration
+			if let Some(build_std) = &workspace.workspace_metadata.build_std {
+				cmd.arg("-Zunstable-options")
+					.arg(format!("-Zbuild-std={}", build_std.join(",")));
+
+				if let Some(build_std_features) = &workspace.workspace_metadata.build_std_features {
+					cmd.arg(format!(
+						"-Zbuild-std-features={}",
+						build_std_features.join(",")
+					));
+				}
+			}
 		}
 
 		// Add any additional clippy args
@@ -104,6 +128,13 @@ pub fn run(
 		}
 
 		log::debug!("running: {cmd:?}");
+
+		if args.config.dry_run {
+			println!("[DRY RUN] {cmd:?}");
+			pb.set_message("skipped (dry-run)");
+			pb.finish();
+			continue;
+		}
 
 		let output = cmd.output()?;
 

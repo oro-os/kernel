@@ -7,9 +7,6 @@ pub(crate) mod util;
 
 use clap::{Parser, builder::TypedValueParser};
 
-#[cfg(not(any(test, feature = "run-from-cargo")))]
-compile_error!("the Oro kernel cannot be built with `cargo build`; see `cargo oro build --help`");
-
 /// oroutil: Oro kernel development utility
 ///
 /// This tool provides various utilities for developers
@@ -31,15 +28,15 @@ struct Args {
 /// Subcommands for the Oro utility
 #[derive(Parser, Debug)]
 enum Command {
-	/// Builds the Oro kernel.
+	/// Builds the Oro kernel
 	Build(BuildArgs),
-	/// Formats all files in the project.
+	/// Formats all files in the project
 	Fmt(FmtArgs),
-	/// Runs clippy on all crates, routing arch-specific crates appropriately.
+	/// Runs clippy across all crates
 	Clippy(ClippyArgs),
-	/// Builds documentation, excluding arch-incompatible crates.
+	/// Builds documentation
 	Doc(DocArgs),
-	/// Displays workspace crate information and categorization.
+	/// Displays workspace crate information and categorization
 	Info(InfoArgs),
 }
 
@@ -94,42 +91,41 @@ pub(crate) struct BuildConfig {
 	pub profile: Vec<Profile>,
 
 	/// Build for the given target architecture(s).
-	#[clap(
-		long, short = 't', value_delimiter = ',',
-		default_value = "x86_64,aarch64",
-		value_parser = clap::builder::PossibleValuesParser::new([
-			"x86_64", "aarch64"
-		]).map(|s| s.parse::<TargetArch>().unwrap())
-	)]
-	pub target: Vec<TargetArch>,
+	/// If not specified, defaults to all configured targets.
+	#[clap(long, short = 't', value_delimiter = ',')]
+	pub target: Vec<String>,
 
-	/// Which components to build.
+	/// Which component types to build (e.g., kernel, limine).
 	#[clap(
-		long, short = 'c', value_delimiter = ',',
-		default_value = "kernel,limine",
-		value_parser = clap::builder::PossibleValuesParser::new([
-			"kernel", "limine"
-		]).map(|s| s.parse::<Component>().unwrap())
+		long,
+		short = 'c',
+		value_delimiter = ',',
+		default_value = "kernel,limine"
 	)]
-	pub component: Vec<Component>,
+	pub component: Vec<String>,
 
 	/// Only run one build task at a time.
 	#[clap(long, short = 's')]
 	pub single_threaded: bool,
+
+	/// Print commands that would be run without executing them.
+	#[clap(long)]
+	pub dry_run: bool,
 }
 
 impl BuildConfig {
-	/// Returns a matrix of all combinations of profiles, targets, and components.
-	pub fn matrix(&self) -> Vec<(Profile, TargetArch, Component)> {
-		let mut matrix = Vec::new();
-		for &profile in &self.profile {
-			for &target in &self.target {
-				for &component in &self.component {
-					matrix.push((profile, target, component));
-				}
-			}
+	/// Returns the effective list of targets, using all workspace targets if none specified.
+	pub fn effective_targets(&self, workspace: &crate_info::WorkspaceCrates) -> Vec<String> {
+		if self.target.is_empty() {
+			workspace
+				.workspace_metadata
+				.target
+				.keys()
+				.cloned()
+				.collect()
+		} else {
+			self.target.clone()
 		}
-		matrix
 	}
 }
 
@@ -156,67 +152,6 @@ pub(crate) enum Profile {
 	/// Build with the `relwithdebinfo` profile.
 	#[strum(serialize = "relwithdebinfo", serialize = "rd")]
 	RelWithDebInfo,
-}
-
-/// Target architectures for the Oro kernel.
-#[derive(Parser, Debug, Clone, PartialEq, Eq, Copy, strum::EnumString, strum::Display)]
-pub(crate) enum TargetArch {
-	/// Build for the x86_64 architecture.
-	#[strum(serialize = "x86_64")]
-	X86_64,
-	/// Build for the aarch64 architecture.
-	#[strum(serialize = "aarch64")]
-	Aarch64,
-}
-
-impl TargetArch {
-	/// Returns the path to the target JSON file.
-	pub fn target_json_path(&self) -> &'static str {
-		match self {
-			TargetArch::X86_64 => "oro-kernel-arch-x86_64/x86_64-unknown-oro.json",
-			TargetArch::Aarch64 => "oro-kernel-arch-aarch64/aarch64-unknown-oro.json",
-		}
-	}
-}
-
-/// Components that can be built.
-#[derive(Parser, Debug, Clone, PartialEq, Eq, Copy, strum::EnumString, strum::Display)]
-pub(crate) enum Component {
-	/// The kernel itself.
-	#[strum(serialize = "kernel")]
-	Kernel,
-	/// Limine bootloader.
-	#[strum(serialize = "limine")]
-	Limine,
-}
-
-impl Component {
-	/// Returns the crate name for the component and the given architecture.
-	pub fn crate_name(&self, arch: TargetArch) -> &'static str {
-		match self {
-			Component::Kernel => {
-				match arch {
-					TargetArch::X86_64 => "oro-kernel-arch-x86_64",
-					TargetArch::Aarch64 => "oro-kernel-arch-aarch64",
-				}
-			}
-			Component::Limine => "oro-bootloader-limine",
-		}
-	}
-
-	/// Returns the `--bin` argument for the component and the given architecture,
-	/// if applicable.
-	pub fn bin_arg(&self, arch: TargetArch) -> Option<String> {
-		match self {
-			Component::Kernel => None,
-			Component::Limine => {
-				match arch {
-					TargetArch::X86_64 => Some("oro-limine-x86_64".to_string()),
-					TargetArch::Aarch64 => Some("oro-limine-aarch64".to_string()),
-				}
-			}
-		}
-	}
 }
 
 fn pmain() -> Result<(), Box<dyn std::error::Error>> {

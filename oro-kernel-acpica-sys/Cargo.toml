@@ -8,6 +8,9 @@ publish      = false
 
 build = "build.rs"
 
+[package.metadata.oro]
+target = ["x86_64"]
+
 [dependencies]
 oro-kernel-type.workspace = true
 

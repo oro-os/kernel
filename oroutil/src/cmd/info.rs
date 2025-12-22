@@ -1,6 +1,6 @@
 //! Implements info command for displaying workspace crate information.
 
-use crate::crate_info::{ArtifactType, WorkspaceCrates, WorkspaceMap};
+use crate::crate_info::{WorkspaceCrates, WorkspaceMap};
 
 pub fn run(_args: crate::InfoArgs) -> Result<(), Box<dyn std::error::Error>> {
 	let workspace = WorkspaceCrates::load()?;
@@ -8,10 +8,10 @@ pub fn run(_args: crate::InfoArgs) -> Result<(), Box<dyn std::error::Error>> {
 
 	// Workspace targets
 	println!("Configured Targets:");
-	if workspace.workspace_metadata.targets.is_empty() {
+	if workspace.workspace_metadata.target.is_empty() {
 		println!("  (none)");
 	} else {
-		for (name, target) in &workspace.workspace_metadata.targets {
+		for (name, target) in &workspace.workspace_metadata.target {
 			println!("  {}", name);
 			println!("    Target JSON: {}", target.target_json);
 			if !target.features.is_empty() {
@@ -41,7 +41,7 @@ pub fn run(_args: crate::InfoArgs) -> Result<(), Box<dyn std::error::Error>> {
 	println!();
 
 	// Architecture-specific crates
-	for arch in workspace.workspace_metadata.targets.keys() {
+	for arch in workspace.workspace_metadata.target.keys() {
 		if let Some(crates) = map.by_arch.get(arch) {
 			println!("Crates for {} ({}):", arch, crates.len());
 			for name in crates {
@@ -53,10 +53,10 @@ pub fn run(_args: crate::InfoArgs) -> Result<(), Box<dyn std::error::Error>> {
 					""
 				};
 
-				let artifact_str = match info.oro_metadata.artifact {
-					Some(ArtifactType::Kernel) => " [kernel]",
-					Some(ArtifactType::Bootloader) => " [bootloader]",
-					None => "",
+				let component_str = if let Some(comp) = &info.oro_metadata.component {
+					format!(" [{}]", comp)
+				} else {
+					String::new()
 				};
 
 				println!(
@@ -64,43 +64,34 @@ pub fn run(_args: crate::InfoArgs) -> Result<(), Box<dyn std::error::Error>> {
 					name,
 					info.type_str(),
 					no_std_str,
-					artifact_str
+					component_str
 				);
 			}
 			println!();
 		}
 	}
 
-	// Kernels
-	if !map.kernels.is_empty() {
-		println!("Kernel Artifacts:");
-		for (arch, crates) in &map.kernels {
-			for name in crates {
-				let info = &workspace.crates[name];
-				if let Some(bins) = &info.oro_metadata.bins {
-					if let Some(bin_name) = bins.get(arch) {
-						println!("  {} -> {}", name, bin_name);
-					}
-				}
-			}
-		}
-		println!();
-	}
+	// Components with bins (dynamic)
+	if !map.components.is_empty() {
+		let mut sorted_components: Vec<_> = map.components.keys().collect();
+		sorted_components.sort();
 
-	// Bootloaders
-	if !map.bootloaders.is_empty() {
-		println!("Bootloader Artifacts:");
-		for (arch, crates) in &map.bootloaders {
-			for name in crates {
-				let info = &workspace.crates[name];
-				if let Some(bins) = &info.oro_metadata.bins {
-					if let Some(bin_name) = bins.get(arch) {
-						println!("  {} -> {}", name, bin_name);
+		for component in sorted_components {
+			if let Some(arch_map) = map.components.get(component) {
+				println!("Component '{}' binaries:", component);
+				for (arch, crates) in arch_map {
+					for name in crates {
+						let info = &workspace.crates[name];
+						if let Some(bins) = &info.oro_metadata.bins {
+							if let Some(bin_name) = bins.get(arch) {
+								println!("  {} -> {}", name, bin_name);
+							}
+						}
 					}
 				}
+				println!();
 			}
 		}
-		println!();
 	}
 
 	// Auto-lib crates (no explicit target, library only)

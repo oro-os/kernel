@@ -17,7 +17,7 @@ jobs:
           submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Lint (`oro fmt`)
-        run: cargo oro fmt --check
+        run: cargo oro -vv fmt --check
   lint-clippy:
     runs-on: ubuntu-latest
     strategy:
@@ -28,12 +28,8 @@ jobs:
         with:
           submodules: 'true'
       - uses: ./.github/actions/rust
-      - name: Lint (clippy) [common]
-        run: cargo oro-clippy --profile ${{ matrix.profile }} -- -D warnings
-      - name: Lint (clippy) [x86_64]
-        run: cargo oro-clippy-x86_64 --profile ${{ matrix.profile }} -- -D warnings
-      - name: Lint (clippy) [aarch64]
-        run: cargo oro-clippy-aarch64 --profile ${{ matrix.profile }} -- -D warnings
+      - name: Lint (clippy)
+        run: cargo oro -vv clippy --profile ${{ matrix.profile }} -- -D warnings
   lint-docs:
     runs-on: ubuntu-latest
     steps:
@@ -42,7 +38,7 @@ jobs:
           submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Lint (rustdoc)
-        run: env RUSTFLAGS="-D warnings" cargo oro-doc
+        run: env RUSTFLAGS="-D warnings" cargo -vv oro doc
   lint-python:
     runs-on: ubuntu-latest
     steps:
@@ -56,7 +52,7 @@ jobs:
         run: |
           pip install black
           black --check .
-  build-kernel-x86_64:
+  build-x86_64:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -67,8 +63,8 @@ jobs:
           submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Build
-        run: cargo kernel-x86_64 --profile ${{ matrix.profile }}
-  build-limine-x86_64:
+        run: cargo oro -vv build --profile ${{ matrix.profile }} -t x86_64
+  build-aarch64:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -79,31 +75,7 @@ jobs:
           submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Build
-        run: cargo limine-x86_64 --profile ${{ matrix.profile }}
-  build-kernel-aarch64:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        profile: ["dev", "release"]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'true'
-      - uses: ./.github/actions/rust
-      - name: Build
-        run: cargo kernel-aarch64 --profile ${{ matrix.profile }}
-  build-limine-aarch64:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        profile: ["dev", "release"]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'true'
-      - uses: ./.github/actions/rust
-      - name: Build
-        run: cargo limine-aarch64 --profile ${{ matrix.profile }}
+        run: cargo oro -vv build --profile ${{ matrix.profile }} -t aarch64
   unit-test:
     runs-on: ubuntu-latest
     steps:

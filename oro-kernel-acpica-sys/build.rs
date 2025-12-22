@@ -5,6 +5,9 @@ fn main() {
 	let out_dir = std::env::var("OUT_DIR").unwrap();
 	let dest_path = std::path::Path::new(&out_dir).join("bindings.rs");
 
+	// Capture the target architecture before unsetting TARGET
+	let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").ok();
+
 	// Bindgen doesn't know how to handle custom Oro targets,
 	// so we work around this by unsetting `TARGET` and using
 	// the host system's sysroot.
@@ -16,13 +19,17 @@ fn main() {
 		std::env::remove_var("TARGET");
 	}
 
-	let bindings = ::bindgen::Builder::default()
+	let mut bindings = ::bindgen::Builder::default()
 		.header("oro-acpica-sys.h")
 		.derive_debug(true)
 		.default_enum_style(::bindgen::EnumVariation::Rust {
 			non_exhaustive: true,
 		})
 		.clang_arg("-Isrc-acpica/source/include")
+		// Force char to be signed (i8) on all architectures to ensure
+		// consistent bindings across x86_64 and aarch64. This matches
+		// string literal constants which are always *const i8.
+		.clang_arg("-fsigned-char")
 		.parse_callbacks(Box::new(::bindgen::CargoCallbacks::new()))
 		.ignore_functions()
 		.ignore_methods()
@@ -34,18 +41,19 @@ fn main() {
 		.detect_include_paths(true)
 		.raw_line("#[allow(clippy::doc_markdown)]");
 
-	#[cfg(target_arch = "x86_64")]
-	let bindings = bindings.clang_arg("-D__x86_64__");
-	#[cfg(target_arch = "aarch64")]
-	let bindings = bindings.clang_arg("-D__aarch64__");
-	#[cfg(target_arch = "riscv64")]
-	let bindings = bindings.clang_arg("-D__risc");
-	#[cfg(target_arch = "powerpc64")]
-	let bindings = bindings.clang_arg("-D__PPC64__");
-	#[cfg(target_arch = "s390x")]
-	let bindings = bindings.clang_arg("-D__s390x__");
-	#[cfg(target_arch = "loongarch64")]
-	let bindings = bindings.clang_arg("-D__loongarch__");
+	// Use the captured target architecture (before TARGET was unset)
+	// to detect the actual target architecture, not the host
+	if let Some(arch) = target_arch {
+		match arch.as_str() {
+			"x86_64" => bindings = bindings.clang_arg("-D__x86_64__"),
+			"aarch64" => bindings = bindings.clang_arg("-D__aarch64__"),
+			"riscv64" => bindings = bindings.clang_arg("-D__risc"),
+			"powerpc64" => bindings = bindings.clang_arg("-D__PPC64__"),
+			"s390x" => bindings = bindings.clang_arg("-D__s390x__"),
+			"loongarch64" => bindings = bindings.clang_arg("-D__loongarch__"),
+			_ => {}
+		}
+	}
 
 	println!("bindgen args: {:?}", bindings.command_line_flags());
 

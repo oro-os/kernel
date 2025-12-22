@@ -13,7 +13,7 @@ autobins          = false
 build = "build.rs"
 
 [package.metadata.oro]
-artifact     = "bootloader"
+component    = "limine"
 target       = ["aarch64", "x86_64"]
 no-std       = true
 bins.x86_64  = "oro-limine-x86_64"

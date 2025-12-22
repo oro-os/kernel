@@ -31,12 +31,17 @@ members = [
 	"oro-kernel-type",
 	"oroutil",
 ]
+default-members = ["oroutil"]
 
-[workspace.metadata.oro.targets.x86_64]
+[workspace.metadata.oro]
+build-std          = ["alloc", "compiler_builtins", "core"]
+build-std-features = ["compiler-builtins-mem"]
+
+[workspace.metadata.oro.target.x86_64]
 target-json = "oro-kernel-arch-x86_64/x86_64-unknown-oro.json"
 features    = ["oro-debug/uart16550"]
 
-[workspace.metadata.oro.targets.aarch64]
+[workspace.metadata.oro.target.aarch64]
 target-json = "oro-kernel-arch-aarch64/aarch64-unknown-oro.json"
 features    = ["oro-debug/pl011"]
 

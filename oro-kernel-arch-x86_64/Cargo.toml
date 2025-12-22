@@ -13,7 +13,7 @@ autobins             = false
 build = "build.rs"
 
 [package.metadata.oro]
-artifact    = "kernel"
+component   = "kernel"
 target      = "x86_64"
 no-std      = true
 bins.x86_64 = "oro-kernel-x86_64"
