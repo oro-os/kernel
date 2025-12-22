@@ -18,7 +18,7 @@ use limine::{
 	memory_map::EntryType,
 	modules::{InternalModule, ModuleFlags},
 	request::{
-		BootTimeRequest, FramebufferRequest, HhdmRequest, MemoryMapRequest, ModuleRequest,
+		DateAtBootRequest, FramebufferRequest, HhdmRequest, MemoryMapRequest, ModuleRequest,
 		RsdpRequest,
 	},
 };
@@ -35,14 +35,14 @@ const KERNEL_STACK_PAGES: usize = 16;
 /// The bootloader does **not** expect it to be listed
 /// as a module (but it can be).
 #[cfg(target_arch = "x86_64")]
-const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel-x86_64");
+const KERNEL_PATH: &CStr = c"/oro-kernel-x86_64";
 #[cfg(target_arch = "aarch64")]
-const KERNEL_PATH: &CStr = limine::cstr!("/oro-kernel-aarch64");
+const KERNEL_PATH: &CStr = c"/oro-kernel-aarch64";
 
 /// The path to where the DeviceTree blob is expected,
 /// if provided. The bootloader does **not** expect it to be
 /// listed as a module (but it can be).
-const DTB_PATH: &CStr = limine::cstr!("/oro-device-tree.dtb");
+const DTB_PATH: &CStr = c"/oro-device-tree.dtb";
 
 /// Provides Limine with a base revision of the protocol
 /// that this "kernel" (in Limine terms) expects.
@@ -74,7 +74,7 @@ static REQ_MMAP: MemoryMapRequest = MemoryMapRequest::with_revision(0);
 
 /// Requests the BIOS timestamp from Limine.
 #[used]
-static REQ_TIME: BootTimeRequest = BootTimeRequest::with_revision(0);
+static REQ_TIME: DateAtBootRequest = DateAtBootRequest::with_revision(0);
 
 /// Requests the RSDP pointer from Limine.
 #[used]
@@ -156,7 +156,7 @@ pub unsafe fn init() -> ! {
 								EntryType::BOOTLOADER_RECLAIMABLE => {
 									MemoryMapEntryType::Reclaimable
 								}
-								EntryType::KERNEL_AND_MODULES => MemoryMapEntryType::Modules,
+								EntryType::EXECUTABLE_AND_MODULES => MemoryMapEntryType::Modules,
 								EntryType::BAD_MEMORY => MemoryMapEntryType::Bad,
 								EntryType::FRAMEBUFFER => MemoryMapEntryType::FrameBuffer,
 								_ => MemoryMapEntryType::Unknown,
@@ -169,7 +169,7 @@ pub unsafe fn init() -> ! {
 					let kernel_module = module_response
 						.modules()
 						.iter()
-						.find(|module| module.path() == KERNEL_PATH.to_bytes());
+						.find(|module| module.path() == KERNEL_PATH);
 
 					let Some(kernel_module) = kernel_module else {
 						panic!("failed to find kernel module: {KERNEL_PATH:?}");
@@ -194,7 +194,7 @@ pub unsafe fn init() -> ! {
 				let mut bs = if let Some(dtb_module) = modules
 					.modules()
 					.iter()
-					.find(|module| module.path() == DTB_PATH.to_bytes())
+					.find(|module| module.path() == DTB_PATH)
 				{
 					bs.send(oro_boot_protocol::device_tree::DeviceTreeDataV0 {
 						base:   u64::try_from(dtb_module.addr() as usize).unwrap() - hhdm_offset,
@@ -209,14 +209,11 @@ pub unsafe fn init() -> ! {
 					modules
 						.modules()
 						.iter()
-						.filter(|module| {
-							module.path() != DTB_PATH.to_bytes()
-								&& module.path() != KERNEL_PATH.to_bytes()
-						})
+						.filter(|module| module.path() != DTB_PATH && module.path() != KERNEL_PATH)
 						.filter_map(|module| {
 							// Get the basename by finding the text after
 							// the last `/`, if any.
-							let path = module.path();
+							let path = module.path().to_bytes();
 							let basename = path
 								.iter()
 								.rev()
