@@ -12,6 +12,12 @@ autobins          = false
 
 build = "build.rs"
 
+[package.metadata.oro]
+artifact     = "kernel"
+target       = "aarch64"
+no-std       = true
+bins.aarch64 = "oro-kernel-aarch64"
+
 [lib]
 path = "src/lib.rs"
 
@@ -36,9 +42,6 @@ oro-kernel-sync.workspace   = true
 # Work around non-composability of `test` profile and global allocator conflicts in unit test runner.
 [dev-dependencies]
 oro-kernel-mem = { workspace = true, features = ["std-alloc"] }
-
-[package.metadata.oro]
-requires-arch = ["aarch64"]
 
 [lints]
 workspace = true

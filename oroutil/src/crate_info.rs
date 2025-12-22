@@ -2,44 +2,98 @@
 
 use std::collections::HashMap;
 
-use cargo_metadata::{Metadata, Package};
+use cargo_metadata::{Metadata, Package, TargetKind};
 use serde::Deserialize;
+
+/// Type of artifact produced by a crate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ArtifactType {
+	/// Kernel binary.
+	Kernel,
+	/// Bootloader binary.
+	Bootloader,
+}
+
+/// Target specification for a crate.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(untagged)]
+pub enum Target {
+	/// Single target (host or architecture name).
+	Single(String),
+	/// Multiple targets.
+	Multiple(Vec<String>),
+}
+
+impl Target {
+	/// Returns true if this target includes the host.
+	pub fn includes_host(&self) -> bool {
+		match self {
+			Target::Single(s) => s == "host",
+			Target::Multiple(v) => v.iter().any(|s| s == "host"),
+		}
+	}
+
+	/// Returns true if this target includes the given architecture.
+	pub fn includes_arch(&self, arch: &str) -> bool {
+		match self {
+			Target::Single(s) => s == arch,
+			Target::Multiple(v) => v.iter().any(|s| s == arch),
+		}
+	}
+
+	/// Returns all architecture names (excluding "host").
+	pub fn arch_names(&self) -> Vec<&str> {
+		match self {
+			Target::Single(s) if s != "host" => vec![s.as_str()],
+			Target::Single(_) => vec![],
+			Target::Multiple(v) => {
+				v.iter()
+					.filter(|s| s.as_str() != "host")
+					.map(|s| s.as_str())
+					.collect()
+			}
+		}
+	}
+}
 
 /// Metadata specific to Oro kernel crates.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct OroMetadata {
-	/// Which architectures this crate requires.
-	/// If empty or not specified, the crate is host-buildable.
-	#[serde(default, rename = "requires-arch")]
-	pub requires_arch: Vec<String>,
+	/// Type of artifact (kernel or bootloader).
+	#[serde(default)]
+	pub artifact: Option<ArtifactType>,
 
-	/// Whether this crate requires `build-std`.
-	/// If not specified, inferred from `requires_arch`.
-	#[serde(default, rename = "requires-build-std")]
-	pub requires_build_std: Option<bool>,
+	/// Target specification (host, arch name, or multiple).
+	#[serde(default)]
+	pub target: Option<Target>,
+
+	/// Whether this crate is no_std.
+	#[serde(default, rename = "no-std")]
+	pub no_std: Option<bool>,
+
+	/// Binary names for different architectures.
+	#[serde(default)]
+	pub bins: Option<HashMap<String, String>>,
 }
 
-impl OroMetadata {
-	/// Returns whether this crate requires build-std.
-	pub fn needs_build_std(&self) -> bool {
-		self.requires_build_std
-			.unwrap_or(!self.requires_arch.is_empty())
-	}
+/// Workspace target configuration.
+#[derive(Debug, Clone, Deserialize)]
+pub struct WorkspaceTarget {
+	/// Path to target JSON file (relative to workspace root).
+	#[serde(rename = "target-json")]
+	pub target_json: String,
+	/// Features to enable for this target.
+	#[serde(default)]
+	pub features:    Vec<String>,
+}
 
-	/// Returns whether this crate can be built for the host architecture.
-	pub fn is_host_buildable(&self) -> bool {
-		self.requires_arch.is_empty()
-	}
-
-	/// Returns whether this crate can be built for the given architecture.
-	pub fn supports_arch(&self, arch: crate::TargetArch) -> bool {
-		if self.requires_arch.is_empty() {
-			// Host-buildable crates can build for any arch
-			true
-		} else {
-			self.requires_arch.iter().any(|a| a == &arch.to_string())
-		}
-	}
+/// Workspace-level Oro metadata.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct WorkspaceOroMetadata {
+	/// Target configurations.
+	#[serde(default)]
+	pub targets: HashMap<String, WorkspaceTarget>,
 }
 
 /// Information about a crate in the workspace.
@@ -49,6 +103,10 @@ pub struct CrateInfo {
 	pub package:      Package,
 	/// Oro-specific metadata.
 	pub oro_metadata: OroMetadata,
+	/// Whether this crate has binary targets.
+	pub has_bins:     bool,
+	/// Whether this crate has a library target.
+	pub has_lib:      bool,
 }
 
 impl CrateInfo {
@@ -60,9 +118,49 @@ impl CrateInfo {
 			.and_then(|v| serde_json::from_value(v.clone()).ok())
 			.unwrap_or_default();
 
+		let has_bins = package.targets.iter().any(|t| t.is_kind(TargetKind::Bin));
+		let has_lib = package.targets.iter().any(|t| t.is_kind(TargetKind::Lib));
+
 		CrateInfo {
 			package,
 			oro_metadata,
+			has_bins,
+			has_lib,
+		}
+	}
+
+	/// Returns the effective target for this crate.
+	/// If target is None (auto), infers based on whether it has bins.
+	pub fn effective_target(&self) -> Option<Target> {
+		match &self.oro_metadata.target {
+			Some(t) => Some(t.clone()),
+			None if self.has_bins => Some(Target::Single("host".to_string())),
+			None => None, // Library follows compile target
+		}
+	}
+
+	/// Returns true if this crate builds for host.
+	pub fn builds_for_host(&self) -> bool {
+		self.effective_target()
+			.as_ref()
+			.map_or(false, |t| t.includes_host())
+	}
+
+	/// Returns true if this crate builds for the given architecture.
+	pub fn builds_for_arch(&self, arch: &str) -> bool {
+		self.effective_target()
+			.as_ref()
+			.map_or(true, |t| t.includes_arch(arch)) // None = follows target
+	}
+
+	/// Returns a string describing the crate type (bin, lib, bin+lib).
+	pub fn type_str(&self) -> &'static str {
+		if self.has_bins && self.has_lib {
+			"bin+lib"
+		} else if self.has_bins {
+			"bin"
+		} else {
+			"lib"
 		}
 	}
 }
@@ -72,12 +170,20 @@ impl CrateInfo {
 pub struct WorkspaceCrates {
 	/// All crates in the workspace.
 	pub crates: HashMap<String, CrateInfo>,
+	/// Workspace-level Oro metadata.
+	pub workspace_metadata: WorkspaceOroMetadata,
 }
 
 impl WorkspaceCrates {
 	/// Loads workspace crate information from cargo metadata.
 	pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
 		let metadata: Metadata = crate::util::cargo_metadata()?;
+
+		let workspace_metadata = metadata
+			.workspace_metadata
+			.get("oro")
+			.and_then(|v| serde_json::from_value(v.clone()).ok())
+			.unwrap_or_default();
 
 		let crates = metadata
 			.workspace_packages()
@@ -89,35 +195,94 @@ impl WorkspaceCrates {
 			})
 			.collect();
 
-		Ok(WorkspaceCrates { crates })
+		Ok(WorkspaceCrates {
+			crates,
+			workspace_metadata,
+		})
 	}
 
-	/// Returns crates that can be built for the host.
-	#[allow(dead_code)]
-	pub fn host_buildable(&self) -> Vec<&CrateInfo> {
+	/// Returns crates that build for the given architecture (new metadata).
+	pub fn for_arch(&self, arch: &str) -> Vec<&CrateInfo> {
 		self.crates
 			.values()
-			.filter(|c| c.oro_metadata.is_host_buildable())
+			.filter(|c| c.builds_for_arch(arch))
 			.collect()
 	}
 
-	/// Returns crates that support the given architecture.
-	/// Only returns crates that have oro metadata defined.
-	pub fn for_arch(&self, arch: crate::TargetArch) -> Vec<&CrateInfo> {
+	/// Returns crates that build for host (new metadata).
+	pub fn host_crates(&self) -> Vec<&CrateInfo> {
 		self.crates
 			.values()
-			.filter(|c| {
-				!c.oro_metadata.requires_arch.is_empty() && c.oro_metadata.supports_arch(arch)
-			})
+			.filter(|c| c.builds_for_host())
 			.collect()
 	}
 
-	/// Returns crates that require a specific architecture.
-	#[allow(dead_code)]
-	pub fn arch_specific(&self) -> Vec<&CrateInfo> {
+	/// Returns library crates with no explicit target (follow compile target).
+	pub fn auto_lib_crates(&self) -> Vec<&CrateInfo> {
 		self.crates
 			.values()
-			.filter(|c| !c.oro_metadata.is_host_buildable())
+			.filter(|c| c.oro_metadata.target.is_none() && !c.has_bins)
 			.collect()
+	}
+}
+
+/// Categorized crates by build target.
+#[derive(Debug, Default)]
+pub struct WorkspaceMap {
+	/// Crates that build for host.
+	pub host:        Vec<String>,
+	/// Crates that build for specific architectures.
+	pub by_arch:     HashMap<String, Vec<String>>,
+	/// Kernel artifacts by architecture.
+	pub kernels:     HashMap<String, Vec<String>>,
+	/// Bootloader artifacts by architecture.
+	pub bootloaders: HashMap<String, Vec<String>>,
+}
+
+impl WorkspaceMap {
+	/// Creates a workspace map from crate information.
+	pub fn from_crates(workspace: &WorkspaceCrates) -> Self {
+		let mut map = WorkspaceMap::default();
+
+		for (name, info) in &workspace.crates {
+			// Categorize by artifact type
+			if let Some(artifact) = info.oro_metadata.artifact {
+				if let Some(target) = &info.oro_metadata.target {
+					let arches = target.arch_names();
+					for arch in arches {
+						match artifact {
+							ArtifactType::Kernel => {
+								map.kernels
+									.entry(arch.to_string())
+									.or_default()
+									.push(name.clone());
+							}
+							ArtifactType::Bootloader => {
+								map.bootloaders
+									.entry(arch.to_string())
+									.or_default()
+									.push(name.clone());
+							}
+						}
+					}
+				}
+			}
+
+			// Categorize by target
+			if info.builds_for_host() {
+				map.host.push(name.clone());
+			}
+
+			if let Some(target) = &info.oro_metadata.target {
+				for arch in target.arch_names() {
+					map.by_arch
+						.entry(arch.to_string())
+						.or_default()
+						.push(name.clone());
+				}
+			}
+		}
+
+		map
 	}
 }

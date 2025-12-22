@@ -8,6 +8,10 @@ repository.workspace = true
 license.workspace    = true
 autobins             = false
 
+[package.metadata.oro]
+target = "aarch64"
+no-std = true
+
 [dependencies]
 oro-kernel-macro.workspace = true
 oro-kernel-type.workspace  = true

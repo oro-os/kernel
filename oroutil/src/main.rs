@@ -39,6 +39,8 @@ enum Command {
 	Clippy(ClippyArgs),
 	/// Builds documentation, excluding arch-incompatible crates.
 	Doc(DocArgs),
+	/// Displays workspace crate information and categorization.
+	Info(InfoArgs),
 }
 
 /// Arguments for the `fmt` command
@@ -72,6 +74,10 @@ pub(crate) struct DocArgs {
 	#[clap(last = true)]
 	pub doc_args: Vec<String>,
 }
+
+/// Arguments for the `info` command
+#[derive(Parser, Debug)]
+pub(crate) struct InfoArgs {}
 
 /// Common arguments for build-like commands
 #[derive(Parser, Debug)]
@@ -241,6 +247,9 @@ fn pmain() -> Result<(), Box<dyn std::error::Error>> {
 		}
 		Command::Doc(args) => {
 			cmd::doc::run(args, logger)?;
+		}
+		Command::Info(args) => {
+			cmd::info::run(args)?;
 		}
 	}
 

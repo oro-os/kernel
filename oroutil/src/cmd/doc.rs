@@ -21,10 +21,26 @@ pub fn run(
 
 	let mut tasks = Vec::new();
 
+	// Add pass for crates that build for host
+	let host_crates = workspace.host_crates();
+	if !host_crates.is_empty() {
+		let pb = mp.add(ProgressBar::new_spinner());
+		pb.set_style(
+			ProgressStyle::default_spinner()
+				.template("{spinner:.cyan} [{elapsed_precise:.dim}] [{prefix:.yellow}] {msg}")
+				.unwrap(),
+		);
+		pb.set_prefix("doc host".to_string());
+		pb.set_message("building...");
+
+		tasks.push((None, host_crates, pb));
+	}
+
 	// Build docs for each target architecture
 	for &arch in &args.config.target {
 		// Get crates compatible with the target architecture
-		let crates = workspace.for_arch(arch);
+		let arch_str = arch.to_string();
+		let crates = workspace.for_arch(&arch_str);
 
 		if crates.is_empty() {
 			continue;
@@ -39,44 +55,55 @@ pub fn run(
 		pb.set_prefix(format!("doc {}", arch));
 		pb.set_message("building...");
 
-		tasks.push((arch, crates, pb));
+		tasks.push((Some(arch), crates, pb));
 	}
 
 	let success = Arc::new(AtomicBool::new(true));
 	let mut join_handles = vec![];
 
-	for (arch, crates, pb) in tasks {
-		log::info!(
-			"building docs for {} crates compatible with {}",
-			crates.len(),
-			arch
-		);
+	for (arch_opt, crates, pb) in tasks {
+		if let Some(arch) = arch_opt {
+			log::info!(
+				"building docs for {} crates compatible with {}",
+				crates.len(),
+				arch
+			);
+		} else {
+			log::info!(
+				"building docs for {} crates without target metadata",
+				crates.len()
+			);
+		}
 
 		let mut cmd = crate::util::cargo_command();
 		cmd.arg("doc").arg("--lib").arg("--document-private-items");
 
-		// Set unique target directory to avoid locking and cache invalidation
-		let base_target_dir =
-			std::env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| "target".to_string());
-		let target_dir = format!("{}/doc-{}", base_target_dir, arch);
-		cmd.env("CARGO_TARGET_DIR", &target_dir);
+		if let Some(arch) = arch_opt {
+			// Set unique target directory to avoid locking and cache invalidation
+			let base_target_dir =
+				std::env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| "target".to_string());
+			let target_dir = format!("{}/doc-{}", base_target_dir, arch);
+			cmd.env("CARGO_TARGET_DIR", &target_dir);
 
-		// Add architecture-specific features
-		let features = match arch {
-			crate::TargetArch::X86_64 => "oro-debug/uart16550",
-			crate::TargetArch::Aarch64 => "oro-debug/pl011",
-		};
-		cmd.arg("--features").arg(features);
+			// Add architecture-specific features
+			let features = match arch {
+				crate::TargetArch::X86_64 => "oro-debug/uart16550",
+				crate::TargetArch::Aarch64 => "oro-debug/pl011",
+			};
+			cmd.arg("--features").arg(features);
 
-		// Add target if any crate needs build-std
-		let needs_build_std = crates.iter().any(|c| c.oro_metadata.needs_build_std());
+			// Add target if any crate needs build-std (no_std = true)
+			let needs_build_std = crates
+				.iter()
+				.any(|c| c.oro_metadata.no_std.unwrap_or(false));
 
-		if needs_build_std {
-			cmd.arg("--target")
-				.arg(arch.target_json_path())
-				.arg("-Zunstable-options")
-				.arg("-Zbuild-std=core,compiler_builtins,alloc")
-				.arg("-Zbuild-std-features=compiler-builtins-mem");
+			if needs_build_std {
+				cmd.arg("--target")
+					.arg(arch.target_json_path())
+					.arg("-Zunstable-options")
+					.arg("-Zbuild-std=core,compiler_builtins,alloc")
+					.arg("-Zbuild-std-features=compiler-builtins-mem");
+			}
 		}
 
 		// Add all compatible crates

@@ -12,6 +12,13 @@ autobins          = false
 
 build = "build.rs"
 
+[package.metadata.oro]
+artifact     = "bootloader"
+target       = ["aarch64", "x86_64"]
+no-std       = true
+bins.x86_64  = "oro-limine-x86_64"
+bins.aarch64 = "oro-limine-aarch64"
+
 [[bin]]
 name = "oro-limine-x86_64"
 path = "bin/x86_64.rs"
@@ -30,9 +37,6 @@ limine.workspace            = true
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 oro-arch-x86_64.workspace = true
-
-[package.metadata.oro]
-requires-arch = ["aarch64", "x86_64"]
 
 [lints]
 workspace = true

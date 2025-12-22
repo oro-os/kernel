@@ -16,10 +16,28 @@ pub fn run(
 
 	let mut tasks = Vec::new();
 
+	// Add pass for crates that build for host
+	let host_crates = workspace.host_crates();
+	if !host_crates.is_empty() {
+		for &profile in &args.config.profile {
+			let pb = mp.add(ProgressBar::new_spinner());
+			pb.set_style(
+				ProgressStyle::default_spinner()
+					.template("{spinner:.cyan} [{elapsed_precise:.dim}] [{prefix:.yellow}] {msg}")
+					.unwrap(),
+			);
+			pb.set_prefix(format!("clippy host {}", profile));
+			pb.set_message("running...");
+
+			tasks.push((profile, None, host_crates.clone(), pb));
+		}
+	}
+
 	// Build a matrix of (profile, arch, crates) for arch-specific builds
 	for &profile in &args.config.profile {
 		for &arch in &args.config.target {
-			let crates_for_arch = workspace.for_arch(arch);
+			let arch_str = arch.to_string();
+			let crates_for_arch = workspace.for_arch(&arch_str);
 
 			if crates_for_arch.is_empty() {
 				continue;
@@ -34,40 +52,44 @@ pub fn run(
 			pb.set_prefix(format!("clippy {} {}", arch, profile));
 			pb.set_message("running...");
 
-			tasks.push((profile, arch, crates_for_arch, pb));
+			tasks.push((profile, Some(arch), crates_for_arch, pb));
 		}
 	}
 
 	let mut success = true;
 
-	for (profile, arch, crates, pb) in tasks {
+	for (profile, arch_opt, crates, pb) in tasks {
 		let mut cmd = crate::util::cargo_command();
 		cmd.arg("clippy");
 
-		cmd.arg("--target").arg(arch.target_json_path());
+		if let Some(arch) = arch_opt {
+			cmd.arg("--target").arg(arch.target_json_path());
+
+			// Set unique target directory to avoid locking and cache invalidation
+			let base_target_dir =
+				std::env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| "target".to_string());
+			let target_dir = format!("{}/clippy-{}-{}", base_target_dir, arch, profile);
+			cmd.env("CARGO_TARGET_DIR", &target_dir);
+
+			// Add architecture-specific features
+			let features = match arch {
+				crate::TargetArch::X86_64 => "oro-debug/uart16550",
+				crate::TargetArch::Aarch64 => "oro-debug/pl011",
+			};
+			cmd.arg("--features").arg(features);
+		}
 
 		cmd.arg("--profile").arg(profile.to_string());
-
-		// Set unique target directory to avoid locking and cache invalidation
-		let base_target_dir =
-			std::env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| "target".to_string());
-		let target_dir = format!("{}/clippy-{}-{}", base_target_dir, arch, profile);
-		cmd.env("CARGO_TARGET_DIR", &target_dir);
-
-		// Add architecture-specific features
-		let features = match arch {
-			crate::TargetArch::X86_64 => "oro-debug/uart16550",
-			crate::TargetArch::Aarch64 => "oro-debug/pl011",
-		};
-		cmd.arg("--features").arg(features);
 
 		// Add all crate packages
 		for crate_info in &crates {
 			cmd.arg("-p").arg(crate_info.package.name.as_str());
 		}
 
-		// Check if we need build-std for any of these crates
-		let needs_build_std = crates.iter().any(|c| c.oro_metadata.needs_build_std());
+		// Check if we need build-std for any of these crates (no_std = true)
+		let needs_build_std = crates
+			.iter()
+			.any(|c| c.oro_metadata.no_std.unwrap_or(false));
 
 		if needs_build_std {
 			cmd.arg("-Zunstable-options")

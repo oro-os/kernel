@@ -7,7 +7,6 @@ edition    = "2024"
 
 [workspace]
 resolver = "2"
-
 members = [
 	"oro",
 	"oro-arch-aarch64",
@@ -32,6 +31,14 @@ members = [
 	"oro-kernel-type",
 	"oroutil",
 ]
+
+[workspace.metadata.oro.targets.x86_64]
+target-json = "oro-kernel-arch-x86_64/x86_64-unknown-oro.json"
+features    = ["oro-debug/uart16550"]
+
+[workspace.metadata.oro.targets.aarch64]
+target-json = "oro-kernel-arch-aarch64/aarch64-unknown-oro.json"
+features    = ["oro-debug/pl011"]
 
 [workspace.dependencies]
 oro-arch-aarch64.path        = "oro-arch-aarch64"
