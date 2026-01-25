@@ -1,0 +1,19 @@
+[package]
+name              = "orok-macro"
+version.workspace = true
+description       = "Macros and supporting types for the Oro operating system kernel."
+publish           = false
+edition           = "2024"
+authors           = ["Josh Junon (https://github.com/qix-)"]
+homepage          = "https://oro.sh"
+repository        = "https://github.com/oro-os/kernel"
+license           = "MPL-2.0"
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+orok-macro-proc.workspace = true

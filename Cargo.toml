@@ -8,30 +8,10 @@ edition    = "2024"
 [workspace]
 resolver = "2"
 members = [
-	"oro",
-	"oro-arch-aarch64",
-	"oro-arch-x86_64",
-	"oro-boot",
-	"oro-boot-protocol",
-	"oro-bootloader-limine",
-	"oro-dbgutil",
-	"oro-debug",
-	"oro-kernel",
-	"oro-kernel-acpi",
-	"oro-kernel-acpica-sys",
-	"oro-kernel-arch-aarch64",
-	"oro-kernel-arch-x86_64",
-	"oro-kernel-dtb",
-	"oro-kernel-elf",
-	"oro-kernel-macro",
-	"oro-kernel-macro-proc",
-	"oro-kernel-mem",
-	"oro-kernel-pci",
-	"oro-kernel-sync",
-	"oro-kernel-type",
-	"oroutil",
+	"orok-test-tui",
+	"orok-boot-limine",
 ]
-default-members = ["oroutil"]
+default-members = ["orok-test-tui"]
 
 [workspace.metadata.oro]
 build-std          = ["alloc", "compiler_builtins", "core"]
@@ -46,58 +26,54 @@ target-json = "oro-kernel-arch-aarch64/aarch64-unknown-oro.json"
 features    = ["oro-debug/pl011"]
 
 [workspace.dependencies]
-oro-arch-aarch64.path        = "oro-arch-aarch64"
-oro-arch-x86_64.path         = "oro-arch-x86_64"
-oro-kernel-acpi.path         = "oro-kernel-acpi"
-oro-kernel-acpica-sys.path   = "oro-kernel-acpica-sys"
-oro-kernel-arch-aarch64.path = "oro-kernel-arch-aarch64"
-oro-kernel-arch-x86_64.path  = "oro-kernel-arch-x86_64"
-oro-boot.path                = "oro-boot"
-oro-boot-protocol.path       = "oro-boot-protocol"
-oro-kernel-mem.path          = "oro-kernel-mem"
-oro-kernel-macro.path        = "oro-kernel-macro"
-oro-kernel-macro-proc.path   = "oro-kernel-macro-proc"
-oro-kernel-elf.path          = "oro-kernel-elf"
-oro-kernel.path              = "oro-kernel"
-oro-debug.path               = "oro-debug"
-oro-kernel-type.path         = "oro-kernel-type"
-oro-kernel-dtb.path          = "oro-kernel-dtb"
-oro-dbgutil.path             = "oro-dbgutil"
-oro-kernel-sync.path         = "oro-kernel-sync"
-oro-kernel-pci.path          = "oro-kernel-pci"
-oro.path                     = "oro"
+orok-x86_64.path = "orok-x86_64"
+orok-arch.path = "orok-arch"
+orok-arch-base.path = "orok-arch-base"
+#orok-arch-aarch64.path = "orok-arch-aarch64"
+orok-arch-x86_64.path = "orok-arch-x86_64"
+orok-macro.path = "orok-macro"
+orok-macro-proc.path = "orok-macro-proc"
+orok-type.path = "orok-type"
+orok-test.path = "orok-test"
+orok-test-harness.path = "orok-test-harness"
+orok-test-consts.path = "orok-test-consts"
+orok-test-proc.path = "orok-test-proc"
 
 # External dependencies
 limine                 = "=0.5.0"
-uart_16550             = "=0.3.2"
-volatile-register      = "=0.2.2"
-buddy_system_allocator = "=0.11.0"
-hashbrown              = { version = "=0.15.2", default-features = false, features = ["allocator-api2", "inline-more", "nightly"] }
-foldhash               = { version = "=0.1.4", default-features = false }
-nolock                 = { version = "=0.4.1", default-features = false, features = ["queues"] }
+#uart_16550             = "=0.3.2"
+#volatile-register      = "=0.2.2"
+#buddy_system_allocator = "=0.11.0"
+#hashbrown              = { version = "=0.15.2", default-features = false, features = ["allocator-api2", "inline-more", "nightly"] }
+#foldhash               = { version = "=0.1.4", default-features = false }
+#nolock                 = { version = "=0.4.1", default-features = false, features = ["queues"] }
 
 # Development dependencies
-bindgen      = "=0.71.1"
+#bindgen      = "=0.71.1"
 syn          = { version = "=2.0.100", features = ["full", "printing"] }
 quote        = "=1.0.40"
 proc-macro2  = { version = "=1.0.94", features = ["proc-macro"] }
-convert_case = "=0.6.0"
+#convert_case = "=0.6.0"
 
 # `oroutil` dependencies
-fast-glob            = "=0.4.5"
-clap                 = { version = "=4.5.40", features = ["derive"] }
-log                  = "=0.4.27"
-colog                = "=1.3.0"
-serde                = { version = "=1.0.219", features = ["derive"] }
-serde_json           = "=1.0.140"
-ignore               = "=0.4.23"
-similar              = "=2.7.0"
-taplo                = "=0.14.0"
-strum                = { version = "=0.27.1", features = ["derive"] }
-cargo_metadata       = "=0.20.0"
-indicatif            = "=0.18.3"
-indicatif-log-bridge = "=0.2.3"
-build-plan           = "=0.1.1"
+#fast-glob            = "=0.4.5"
+#clap                 = { version = "=4.5.40", features = ["derive"] }
+#log                  = "=0.4.27"
+#colog                = "=1.3.0"
+#serde                = { version = "=1.0.219", features = ["derive"] }
+#serde_json           = "=1.0.140"
+#ignore               = "=0.4.23"
+#similar              = "=2.7.0"
+#taplo                = "=0.14.0"
+#strum                = { version = "=0.27.1", features = ["derive"] }
+#cargo_metadata       = "=0.20.0"
+#indicatif            = "=0.18.3"
+#indicatif-log-bridge = "=0.2.3"
+#build-plan           = "=0.1.1"
+
+# Testing dependencies
+tokio = { version = "1.49.0", features = ["fs", "io-util", "macros", "net", "process", "rt-multi-thread", "sync"] }
+thiserror = "2.0.18"
 
 [workspace.lints.rust]
 missing_docs              = "warn"
@@ -110,7 +86,7 @@ unused-import-braces      = "warn"
 variant-size-differences  = "warn"
 trivial-numeric-casts     = "warn"
 unit-bindings             = "warn"
-unused-features           = "warn" # TODO(qix-): Doesn't do what I'd like it to: https://github.com/rust-lang/rust/issues/23528
+unsafe_op_in_unsafe_fn 	  = "deny"
 
 [workspace.lints.rustdoc]
 all                     = { level = "deny", priority = -1 }
@@ -120,6 +96,12 @@ private_intra_doc_links = "allow"
 [workspace.lints.clippy]
 all                                = { level = "warn", priority = -1 }
 pedantic                           = { level = "warn", priority = -1 }
+restriction                        = { level = "warn", priority = -1 }
+nursery                            = { level = "warn", priority = -1 }
+cargo                              = { level = "warn", priority = -1 }
+suspicious                         = { level = "warn", priority = -1 }
+style                              = { level = "warn", priority = -1 }
+perf                               = { level = "warn", priority = -1 }
 missing_docs_in_private_items      = "warn"
 integer_division                   = "warn"
 module_name_repetitions            = "allow"
@@ -134,6 +116,31 @@ new_without_default                = "allow"
 needless_doctest_main              = "allow"
 tabs_in_doc_comments               = "allow"
 redundant_closure_for_method_calls = "allow"
+undocumented_unsafe_blocks = "deny"
+default_numeric_fallback  = "allow"
+implicit_return = "allow"
+semicolon_inside_block = "warn"
+semicolon_outside_block = "allow"
+arbitrary_source_item_ordering = "allow"
+pub_use  = "allow"
+self_named_module_files = "deny"
+mod_module_files = "allow"
+inline_asm_x86_intel_syntax = "allow"
+inline_asm_x86_att_syntax = "deny"
+question_mark_used = "allow"
+missing_trait_methods = "allow"
+# While useful and technically correct, highly annoying to the point of being unhelpful.
+pattern_type_mismatch = "allow"
+# Shadowing could technically present bugs, but in practice is often used for convenience
+# and due to extensive type strictness rarely causes issues. Disallowing it everywhere would
+# likely just lead to widespread use of non-ideal variable names.
+shadow_reuse = "allow"
+shadow_unrelated = "allow"
+unseparated_literal_suffix = "warn"
+separated_literal_suffix = "allow"
+# We've tweaked them here to a decent enough extent that an appropriate level of "annoying"
+# has been achieved codebase-wide.
+blanket_clippy_restriction_lints = "allow"
 
 [profile.dev]
 panic = "abort" # Use "abort" panic strategy

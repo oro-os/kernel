@@ -1,0 +1,22 @@
+[package]
+name              = "orok-test-harness"
+version.workspace = true
+description       = "Effects testing harness for the Oro kernel"
+publish           = false
+edition           = "2024"
+authors           = ["Josh Junon (https://github.com/qix-)"]
+homepage          = "https://oro.sh"
+repository        = "https://github.com/oro-os/kernel"
+license           = "MPL-2.0"
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+orok-test-consts.workspace = true
+
+tokio.workspace = true
+thiserror.workspace = true

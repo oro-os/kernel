@@ -1,6 +1,5 @@
 [toolchain]
-# Upgrade pending on https://github.com/rust-lang/cargo/issues/7614#issuecomment-3573261644
-channel = "nightly-2025-11-05"
+channel = "nightly-2026-01-20"
 components = [
 	"clippy",
 	"llvm-tools-preview",

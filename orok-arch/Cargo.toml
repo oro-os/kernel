@@ -1,0 +1,25 @@
+[package]
+name              = "orok-arch"
+version.workspace = true
+description       = "Architecture selection crate for the Oro operating system."
+publish           = false
+edition           = "2024"
+authors           = ["Josh Junon (https://github.com/qix-)"]
+homepage          = "https://oro.sh"
+repository        = "https://github.com/oro-os/kernel"
+license           = "MPL-2.0"
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+orok-arch-base.workspace = true
+orok-macro.workspace = true
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+orok-arch-x86_64.workspace = true
+#[target.'cfg(target_arch = "aarch64")'.dependencies]
+#orok-arch-aarch64.workspace = true

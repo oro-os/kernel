@@ -1,0 +1,27 @@
+[package]
+name              = "orok-test"
+version.workspace = true
+description       = "Testing utilities for the Oro kernel"
+publish           = false
+edition           = "2024"
+authors           = ["Josh Junon (https://github.com/qix-)"]
+homepage          = "https://oro.sh"
+repository        = "https://github.com/oro-os/kernel"
+license           = "MPL-2.0"
+
+build = "build.rs"
+
+[features]
+default = []
+emit = []
+mmio = ["emit"]
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+orok-test-consts.workspace = true
+orok-test-proc.workspace = true

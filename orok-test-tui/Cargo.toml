@@ -1,0 +1,68 @@
+[package]
+name              = "orok-test-tui"
+version.workspace = true
+description       = "TUI for testing the Oro kernel"
+publish           = false
+edition           = "2024"
+authors           = ["Josh Junon (https://github.com/qix-)"]
+homepage          = "https://oro.sh"
+repository        = "https://github.com/oro-os/kernel"
+license           = "MPL-2.0"
+
+[lints]
+# NOTE: Since this is a test utility, we don't require strict
+#       linting rules as we would for production code.
+# workspace = true
+
+[features]
+default = []
+termion = ["ratatui-image/termion", "ratatui/termion"]
+
+[dependencies]
+orok-test-harness.workspace = true
+
+tokio.workspace = true
+thiserror.workspace = true
+
+# NOTE: Normally, for all packages in this workspace,
+#       dependencies are dictated at the root Cargo.toml
+#       and consumed via `package.workspace = true`.
+#
+#       However, since this utility is rather complex,
+#       standalone and local development oriented,
+#       we specify dependencies here directly, so as
+#       to avoid affecting build times for the rest
+#       of the workspace.
+libc = "0.2.180"
+portable-pty = "0.9.0"
+tempfile = "3.24.0"
+tui-term = "0.3.1"
+ratatui-image = { version = "10.0.4", features = ["tokio"] }
+ratatui = "0.30.0"
+crossterm = { version = "0.29.0", features = ["event-stream"] }
+image = { version = "0.25.9", default-features = false }
+log = "0.4.29"
+tokio-stream = "0.1.18"
+vt100 = "0.16.2"
+gdb-protocol = "0.1.0"
+futures = "0.3.31"
+ringbuf = "0.4.8"
+tokio-util = { version = "0.7.18", features = ["compat"] }
+serde = { version = "1.0.228", features = ["derive"] }
+strum = { version = "0.27.2", features = ["derive"] }
+serde_gdbmi = "0.1.0"
+nvim-rs = { version = "0.9.2", features = ["use_tokio"] }
+elf = "0.8.0"
+
+# NOTE(qix-): I'm generally extremely against using `anyhow` in
+#             literally any context, preferring explicit error
+#             handling via `thiserror` or similar. However, given
+#             the nature of this utility as a testing tool, and
+#             the fact that it interacts with a lot of different
+#             systems (PTYs, files, processes, TUI, etc), using
+#             `anyhow` here significantly reduces boilerplate
+#             and makes the code much more maintainable.
+#
+#             Please don't take this as an endorsement of `anyhow`
+#             in production code.
+anyhow = "1.0.100"
