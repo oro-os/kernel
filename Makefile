@@ -19,7 +19,7 @@ all: build
 build: x86_64 aarch64 riscv64
 
 .PHONY: clippy
-clippy: clippy-x86_64 clippy-aarch64 clippy-riscv64
+clippy: clippy-x86_64 clippy-aarch64 clippy-riscv64 clippy-test
 
 .PHONY: x86_64 aarch64 riscv64
 x86_64: x86_64-limine
@@ -190,3 +190,12 @@ clippy-riscv64:
 		-Zunstable-options \
 			-Zbuild-std=core,compiler_builtins,alloc \
 			-Zbuild-std-features=compiler-builtins-mem
+
+.PHONY: clippy-test
+clippy-test:
+	cargo clippy \
+		-p orok-test \
+		-p orok-test-tui \
+		-p orok-test-harness \
+		$(FEATURES) \
+		$(CLIPPY_ARGS)
