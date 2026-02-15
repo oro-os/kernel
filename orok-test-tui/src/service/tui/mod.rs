@@ -351,9 +351,14 @@ impl<'a> Widget for ControlPanel<'a> {
 			.spacing(Spacing::Space(1))
 			.areas(area);
 
-		let [scram_button, x86_64_button, aarch64_button] = Layout::default()
+		let [scram_button, x86_64_button, aarch64_button, riscv64_button] = Layout::default()
 			.direction(Direction::Vertical)
-			.constraints([Constraint::Min(3), Constraint::Min(1), Constraint::Min(1)])
+			.constraints([
+				Constraint::Length(3),
+				Constraint::Length(1),
+				Constraint::Length(1),
+				Constraint::Length(1),
+			])
 			.spacing(Spacing::Space(1))
 			.areas(session_button_area.crop_top(2).crop_bottom(1));
 
@@ -419,6 +424,26 @@ impl<'a> Widget for ControlPanel<'a> {
 				}
 			})
 			.render(aarch64_button, buf);
+
+		ui::Button::new(self.0, "[new session] RISC-V64")
+			.on_click({
+				move |_, bus| {
+					let bus = Arc::clone(&bus);
+					tokio::spawn(async move {
+						if let Err(err) = bus
+							.session
+							.send(crate::service::session::Event::StartSession {
+								arch: crate::service::session::Arch::Riscv64,
+							})
+							.await
+						{
+							log::error!("failed to send StartSession(RISC-V64) event: {err}");
+						}
+					});
+					false
+				}
+			})
+			.render(riscv64_button, buf);
 	}
 }
 

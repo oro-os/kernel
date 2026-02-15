@@ -2,7 +2,7 @@
 
 This crate adds support for the
 [Limine Bootloader](https://github.com/limine-bootloader/limine)
-in the Oro operating system kernel under x86_64 and AArch64 architectures.
+in the Oro operating system kernel under x86_64, AArch64, and RISC-V64 architectures.
 
 This crate has both a library (which is common between architectures)
 and individual, architecture-specific binaries.

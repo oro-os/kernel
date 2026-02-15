@@ -16,6 +16,11 @@ fn main() {
 			println!("cargo:rustc-link-arg-bin=oro-limine-aarch64=orok-boot-limine/bin/aarch64.x",);
 			println!("cargo:rerun-if-changed=orok-boot-limine/bin/aarch64.x");
 		}
+		"riscv64" => {
+			println!("cargo:rustc-link-arg-bin=oro-limine-riscv64=-T");
+			println!("cargo:rustc-link-arg-bin=oro-limine-riscv64=orok-boot-limine/bin/riscv64.x",);
+			println!("cargo:rerun-if-changed=orok-boot-limine/bin/riscv64.x");
+		}
 		_ => {
 			panic!("unsupported target architecture: {target_arch}");
 		}

@@ -83,6 +83,8 @@ pub unsafe fn panic(_info: &::core::panic::PanicInfo<'_>) -> ! {
 			core::arch::asm!("wfi");
 			#[cfg(target_arch = "x86_64")]
 			core::arch::asm!("cli; hlt");
+			#[cfg(target_arch = "riscv64")]
+			core::arch::asm!("wfi");
 		}
 	}
 }

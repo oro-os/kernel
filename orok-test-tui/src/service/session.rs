@@ -7,6 +7,7 @@ use tokio::sync::mpsc::Receiver;
 pub enum Arch {
 	X86_64,
 	Aarch64,
+	Riscv64,
 }
 
 impl Arch {
@@ -14,6 +15,7 @@ impl Arch {
 		match self {
 			Self::X86_64 => "target/x86_64-unknown-oro/debug/oro-limine-x86_64",
 			Self::Aarch64 => "target/aarch64-unknown-oro/debug/oro-limine-aarch64",
+			Self::Riscv64 => "target/riscv64-unknown-oro/debug/oro-limine-riscv64",
 		}
 	}
 
@@ -21,6 +23,7 @@ impl Arch {
 		match self {
 			Self::X86_64 => "run-x86_64",
 			Self::Aarch64 => "run-aarch64",
+			Self::Riscv64 => "run-riscv64",
 		}
 	}
 }

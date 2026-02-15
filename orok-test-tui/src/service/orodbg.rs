@@ -147,6 +147,7 @@ impl From<Arch> for orok_test_harness::ArchType {
 		match value {
 			Arch::X86_64 => orok_test_harness::ArchType::X8664,
 			Arch::Aarch64 => orok_test_harness::ArchType::Aarch64,
+			Arch::Riscv64 => orok_test_harness::ArchType::Riscv64,
 		}
 	}
 }

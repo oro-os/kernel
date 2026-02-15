@@ -16,14 +16,15 @@ endif
 all: build
 
 .PHONY: build
-build: x86_64 aarch64
+build: x86_64 aarch64 riscv64
 
 .PHONY: clippy
-clippy: clippy-x86_64 clippy-aarch64
+clippy: clippy-x86_64 clippy-aarch64 clippy-riscv64
 
-.PHONY: x86_64 aarch64
+.PHONY: x86_64 aarch64 riscv64
 x86_64: x86_64-limine
 aarch64: aarch64-limine
+riscv64: riscv64-limine
 
 .PHONY: x86_64-limine
 x86_64-limine:
@@ -47,8 +48,19 @@ aarch64-limine:
 			-Zbuild-std=core,compiler_builtins,alloc \
 			-Zbuild-std-features=compiler-builtins-mem
 
+.PHONY: riscv64-limine
+riscv64-limine:
+	cargo build \
+		--target=./orok-arch-riscv64/riscv64-unknown-oro.json \
+		-p orok-boot-limine \
+		--bin oro-limine-riscv64 \
+		$(FEATURES) \
+		-Zunstable-options \
+			-Zbuild-std=core,compiler_builtins,alloc \
+			-Zbuild-std-features=compiler-builtins-mem
+
 .PHONY: iso
-iso: x86_64 aarch64 .limine/limine
+iso: x86_64 aarch64 riscv64 .limine/limine
 	rm -rf target/iso
 	mkdir -p target/iso/boot/limine target/iso/EFI/BOOT
 	cp \
@@ -66,8 +78,12 @@ iso: x86_64 aarch64 .limine/limine
 		target/aarch64-unknown-oro/debug/oro-limine-aarch64 \
 		target/iso/oro-limine-aarch64
 	cp \
+		target/riscv64-unknown-oro/debug/oro-limine-riscv64 \
+		target/iso/oro-limine-riscv64
+	cp \
 		.limine/BOOTX64.EFI \
 		.limine/BOOTAA64.EFI \
+		.limine/BOOTRISCV64.EFI \
 		target/iso/EFI/BOOT
 	xorriso \
         -as mkisofs \
@@ -118,6 +134,27 @@ run-aarch64: iso
 		-monitor telnet:localhost:4444,nowait,server \
 		$(QEMU_ARGS)
 
+.PHONY: run-riscv64
+run-riscv64: iso target/RISCV_VIRT_VARS.fd
+	@echo '[ORO] if the following command fails due to missing RISCV_VIRT_CODE.fd,'
+	@echo '[ORO] run `apt install qemu-efi-riscv64`.'
+	qemu-system-riscv64 \
+		-M virt \
+		-cpu max \
+		-no-reboot \
+		-no-shutdown \
+		-serial stdio \
+		-cdrom target/oro.iso \
+		-m 512 \
+		-smp cores=4 \
+		-drive if=pflash,format=raw,unit=0,file=/usr/share/qemu-efi-riscv64/RISCV_VIRT_CODE.fd,readonly=on \
+		-drive if=pflash,format=raw,unit=1,file=target/RISCV_VIRT_VARS.fd,readonly=off \
+		-monitor telnet:localhost:4444,nowait,server \
+		$(QEMU_ARGS)
+
+target/RISCV_VIRT_VARS.fd:
+	cp /usr/share/qemu-efi-riscv64/RISCV_VIRT_VARS.fd target/RISCV_VIRT_VARS.fd
+
 .PHONY: clippy-x86_64
 clippy-x86_64:
 	cargo clippy \
@@ -136,6 +173,18 @@ clippy-aarch64:
 		--target=./orok-arch-aarch64/aarch64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine-aarch64 \
+		$(FEATURES) \
+		$(CLIPPY_ARGS) \
+		-Zunstable-options \
+			-Zbuild-std=core,compiler_builtins,alloc \
+			-Zbuild-std-features=compiler-builtins-mem
+
+.PHONY: clippy-riscv64
+clippy-riscv64:
+	cargo clippy \
+		--target=./orok-arch-riscv64/riscv64-unknown-oro.json \
+		-p orok-boot-limine \
+		--bin oro-limine-riscv64 \
 		$(FEATURES) \
 		$(CLIPPY_ARGS) \
 		-Zunstable-options \
