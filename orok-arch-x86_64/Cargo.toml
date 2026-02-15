@@ -17,4 +17,3 @@ workspace = true
 
 [dependencies]
 orok-arch-base.workspace = true
-orok-x86_64.workspace = true

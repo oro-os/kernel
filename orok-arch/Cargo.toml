@@ -21,5 +21,7 @@ orok-macro.workspace = true
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 orok-arch-x86_64.workspace = true
-#[target.'cfg(target_arch = "aarch64")'.dependencies]
-#orok-arch-aarch64.workspace = true
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+orok-arch-aarch64.workspace = true
+[target.'cfg(target_arch = "riscv64")'.dependencies]
+orok-arch-riscv64.workspace = true

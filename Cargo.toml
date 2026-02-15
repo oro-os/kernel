@@ -26,7 +26,6 @@ target-json = "oro-kernel-arch-aarch64/aarch64-unknown-oro.json"
 features    = ["oro-debug/pl011"]
 
 [workspace.dependencies]
-orok-x86_64.path = "orok-x86_64"
 orok-arch.path = "orok-arch"
 orok-arch-base.path = "orok-arch-base"
 orok-arch-aarch64.path = "orok-arch-aarch64"
