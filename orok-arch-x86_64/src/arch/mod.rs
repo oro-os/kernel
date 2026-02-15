@@ -20,6 +20,7 @@ pub use paging_level::PagingLevel;
 	clippy::missing_inline_in_public_items,
 	reason = "inlining is not necessary for init functions"
 )]
+#[expect(unused, reason = "temporarily unused")]
 #[cold]
 pub unsafe fn refresh_globals() {
 	// SAFETY: Safety is delegated to the caller.

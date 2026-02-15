@@ -3,6 +3,8 @@
 
 use orok_arch_base::{Arch as BaseArch, CheckUnsafePhys, CheckUnsafeVirt};
 
+use crate::arch::PagingLevel;
+
 /// Implements the x86_64 architecture.
 #[non_exhaustive]
 pub struct Arch;
@@ -133,10 +135,10 @@ impl CheckUnsafeVirt for UnsafeVirt {
 		const CANONICAL_MASK_48: u64 = 0x0000_FFFF_FFFF_FFFF;
 		const CANONICAL_MASK_57: u64 = 0x01FF_FFFF_FFFF_FFFF;
 
-		let paging_level = orok_x86_64::PagingLevel::current_from_cpu();
+		let paging_level = PagingLevel::current_from_cpu();
 		let (upper_mask, high_bit) = match paging_level {
-			orok_x86_64::PagingLevel::Level4 => (!CANONICAL_MASK_48, self.0 & (1 << 47) != 0),
-			orok_x86_64::PagingLevel::Level5 => (!CANONICAL_MASK_57, self.0 & (1 << 56) != 0),
+			PagingLevel::Level4 => (!CANONICAL_MASK_48, self.0 & (1 << 47) != 0),
+			PagingLevel::Level5 => (!CANONICAL_MASK_57, self.0 & (1 << 56) != 0),
 		};
 
 		let is_canonical = if high_bit {

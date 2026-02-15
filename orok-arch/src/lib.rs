@@ -7,16 +7,19 @@
 #![cfg_attr(doc, feature(doc_cfg))]
 #![feature(type_alias_impl_trait)]
 
-use orok_arch_base::{self as base, Arch as BaseArch, CheckUnsafePhys, CheckUnsafeVirt};
-
-#[cfg(target_arch = "x86_64")]
-use orok_arch_x86_64::Arch;
 #[cfg(target_arch = "aarch64")]
 use orok_arch_aarch64::Arch;
+use orok_arch_base::{self as base, Arch as BaseArch, CheckUnsafePhys, CheckUnsafeVirt};
 #[cfg(target_arch = "riscv64")]
 use orok_arch_riscv64::Arch;
+#[cfg(target_arch = "x86_64")]
+use orok_arch_x86_64::Arch;
 
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "riscv64")))]
+#[cfg(not(any(
+	target_arch = "x86_64",
+	target_arch = "aarch64",
+	target_arch = "riscv64"
+)))]
 compile_error!("unsupported architecture selected for orok-arch");
 
 #[doc(hidden)]

@@ -1,9 +1,9 @@
 //! Types and utilities for working with x86_64 paging levels.
 
-use orok_macro::effect;
+use orok_test::effect;
 use orok_type::RelaxedUsize;
 
-use crate::reg;
+use crate::arch::reg;
 
 /// The current paging level of the CPU.
 #[expect(
@@ -119,6 +119,7 @@ impl PagingLevel {
 	/// Returns the number of bits used for virtual addresses
 	/// based on the current paging level.
 	#[expect(clippy::inline_always, reason = "simple match")]
+	#[expect(unused, reason = "temporarily unused")]
 	#[inline(always)]
 	#[must_use]
 	pub const fn virtual_address_bits(self) -> usize {
@@ -131,6 +132,7 @@ impl PagingLevel {
 	/// Returns the mask for valid virtual addresses
 	/// based on the current paging level.
 	#[expect(clippy::inline_always, reason = "simple match")]
+	#[expect(unused, reason = "temporarily unused")]
 	#[inline(always)]
 	#[must_use]
 	pub const fn virtual_address_mask(self) -> u64 {
@@ -143,22 +145,22 @@ impl PagingLevel {
 
 #[cfg(test)]
 mod tests {
-	use super::PagingLevel;
+	use super::*;
 
 	#[test]
 	fn test_cr4_load() {
-		crate::reg::Cr4::load().with_la57(false).store();
+		reg::Cr4::load().with_la57(false).store();
 		assert_eq!(PagingLevel::current_from_cpu(), PagingLevel::Level4);
-		crate::reg::Cr4::load().with_la57(true).store();
+		reg::Cr4::load().with_la57(true).store();
 		assert_eq!(PagingLevel::current_from_cpu(), PagingLevel::Level5);
 
-		crate::reg::Cr4::load().with_la57(false).store();
+		reg::Cr4::load().with_la57(false).store();
 		// SAFETY: This is just testing
 		unsafe {
 			PagingLevel::refresh_globals();
 		}
 		assert_eq!(PagingLevel::current(), PagingLevel::Level4);
-		crate::reg::Cr4::load().with_la57(true).store();
+		reg::Cr4::load().with_la57(true).store();
 		// SAFETY: This is just testing
 		unsafe {
 			PagingLevel::refresh_globals();
@@ -173,13 +175,13 @@ mod tests {
 		ignore = "cannot trigger unreachable in release mode"
 	)]
 	fn test_invalid_paging_level_check() {
-		crate::reg::Cr4::load().with_la57(false).store();
+		reg::Cr4::load().with_la57(false).store();
 		// SAFETY: This is just testing
 		unsafe {
 			PagingLevel::refresh_globals();
 		}
 		assert_eq!(PagingLevel::current(), PagingLevel::Level4);
-		crate::reg::Cr4::load().with_la57(true).store();
+		reg::Cr4::load().with_la57(true).store();
 		// This should trigger a debug assertion failure
 		let _ = PagingLevel::current();
 	}

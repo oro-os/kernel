@@ -2,9 +2,13 @@ ifndef ORO_QEMU_BIN
 ORO_QEMU_BIN="/usr/local/bin"
 endif
 
-FEATURES:=
+CARGO_FLAGS:=
 ifdef ORO_TEST_MMIO
-FEATURES:=--features orok-test/mmio
+CARGO_FLAGS:=--features orok-test/mmio
+endif
+
+ifdef RELEASE
+CARGO_FLAGS:=--release
 endif
 
 CLIPPY_ARGS:=
@@ -12,14 +16,26 @@ ifdef FIX
 CLIPPY_ARGS:=--fix --allow-dirty
 endif
 
+CARGO_UNSTABLE:=\
+	-Zunstable-options \
+	-Zbuild-std=core,compiler_builtins,alloc \
+	-Zbuild-std-features=compiler-builtins-mem
+
 .PHONY: all
 all: build
+
+.PHONY: ci
+ci: test build clippy lint
 
 .PHONY: build
 build: x86_64 aarch64 riscv64
 
 .PHONY: clippy
 clippy: clippy-x86_64 clippy-aarch64 clippy-riscv64 clippy-test
+
+.PHONY: lint
+lint: clippy
+	cargo fmt --all --check
 
 .PHONY: x86_64 aarch64 riscv64
 x86_64: x86_64-limine
@@ -32,10 +48,8 @@ x86_64-limine:
 		--target=./orok-arch-x86_64/x86_64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine-x86_64 \
-		$(FEATURES) \
-		-Zunstable-options \
-			-Zbuild-std=core,compiler_builtins,alloc \
-			-Zbuild-std-features=compiler-builtins-mem
+		$(CARGO_FLAGS) \
+		$(CARGO_UNSTABLE)
 
 .PHONY: aarch64-limine
 aarch64-limine:
@@ -43,10 +57,8 @@ aarch64-limine:
 		--target=./orok-arch-aarch64/aarch64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine-aarch64 \
-		$(FEATURES) \
-		-Zunstable-options \
-			-Zbuild-std=core,compiler_builtins,alloc \
-			-Zbuild-std-features=compiler-builtins-mem
+		$(CARGO_FLAGS) \
+		$(CARGO_UNSTABLE)
 
 .PHONY: riscv64-limine
 riscv64-limine:
@@ -54,10 +66,8 @@ riscv64-limine:
 		--target=./orok-arch-riscv64/riscv64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine-riscv64 \
-		$(FEATURES) \
-		-Zunstable-options \
-			-Zbuild-std=core,compiler_builtins,alloc \
-			-Zbuild-std-features=compiler-builtins-mem
+		$(CARGO_FLAGS) \
+		$(CARGO_UNSTABLE)
 
 .PHONY: iso
 iso: x86_64 aarch64 riscv64 .limine/limine
@@ -161,11 +171,9 @@ clippy-x86_64:
 		--target=./orok-arch-x86_64/x86_64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine-x86_64 \
-		$(FEATURES) \
+		$(CARGO_FLAGS) \
 		$(CLIPPY_ARGS) \
-		-Zunstable-options \
-			-Zbuild-std=core,compiler_builtins,alloc \
-			-Zbuild-std-features=compiler-builtins-mem
+		$(CARGO_UNSTABLE)
 
 .PHONY: clippy-aarch64
 clippy-aarch64:
@@ -173,11 +181,9 @@ clippy-aarch64:
 		--target=./orok-arch-aarch64/aarch64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine-aarch64 \
-		$(FEATURES) \
+		$(CARGO_FLAGS) \
 		$(CLIPPY_ARGS) \
-		-Zunstable-options \
-			-Zbuild-std=core,compiler_builtins,alloc \
-			-Zbuild-std-features=compiler-builtins-mem
+		$(CARGO_UNSTABLE)
 
 .PHONY: clippy-riscv64
 clippy-riscv64:
@@ -185,11 +191,9 @@ clippy-riscv64:
 		--target=./orok-arch-riscv64/riscv64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine-riscv64 \
-		$(FEATURES) \
+		$(CARGO_FLAGS) \
 		$(CLIPPY_ARGS) \
-		-Zunstable-options \
-			-Zbuild-std=core,compiler_builtins,alloc \
-			-Zbuild-std-features=compiler-builtins-mem
+		$(CARGO_UNSTABLE)
 
 .PHONY: clippy-test
 clippy-test:
@@ -197,5 +201,9 @@ clippy-test:
 		-p orok-test \
 		-p orok-test-tui \
 		-p orok-test-harness \
-		$(FEATURES) \
+		$(CARGO_FLAGS) \
 		$(CLIPPY_ARGS)
+	
+.PHONY: test
+test:
+	cargo test --all

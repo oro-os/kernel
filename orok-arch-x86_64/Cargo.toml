@@ -17,3 +17,6 @@ workspace = true
 
 [dependencies]
 orok-arch-base.workspace = true
+orok-type.workspace = true
+orok-test.workspace = true
+orok-macro.workspace = true

@@ -10,6 +10,7 @@ resolver = "2"
 members = [
 	"orok-test-tui",
 	"orok-boot-limine",
+	"orok-arch",
 ]
 default-members = ["orok-test-tui"]
 

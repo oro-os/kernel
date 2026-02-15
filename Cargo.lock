@@ -1426,11 +1426,69 @@ dependencies = [
 ]
 
 [[package]]
+name = "orok-arch"
+version = "0.0.0"
+dependencies = [
+ "orok-arch-aarch64",
+ "orok-arch-base",
+ "orok-arch-riscv64",
+ "orok-arch-x86_64",
+ "orok-macro",
+]
+
+[[package]]
+name = "orok-arch-aarch64"
+version = "0.0.0"
+dependencies = [
+ "orok-arch-base",
+]
+
+[[package]]
+name = "orok-arch-base"
+version = "0.0.0"
+dependencies = [
+ "orok-macro",
+]
+
+[[package]]
+name = "orok-arch-riscv64"
+version = "0.0.0"
+dependencies = [
+ "orok-arch-base",
+]
+
+[[package]]
+name = "orok-arch-x86_64"
+version = "0.0.0"
+dependencies = [
+ "orok-arch-base",
+ "orok-macro",
+ "orok-test",
+ "orok-type",
+]
+
+[[package]]
 name = "orok-boot-limine"
 version = "0.0.0"
 dependencies = [
  "limine",
  "orok-test",
+]
+
+[[package]]
+name = "orok-macro"
+version = "0.0.0"
+dependencies = [
+ "orok-macro-proc",
+]
+
+[[package]]
+name = "orok-macro-proc"
+version = "0.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -1492,6 +1550,10 @@ dependencies = [
  "tui-term",
  "vt100",
 ]
+
+[[package]]
+name = "orok-type"
+version = "0.0.0"
 
 [[package]]
 name = "outref"
