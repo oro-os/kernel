@@ -23,4 +23,5 @@ absolute-paths-allowed-crates = [
 	"std",
 	"alloc",
 	"compiler_builtins",
+	"crate",
 ]

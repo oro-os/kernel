@@ -18,6 +18,23 @@ pub trait Arch {
 	type UnsafePhys: UnsafePhys;
 	/// See [`UnsafeVirt`].
 	type UnsafeVirt: UnsafeVirt;
+
+	/// Initializes the architecture.
+	///
+	/// # Safety
+	/// - Must be called exactly once during the bootloader process.
+	/// - Must additionally be called once during the kernel's early initialization
+	///   (after the bootloader switches execution to the kernel).
+	/// - Must only be called on the bootstrap CPU.
+	/// - Must be called before any other architecture-specific functions.
+	///
+	/// Try to call this as early as possible in the boot process.
+	///
+	/// # Panics
+	/// This function is free to panic if the architecture cannot be initialized
+	/// for any reason. There is no expectation that logging is enabled; this is
+	/// an early failure; Oro simply cannot boot on the given hardware if it does.
+	unsafe fn init();
 }
 
 /// An unsafe physical address type for the architecture.

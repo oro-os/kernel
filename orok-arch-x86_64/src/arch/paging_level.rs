@@ -16,10 +16,6 @@ static CURRENT_PAGING_LEVEL: RelaxedUsize = RelaxedUsize::new(PagingLevel::Level
 /// as determined by the CPU flags.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(usize)]
-#[expect(
-	clippy::exhaustive_enums,
-	reason = "these are the only supported paging levels on x86_64"
-)]
 pub enum PagingLevel {
 	/// 4-level paging.
 	Level4 = 4,

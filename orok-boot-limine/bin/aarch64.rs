@@ -5,6 +5,8 @@
 
 /// Panic handler for the kernel.
 #[inline(never)]
+#[cfg(not(test))]
+#[cold]
 #[panic_handler]
 unsafe fn panic(info: &::core::panic::PanicInfo<'_>) -> ! {
 	// SAFETY: This is the architecture-specific entry function, the
@@ -19,6 +21,7 @@ unsafe fn panic(info: &::core::panic::PanicInfo<'_>) -> ! {
 /// Do **NOT** call this function directly. It is called
 /// by the Limine bootloader.
 #[inline(never)]
+#[cfg(not(test))]
 #[cold]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn _start() -> ! {

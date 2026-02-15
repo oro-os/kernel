@@ -244,7 +244,7 @@ impl BitRange {
 	fn mask(&self) -> u128 {
 		let high = self.high;
 		let low = self.low.unwrap_or(high);
-		((1_u128 << (high + 1)) - 1) & !((1_u128 << low) - 1)
+		((1u128 << (high + 1)) - 1) & !((1u128 << low) - 1)
 	}
 
 	fn span(&self) -> Span {
@@ -444,7 +444,7 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 		);
 
 		let low = def.bit_range.low();
-		let low_mask = (1_u128 << def.bit_range.count()) - 1;
+		let low_mask = (1u128 << def.bit_range.count()) - 1;
 
 		debug_fields.push(quote! {
 			.field(stringify!(#get_name), &self.#get_name())

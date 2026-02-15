@@ -32,5 +32,6 @@ doc  = false
 
 [dependencies]
 orok-test.workspace            = true
+orok-arch.workspace = true
 
 limine.workspace            = true

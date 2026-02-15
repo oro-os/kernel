@@ -1,9 +1,4 @@
 //! Implements the cr4 register on x86_64.
-#![expect(
-	clippy::inline_always,
-	reason = "bitstruct functions should always be inlined"
-)]
-
 use orok_macro::bitstruct;
 
 bitstruct! {

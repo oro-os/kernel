@@ -1472,6 +1472,7 @@ name = "orok-boot-limine"
 version = "0.0.0"
 dependencies = [
  "limine",
+ "orok-arch",
  "orok-test",
 ]
 

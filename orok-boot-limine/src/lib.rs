@@ -38,16 +38,6 @@ static REQ_STKSZ: StackSizeRequest = StackSizeRequest::with_revision(0).with_siz
 #[used]
 static REQ_HHDM: HhdmRequest = HhdmRequest::with_revision(0);
 
-#[orok_test::effect(write_reg = cr0)]
-#[inline(never)]
-fn sets_cr0() {
-	// We don't set CR0 here, just to test if the effects system works.
-	// If we _did_, QEMU would pick it up and would emit that event,
-	// which would cause the constraint check to succeed. I want it to
-	// fail for now, just to test.
-	::core::hint::black_box(());
-}
-
 /// Runs the Limine bootloader.
 ///
 /// # Safety
@@ -62,16 +52,21 @@ fn sets_cr0() {
 	reason = "kernel has no choice but to panic in this function"
 )]
 pub unsafe fn init() -> ! {
+	// SAFETY: This is the only place we initialize the architecture until
+	// SAFETY: the kernel is running.
+	unsafe {
+		orok_arch::init_arch();
+	}
+
 	let offs = REQ_HHDM.get_response().unwrap().offset();
 
 	// SAFETY: We've ensured this is valid before any MMIO writes occur.
 	unsafe {
 		orok_test::set_vmm_base(offs);
 	}
-	// Must be first.
-	orok_test::oro_has_started_execution!();
 
-	sets_cr0();
+	// Must be first test effect that is emitted.
+	orok_test::oro_has_started_execution!();
 
 	panic!();
 }

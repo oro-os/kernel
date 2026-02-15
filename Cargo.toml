@@ -131,6 +131,8 @@ inline_asm_x86_att_syntax = "deny"
 question_mark_used = "allow"
 missing_trait_methods = "allow"
 multiple_inherent_impl = "allow"
+single_call_fn = "allow"
+cfg_not_test = "allow"
 # While useful and technically correct, highly annoying to the point of being unhelpful.
 pattern_type_mismatch = "allow"
 # Shadowing could technically present bugs, but in practice is often used for convenience
