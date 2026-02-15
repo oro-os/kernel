@@ -114,32 +114,28 @@ bitstruct! {
 
 #[cfg(test)]
 mod fake {
-	use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
+	use orok_type::RelaxedU64;
 
-	use super::Cr4;
+	use super::*;
 
-	static FAKE_CR4: AtomicU64 = AtomicU64::new(0);
+	static FAKE: RelaxedU64 = RelaxedU64::new(0);
 
 	impl Cr4 {
 		/// Loads the CR4 register.
 		#[inline(always)]
 		#[must_use]
 		pub fn load() -> Self {
-			Self(FAKE_CR4.load(Relaxed))
+			Self(FAKE.load())
 		}
 
 		/// Stores the CR4 register.
 		#[inline(always)]
 		pub fn store(self) {
-			FAKE_CR4.store(self.0, Relaxed);
+			FAKE.store(self.0);
 		}
 	}
 }
 
-#[expect(
-	clippy::cfg_not_test,
-	reason = "real implementation guarantees crash in test builds"
-)]
 #[cfg(not(test))]
 impl Cr4 {
 	/// Loads the CR4 register.
@@ -150,7 +146,7 @@ impl Cr4 {
 		let cr4: u64;
 		// SAFETY: This is safe as it only reads the CR4 register.
 		unsafe {
-			core::arch::asm!("mov {}, cr4", out(reg) cr4, options(nostack, nomem, preserves_flags));
+			core::arch::asm!("mov {}, cr4", out(reg) cr4, options(pure, nostack, preserves_flags, readonly));
 		}
 		Self(cr4)
 	}

@@ -14,5 +14,8 @@ pub const EFFECT_END: u64 = 0x2;
 /// emitted by any Oro kernel code.
 pub const IN_KERNEL: u64 = 0x3;
 
-/// (x86_64) The effect block will write to the CR0 control register.
+/// (x86_64) The effect block will write to the `CR0` control register.
 pub const X8664_EFFECT_WRITE_REG_CR0: u64 = 0x100;
+
+/// (AArch64) The effect block will write to the `TCR_EL1` control register.
+pub const AARCH_EFFECT_WRITE_REG_TCR_EL1: u64 = 0x200;

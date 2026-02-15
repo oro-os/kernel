@@ -171,6 +171,14 @@ host_endian_bytes = "allow"
 panic = "abort" # Use "abort" panic strategy
 debug = "full" # Full debugging symbols
 
+[profile.devopt]
+inherits      = "dev"
+opt-level     = 3 # Maximum optimizations
+lto           = "fat" # Perform LTO across all crates
+codegen-units = 1 # Reduce number of codegen units to increase optimizations.
+incremental   = false # Disable incremental building
+panic         = "abort" # Use "abort" panic strategy
+
 [profile.release]
 opt-level     = 3 # Maximum optimizations
 lto           = "fat" # Perform LTO across all crates

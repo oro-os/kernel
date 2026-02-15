@@ -845,6 +845,7 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 						/// Non-exhaustive; returns `None` if the underlying bit value is
 						#[doc = ::core::concat!("a reserved or invalid variant (not defined in [`", ::core::stringify!(#enum_name) , "`]).")]
 						#vis fn #get_name(self) -> Option<#enum_name> {
+							#[allow(clippy::manual_range_patterns, reason = "difficult to derive a range here via proc macros")]
 							match ((self.0 >> #low) & (#low_mask as #primitive_type)) as #repr_type {
 								// SAFETY: The discriminant is guaranteed to be within the enum's range (we generated it).
 								#valid_enum_values_piped => unsafe {

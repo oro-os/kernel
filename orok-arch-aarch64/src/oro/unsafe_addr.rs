@@ -1,8 +1,9 @@
-//! Implements unsafe address types (virtual and physical) for x86_64.
+//! Implements unsafe address types for AArch64.
+//!
+//! These are used for physical and virtual addresses that may
+//! not be valid, and thus cannot be safely dereferenced.
 
 use orok_arch_base::{CheckUnsafePhys, CheckUnsafeVirt};
-
-use crate::arch::PagingLevel;
 
 /// An unsafe physical address type for the architecture.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -43,25 +44,13 @@ impl From<UnsafeVirt> for u64 {
 
 /// Error type for validating physical addresses.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum PhysError {
-	/// One or more of the upper 12 bits are set.
-	Upper12BitsSet,
-}
+pub enum PhysError {}
 
 impl CheckUnsafePhys for UnsafePhys {
 	type Error = PhysError;
 
-	#[inline]
 	fn check_phys(self) -> Result<(), Self::Error> {
-		/// The physical address mask for x86_64.
-		const PHYS_ADDR_MASK: u64 = (1 << 52) - 1;
-
-		// Only the lower 52 bits are valid.
-		if self.0 & !PHYS_ADDR_MASK != 0 {
-			return Err(PhysError::Upper12BitsSet);
-		}
-
-		Ok(())
+		todo!("validate physical address");
 	}
 }
 
@@ -77,21 +66,6 @@ impl CheckUnsafeVirt for UnsafeVirt {
 	type Error = VirtError;
 
 	fn check_virt(self) -> Result<(), Self::Error> {
-		let paging_level = PagingLevel::current_from_cpu();
-		let upper_mask = !paging_level.virtual_address_mask();
-		let high_bit = (self.0 & (1 << (paging_level.virtual_address_bits() - 1))) != 0;
-
-		let is_canonical = if high_bit {
-			(self.0 & upper_mask) == upper_mask
-		} else {
-			(self.0 & upper_mask) == 0
-		};
-
-		if !is_canonical {
-			return Err(VirtError::NonCanonicalAddress);
-		}
-
-		// Get the alignment of the address.
-		Ok(())
+		todo!("validate virtual address");
 	}
 }

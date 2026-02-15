@@ -4,16 +4,26 @@ endif
 
 CARGO_FLAGS:=
 ifdef ORO_TEST_MMIO
-CARGO_FLAGS:=--features orok-test/mmio
+CARGO_FLAGS+=--features orok-test/mmio
+endif
+
+ifdef PROFILE
+CARGO_FLAGS+=--profile $(PROFILE)
 endif
 
 ifdef RELEASE
-CARGO_FLAGS:=--release
+CARGO_FLAGS+=--release
 endif
 
 CLIPPY_ARGS:=
 ifdef FIX
-CLIPPY_ARGS:=--fix --allow-dirty
+CLIPPY_ARGS+=--fix --allow-dirty
+endif
+
+ifdef CLIPPY_JSON
+CLIPPY_ARGS+=--message-format=json \
+	--error-format=json \
+	--json=diagnostic-rendered-ansi
 endif
 
 CARGO_UNSTABLE:=\
@@ -44,7 +54,7 @@ riscv64: riscv64-limine
 
 .PHONY: x86_64-limine
 x86_64-limine:
-	cargo build \
+	@cargo build \
 		--target=./orok-arch-x86_64/x86_64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine-x86_64 \
@@ -53,7 +63,7 @@ x86_64-limine:
 
 .PHONY: aarch64-limine
 aarch64-limine:
-	cargo build \
+	@cargo build \
 		--target=./orok-arch-aarch64/aarch64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine-aarch64 \
@@ -62,7 +72,7 @@ aarch64-limine:
 
 .PHONY: riscv64-limine
 riscv64-limine:
-	cargo build \
+	@cargo build \
 		--target=./orok-arch-riscv64/riscv64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine-riscv64 \
@@ -167,7 +177,7 @@ target/RISCV_VIRT_VARS.fd:
 
 .PHONY: clippy-x86_64
 clippy-x86_64:
-	cargo clippy \
+	@cargo clippy \
 		--target=./orok-arch-x86_64/x86_64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine-x86_64 \
@@ -177,7 +187,7 @@ clippy-x86_64:
 
 .PHONY: clippy-aarch64
 clippy-aarch64:
-	cargo clippy \
+	@cargo clippy \
 		--target=./orok-arch-aarch64/aarch64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine-aarch64 \
@@ -187,7 +197,7 @@ clippy-aarch64:
 
 .PHONY: clippy-riscv64
 clippy-riscv64:
-	cargo clippy \
+	@cargo clippy \
 		--target=./orok-arch-riscv64/riscv64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine-riscv64 \
@@ -197,7 +207,7 @@ clippy-riscv64:
 
 .PHONY: clippy-test
 clippy-test:
-	cargo clippy \
+	@cargo clippy \
 		-p orok-test \
 		-p orok-test-tui \
 		-p orok-test-harness \

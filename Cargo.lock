@@ -1441,6 +1441,9 @@ name = "orok-arch-aarch64"
 version = "0.0.0"
 dependencies = [
  "orok-arch-base",
+ "orok-macro",
+ "orok-test",
+ "orok-type",
 ]
 
 [[package]]

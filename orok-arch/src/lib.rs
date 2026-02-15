@@ -78,15 +78,3 @@ impl Virt {
 		Ok(Self(value))
 	}
 }
-
-/// Initializes the architecture.
-///
-/// # Safety
-/// See [`base::Arch::init()`] for safety information.
-#[inline]
-pub unsafe fn init_arch() {
-	// SAFETY: Safety considerations offloaded to caller.
-	unsafe {
-		Arch::init();
-	}
-}

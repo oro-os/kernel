@@ -8,4 +8,7 @@
 
 mod relaxed;
 
-pub use relaxed::{RelaxedBool, RelaxedU16, RelaxedU32, RelaxedU64, RelaxedUsize};
+pub use relaxed::{
+	RelaxedBool, RelaxedI8, RelaxedI16, RelaxedI32, RelaxedI64, RelaxedIsize, RelaxedU8,
+	RelaxedU16, RelaxedU32, RelaxedU64, RelaxedUsize,
+};

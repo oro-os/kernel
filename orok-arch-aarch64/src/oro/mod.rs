@@ -1,10 +1,14 @@
 //! Oro-specific AArch64 architecture facilities and types, built on top of the
 //! architecture-agnostic traits and types defined in `orok-arch-base`.
 
+mod page_size;
+mod unsafe_addr;
+
 /// Implements the AArch64 architecture.
 pub struct Arch;
 
 impl orok_arch_base::Arch for Arch {
-	type RawPhysicalAddress = u64;
-	type RawVirtualAddress = u64;
+	type PageSize = page_size::PageSize;
+	type UnsafePhys = unsafe_addr::UnsafePhys;
+	type UnsafeVirt = unsafe_addr::UnsafeVirt;
 }

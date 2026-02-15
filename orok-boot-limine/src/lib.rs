@@ -52,12 +52,6 @@ static REQ_HHDM: HhdmRequest = HhdmRequest::with_revision(0);
 	reason = "kernel has no choice but to panic in this function"
 )]
 pub unsafe fn init() -> ! {
-	// SAFETY: This is the only place we initialize the architecture until
-	// SAFETY: the kernel is running.
-	unsafe {
-		orok_arch::init_arch();
-	}
-
 	let offs = REQ_HHDM.get_response().unwrap().offset();
 
 	// SAFETY: We've ensured this is valid before any MMIO writes occur.
