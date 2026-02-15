@@ -366,7 +366,7 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 
 	let mut enum_defs = vec![];
 
-	for def in body {
+	for mut def in body {
 		let vis = &def.vis;
 
 		if def.bit_range.high() < def.bit_range.low() {
@@ -431,7 +431,7 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 
 		hit_bits |= field_mask;
 
-		let attrs = &def.attributes;
+		let mut attrs = &mut def.attributes;
 
 		let get_name = Ident::new(&format!("{}", def.field_name), def.field_name.span().into());
 		let set_name = Ident::new(
@@ -449,6 +449,9 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 		debug_fields.push(quote! {
 			.field(stringify!(#get_name), &self.#get_name())
 		});
+
+		let mut useless_non_exhaustive = UselessNonExhaustive::NotAnEnum;
+		let non_exhaustive_attr = attrs.extract_non_exhaustive();
 
 		match &def.field_body {
 			FieldBody::Const(lit) => {
@@ -696,6 +699,8 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 				}
 			}
 			FieldBody::Enum(enum_field) => {
+				useless_non_exhaustive = UselessNonExhaustive::Needed;
+
 				match enum_field.repr_type.get_unsigned_bit_width() {
 					None => {
 						enum_field
@@ -721,6 +726,8 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 						}
 					}
 				}
+
+				let mut valid_enum_values_piped = Punctuated::<&LitInt, Token![|]>::new();
 
 				#[expect(
 					clippy::needless_continue,
@@ -751,6 +758,8 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 						continue;
 					};
 
+					valid_enum_values_piped.push(discrim_val);
+
 					let Ok(discrim_val) = discrim_val.base10_parse::<u128>() else {
 						variant
 							.ident
@@ -780,7 +789,7 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 						continue;
 					}
 
-					if matches!(variant.fields, Fields::Unit) {
+					if !matches!(variant.fields, Fields::Unit) {
 						variant
 							.ident
 							.span()
@@ -805,23 +814,46 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 				// duplicate discriminants in an enum.
 				let is_exhaustive = enum_field.variants.len() == (1 << def.bit_range.count());
 
-				// TODO(qix-): We're currently transmuting in the getter which is actually unsafe
-				// TODO(qix-): unless the enum is exhaustive. For now, we forbid non-exhaustive enums
-				// TODO(qix-): until a patch can be made against the `get_name` method.
-				if !is_exhaustive {
+				if !is_exhaustive && non_exhaustive_attr.is_none() {
 					enum_field
 						.name
 						.span()
 						.unwrap()
-						.error("bitstruct enums must be exhaustive")
+						.error(
+							"non-exhaustive bitstruct enums must be marked with #[non_exhaustive]",
+						)
+						.help("add #[non_exhaustive], or add missing variants")
 						.emit();
 					continue;
 				}
 
-				let non_exhaustive_attr = if is_exhaustive {
-					None
+				// Whether or not there is a `#[non_exhaustive]` attribute on the item.
+				let getter = if is_exhaustive {
+					useless_non_exhaustive = UselessNonExhaustive::Useless;
+					quote! {
+						#[doc = #get_message]
+						#vis const fn #get_name(self) -> #enum_name {
+							// SAFETY: The discriminant is guaranteed to be within the enum's range (we generated it).
+							unsafe { ::core::mem::transmute(((self.0 >> #low) & (#low_mask as #primitive_type)) as #repr_type) }
+						}
+					}
 				} else {
-					Some(quote!(#[non_exhaustive]))
+					quote! {
+						#[doc = #get_message]
+						///
+						/// # Non-Exhaustive
+						/// Non-exhaustive; returns `None` if the underlying bit value is
+						#[doc = ::core::concat!("a reserved or invalid variant (not defined in [`", ::core::stringify!(#enum_name) , "`]).")]
+						#vis fn #get_name(self) -> Option<#enum_name> {
+							match ((self.0 >> #low) & (#low_mask as #primitive_type)) as #repr_type {
+								// SAFETY: The discriminant is guaranteed to be within the enum's range (we generated it).
+								#valid_enum_values_piped => unsafe {
+									Some(::core::mem::transmute(((self.0 >> #low) & (#low_mask as #primitive_type)) as #repr_type))
+								},
+								_ => None,
+							}
+						}
+					}
 				};
 
 				enum_defs.push(quote! {
@@ -835,11 +867,7 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 				});
 
 				members.push(quote! {
-					#[doc = #get_message]
-					#vis const fn #get_name(self) -> #enum_name {
-						// SAFETY: The discriminant is guaranteed to be within the enum's range (we generated it).
-						unsafe { ::core::mem::transmute(((self.0 >> #low) & (#low_mask as #primitive_type)) as #repr_type) }
-					}
+					#getter
 
 					#[doc = #set_message]
 					#vis fn #set_name(&mut self, val: #enum_name) -> &mut Self {
@@ -854,6 +882,32 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 						Self((self.0 & !((#low_mask as #primitive_type) << #low)) | ((val & (#low_mask as #primitive_type)) << #low))
 					}
 				});
+			}
+		}
+
+		if let Some(non_exhaustive_attr) = non_exhaustive_attr {
+			match useless_non_exhaustive {
+				UselessNonExhaustive::NotAnEnum => {
+					non_exhaustive_attr
+						.span()
+						.unwrap()
+						.error("#[non_exhaustive] on a non-enum bitstruct field")
+						.help("remove the #[non_exhaustive]")
+						.emit();
+				}
+				UselessNonExhaustive::Useless => {
+					non_exhaustive_attr
+						.span()
+						.unwrap()
+						.warning(
+							"#[non_exhaustive] is useless here; the enum is already exhaustive",
+						)
+						.help("remove the #[non_exhaustive]")
+						.emit();
+				}
+				UselessNonExhaustive::Needed => {
+					// Do nothing.
+				}
 			}
 		}
 	}
@@ -939,5 +993,34 @@ impl Eq for LineCmpSpan {}
 impl Hash for LineCmpSpan {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.0.start().line().hash(state);
+	}
+}
+
+enum UselessNonExhaustive {
+	NotAnEnum,
+	Useless,
+	Needed,
+}
+
+trait AttrsExt {
+	fn get_mut(&mut self) -> &mut Vec<Attribute>;
+
+	fn extract_non_exhaustive(&mut self) -> Option<Attribute> {
+		let mut found = None;
+		self.get_mut().retain(|attr: &Attribute| {
+			if attr.path().is_ident("non_exhaustive") {
+				found = Some(attr.clone());
+				false
+			} else {
+				true
+			}
+		});
+		found
+	}
+}
+
+impl AttrsExt for &mut Vec<Attribute> {
+	fn get_mut(&mut self) -> &mut Vec<Attribute> {
+		self
 	}
 }
