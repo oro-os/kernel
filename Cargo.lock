@@ -1496,6 +1496,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "orok-macro-tests"
+version = "0.0.0"
+dependencies = [
+ "orok-macro",
+]
+
+[[package]]
 name = "orok-test"
 version = "0.0.0"
 dependencies = [

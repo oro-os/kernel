@@ -11,6 +11,7 @@ members = [
 	"orok-test-tui",
 	"orok-boot-limine",
 	"orok-arch",
+	"orok-macro-tests",
 ]
 default-members = ["orok-test-tui"]
 

@@ -1,7 +1,7 @@
 //! Provides the `bitstruct!{}` proc macro.
 
 use core::{
-	array, fmt,
+	array,
 	hash::{Hash, Hasher},
 };
 use std::collections::HashSet;
@@ -63,7 +63,7 @@ fn parse_optionally_separated<P: Parse, S: Parse>(input: ParseStream<'_>) -> Res
 struct BitstructDef {
 	attributes:   Vec<Attribute>,
 	vis:          Visibility,
-	field_name:   FieldName,
+	field_name:   Option<Ident>,
 	_brackets:    Bracket,
 	bit_range:    BitRange,
 	_thick_arrow: Token![=>],
@@ -189,48 +189,39 @@ impl Parse for EnumField {
 	}
 }
 
-enum FieldName {
-	/// `_`
-	#[expect(
-		clippy::doc_paragraphs_missing_punctuation,
-		reason = "single underscore field name"
-	)]
-	Ignored(Span),
-	/// A custom field name.
-	Ident(Ident),
+trait IdentExt {
+	fn is_ignored(&self) -> bool;
+	fn make_new_ident(&self, prefix: &str) -> Ident;
 }
 
-impl FieldName {
-	fn span(&self) -> Span {
-		match self {
-			Self::Ignored(span) => *span,
-			Self::Ident(ident) => ident.span().unwrap(),
-		}
-	}
-
+impl IdentExt for Ident {
 	fn is_ignored(&self) -> bool {
-		match self {
-			Self::Ignored(_) => true,
-			Self::Ident(i) => i.to_string().starts_with('_'),
-		}
+		self.to_string().starts_with('_')
+	}
+
+	fn make_new_ident(&self, prefix: &str) -> Ident {
+		Self::new(&format!("{prefix}{self}"), self.span())
 	}
 }
 
-impl fmt::Display for FieldName {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::Ignored(_) => "_".fmt(f),
-			Self::Ident(ident) => ident.fmt(f),
-		}
+impl IdentExt for Option<Ident> {
+	fn is_ignored(&self) -> bool {
+		self.as_ref().is_none_or(|ident| ident.is_ignored())
 	}
-}
 
-impl Parse for FieldName {
-	fn parse(input: ParseStream<'_>) -> Result<Self> {
-		input
-			.parse::<Token![_]>()
-			.map(|tk| Self::Ignored(tk.span().unwrap()))
-			.or_else(|_| input.parse().map(Self::Ident))
+	#[expect(clippy::option_if_let_else, reason = "code cleanliness")]
+	fn make_new_ident(&self, prefix: &str) -> Ident {
+		match self {
+			Some(ident) => ident.make_new_ident(prefix),
+			// Invalid ident. A bit of a hack given how the below workds;
+			// this should never actually get used in codegen.
+			None => {
+				Ident::new(
+					"__ANONYMOUS_FIELD_THERE_IS_A_BUG_IN_BITSTRUCT__",
+					Span::call_site().into(),
+				)
+			}
+		}
 	}
 }
 
@@ -355,7 +346,7 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 	}
 
 	let mut hit_bits: u128 = 0;
-	let mut bit_fields: [Option<(String, Span)>; 128] = array::from_fn(|_| None);
+	let mut bit_fields: [Option<Span>; 128] = array::from_fn(|_| None);
 	let mut debug_fields = vec![];
 
 	let mut const_bits_mask: u128 = 0;
@@ -372,10 +363,7 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 		if def.bit_range.high() < def.bit_range.low() {
 			def.bit_range
 				.span()
-				.error(format!(
-					"field '{}' high bit cannot be lower than low bit",
-					def.field_name
-				))
+				.error("field high bit cannot be lower than low bit")
 				.emit();
 			continue;
 		}
@@ -384,9 +372,8 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 			def.bit_range
 				.span()
 				.error(format!(
-					"field '{}' high bit cannot be greater than or equal to the repr type bit \
-					 width ({})",
-					def.field_name,
+					"field high bit cannot be greater than or equal to the repr type bit width \
+					 ({})",
 					primitive_type.get_unsigned_bit_width().unwrap()
 				))
 				.emit();
@@ -404,27 +391,25 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 			mask_bits &= !(1 << bit);
 
 			if (conflicting_bits & (1 << bit)) != 0 {
-				let (name, span) = bit_fields[usize::try_from(bit).unwrap()].as_ref().unwrap();
+				let span = bit_fields[usize::try_from(bit).unwrap()].as_ref().unwrap();
 				let line_span = LineCmpSpan(*span);
-				conflicts.insert((name.clone(), line_span));
+				conflicts.insert(line_span);
 			}
 
-			bit_fields[usize::try_from(bit).unwrap()] =
-				Some((def.field_name.to_string(), def.bit_range.span()));
+			bit_fields[usize::try_from(bit).unwrap()] = Some(def.bit_range.span());
 		}
 
 		if !conflicts.is_empty() {
-			let mut diag = def.bit_range.high.span().unwrap().warning(format!(
-				"bit field '{}' overlaps with existing fields",
-				def.field_name
-			));
+			let mut diag = def
+				.bit_range
+				.high
+				.span()
+				.unwrap()
+				.warning("bit field overlaps with existing fields");
 
 			#[expect(clippy::iter_over_hash_type, reason = "order doesn't matter here")]
-			for (name, line_span) in conflicts {
-				diag = diag.span_note(
-					line_span.0,
-					format!("overlaps with field `{name}` defined here"),
-				);
+			for line_span in conflicts {
+				diag = diag.span_note(line_span.0, "overlaps with field defined here");
 			}
 			diag.emit();
 		}
@@ -433,22 +418,18 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 
 		let mut attrs = &mut def.attributes;
 
-		let get_name = Ident::new(&format!("{}", def.field_name), def.field_name.span().into());
-		let set_name = Ident::new(
-			&format!("set_{}", def.field_name),
-			def.field_name.span().into(),
-		);
-		let with_name = Ident::new(
-			&format!("with_{}", def.field_name),
-			def.field_name.span().into(),
-		);
+		let get_name = def.field_name.make_new_ident("");
+		let set_name = def.field_name.make_new_ident("set_");
+		let with_name = def.field_name.make_new_ident("with_");
 
 		let low = def.bit_range.low();
 		let low_mask = (1u128 << def.bit_range.count()) - 1;
 
-		debug_fields.push(quote! {
-			.field(stringify!(#get_name), &self.#get_name())
-		});
+		if !def.field_name.is_ignored() {
+			debug_fields.push(quote! {
+				.field(stringify!(#get_name), &self.#get_name())
+			});
+		}
 
 		let mut useless_non_exhaustive = UselessNonExhaustive::NotAnEnum;
 		let non_exhaustive_attr = attrs.extract_non_exhaustive();
@@ -473,15 +454,13 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 					lit.span()
 						.unwrap()
 						.error(format!(
-							"bit field '{}' constant value {:b} is too large for {} bits",
-							def.field_name, lit_val, max_bits
+							"bit field constant value {lit_val:b} is too large for {max_bits} bits",
 						))
 						.help(format!(
 							"bit ranges are inclusive; high bit {} - low bit {} + 1 = {max_bits} \
-							 bits; given constant is {} bits",
+							 bits; given constant is {bit_count} bits",
 							def.bit_range.high(),
 							def.bit_range.low(),
-							bit_count
 						))
 						.emit();
 
@@ -503,6 +482,7 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 					let mut diag = def
 						.field_name
 						.span()
+						.unwrap()
 						.warning("bit field has unused attributes");
 
 					let mut has_doc = false;
@@ -542,6 +522,7 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 				if def.field_name.is_ignored() {
 					def.field_name
 						.span()
+						.unwrap()
 						.warning("bit field is ignored; type is not used")
 						.help("remove the '_' prefix, or remove the field entirely")
 						.emit();
@@ -717,10 +698,7 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 								.repr_type
 								.span()
 								.unwrap()
-								.error(format!(
-									"enum repr type is too small for bit field '{}'",
-									def.field_name
-								))
+								.error("enum repr type is too small for bit field")
 								.emit();
 							continue;
 						}
@@ -775,11 +753,7 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 							.ident
 							.span()
 							.unwrap()
-							.error(format!(
-								"bitstruct enum variant discriminant is too large for bit field \
-								 '{}'",
-								def.field_name
-							))
+							.error("bitstruct enum variant discriminant is too large for bit field")
 							.note(format!(
 								"bit field is {} bits wide; given discriminant is {} bits wide",
 								def.bit_range.count(),
