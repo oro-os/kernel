@@ -1,20 +1,45 @@
+//! State tracking for the test harness.
+//!
+//! This module defines the [`State`] struct, which is used to track
+//! the state of the event stream and to perform checks against it.
+//!
+//! It also defines the [`Event`] enum, which is used to represent
+//! events that occur during state updates (e.g. constraint violations,
+//! unexpected packets, etc.).
+//!
+//! The state is updated by the event stream handler in response to
+//! incoming packets, and events are emitted via an [`EventHandler`]
+//! when certain conditions are met (e.g. a constraint check fails).
 use core::sync::atomic::{AtomicBool, AtomicU8, AtomicU16, AtomicU32, AtomicU64};
 
 use crate::{
 	Packet,
-	atomic::{RelaxedAtomic, RelaxedNumericAtomic},
+	atomic::{RelaxedAtomic as _, RelaxedNumericAtomic as _},
 };
 
-const QEMU_INIT: u64 = 0x0000_FFFF_FFFF_FFFF;
-const QEMU_ORO_KDBEVT_X86_EXCEPTION: u64 = 0x1000;
-const QEMU_ORO_KDBEVT_X86_REG_DUMP0: u64 = 0x1001;
-const QEMU_ORO_KDBEVT_X86_REG_DUMP1: u64 = 0x1002;
-const QEMU_ORO_KDBEVT_X86_REG_DUMP2: u64 = 0x1003;
-const QEMU_ORO_KDBEVT_X86_REG_DUMP3: u64 = 0x1004;
-const QEMU_ORO_KDBEVT_X86_REG_DUMP4: u64 = 0x1005;
-const QEMU_ORO_KDBEVT_X86_CR0_UPDATE: u64 = 0x1006;
-const QEMU_ORO_KDBEVT_X86_CR3_UPDATE: u64 = 0x1007;
-const QEMU_ORO_KDBEVT_X86_CR4_UPDATE: u64 = 0x1008;
+#[expect(
+	clippy::missing_docs_in_private_items,
+	reason = "identifiers are self-descriptive, meanings are to be found in the modified QEMU \
+	          sources"
+)]
+mod consts {
+	pub const QEMU_INIT: u64 = 0x0000_FFFF_FFFF_FFFF;
+	pub const QEMU_ORO_KDBEVT_X86_EXCEPTION: u64 = 0x1000;
+	pub const QEMU_ORO_KDBEVT_X86_REG_DUMP0: u64 = 0x1001;
+	pub const QEMU_ORO_KDBEVT_X86_REG_DUMP1: u64 = 0x1002;
+	pub const QEMU_ORO_KDBEVT_X86_REG_DUMP2: u64 = 0x1003;
+	pub const QEMU_ORO_KDBEVT_X86_REG_DUMP3: u64 = 0x1004;
+	pub const QEMU_ORO_KDBEVT_X86_REG_DUMP4: u64 = 0x1005;
+	pub const QEMU_ORO_KDBEVT_X86_CR0_UPDATE: u64 = 0x1006;
+	pub const QEMU_ORO_KDBEVT_X86_CR3_UPDATE: u64 = 0x1007;
+	pub const QEMU_ORO_KDBEVT_X86_CR4_UPDATE: u64 = 0x1008;
+}
+
+#[expect(
+	clippy::wildcard_imports,
+	reason = "consts are only used in this module, and it's more readable to import them all"
+)]
+use consts::*;
 
 /// Tracked state of an event stream.
 ///
@@ -51,7 +76,7 @@ pub struct State {
 	/// writes that are reported by QEMU prior to the effects system
 	/// coming online).
 	pub in_kernel: AtomicBool,
-	/// Whether or not the environment reports register writes (e.g. QEMU)
+	/// Whether or not the environment reports register writes (e.g. QEMU).
 	pub reports_register_writes: AtomicBool,
 	/// The last core that was seen from a packet. Set to `255` to indicate a "global",
 	/// core-less event. Upon handling events, the core that emitted the packet came
@@ -64,21 +89,25 @@ pub struct State {
 
 impl State {
 	/// Creates a new `State` for the given architecture.
+	#[must_use = "State is meant to be initialized and then used; creating it without using it \
+	              makes no sense"]
 	pub fn for_arch<A: Default + Into<Arch>>() -> Self {
 		Self {
-			reports_register_writes: Default::default(),
+			reports_register_writes: AtomicBool::default(),
 			initialized: AtomicBool::new(false),
-			packet_count: Default::default(),
-			event_count: Default::default(),
-			skipped_constraints: Default::default(),
-			in_kernel: Default::default(),
-			last_debug_loc_offset: Default::default(),
+			packet_count: AtomicU64::default(),
+			event_count: AtomicU64::default(),
+			skipped_constraints: AtomicU64::default(),
+			in_kernel: AtomicBool::default(),
+			last_debug_loc_offset: AtomicU64::default(),
 			last_core: AtomicU8::new(255),
 			arch: A::default().into(),
 		}
 	}
 
 	/// Creates a new `State` for the given [`ArchType`].
+	#[must_use = "State is meant to be initialized and then used; creating it without using it \
+	              makes no sense"]
 	pub fn for_arch_type(ty: ArchType) -> Self {
 		match ty {
 			ArchType::X8664 => Self::for_arch::<X8664State>(),
@@ -97,6 +126,7 @@ impl State {
 	/// There may be a future where certain baremetal test environments
 	/// will be able to receive certain CPU state reports, but as of
 	/// writing (14 Feb, 2026) that is not the case.
+	#[must_use = "this is not a &mut self; it returns a new State with the updated configuration"]
 	pub fn will_receive_cpu_state(self) -> Self {
 		self.reports_register_writes.set(true);
 		self
@@ -108,10 +138,6 @@ impl State {
 /// The creator of a [`State`] (i.e. the consumer of this library)
 /// must know which architecture is being executed beforehand.
 #[derive(Debug)]
-#[expect(
-	variant_size_differences,
-	reason = "State is big, variants are big. These are allocated on the heap via Arc."
-)]
 pub enum Arch {
 	X8664(X8664State),
 	Aarch64(Aarch64State),
@@ -127,7 +153,7 @@ pub enum ArchType {
 }
 
 impl core::fmt::Display for ArchType {
-	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		match self {
 			Self::X8664 => "x86_64".fmt(f),
 			Self::Aarch64 => "AArch64".fmt(f),
@@ -137,8 +163,8 @@ impl core::fmt::Display for ArchType {
 }
 
 impl Arch {
-	/// Returns the [`ArchType`] for this architecture
-	pub fn ty(&self) -> ArchType {
+	/// Returns the [`ArchType`] for this architecture.
+	pub const fn ty(&self) -> ArchType {
 		match self {
 			Self::X8664(_) => ArchType::X8664,
 			Self::Aarch64(_) => ArchType::Aarch64,
@@ -150,25 +176,26 @@ impl Arch {
 /// x86_64 state.
 #[derive(Default, Debug)]
 pub struct X8664State {
-	/// Per-core state
+	/// Per-core state.
 	pub core: X8664MultiCoreState,
 }
 
-/// All core states for x86_64
+/// All core states for x86_64.
 ///
-/// Wrapped due to needing special default initialization logic
+/// Wrapped due to needing special default initialization logic.
 #[derive(Debug)]
-pub struct X8664MultiCoreState(pub [X8664CoreState; 255]);
+pub struct X8664MultiCoreState(pub Box<[X8664CoreState; 255]>);
 
 impl Default for X8664MultiCoreState {
 	fn default() -> Self {
-		let mut arr = [const { core::mem::MaybeUninit::<X8664CoreState>::uninit() }; 255];
-		for elem in &mut arr {
-			elem.write(X8664CoreState::default());
-		}
+		let vecstate = core::iter::repeat_with(X8664CoreState::default)
+			.take(255)
+			.collect::<Vec<_>>();
 
-		// SAFETY: We can assert all the data is now valid.
-		unsafe { Self(core::mem::transmute::<_, [X8664CoreState; 255]>(arr)) }
+		#[expect(clippy::unwrap_used, reason = "we can guarantee it will never fail")]
+		let boxed_array: Box<[X8664CoreState; 255]> = vecstate.into_boxed_slice().try_into().unwrap();
+
+		Self(boxed_array)
 	}
 }
 
@@ -180,7 +207,7 @@ impl core::ops::Deref for X8664MultiCoreState {
 	}
 }
 
-/// x86_64 per-core state
+/// x86_64 per-core state.
 #[derive(Debug, Default)]
 pub struct X8664CoreState {
 	pub rax:        AtomicU64,
@@ -272,18 +299,18 @@ impl From<Aarch64State> for Arch {
 /// RISC-V64 state.
 #[derive(Default, Debug)]
 pub struct Riscv64State {
-	/// Exception cause
+	/// Exception cause.
 	pub e_cause: AtomicU64,
-	/// Trap value; typically faulting address or illegal value
+	/// Trap value; typically faulting address or illegal value.
 	pub tval: AtomicU64,
 	pub pc: AtomicU64,
 	pub mstatus: AtomicU64,
-	/// M=3, S=1, U=0 - Virtual level not implemented
+	/// M=3, S=1, U=0 - Virtual level not implemented.
 	pub privilege_level: AtomicU8,
-	/// Whether or not virtualization is active
+	/// Whether or not virtualization is active.
 	pub virtualization_active: AtomicBool,
 	/// Transformed instruction for two-stage faults; either 64-bits
-	/// or 32-bits, depending on encoding
+	/// or 32-bits, depending on encoding.
 	pub tinst: AtomicU64,
 	pub old_satp: AtomicU64,
 	pub new_satp: AtomicU64,
@@ -293,14 +320,17 @@ pub struct Riscv64State {
 impl From<Riscv64State> for Arch {
 	#[inline]
 	fn from(value: Riscv64State) -> Self {
-		Arch::Riscv64(value)
+		Self::Riscv64(value)
 	}
 }
 
 /// Handles events (faults, exceptions, etc.) caused by checker violations.
 ///
 /// If events are not interesting, pass `()` to [`State::handle_packet`].
-#[expect(unused_variables)]
+#[expect(
+	unused_variables,
+	reason = "code cleanliness on default implementation"
+)]
 pub trait EventHandler {
 	/// Handles an event.
 	fn handle_event(&self, event: Event) {}
@@ -318,10 +348,10 @@ pub enum Event {
 	#[error("received multiple initialization packets from QEMU")]
 	AlreadyInitialized,
 
-	/// A QEMU event was received with an unknown/unsupported message type
+	/// A QEMU event was received with an unknown/unsupported message type.
 	#[error("QEMU event received with unsupported message type: {ty:X}")]
 	UnknownQemuEvent { ty: u64 },
-	/// A kernel event was received with an unknown/unsupported message type
+	/// A kernel event was received with an unknown/unsupported message type.
 	#[error("kernel event received with unsupported message type: {ty:X}")]
 	UnknownKernelEvent { ty: u64 },
 	/// A QEMU event was received for an architecture that didn't match the current [`State::arch`] variant.
@@ -342,16 +372,16 @@ pub enum Event {
 		current:  ArchType,
 		received: ArchType,
 	},
-	/// A kernel effect start event was received with an unknown effect ID
+	/// A kernel effect start event was received with an unknown effect ID.
 	#[error("kernel effect start event received with unknown effect ID: {effect_id:X}")]
 	UnknownKernelEffectStart { effect_id: u64 },
-	/// A kernel effect end event was received with an unknown effect ID
+	/// A kernel effect end event was received with an unknown effect ID.
 	#[error("kernel effect end event received with unknown effect ID: {effect_id:X}")]
 	UnknownKernelEffectEnd { effect_id: u64 },
-	/// An "oro has started execution" event was passed more than once
+	/// An "oro has started execution" event was passed more than once.
 	#[error("in_kernel event received more than once (the kernel has already started)")]
 	KernelAlreadyStarted,
-	/// A QEMU packet that is meant for per-core state updates had no core.
+	/// A QEMU packet that is meant for per-core state updates had no core..
 	#[error(
 		"a QEMU packet that is meant for per-core state updates had no core specified in its r0: \
 		 {ty:X}"
@@ -392,7 +422,7 @@ pub enum Event {
 	Constraint(ConstraintError),
 }
 
-/// An x86_64 selector
+/// An x86_64 selector.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum X8664Selector {
 	Cs,
@@ -414,42 +444,42 @@ pub enum Exception {
 /// An x86_64 exception (error) that has occurred.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum X8664Exception {
-	/// Other (unknown or unspecific)
+	/// Other (unknown or unspecific).
 	Other(u64),
 }
 
 impl From<X8664Exception> for Exception {
 	#[inline]
 	fn from(value: X8664Exception) -> Self {
-		Exception::X8664(value)
+		Self::X8664(value)
 	}
 }
 
 /// An AArch64 exception (error) that has occurred.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Aarch64Exception {
-	/// Other (unknown or unspecific)
+	/// Other (unknown or unspecific).
 	Other(u64),
 }
 
 impl From<Aarch64Exception> for Exception {
 	#[inline]
 	fn from(value: Aarch64Exception) -> Self {
-		Exception::Aarch64(value)
+		Self::Aarch64(value)
 	}
 }
 
 /// A RISC-V64 exception (error) that has occurred.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Riscv64Exception {
-	/// Other (unknown or unspecific)
+	/// Other (unknown or unspecific).
 	Other(u64),
 }
 
 impl From<Riscv64Exception> for Exception {
 	#[inline]
 	fn from(value: Riscv64Exception) -> Self {
-		Exception::Riscv64(value)
+		Self::Riscv64(value)
 	}
 }
 
@@ -461,6 +491,10 @@ impl State {
 
 		self.last_core.set(packet.thread().unwrap_or(255));
 
+		#[expect(
+			clippy::else_if_without_else,
+			reason = "the rest of the function is more readable without an else"
+		)]
 		if packet.is_from_qemu() && packet.ty() == QEMU_INIT {
 			if self.initialized.set(true) {
 				self.emit(handler, Event::AlreadyInitialized);
@@ -475,7 +509,10 @@ impl State {
 		// Handle state updates.
 		if packet.is_from_qemu() {
 			// Sanity check
-			debug_assert!(!packet.is_from_kernel());
+			debug_assert!(
+				!packet.is_from_kernel(),
+				"packet cannot be from both QEMU and the kernel"
+			);
 
 			match packet.ty() {
 				QEMU_ORO_KDBEVT_X86_EXCEPTION => self.handle_q1000(packet, handler),
@@ -493,7 +530,10 @@ impl State {
 			use orok_test_consts as C;
 
 			// Sanity check
-			debug_assert!(packet.is_from_kernel());
+			debug_assert!(
+				packet.is_from_kernel(),
+				"packet cannot be from both QEMU and the kernel"
+			);
 
 			match packet.ty() {
 				C::EFFECT_START => self.handle_k0001(packet, handler),
@@ -535,7 +575,7 @@ impl State {
 		Some(usize::from(core_id))
 	}
 
-	/// `ORO_KDBEVT_X86_EXCEPTION` - x86/x86-64 Exception event
+	/// `ORO_KDBEVT_X86_EXCEPTION` - x86/x86-64 Exception event.
 	///
 	/// - reg[1] = exception number (0-31)
 	/// - reg[2] = error code (if applicable)
@@ -600,7 +640,8 @@ impl State {
 		}
 	}
 
-	/// x86/x86-64 Register dump 0: General purpose registers
+	/// x86/x86-64 Register dump 0: General purpose registers.
+	///
 	/// - reg[1] = RAX/EAX
 	/// - reg[2] = RBX/EBX
 	/// - reg[3] = RCX/ECX
@@ -634,7 +675,8 @@ impl State {
 		}
 	}
 
-	/// x86/x86-64 Register dump 1: Stack pointer and R8-R13 (64-bit only)
+	/// x86/x86-64 Register dump 1: Stack pointer and R8-R13 (64-bit only).
+	///
 	/// - reg[1] = RSP/ESP
 	/// - reg[2] = R8  (0 in 32-bit mode)
 	/// - reg[3] = R9  (0 in 32-bit mode)
@@ -668,7 +710,8 @@ impl State {
 		}
 	}
 
-	/// x86/x86-64 Register dump 2: R14-R15 and segment selectors (64-bit only)
+	/// x86/x86-64 Register dump 2: R14-R15 and segment selectors (64-bit only).
+	///
 	/// - reg[1] = R14 (0 in 32-bit mode)
 	/// - reg[2] = R15 (0 in 32-bit mode)
 	/// - reg[3] = ES selector
@@ -752,7 +795,8 @@ impl State {
 		}
 	}
 
-	/// x86/x86-64 Register dump 3: Control registers
+	/// x86/x86-64 Register dump 3: Control registers.
+	///
 	/// - reg[1] = CR0
 	/// - reg[2] = CR3
 	/// - reg[3] = CR4
@@ -783,7 +827,8 @@ impl State {
 		}
 	}
 
-	/// x86/x86-64 Register dump 4: Debug registers
+	/// x86/x86-64 Register dump 4: Debug registers.
+	///
 	/// - reg[1] = DR0
 	/// - reg[2] = DR1
 	/// - reg[3] = DR2
@@ -816,8 +861,9 @@ impl State {
 		}
 	}
 
-	/// x86/x86-64 CR0 update event
-	/// NOTE: Emitted BEFORE CPU validation - the update may be rejected
+	/// x86/x86-64 CR0 update event.
+	///
+	/// NOTE: Emitted BEFORE CPU validation - the update may be rejected.
 	///
 	/// - reg[1] = old CR0 value
 	/// - reg[2] = new (requested) CR0 value
@@ -843,8 +889,9 @@ impl State {
 		}
 	}
 
-	/// x86/x86-64 CR3 update event
-	/// NOTE: Emitted BEFORE CPU validation - the update may be rejected
+	/// x86/x86-64 CR3 update event.
+	///
+	/// NOTE: Emitted BEFORE CPU validation - the update may be rejected.
 	///
 	/// - reg[1] = old CR3 value
 	/// - reg[2] = new (requested) CR3 value
@@ -869,8 +916,9 @@ impl State {
 		}
 	}
 
-	/// x86/x86-64 CR4 update event
-	/// NOTE: Emitted BEFORE CPU validation - the update may be rejected
+	/// x86/x86-64 CR4 update event.
+	///
+	/// NOTE: Emitted BEFORE CPU validation - the update may be rejected.
 	///
 	/// - reg[1] = old CR4 value
 	/// - reg[2] = new (requested) CR4 value
@@ -895,7 +943,7 @@ impl State {
 		}
 	}
 
-	/// Kernel Effect Start
+	/// Kernel Effect Start.
 	///
 	/// - reg[1] = Debug string offset
 	/// - reg[2] = Effect ID
@@ -931,7 +979,7 @@ impl State {
 		}
 	}
 
-	/// Kernel Effect End
+	/// Kernel Effect End.
 	///
 	/// - reg[1] = Debug string offset
 	/// - reg[2] = Effect ID
@@ -996,7 +1044,7 @@ pub struct ConstraintError {
 }
 
 impl core::fmt::Display for ConstraintError {
-	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "{}", self.kind)?;
 		for (constraint, outcome) in &self.constraints {
 			write!(
@@ -1032,7 +1080,6 @@ macro_rules! define_constraints {
 			/// Checks all constraints against the current state, emitting events for any violations.
 			pub fn check_constraints(&self, core: u8, handler: &impl EventHandler) {
 				$(
-				#[allow(unused_variables)]
 				match &self.arch {
 					$(
 						Arch::$arch(arch) => 'skip: {
@@ -1085,7 +1132,7 @@ macro_rules! define_constraints {
 }
 
 define_constraints! {
-	/// (x86_64) CR0 written but is not currently within a reg_write effect
+	/// (x86_64) CR0 written but is not currently within a `reg_write` effect
 	Cr0NotInEffect => {
 		X8664 => {
 			REQ   (#reports_register_writes);
@@ -1094,7 +1141,7 @@ define_constraints! {
 			BAD   (!%fx_reg_write_cr0);
 		}
 	}
-	/// (x86_64) CR0 effect ended but no CR0 register write occurred
+	/// (x86_64) CR0 `reg_write` effect ended but no CR0 register write occurred
 	Cr0NotWritten => {
 		X8664 => {
 			REQ   (#reports_register_writes);

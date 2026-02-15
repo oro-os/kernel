@@ -1,4 +1,6 @@
-use tokio::io::{AsyncRead, AsyncReadExt};
+//! Stream processor and decoder, emitting raw [`Packet`]s to a [`RawPacketHandler`].
+
+use tokio::io::{AsyncRead, AsyncReadExt as _};
 
 use crate::{Packet, RawPacketHandler};
 
@@ -8,15 +10,22 @@ pub enum StreamError<E: core::fmt::Debug> {
 	/// An error occurred within the [`RawPacketHandler`] during stream processing.
 	#[error("event stream handler errored during stream processing: {0}")]
 	Handler(E),
-	/// An IO error occurred during stream processing
+	/// An IO error occurred during stream processing.
 	#[error("IO error during stream processing: {0}")]
 	Io(#[from] std::io::Error),
 }
 
 /// Handles an event stream asynchronously, emitting [`Packet`]s via a [`RawPacketHandler`].
 ///
-/// Returns `Err` that holds either a stream error, or an error returned from [`RawPacketHandler::handle_packet`].
+/// Returns `Err` that holds either a stream error,
+/// or an error returned from [`RawPacketHandler::handle_packet`].
+///
 /// Otherwise, never returns.
+#[expect(
+	clippy::arithmetic_side_effects,
+	reason = "all buffer length calculations are correct and cannot overflow, and this is a hot \
+	          path so we want to avoid the overhead of checked arithmetic"
+)]
 pub async fn process_event_stream<H: RawPacketHandler>(
 	mut sock: impl AsyncRead + Unpin,
 	handler: H,

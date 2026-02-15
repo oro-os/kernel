@@ -55,9 +55,15 @@ fn sets_cr0() {
 /// It is only called by the architecture-specific binaries.
 ///
 /// # Panics
-/// Panics if required responses aren't populated by Limine
+/// Panics if required responses aren't populated by Limine.
+#[expect(
+	clippy::unwrap_used,
+	clippy::panic,
+	reason = "kernel has no choice but to panic in this function"
+)]
 pub unsafe fn init() -> ! {
 	let offs = REQ_HHDM.get_response().unwrap().offset();
+
 	// SAFETY: We've ensured this is valid before any MMIO writes occur.
 	unsafe {
 		orok_test::set_vmm_base(offs);

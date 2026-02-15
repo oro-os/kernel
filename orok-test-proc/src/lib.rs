@@ -4,6 +4,11 @@
 )]
 #![cfg_attr(doc, doc = include_str!("../README.md"))]
 #![cfg_attr(doc, feature(doc_cfg))]
+#![expect(
+	clippy::needless_pass_by_value,
+	clippy::single_call_fn,
+	reason = "keeping code DRY"
+)]
 
 extern crate proc_macro;
 

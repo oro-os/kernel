@@ -1,3 +1,8 @@
+//! Base offsets for the vmem map.
+//!
+//! Kernel implementation / bootloader needs to keep this updated
+//! when using the MMIO debug interface.
+
 #[cfg(feature = "mmio")]
 use core::sync::atomic::{AtomicU64, Ordering};
 
@@ -22,6 +27,7 @@ static VMM_BASE: AtomicU64 = AtomicU64::new(0);
 	not(feature = "mmio"),
 	expect(
 		unused_variables,
+		clippy::missing_const_for_fn,
 		reason = "vmm_base is only used when the 'mmio' feature is enabled"
 	)
 )]

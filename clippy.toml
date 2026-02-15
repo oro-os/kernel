@@ -18,3 +18,9 @@ doc-valid-idents = [
 	"snake_case",
 	"x86_64",
 ]
+absolute-paths-allowed-crates = [
+	"core",
+	"std",
+	"alloc",
+	"compiler_builtins",
+]

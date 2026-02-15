@@ -129,6 +129,7 @@ inline_asm_x86_intel_syntax = "allow"
 inline_asm_x86_att_syntax = "deny"
 question_mark_used = "allow"
 missing_trait_methods = "allow"
+multiple_inherent_impl = "allow"
 # While useful and technically correct, highly annoying to the point of being unhelpful.
 pattern_type_mismatch = "allow"
 # Shadowing could technically present bugs, but in practice is often used for convenience
@@ -136,11 +137,32 @@ pattern_type_mismatch = "allow"
 # likely just lead to widespread use of non-ideal variable names.
 shadow_reuse = "allow"
 shadow_unrelated = "allow"
-unseparated_literal_suffix = "warn"
-separated_literal_suffix = "allow"
+unseparated_literal_suffix = "allow"
+separated_literal_suffix = "warn"
+pub_with_shorthand = "allow"
+pub_without_shorthand = "warn"
+field_scoped_visibility_modifiers = "allow"
 # We've tweaked them here to a decent enough extent that an appropriate level of "annoying"
 # has been achieved codebase-wide.
 blanket_clippy_restriction_lints = "allow"
+# LTO is enabled, making this a moot point.
+missing_inline_in_public_items = "allow"
+# All crates in this workspace are typically built "together" and are
+# only split out for organizational purposes. Treating each as though
+# they have a "public API" is nonsensical in our case, and the resulting
+# warnings are more noise than signal.
+exhaustive_structs = "allow"
+exhaustive_enums = "allow"
+# Similar to the above, there's no public API in the traditional sense,
+# so if an `arg: impl Foo` is insufficient, it can be changed.
+impl_trait_in_params = "allow"
+# Way too noisy, not particularly helpful. This will need some
+# judicious review otherwise, but should be manageable.
+min_ident_chars = "allow"
+# We are smart enough :)
+little_endian_bytes = "allow"
+big_endian_bytes = "allow"
+host_endian_bytes = "allow"
 
 [profile.dev]
 panic = "abort" # Use "abort" panic strategy

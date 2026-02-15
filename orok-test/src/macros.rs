@@ -1,3 +1,11 @@
+//! Defines all macros used by the test framework.
+//!
+//! Some of these are meant to be used in certain contexts,
+//! and some are only meant to be used by procedural macros.
+//!
+//! All available macros meant for kernel use lack `#[doc(hidden)]`.
+
+#[doc(hidden)]
 #[macro_export]
 macro_rules! dbgstr {
 	($($tt:tt)+) => {{
@@ -23,6 +31,7 @@ macro_rules! dbgstr {
 	}};
 }
 
+#[doc(hidden)]
 #[macro_export]
 #[cfg(feature = "mmio")]
 macro_rules! emit_raw {
@@ -59,6 +68,7 @@ macro_rules! emit_raw {
 	};
 }
 
+#[doc(hidden)]
 #[macro_export]
 #[cfg(feature = "emit")]
 macro_rules! emit {
@@ -94,12 +104,14 @@ macro_rules! emit {
 	};
 }
 
+#[doc(hidden)]
 #[macro_export]
 #[cfg(not(feature = "emit"))]
 macro_rules! emit {
 	($($tt:tt)*) => {};
 }
 
+#[doc(hidden)]
 #[macro_export]
 #[cfg(feature = "emit")]
 macro_rules! emit_effect {
@@ -114,6 +126,7 @@ macro_rules! emit_effect {
 	};
 }
 
+#[doc(hidden)]
 #[macro_export]
 #[cfg(feature = "emit")]
 macro_rules! annotate_effect_fn {
@@ -134,12 +147,22 @@ macro_rules! annotate_effect_fn {
 	}};
 }
 
+#[doc(hidden)]
 #[macro_export]
 #[cfg(not(feature = "emit"))]
 macro_rules! annotate_effect_fn {
 	($($tt:tt)*) => {};
 }
 
+/// **Must** be called **as soon as possible** after **any** Oro execution begins
+/// (bootloader, etc.) in order to enable runtime checks.
+///
+/// A few things must be true before calling this:
+///
+/// 1. No other cores may be active; the ONLY point of execution CPU-wide should be
+///    a single Oro thread.
+/// 2. The test framework has been initialized properly (e.g. for MMIO, the vmem base
+///    has been set up and is correct).
 #[macro_export]
 #[cfg(feature = "emit")]
 macro_rules! oro_has_started_execution {
@@ -157,6 +180,7 @@ macro_rules! oro_has_started_execution {
 	}};
 }
 
+#[doc(hidden)]
 #[macro_export]
 #[cfg(not(feature = "emit"))]
 macro_rules! oro_has_started_execution {

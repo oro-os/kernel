@@ -1,3 +1,5 @@
+#![expect(clippy::missing_docs_in_private_items, reason = "see root level docs")]
+
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Result;
@@ -30,6 +32,5 @@ pub fn effect(attr: TokenStream, input: TokenStream) -> Result<TokenStream> {
 
 			return_result__effect__
 		}
-	}
-	.into())
+	})
 }

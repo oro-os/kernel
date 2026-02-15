@@ -1,3 +1,7 @@
+//! Traits that receive the raw packets decoded from an event stream,
+//! without any filtering or processing. These are used by the test harness
+//! to receive packets from the stream and perform filtering and processing on them.
+
 use crate::Packet;
 
 /// When event streams are taken in by [`process_event_stream()`],
@@ -12,6 +16,7 @@ pub trait RawPacketHandler {
 	fn handle_packet(&self, packet: Packet) -> impl Future<Output = Result<(), Self::Error>>;
 }
 
+#[expect(clippy::absolute_paths, reason = "one-off")]
 impl RawPacketHandler for tokio::sync::mpsc::Sender<Packet> {
 	type Error = tokio::sync::mpsc::error::SendError<Packet>;
 
