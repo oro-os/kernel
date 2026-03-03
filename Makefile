@@ -26,6 +26,12 @@ CLIPPY_ARGS+=--message-format=json \
 	--json=diagnostic-rendered-ansi
 endif
 
+SYSNAME := $(shell uname -s)
+QEMU_SUFFIX:=
+ifeq ($(SYSNAME),Darwin)
+QEMU_SUFFIX:=-unsigned
+endif
+
 CARGO_UNSTABLE:=\
 	-Zunstable-options \
 	-Zbuild-std=core,compiler_builtins,alloc \
@@ -126,7 +132,7 @@ iso: x86_64 aarch64 riscv64 .limine/limine
 
 .PHONY: run-x86_64
 run-x86_64: iso
-	/src/oro-os/oro-qemu/build/qemu-system-x86_64 \
+	qemu-system-x86_64$(QEMU_SUFFIX) \
 		-M q35 \
 		-cdrom target/oro.iso \
 		-serial stdio \
@@ -141,7 +147,7 @@ run-x86_64: iso
 run-aarch64: iso
 	@echo '[ORO] if the following command fails due to missing QEMU_EFI.fd,'
 	@echo '[ORO] run `apt install qemu-efi-aarch64`.'
-	qemu-system-aarch64 \
+	qemu-system-aarch64$(QEMU_SUFFIX) \
 		-M virt \
 		-cpu cortex-a57 \
 		-no-reboot \
@@ -158,7 +164,7 @@ run-aarch64: iso
 run-riscv64: iso target/RISCV_VIRT_VARS.fd
 	@echo '[ORO] if the following command fails due to missing RISCV_VIRT_CODE.fd,'
 	@echo '[ORO] run `apt install qemu-efi-riscv64`.'
-	qemu-system-riscv64 \
+	qemu-system-riscv64$(QEMU_SUFFIX) \
 		-M virt \
 		-cpu max \
 		-no-reboot \
@@ -213,7 +219,7 @@ clippy-test:
 		-p orok-test-harness \
 		$(CARGO_FLAGS) \
 		$(CLIPPY_ARGS)
-	
+
 .PHONY: test
 test:
 	cargo test --all
