@@ -1,31 +1,26 @@
 [workspace.package]
-homepage   = "https://oro.sh"
+homepage = "https://oro.sh"
 repository = "https://github.com/oro-os/kernel"
-license    = "MPL-2.0"
-version    = "0.0.0"
-edition    = "2024"
+license = "MPL-2.0"
+version = "0.0.0"
+edition = "2024"
 
 [workspace]
 resolver = "2"
-members = [
-	"orok-test-tui",
-	"orok-boot-limine",
-	"orok-arch",
-	"orok-macro-tests",
-]
+members = ["orok-test-tui", "orok-boot-limine", "orok-arch", "orok-macro-tests"]
 default-members = ["orok-test-tui"]
 
 [workspace.metadata.oro]
-build-std          = ["alloc", "compiler_builtins", "core"]
+build-std = ["alloc", "compiler_builtins", "core"]
 build-std-features = ["compiler-builtins-mem"]
 
 [workspace.metadata.oro.target.x86_64]
 target-json = "oro-kernel-arch-x86_64/x86_64-unknown-oro.json"
-features    = ["oro-debug/uart16550"]
+features = ["oro-debug/uart16550"]
 
 [workspace.metadata.oro.target.aarch64]
 target-json = "oro-kernel-arch-aarch64/aarch64-unknown-oro.json"
-features    = ["oro-debug/pl011"]
+features = ["oro-debug/pl011"]
 
 [workspace.dependencies]
 orok-arch.path = "orok-arch"
@@ -42,7 +37,7 @@ orok-test-consts.path = "orok-test-consts"
 orok-test-proc.path = "orok-test-proc"
 
 # External dependencies
-limine                 = "=0.5.0"
+limine = "=0.5.0"
 #uart_16550             = "=0.3.2"
 #volatile-register      = "=0.2.2"
 #buddy_system_allocator = "=0.11.0"
@@ -52,9 +47,9 @@ limine                 = "=0.5.0"
 
 # Development dependencies
 #bindgen      = "=0.71.1"
-syn          = { version = "=2.0.100", features = ["full", "printing"] }
-quote        = "=1.0.40"
-proc-macro2  = { version = "=1.0.94", features = ["proc-macro"] }
+syn = { version = "=2.0.100", features = ["full", "printing"] }
+quote = "=1.0.40"
+proc-macro2 = { version = "=1.0.94", features = ["proc-macro"] }
 #convert_case = "=0.6.0"
 
 # `oroutil` dependencies
@@ -74,57 +69,65 @@ proc-macro2  = { version = "=1.0.94", features = ["proc-macro"] }
 #build-plan           = "=0.1.1"
 
 # Testing dependencies
-tokio = { version = "1.49.0", features = ["fs", "io-util", "macros", "net", "process", "rt-multi-thread", "sync"] }
+tokio = { version = "1.49.0", features = [
+  "fs",
+  "io-util",
+  "macros",
+  "net",
+  "process",
+  "rt-multi-thread",
+  "sync",
+] }
 thiserror = "2.0.18"
 
 [workspace.lints.rust]
-missing_docs              = "warn"
+missing_docs = "warn"
 elided_lifetimes_in_paths = "deny"
-future-incompatible       = "warn"
-missing-unsafe-on-extern  = "warn"
-unused-lifetimes          = "warn"
-unused-qualifications     = "warn"
-unused-import-braces      = "warn"
-variant-size-differences  = "warn"
-trivial-numeric-casts     = "warn"
-unit-bindings             = "warn"
-unsafe_op_in_unsafe_fn 	  = "deny"
+future-incompatible = "warn"
+missing-unsafe-on-extern = "warn"
+unused-lifetimes = "warn"
+unused-qualifications = "warn"
+unused-import-braces = "warn"
+variant-size-differences = "warn"
+trivial-numeric-casts = "warn"
+unit-bindings = "warn"
+unsafe_op_in_unsafe_fn = "deny"
 
 [workspace.lints.rustdoc]
-all                     = { level = "deny", priority = -1 }
-private_doc_tests       = "allow"
+all = { level = "deny", priority = -1 }
+private_doc_tests = "allow"
 private_intra_doc_links = "allow"
 
 [workspace.lints.clippy]
-all                                = { level = "warn", priority = -1 }
-pedantic                           = { level = "warn", priority = -1 }
-restriction                        = { level = "warn", priority = -1 }
-nursery                            = { level = "warn", priority = -1 }
-cargo                              = { level = "warn", priority = -1 }
-suspicious                         = { level = "warn", priority = -1 }
-style                              = { level = "warn", priority = -1 }
-perf                               = { level = "warn", priority = -1 }
-missing_docs_in_private_items      = "warn"
-integer_division                   = "warn"
-module_name_repetitions            = "allow"
-verbose_bit_mask                   = "allow"
-too_many_lines                     = "allow"
-missing_errors_doc                 = "allow"
-struct_field_names                 = "allow"
-items_after_statements             = "allow"
-cast_possible_truncation           = "allow"
-assertions_on_constants            = "allow"
-new_without_default                = "allow"
-needless_doctest_main              = "allow"
-tabs_in_doc_comments               = "allow"
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+restriction = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+suspicious = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+missing_docs_in_private_items = "warn"
+integer_division = "warn"
+module_name_repetitions = "allow"
+verbose_bit_mask = "allow"
+too_many_lines = "allow"
+missing_errors_doc = "allow"
+struct_field_names = "allow"
+items_after_statements = "allow"
+cast_possible_truncation = "allow"
+assertions_on_constants = "allow"
+new_without_default = "allow"
+needless_doctest_main = "allow"
+tabs_in_doc_comments = "allow"
 redundant_closure_for_method_calls = "allow"
 undocumented_unsafe_blocks = "deny"
-default_numeric_fallback  = "allow"
+default_numeric_fallback = "allow"
 implicit_return = "allow"
 semicolon_inside_block = "warn"
 semicolon_outside_block = "allow"
 arbitrary_source_item_ordering = "allow"
-pub_use  = "allow"
+pub_use = "allow"
 self_named_module_files = "deny"
 mod_module_files = "allow"
 inline_asm_x86_intel_syntax = "allow"
@@ -170,26 +173,26 @@ host_endian_bytes = "allow"
 
 [profile.dev]
 panic = "abort" # Use "abort" panic strategy
-debug = "full" # Full debugging symbols
+debug = "full"  # Full debugging symbols
 
 [profile.devopt]
-inherits      = "dev"
-opt-level     = 3 # Maximum optimizations
-lto           = "fat" # Perform LTO across all crates
-codegen-units = 1 # Reduce number of codegen units to increase optimizations.
-incremental   = false # Disable incremental building
-panic         = "abort" # Use "abort" panic strategy
+inherits = "dev"
+opt-level = 3       # Maximum optimizations
+lto = "fat"         # Perform LTO across all crates
+codegen-units = 1   # Reduce number of codegen units to increase optimizations.
+incremental = false # Disable incremental building
+panic = "abort"     # Use "abort" panic strategy
 
 [profile.release]
-opt-level     = 3 # Maximum optimizations
-lto           = "fat" # Perform LTO across all crates
-codegen-units = 1 # Reduce number of codegen units to increase optimizations.
-strip         = true # Strip symbols from binary
-incremental   = false # Disable incremental building
-panic         = "abort" # Use "abort" panic strategy
-debug         = 0 # Do not generate debug information
+opt-level = 3       # Maximum optimizations
+lto = "fat"         # Perform LTO across all crates
+codegen-units = 1   # Reduce number of codegen units to increase optimizations.
+strip = true        # Strip symbols from binary
+incremental = false # Disable incremental building
+panic = "abort"     # Use "abort" panic strategy
+debug = 0           # Do not generate debug information
 
 [profile.relwithdebinfo]
 inherits = "release"
-debug    = "full" # Full debugging symbols
-strip    = false # Don't strip symbols from binary
+debug = "full"       # Full debugging symbols
+strip = false        # Don't strip symbols from binary

@@ -1,14 +1,14 @@
 [package]
-name              = "orok-boot-limine"
+name = "orok-boot-limine"
 version.workspace = true
-description       = "Oro operating system Limine bootloader support"
-publish           = false
-edition           = "2024"
-authors           = ["Josh Junon (https//github.com/qix-)"]
-homepage          = "https://oro.sh"
-repository        = "https://github.com/oro-os/kernel"
-license           = "MPL-2.0"
-autobins          = false
+description = "Oro operating system Limine bootloader support"
+publish = false
+edition = "2024"
+authors = ["Josh Junon (https//github.com/qix-)"]
+homepage = "https://oro.sh"
+repository = "https://github.com/oro-os/kernel"
+license = "MPL-2.0"
+autobins = false
 
 build = "build.rs"
 
@@ -18,20 +18,20 @@ workspace = true
 [[bin]]
 name = "oro-limine-x86_64"
 path = "bin/x86_64.rs"
-doc  = false
+doc = false
 
 [[bin]]
 name = "oro-limine-aarch64"
 path = "bin/aarch64.rs"
-doc  = false
+doc = false
 
 [[bin]]
 name = "oro-limine-riscv64"
 path = "bin/riscv64.rs"
-doc  = false
+doc = false
 
 [dependencies]
-orok-test.workspace            = true
+orok-test.workspace = true
 orok-arch.workspace = true
 
-limine.workspace            = true
+limine.workspace = true

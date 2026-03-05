@@ -118,6 +118,12 @@ macro_rules! emit_effect {
 	( $id:expr, $loc:expr, write_reg = cr0 ) => {
 		$crate::emit!($id, $loc, $crate::consts::X8664_EFFECT_WRITE_REG_CR0);
 	};
+	( $id:expr, $loc:expr, write_reg = cr4 ) => {
+		$crate::emit!($id, $loc, $crate::consts::X8664_EFFECT_WRITE_REG_CR4);
+	};
+	( $id:expr, $loc:expr, read_reg = cr4 ) => {
+		$crate::emit!($id, $loc, $crate::consts::X8664_EFFECT_READ_REG_CR4);
+	};
 	( $id:expr, $loc:expr, write_reg = tcr_el1 ) => {
 		$crate::emit!($id, $loc, $crate::consts::AARCH_EFFECT_WRITE_REG_TCR_EL1);
 	};

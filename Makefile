@@ -37,6 +37,13 @@ CARGO_UNSTABLE:=\
 	-Zbuild-std=core,compiler_builtins,alloc \
 	-Zbuild-std-features=compiler-builtins-mem
 
+REQUESTED_ISO_ARCHES := $(filter iso-x86_64 iso-aarch64 iso-riscv64,$(MAKECMDGOALS))
+ifeq ($(REQUESTED_ISO_ARCHES),)
+    ISO_ARCH_TARGETS := iso-x86_64 iso-aarch64 iso-riscv64
+else
+    ISO_ARCH_TARGETS := $(REQUESTED_ISO_ARCHES)
+endif
+
 .PHONY: all
 all: build
 
@@ -86,8 +93,10 @@ riscv64-limine:
 		$(CARGO_UNSTABLE)
 
 .PHONY: iso
-iso: x86_64 aarch64 riscv64 .limine/limine
-	rm -rf target/iso
+iso: iso-clean $(ISO_ARCH_TARGETS) iso-build
+
+.PHONY: iso-build
+iso-build: .limine/limine | iso-x86_64 iso-aarch64 iso-riscv64
 	mkdir -p target/iso/boot/limine target/iso/EFI/BOOT
 	cp \
 		.limine/limine-uefi-cd.bin \
@@ -95,17 +104,6 @@ iso: x86_64 aarch64 riscv64 .limine/limine
 		.limine/limine-bios.sys \
 		.limine/limine.conf \
 		target/iso/boot/limine
-    # Note the change from '_' to '-' below \
-	# Limine's configuration 'arch' variable uses a hyphen
-	cp \
-		target/x86_64-unknown-oro/debug/oro-limine-x86_64 \
-		target/iso/oro-limine-x86-64
-	cp \
-		target/aarch64-unknown-oro/debug/oro-limine-aarch64 \
-		target/iso/oro-limine-aarch64
-	cp \
-		target/riscv64-unknown-oro/debug/oro-limine-riscv64 \
-		target/iso/oro-limine-riscv64
 	cp \
 		.limine/BOOTX64.EFI \
 		.limine/BOOTAA64.EFI \
@@ -127,11 +125,36 @@ iso: x86_64 aarch64 riscv64 .limine/limine
 		"target/iso" -o "target/oro.iso"
 	.limine/limine bios-install target/oro.iso
 
+.PHONY: iso-x86_64
+iso-x86_64: iso-clean x86_64
+    # Note the change from '_' to '-' below \
+	# Limine's configuration 'arch' variable uses a hyphen
+	cp \
+		target/x86_64-unknown-oro/debug/oro-limine-x86_64 \
+		target/iso/oro-limine-x86-64
+
+.PHONY: iso-aarch64
+iso-aarch64: iso-clean aarch64
+	cp \
+		target/aarch64-unknown-oro/debug/oro-limine-aarch64 \
+		target/iso/oro-limine-aarch64
+
+.PHONY: iso-riscv64
+iso-riscv64: iso-clean riscv64
+	cp \
+		target/riscv64-unknown-oro/debug/oro-limine-riscv64 \
+		target/iso/oro-limine-riscv64
+
+.PHONY: iso-clean
+iso-clean:
+	rm -rf target/iso
+	mkdir -p target/iso
+
 .limine/limine:
 	make -C .limine limine
 
 .PHONY: run-x86_64
-run-x86_64: iso
+run-x86_64: iso-x86_64 iso-build
 	qemu-system-x86_64$(QEMU_SUFFIX) \
 		-M q35 \
 		-cdrom target/oro.iso \
@@ -144,7 +167,7 @@ run-x86_64: iso
 		$(QEMU_ARGS)
 
 .PHONY: run-aarch64
-run-aarch64: iso
+run-aarch64: iso-aarch64 iso-build
 	@echo '[ORO] if the following command fails due to missing QEMU_EFI.fd,'
 	@echo '[ORO] run `apt install qemu-efi-aarch64`.'
 	qemu-system-aarch64$(QEMU_SUFFIX) \
@@ -161,7 +184,7 @@ run-aarch64: iso
 		$(QEMU_ARGS)
 
 .PHONY: run-riscv64
-run-riscv64: iso target/RISCV_VIRT_VARS.fd
+run-riscv64: iso-riscv64 iso-build target/RISCV_VIRT_VARS.fd
 	@echo '[ORO] if the following command fails due to missing RISCV_VIRT_CODE.fd,'
 	@echo '[ORO] run `apt install qemu-efi-riscv64`.'
 	qemu-system-riscv64$(QEMU_SUFFIX) \
@@ -223,3 +246,7 @@ clippy-test:
 .PHONY: test
 test:
 	cargo test --all
+
+.PHONY: tui
+tui:
+	cargo run --release -p orok-test-tui

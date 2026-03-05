@@ -50,7 +50,7 @@ pub async fn run(
 			args
 		);
 
-		let mut command = CommandBuilder::new("gdb-multiarch");
+		let mut command = CommandBuilder::new(gdb_command());
 		command.arg("-ex");
 		command.arg(format!("target remote {}", rsp_path.as_ref().display()));
 		command.arg("-ex");
@@ -148,5 +148,17 @@ pub async fn run(
 		};
 
 		log::info!("gdb session exited (code: {code:?})")
+	}
+}
+
+fn gdb_command() -> String {
+	if let Ok(cmd) = std::env::var("GDB_COMMAND") {
+		return cmd;
+	}
+
+	if cfg!(target_os = "macos") {
+		"gdb".into()
+	} else {
+		"gdb-multiarch".into()
 	}
 }

@@ -1,10 +1,14 @@
-//! Oro-specific RISC-V64 architecture facilities and types, built on top of the
+//! Oro-specific RISC-V 64-bit architecture facilities and types, built on top of the
 //! architecture-agnostic traits and types defined in `orok-arch-base`.
 
-/// Implements the RISC-V64 architecture.
+mod page_size;
+mod unsafe_addr;
+
+/// Implements the RISC-V 64-bit architecture.
 pub struct Arch;
 
 impl orok_arch_base::Arch for Arch {
-	type RawPhysicalAddress = u64;
-	type RawVirtualAddress = u64;
+	type PageSize = page_size::PageSize;
+	type UnsafePhys = unsafe_addr::UnsafePhys;
+	type UnsafeVirt = unsafe_addr::UnsafeVirt;
 }

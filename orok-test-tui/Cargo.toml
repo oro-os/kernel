@@ -1,13 +1,13 @@
 [package]
-name              = "orok-test-tui"
+name = "orok-test-tui"
 version.workspace = true
-description       = "TUI for testing the Oro kernel"
-publish           = false
-edition           = "2024"
-authors           = ["Josh Junon (https://github.com/qix-)"]
-homepage          = "https://oro.sh"
-repository        = "https://github.com/oro-os/kernel"
-license           = "MPL-2.0"
+description = "TUI for testing the Oro kernel"
+publish = false
+edition = "2024"
+authors = ["Josh Junon (https://github.com/qix-)"]
+homepage = "https://oro.sh"
+repository = "https://github.com/oro-os/kernel"
+license = "MPL-2.0"
 
 [lints]
 # NOTE: Since this is a test utility, we don't require strict

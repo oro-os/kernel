@@ -141,7 +141,7 @@ impl Cr4 {
 	/// Loads the CR4 register.
 	#[inline(always)]
 	#[must_use]
-	#[orok_test::effect(read_reg = "cr4")]
+	#[orok_test::effect(read_reg = cr4)]
 	pub fn load() -> Self {
 		let cr4: u64;
 		// SAFETY: This is safe as it only reads the CR4 register.
@@ -159,7 +159,7 @@ impl Cr4 {
 	/// certain aspects of the x86_64 memory layout (e.g. page size extensions, and
 	/// the la57 bit).
 	#[inline(always)]
-	#[orok_test::effect(write_reg = "cr4")]
+	#[orok_test::effect(write_reg = cr4)]
 	pub unsafe fn store(self) {
 		// SAFETY: Safety is delegated to the caller.
 		unsafe {
