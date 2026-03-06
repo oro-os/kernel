@@ -95,3 +95,8 @@ impl CheckUnsafeVirt for UnsafeVirt {
 		Ok(())
 	}
 }
+
+impl orok_arch_base::ArchAddressScheme for super::Arch {
+	type UnsafePhys = UnsafePhys;
+	type UnsafeVirt = UnsafeVirt;
+}

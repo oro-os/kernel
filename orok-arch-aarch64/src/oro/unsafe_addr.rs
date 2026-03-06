@@ -69,3 +69,8 @@ impl CheckUnsafeVirt for UnsafeVirt {
 		todo!("validate virtual address");
 	}
 }
+
+impl orok_arch_base::ArchAddressScheme for super::Arch {
+	type UnsafePhys = UnsafePhys;
+	type UnsafeVirt = UnsafeVirt;
+}

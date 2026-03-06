@@ -5,10 +5,5 @@ mod page_size;
 mod unsafe_addr;
 
 /// Implements the AArch64 architecture.
+#[non_exhaustive]
 pub struct Arch;
-
-impl orok_arch_base::Arch for Arch {
-	type PageSize = page_size::PageSize;
-	type UnsafePhys = unsafe_addr::UnsafePhys;
-	type UnsafeVirt = unsafe_addr::UnsafeVirt;
-}
