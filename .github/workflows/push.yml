@@ -3,21 +3,32 @@ on:
   push:
     branches:
       - master
+      - kernel13
   pull_request:
 
 env:
   RUST_BACKTRACE: full
 
 jobs:
-  lint-oroutil-fmt:
+  lint-rustfmt:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - uses: ./.github/actions/rust
-      - name: Lint (`oro fmt`)
-        run: cargo oro -vv fmt --check
+      - name: Lint (rustfmt)
+        run: cargo fmt --check
+  lint-tomt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - uses: ./.github/actions/rust
+      - run: cargo install tomt
+      - name: Lint (tomt)
+        run: tomt --check
   lint-clippy:
     runs-on: ubuntu-latest
     strategy:
@@ -29,7 +40,7 @@ jobs:
           submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Lint (clippy)
-        run: cargo oro -vv clippy --profile ${{ matrix.profile }} -- -D warnings
+        run: make clippy CARGO_FLAGS="--profile ${{ matrix.profile }}"
   lint-docs:
     runs-on: ubuntu-latest
     steps:
@@ -38,20 +49,7 @@ jobs:
           submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Lint (rustdoc)
-        run: env RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D warnings" cargo -vv oro doc
-  lint-python:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'true'
-      - uses: actions/setup-python@v2
-        with:
-          python-version: '3.x'
-      - name: Lint (python)
-        run: |
-          pip install black
-          black --check .
+        run: env RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all
   build-x86_64:
     runs-on: ubuntu-latest
     strategy:
@@ -63,7 +61,7 @@ jobs:
           submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Build
-        run: cargo oro -vv build --profile ${{ matrix.profile }} -t x86_64
+        run: make x86_64 CARGO_FLAGS="--profile ${{ matrix.profile }}"
   build-aarch64:
     runs-on: ubuntu-latest
     strategy:
@@ -75,28 +73,16 @@ jobs:
           submodules: 'true'
       - uses: ./.github/actions/rust
       - name: Build
-        run: cargo oro -vv build --profile ${{ matrix.profile }} -t aarch64
-  unit-test:
+        run: make aarch64 CARGO_FLAGS="--profile ${{ matrix.profile }}"
+  build-riscv64:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        profile: ["dev", "release"]
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - uses: ./.github/actions/rust
-      - name: Test
-        run: |
-          cargo oro-test --target $(rustc -vV | sed -n 's|host: ||p')
-  boot-protocol-header:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'true'
-      - uses: ./.github/actions/rust
-      - run: rm -f ${CARGO_TARGET_DIR:-target}/oro-boot.h
-      - name: Generate Boot Protocol C/C++ Header
-        run: cargo build -p oro-boot-protocol --release
-        env:
-          ORO_BUILD_PROTOCOL_HEADER: 1
-      - name: Check
-        run: bash ./oro-boot-protocol/test-boot-header.sh
+      - name: Build
+        run: make riscv64 CARGO_FLAGS="--profile ${{ matrix.profile }}"
