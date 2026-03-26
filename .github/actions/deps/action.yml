@@ -8,16 +8,3 @@ runs:
       with:
         toolchain: stable
         components: rustfmt, clippy, rustc-dev, rust-src, llvm-tools-preview
-    - name: Install APT dependencies
-      shell: bash
-      run: |
-        set -e
-        sudo apt update && sudo apt install -y --no-install-recommends \
-          pkg-config \
-          xorriso \
-          libchafa-dev
-    - name: Set pkg-config path
-      shell: bash
-      run: |
-        ls -l /usr/lib/x86_64-linux-gnu/pkgconfig
-        echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig" >> $GITHUB_ENV

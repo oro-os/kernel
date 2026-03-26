@@ -37,7 +37,7 @@ libc = "0.2.180"
 portable-pty = "0.9.0"
 tempfile = "3.24.0"
 tui-term = "0.3.1"
-ratatui-image = { version = "10.0.4", features = ["tokio"] }
+ratatui-image = { version = "10.0.4", default-features = false, features = ["tokio", "crossterm", "image-defaults"] }
 ratatui = "0.30.0"
 crossterm = { version = "0.29.0", features = ["event-stream"] }
 image = { version = "0.25.9", default-features = false }
