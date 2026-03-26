@@ -4,7 +4,7 @@
 
 use crate::Packet;
 
-/// When event streams are taken in by [`process_event_stream()`],
+/// When event streams are taken in by [`crate::process_event_stream()`],
 /// raw [`Packet`]s are emitted here.
 pub trait RawPacketHandler {
 	/// The error type returned by [`RawPacketHandler::handle_packet`].

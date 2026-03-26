@@ -36,6 +36,7 @@
 #[repr(transparent)]
 pub struct Packet(pub(crate) [u64; 8]);
 
+#[expect(missing_docs, reason = "most are self-documenting")]
 impl Packet {
 	#[inline]
 	#[must_use = "this function is side-effect free; calling it without using the result makes no \

@@ -139,16 +139,22 @@ impl State {
 /// must know which architecture is being executed beforehand.
 #[derive(Debug)]
 pub enum Arch {
+	/// State for the x86_64 architecture.
 	X8664(X8664State),
+	/// State for the AArch64 architecture.
 	Aarch64(Aarch64State),
+	/// State for the RISC-V64 architecture.
 	Riscv64(Riscv64State),
 }
 
 /// One of the supported architectures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ArchType {
+	/// The x86_64 architecture type.
 	X8664,
+	/// The AArch64 architecture type.
 	Aarch64,
+	/// The RISC-V64 architecture type.
 	Riscv64,
 }
 
@@ -208,6 +214,10 @@ impl core::ops::Deref for X8664MultiCoreState {
 }
 
 /// x86_64 per-core state.
+#[expect(
+	missing_docs,
+	reason = "self-documenting, coming pretty much straight from QEMU"
+)]
 #[derive(Debug, Default)]
 pub struct X8664CoreState {
 	pub rax:        AtomicU64,
@@ -268,6 +278,10 @@ impl From<X8664State> for Arch {
 }
 
 /// AArch64 state.
+#[expect(
+	missing_docs,
+	reason = "self-documenting, coming pretty much straight from QEMU"
+)]
 #[derive(Default, Debug)]
 pub struct Aarch64State {
 	pub esr_el: AtomicU64,
@@ -297,6 +311,10 @@ impl From<Aarch64State> for Arch {
 }
 
 /// RISC-V64 state.
+#[expect(
+	missing_docs,
+	reason = "self-documenting, coming pretty much straight from QEMU"
+)]
 #[derive(Default, Debug)]
 pub struct Riscv64State {
 	/// Exception cause.
@@ -343,24 +361,35 @@ impl EventHandler for () {}
 pub enum Event {
 	/// A packet was received prior to the initialization frame from QEMU.
 	#[error("received a packet from QEMU before the initialization frame (packet type: {ty:X})")]
-	NotInitialized { ty: u64 },
+	NotInitialized {
+		/// The event type.
+		ty: u64,
+	},
 	/// An initialization packet was received multiple times from QEMU.
 	#[error("received multiple initialization packets from QEMU")]
 	AlreadyInitialized,
 
 	/// A QEMU event was received with an unknown/unsupported message type.
 	#[error("QEMU event received with unsupported message type: {ty:X}")]
-	UnknownQemuEvent { ty: u64 },
+	UnknownQemuEvent {
+		/// The event type.
+		ty: u64,
+	},
 	/// A kernel event was received with an unknown/unsupported message type.
 	#[error("kernel event received with unsupported message type: {ty:X}")]
-	UnknownKernelEvent { ty: u64 },
+	UnknownKernelEvent {
+		/// The event type.
+		ty: u64,
+	},
 	/// A QEMU event was received for an architecture that didn't match the current [`State::arch`] variant.
 	#[error(
 		"QEMU event received for architecture {received:?}, but current state uses architecture \
 		 {current:?}"
 	)]
 	QemuEventArchMismatch {
+		/// The current (expected) architecture.
 		current:  ArchType,
+		/// The architecture of the received event.
 		received: ArchType,
 	},
 	/// A kernel event was received for an architecture that didn't match the current [`State::arch`] variant.
@@ -369,15 +398,23 @@ pub enum Event {
 		 {current:?}"
 	)]
 	KernelEventArchMismatch {
+		/// The current (expected) architecture.
 		current:  ArchType,
+		/// The architecture of the received event.
 		received: ArchType,
 	},
 	/// A kernel effect start event was received with an unknown effect ID.
 	#[error("kernel effect start event received with unknown effect ID: {effect_id:X}")]
-	UnknownKernelEffectStart { effect_id: u64 },
+	UnknownKernelEffectStart {
+		/// The effect ID that was received.
+		effect_id: u64,
+	},
 	/// A kernel effect end event was received with an unknown effect ID.
 	#[error("kernel effect end event received with unknown effect ID: {effect_id:X}")]
-	UnknownKernelEffectEnd { effect_id: u64 },
+	UnknownKernelEffectEnd {
+		/// The effect ID that was received.
+		effect_id: u64,
+	},
 	/// An "oro has started execution" event was passed more than once.
 	#[error("in_kernel event received more than once (the kernel has already started)")]
 	KernelAlreadyStarted,
@@ -386,13 +423,19 @@ pub enum Event {
 		"a QEMU packet that is meant for per-core state updates had no core specified in its r0: \
 		 {ty:X}"
 	)]
-	QemuMissingCore { ty: u64 },
+	QemuMissingCore {
+		/// The event type.
+		ty: u64,
+	},
 	/// A kernel packet was missing a core ID.
 	///
 	/// This is slightly different than the [`Event::QemuMissingCore`] in that _every_ kernel packet
 	/// must have a core ID.
 	#[error("kernel packet is missing a core id: {ty:X}")]
-	KernelMissingCore { ty: u64 },
+	KernelMissingCore {
+		/// The event type.
+		ty: u64,
+	},
 
 	/// An [`Exception`] occurred.
 	#[error("an exception occurred: {0:?}")]
@@ -400,22 +443,33 @@ pub enum Event {
 
 	/// On x86_64, the exception code was >= 32 (invalid).
 	#[error("(x86_64) the exception code was >=32 (out of range): {exception}")]
-	X8664ExceptionOutOfRange { exception: u64 },
+	X8664ExceptionOutOfRange {
+		/// The (invalid) exception code.
+		exception: u64,
+	},
 	/// On x86_64, the error code was out of range (larger than 32-bits, invalid).
 	#[error("(x86_64) the error code was outside a 32-bit range (out of range): {error_code}")]
-	X8664ErrorCodeOutOfRange { error_code: u64 },
+	X8664ErrorCodeOutOfRange {
+		/// The (invalid) error code.
+		error_code: u64,
+	},
 	/// On x86_64, a selector was out of range (larger than 16-bits, invalid).
 	#[error(
 		"(x86_64) a selector value was outside a 16-bit range (out of range): \
 		 {selector:?}({value})"
 	)]
 	X8664SelectorOutOfRange {
+		/// The selector that was being set.
 		selector: X8664Selector,
+		/// The (invalid) value of the selector.
 		value:    u64,
 	},
 	/// On x86_64, a CPL was received (e.g. via an exception event) that was >3 (out of range, invalid).
 	#[error("(x86_64) a CPU protection level (CPL) was received that was >3 (out of range): {cpl}")]
-	X8664CplOutOfRange { cpl: u64 },
+	X8664CplOutOfRange {
+		/// The (invalid) CPL.
+		cpl: u64,
+	},
 
 	/// A constraint check failed.
 	#[error("a constraint check failed: {0}")]
@@ -423,6 +477,10 @@ pub enum Event {
 }
 
 /// An x86_64 selector.
+#[expect(
+	missing_docs,
+	reason = "self-documenting; see x86_64 documentation for explanation"
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum X8664Selector {
 	Cs,
@@ -434,6 +492,7 @@ pub enum X8664Selector {
 }
 
 /// An exception (error) that has occurred.
+#[expect(missing_docs, reason = "self-documenting")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Exception {
 	X8664(X8664Exception),
