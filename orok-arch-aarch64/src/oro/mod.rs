@@ -1,6 +1,7 @@
 //! Oro-specific AArch64 architecture facilities and types, built on top of the
 //! architecture-agnostic traits and types defined in `orok-arch-base`.
 
+mod halt;
 mod page_size;
 mod unsafe_addr;
 

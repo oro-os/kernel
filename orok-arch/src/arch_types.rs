@@ -16,28 +16,18 @@ use orok_arch_x86_64::Arch;
 )))]
 compile_error!("unsupported architecture selected for orok-arch");
 
-#[doc(hidden)]
-macro_rules! impl_type {
-    (for $arch:ty {
-        $(use $base_ty:ident :: $assoc_ty:ident as $trait_ty:ident);* $(;)?
-    }) => {
-        $(
-            pub type $trait_ty = impl orok_arch_base::$trait_ty;
-            const _: () = {
-                #[doc(hidden)]
-                #[define_opaque($trait_ty)]
-                const fn _assoc_ty(_: $arch) -> $trait_ty {
-                    let u = ::core::mem::MaybeUninit::<<$arch as orok_arch_base::$base_ty>::$assoc_ty>::uninit();
-                    unsafe { u.assume_init() }
-                }
-            };
-        )*
-    };
-}
+include!("./arch_types.macro.rs");
 
 impl_type! {
 	for Arch {
 		use ArchAddressScheme::UnsafePhys as UnsafePhys;
 		use ArchAddressScheme::UnsafeVirt as UnsafeVirt;
+	}
+}
+
+impl_fn! {
+	for Arch {
+		unsafe fn Halt::halt_once as halt_once();
+		unsafe fn Halt::halt as halt() -> !;
 	}
 }

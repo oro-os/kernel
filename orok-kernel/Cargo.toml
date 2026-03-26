@@ -1,7 +1,7 @@
 [package]
-name = "orok-boot-limine"
+name = "orok-kernel"
 version.workspace = true
-description = "Oro operating system Limine bootloader support"
+description = "Oro operating system kernel"
 publish = false
 edition = "2024"
 authors = ["Josh Junon (https//github.com/qix-)"]
@@ -16,14 +16,12 @@ build = "build.rs"
 workspace = true
 
 [[bin]]
-name = "oro-limine"
+name = "oro-kernel"
 path = "src/main.rs"
 doc = false
 test = false
 
 [dependencies]
-orok-test.workspace = true
 orok-arch.workspace = true
 orok-boot.workspace = true
-
-limine.workspace = true
+orok-test.workspace = true

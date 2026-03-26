@@ -1,4 +1,4 @@
-/// Page size types for RISC-V 64-bit architecture.
+//! Page size types for RISC-V 64-bit architecture.
 
 /// Page sizes for the RISC-V 64-bit architecture.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -18,7 +18,11 @@ pub enum PageSize {
 
 impl PageSize {
 	/// Returns the size of the page in bytes.
-	pub fn size_bytes(&self) -> usize {
-		*self as usize
+	#[expect(
+		clippy::as_conversions,
+		reason = "page size will always fit in a usize"
+	)]
+	pub const fn size_bytes(self) -> usize {
+		self as u64 as usize
 	}
 }

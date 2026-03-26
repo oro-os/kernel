@@ -49,6 +49,7 @@ pub enum PhysError {}
 impl CheckUnsafePhys for UnsafePhys {
 	type Error = PhysError;
 
+	#[expect(clippy::todo, reason = "temporary")]
 	fn check_phys(self) -> Result<(), Self::Error> {
 		todo!("validate physical address");
 	}
@@ -65,6 +66,7 @@ pub enum VirtError {
 impl CheckUnsafeVirt for UnsafeVirt {
 	type Error = VirtError;
 
+	#[expect(clippy::todo, reason = "temporary")]
 	fn check_virt(self) -> Result<(), Self::Error> {
 		todo!("validate virtual address");
 	}

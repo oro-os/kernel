@@ -79,7 +79,12 @@ impl CheckUnsafeVirt for UnsafeVirt {
 	fn check_virt(self) -> Result<(), Self::Error> {
 		let paging_level = PagingLevel::current_from_cpu();
 		let upper_mask = !paging_level.virtual_address_mask();
-		let high_bit = (self.0 & (1 << (paging_level.virtual_address_bits() - 1))) != 0;
+		#[expect(
+			clippy::arithmetic_side_effects,
+			reason = "`virtual_address_bits()` is always >= 1"
+		)]
+		let vaddr_bit_shift = paging_level.virtual_address_bits() - 1;
+		let high_bit = (self.0 & (1 << vaddr_bit_shift)) != 0;
 
 		let is_canonical = if high_bit {
 			(self.0 & upper_mask) == upper_mask

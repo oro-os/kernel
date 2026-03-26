@@ -5,13 +5,3 @@
 #![cfg_attr(doc, doc = include_str!("../README.md"))]
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(doc, feature(doc_cfg))]
-
-mod address_scheme;
-mod halt;
-mod page_size;
-
-pub use self::{
-	address_scheme::{ArchAddressScheme, CheckUnsafePhys, CheckUnsafeVirt, UnsafePhys, UnsafeVirt},
-	halt::Halt,
-	page_size::{ArchPageSize, PageSize},
-};

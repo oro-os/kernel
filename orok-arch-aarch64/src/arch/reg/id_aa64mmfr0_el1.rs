@@ -1,7 +1,5 @@
 //! Provides definitions for the AArch64 Memory Model Feature Register 0 (EL1) (`ID_AA64MMFR0_EL1`).
 
-use core::arch::asm;
-
 use orok_macro::bitstruct;
 
 bitstruct! {
@@ -144,7 +142,7 @@ impl IdAa64Mmfr0El1 {
 		// SAFETY: This register is safe to load as it has no side effects.
 		unsafe {
 			let mut id_aa64mmfr0_el1: u64;
-			asm!(
+			::core::arch::asm!(
 				"mrs {0:x}, ID_AA64MMFR0_EL1",
 				out(reg) id_aa64mmfr0_el1,
 				options(pure, nostack, preserves_flags, readonly),

@@ -5,6 +5,7 @@
 #![cfg_attr(doc, doc = include_str!("../README.md"))]
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(doc, feature(doc_cfg))]
+#![cfg_attr(not(test), no_main)]
 
 #[cfg(debug_assertions)]
 use limine::request::StackSizeRequest;
@@ -69,17 +70,34 @@ pub unsafe fn init() -> ! {
 ///
 /// # Safety
 /// Do **NOT** call this function directly.
-/// It is only called by the architecture-specific binaries.
-pub unsafe fn panic(_info: &::core::panic::PanicInfo<'_>) -> ! {
-	loop {
-		// SAFETY: Inline assembly is required to halt the CPU.
-		unsafe {
-			#[cfg(target_arch = "aarch64")]
-			core::arch::asm!("wfi");
-			#[cfg(target_arch = "x86_64")]
-			core::arch::asm!("cli; hlt");
-			#[cfg(target_arch = "riscv64")]
-			core::arch::asm!("wfi");
-		}
+#[inline(never)]
+#[cfg(not(test))]
+#[cold]
+#[panic_handler]
+unsafe fn panic(_info: &::core::panic::PanicInfo<'_>) -> ! {
+	// SAFETY: We're aware we're about to halt.
+	unsafe {
+		orok_arch::halt();
 	}
+}
+
+/// Main entry point for the Limine bootloader stage
+/// for the Oro kernel.
+///
+/// # Safety
+/// Do **NOT** call this function directly. It is called
+/// by the Limine bootloader.
+#[inline(never)]
+#[cfg(not(test))]
+#[cold]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn _start() -> ! {
+	// SAFETY: This is the architecture-specific entry function, the
+	// SAFETY: only allowed place to call this function.
+	unsafe { init() }
+}
+
+#[cfg(test)]
+fn main() {
+	panic!("Don't run this directly.");
 }

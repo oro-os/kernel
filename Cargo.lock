@@ -1471,11 +1471,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "orok-boot"
+version = "0.0.0"
+
+[[package]]
 name = "orok-boot-limine"
 version = "0.0.0"
 dependencies = [
  "limine",
  "orok-arch",
+ "orok-boot",
+ "orok-test",
+]
+
+[[package]]
+name = "orok-kernel"
+version = "0.0.0"
+dependencies = [
+ "orok-arch",
+ "orok-boot",
  "orok-test",
 ]
 

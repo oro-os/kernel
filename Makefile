@@ -61,16 +61,16 @@ lint: clippy
 	cargo fmt --all --check
 
 .PHONY: x86_64 aarch64 riscv64
-x86_64: x86_64-limine
-aarch64: aarch64-limine
-riscv64: riscv64-limine
+x86_64: x86_64-limine x86_64-kernel
+aarch64: aarch64-limine aarch64-kernel
+riscv64: riscv64-limine riscv64-kernel
 
 .PHONY: x86_64-limine
 x86_64-limine:
 	@cargo build \
 		--target=./orok-arch-x86_64/x86_64-unknown-oro.json \
 		-p orok-boot-limine \
-		--bin oro-limine-x86_64 \
+		--bin oro-limine \
 		$(CARGO_FLAGS) \
 		$(CARGO_UNSTABLE)
 
@@ -79,7 +79,7 @@ aarch64-limine:
 	@cargo build \
 		--target=./orok-arch-aarch64/aarch64-unknown-oro.json \
 		-p orok-boot-limine \
-		--bin oro-limine-aarch64 \
+		--bin oro-limine \
 		$(CARGO_FLAGS) \
 		$(CARGO_UNSTABLE)
 
@@ -88,7 +88,34 @@ riscv64-limine:
 	@cargo build \
 		--target=./orok-arch-riscv64/riscv64-unknown-oro.json \
 		-p orok-boot-limine \
-		--bin oro-limine-riscv64 \
+		--bin oro-limine \
+		$(CARGO_FLAGS) \
+		$(CARGO_UNSTABLE)
+
+.PHONY: x86_64-kernel
+x86_64-kernel:
+	@cargo build \
+		--target=./orok-arch-x86_64/x86_64-unknown-oro.json \
+		-p orok-kernel \
+		--bin oro-kernel \
+		$(CARGO_FLAGS) \
+		$(CARGO_UNSTABLE)
+
+.PHONY: aarch64-kernel
+aarch64-kernel:
+	@cargo build \
+		--target=./orok-arch-aarch64/aarch64-unknown-oro.json \
+		-p orok-kernel \
+		--bin oro-kernel \
+		$(CARGO_FLAGS) \
+		$(CARGO_UNSTABLE)
+
+.PHONY: riscv64-kernel
+riscv64-kernel:
+	@cargo build \
+		--target=./orok-arch-riscv64/riscv64-unknown-oro.json \
+		-p orok-kernel \
+		--bin oro-kernel \
 		$(CARGO_FLAGS) \
 		$(CARGO_UNSTABLE)
 
@@ -127,23 +154,32 @@ iso-build: .limine/limine | iso-x86_64 iso-aarch64 iso-riscv64
 
 .PHONY: iso-x86_64
 iso-x86_64: iso-clean x86_64
-    # Note the change from '_' to '-' below \
-	# Limine's configuration 'arch' variable uses a hyphen
+    # Note the use of '-' instead of '_' below; \
+	# Limine's configuration 'arch' variable uses a hyphen!
 	cp \
-		target/x86_64-unknown-oro/debug/oro-limine-x86_64 \
+		target/x86_64-unknown-oro/debug/oro-limine \
 		target/iso/oro-limine-x86-64
+	cp \
+		target/x86_64-unknown-oro/debug/oro-kernel \
+		target/iso/oro-kernel-x86-64
 
 .PHONY: iso-aarch64
 iso-aarch64: iso-clean aarch64
 	cp \
-		target/aarch64-unknown-oro/debug/oro-limine-aarch64 \
+		target/aarch64-unknown-oro/debug/oro-limine \
 		target/iso/oro-limine-aarch64
+	cp \
+		target/aarch64-unknown-oro/debug/oro-kernel \
+		target/iso/oro-kernel-aarch64
 
 .PHONY: iso-riscv64
 iso-riscv64: iso-clean riscv64
 	cp \
-		target/riscv64-unknown-oro/debug/oro-limine-riscv64 \
+		target/riscv64-unknown-oro/debug/oro-limine \
 		target/iso/oro-limine-riscv64
+	cp \
+		target/riscv64-unknown-oro/debug/oro-kernel \
+		target/iso/oro-kernel-riscv64
 
 .PHONY: iso-clean
 iso-clean:
@@ -209,7 +245,7 @@ clippy-x86_64:
 	@cargo clippy \
 		--target=./orok-arch-x86_64/x86_64-unknown-oro.json \
 		-p orok-boot-limine \
-		--bin oro-limine-x86_64 \
+		--bin oro-limine \
 		$(CARGO_FLAGS) \
 		$(CLIPPY_ARGS) \
 		$(CARGO_UNSTABLE)
@@ -219,7 +255,7 @@ clippy-aarch64:
 	@cargo clippy \
 		--target=./orok-arch-aarch64/aarch64-unknown-oro.json \
 		-p orok-boot-limine \
-		--bin oro-limine-aarch64 \
+		--bin oro-limine \
 		$(CARGO_FLAGS) \
 		$(CLIPPY_ARGS) \
 		$(CARGO_UNSTABLE)
@@ -229,7 +265,7 @@ clippy-riscv64:
 	@cargo clippy \
 		--target=./orok-arch-riscv64/riscv64-unknown-oro.json \
 		-p orok-boot-limine \
-		--bin oro-limine-riscv64 \
+		--bin oro-limine \
 		$(CARGO_FLAGS) \
 		$(CLIPPY_ARGS) \
 		$(CARGO_UNSTABLE)

@@ -1,7 +1,5 @@
 //! Provides definitions for the Translation Control Register (`TCR_EL1`).
 
-use core::arch::asm;
-
 use orok_macro::bitstruct;
 
 bitstruct! {
@@ -213,7 +211,7 @@ impl TcrEl1 {
 		// SAFETY: The register is safe to load as it has no side effects.
 		unsafe {
 			let mut tcr_el1: u64;
-			asm!(
+			::core::arch::asm!(
 				"mrs {0:x}, TCR_EL1",
 				out(reg) tcr_el1,
 				options(pure, nostack, preserves_flags, readonly),
@@ -232,7 +230,7 @@ impl TcrEl1 {
 	pub unsafe fn store(self) {
 		// SAFETY: Safety is delegated to the caller.
 		unsafe {
-			asm!(
+			::core::arch::asm!(
 				"msr TCR_EL1, {0:x}",
 				in(reg) self.0,
 				options(nostack, nomem, preserves_flags),

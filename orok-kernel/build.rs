@@ -13,16 +13,16 @@ fn main() {
 
 	match target_arch.as_str() {
 		"x86_64" => {
-			println!("cargo:rustc-link-arg-bin=oro-limine=-Torok-boot-limine/x86_64.x");
-			println!("cargo:rerun-if-changed=orok-boot-limine/x86_64.x");
+			println!("cargo:rustc-link-arg-bin=oro-kernel=-Torok-kernel/x86_64.x");
+			println!("cargo:rerun-if-changed=orok-kernel/x86_64.x");
 		}
 		"aarch64" => {
-			println!("cargo:rustc-link-arg-bin=oro-limine=-Torok-boot-limine/aarch64.x");
-			println!("cargo:rerun-if-changed=orok-boot-limine/aarch64.x");
+			println!("cargo:rustc-link-arg-bin=oro-kernel=-Torok-kernel/aarch64.x");
+			println!("cargo:rerun-if-changed=orok-kernel/aarch64.x");
 		}
 		"riscv64" => {
-			println!("cargo:rustc-link-arg-bin=oro-limine=-Torok-boot-limine/riscv64.x");
-			println!("cargo:rerun-if-changed=orok-boot-limine/riscv64.x");
+			println!("cargo:rustc-link-arg-bin=oro-kernel=-Torok-kernel/riscv64.x");
+			println!("cargo:rerun-if-changed=orok-kernel/riscv64.x");
 		}
 		_ => {
 			panic!("unsupported target architecture: {target_arch}");
