@@ -49,7 +49,7 @@ jobs:
           submodules: 'true'
       - uses: ./.github/actions/deps
       - name: Lint (rustdoc)
-        run: env RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all
+        run: make lint-docs
   build-x86_64:
     runs-on: ubuntu-latest
     strategy:

@@ -48,7 +48,7 @@ endif
 all: build
 
 .PHONY: ci
-ci: test build clippy lint
+ci: test build lint
 
 .PHONY: build
 build: x86_64 aarch64 riscv64
@@ -56,9 +56,13 @@ build: x86_64 aarch64 riscv64
 .PHONY: clippy
 clippy: clippy-x86_64 clippy-aarch64 clippy-riscv64 clippy-test
 
-.PHONY: lint
-lint: clippy
+.PHONY: lint lint-fmt lint-clippy lint-docs
+lint: lint-fmt lint-clippy lint-docs
+lint-fmt:
 	cargo fmt --all --check
+lint-clippy: clippy
+lint-docs:
+	env RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all
 
 .PHONY: x86_64 aarch64 riscv64
 x86_64: x86_64-limine x86_64-kernel
