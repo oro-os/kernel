@@ -16,3 +16,8 @@ runs:
           pkg-config \
           xorriso \
           libchafa-dev
+    - name: Set pkg-config path
+      shell: bash
+      run: |
+        ls -l /usr/lib/x86_64-linux-gnu/pkgconfig
+        echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig" >> $GITHUB_ENV
