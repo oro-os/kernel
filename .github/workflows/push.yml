@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-      - uses: ./.github/actions/rust
+      - uses: ./.github/actions/deps
       - name: Lint (rustfmt)
         run: cargo fmt --check
   lint-tomt:
@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-      - uses: ./.github/actions/rust
+      - uses: ./.github/actions/deps
       - run: cargo install tomt
       - name: Lint (tomt)
         run: tomt --check
@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-      - uses: ./.github/actions/rust
+      - uses: ./.github/actions/deps
       - name: Lint (clippy)
         run: make clippy CARGO_FLAGS="--profile ${{ matrix.profile }}"
   lint-docs:
@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-      - uses: ./.github/actions/rust
+      - uses: ./.github/actions/deps
       - name: Lint (rustdoc)
         run: env RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all
   build-x86_64:
@@ -59,7 +59,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-      - uses: ./.github/actions/rust
+      - uses: ./.github/actions/deps
       - name: Build
         run: make x86_64 CARGO_FLAGS="--profile ${{ matrix.profile }}"
   build-aarch64:
@@ -71,7 +71,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-      - uses: ./.github/actions/rust
+      - uses: ./.github/actions/deps
       - name: Build
         run: make aarch64 CARGO_FLAGS="--profile ${{ matrix.profile }}"
   build-riscv64:
@@ -83,6 +83,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-      - uses: ./.github/actions/rust
+      - uses: ./.github/actions/deps
       - name: Build
         run: make riscv64 CARGO_FLAGS="--profile ${{ matrix.profile }}"

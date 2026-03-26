@@ -1,0 +1,17 @@
+name: deps
+description: Installs all dependencies needed for the CI runs
+runs:
+  using: "composite"
+  steps:
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: stable
+        components: rustfmt, clippy, rustc-dev, rust-src, llvm-tools-preview
+    - name: Install APT dependencies
+      shell: bash
+      run: |
+        set -e
+        sudo apt update && sudo apt install -y --no-install-recommends \
+          xorriso \
+          libchafa-dev
