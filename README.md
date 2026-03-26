@@ -23,32 +23,23 @@ All code necessary to build and run the kernel is provided in this repository.
 The kernel is built standalone and used as a module for a bootloader
 entry point. The kernel does not support being booted to directly.
 
-ACPI support uses a submodule; be sure it's checked out (one-time setup):
+To build the kernel and all bootloaders, use:
 
 ```shell
-git submodule update --init --recursive --depth=1
+make          # build the kernel and all bootloaders; all archs
+make x86_64   # || for x86_64
+make aarch64  # || for AArch64
+make riscv64  # || for RISC-V64
 ```
 
-Then, to build the kernel itself:
-
-```shell
-cargo kernel-x86_64
-cargo kernel-aarch64
-```
-
-To build a bootloader:
-
-```shell
-cargo limine-x86_64
-cargo limine-aarch64
-```
+Consult the `Makefile` for more specific targets and options.
 
 ## Documentation
 The Oro kernel is thoroughly documented. You may generate a local copy of
 the documentation with:
 
 ```shell
-cargo oro-doc --open
+cargo doc --open
 ```
 
 ## Security
@@ -58,7 +49,7 @@ consult [SECURITY.md](SECURITY.md) for instructions on how to responsibly disclo
 your findings.
 
 # License
-The Oro Operating System kernel is &copy; 2016-2025 by Joshua Lee Junon,<br>
+The Oro Operating System kernel is &copy; 2016-2026 by Joshua Lee Junon,<br>
 and licensed under the [Mozilla Public License 2.0](LICENSE).
 
 Certain crates within this repository are dual-licensed under the
