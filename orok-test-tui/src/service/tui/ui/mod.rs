@@ -1,5 +1,6 @@
 mod background;
 mod button;
+mod core_logger;
 mod debug_state;
 mod focused;
 mod logger;
@@ -19,6 +20,7 @@ use crossterm::event::MouseEvent;
 pub use self::{
 	background::BackgroundWidget,
 	button::Button,
+	core_logger::{CoreLogMessage, CoreLogger},
 	debug_state::DebugState,
 	focused::Focused,
 	logger::Logger,

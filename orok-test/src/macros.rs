@@ -38,6 +38,10 @@ macro_rules! emit_raw {
 	($r0:expr, $r1:expr, $r2:expr, $r3:expr, $r4:expr, $r5:expr, $r6:expr, $r7:expr $(,)?) => {
 		// SAFETY: This is safe as we are only emitting these instructions
 		// SAFETY: in test builds and under very controlled environments.
+		#[allow(
+			trivial_numeric_casts,
+			reason = "the `as u64` is there for completeness but might be trivial"
+		)]
 		unsafe {
 			#[cfg(target_arch = "x86_64")]
 			let regs = &mut *(($crate::get_vmm_base() + 0xFEB00000) as *mut [u64; 8]);

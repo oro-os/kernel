@@ -14,13 +14,19 @@ pub enum Event {
 }
 
 struct EventLogger {
+	bus:        Arc<crate::Bus>,
 	state:      Arc<State>,
 	debug_strs: Vec<u8>,
 }
 
 impl EventLogger {
-	async fn new(state: &Arc<State>, elf_file: Option<impl AsRef<Path>>) -> Result<Self> {
+	async fn new(
+		bus: &Arc<crate::Bus>,
+		state: &Arc<State>,
+		elf_file: Option<impl AsRef<Path>>,
+	) -> Result<Self> {
 		Ok(Self {
+			bus:        Arc::clone(bus),
 			state:      Arc::clone(state),
 			debug_strs: if let Some(elf_file) = elf_file {
 				Self::read_elf_dbgstrs(elf_file).await?
@@ -96,11 +102,35 @@ impl orok_test_harness::EventHandler for EventLogger {
 			log::warn!("[orok-test] on core {core} at <unknown>: {event}");
 		}
 	}
+
+	fn handle_log_bytes(&self, core_id: usize, bytes: &[u8]) {
+		let bus = Arc::clone(&self.bus);
+		let bytes = bytes.to_vec();
+
+		tokio::spawn(async move {
+			bus.tui
+				.send(crate::service::tui::Event::LogKernelCoreBytes { core_id, bytes })
+				.await
+				.context("failed to send kernel log bytes to TUI service")
+				.unwrap();
+		});
+	}
+
+	fn handle_log_finish(&self, core_id: usize, level: orok_test_harness::LogLevel) {
+		let bus = Arc::clone(&self.bus);
+		tokio::spawn(async move {
+			bus.tui
+				.send(crate::service::tui::Event::FlushKernelCoreLog { core_id, level })
+				.await
+				.context("failed to send kernel log flush event to TUI service")
+				.unwrap();
+		});
+	}
 }
 
 pub async fn run(bus: Arc<crate::Bus>, mut rx: Receiver<Event>) -> Result<!> {
 	let mut state = Arc::new(State::for_arch::<X8664State>());
-	let mut logger = EventLogger::new(&state, None::<&'static str>).await?;
+	let mut logger = EventLogger::new(&bus, &state, None::<&'static str>).await?;
 
 	let mut events = Vec::with_capacity(EVENT_CAP);
 
@@ -122,7 +152,7 @@ pub async fn run(bus: Arc<crate::Bus>, mut rx: Receiver<Event>) -> Result<!> {
 					// We tell the state machine that it will receive CPU update
 					// events since we're using QEMU.
 					state = Arc::new(State::for_arch_type((*arch).into()).will_receive_cpu_state());
-					logger = EventLogger::new(&state, Some(arch.boot_target_path())).await?;
+					logger = EventLogger::new(&bus, &state, Some(arch.boot_target_path())).await?;
 
 					bus.tui
 						.send(crate::service::tui::Event::SetDebugState {

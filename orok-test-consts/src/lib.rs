@@ -13,6 +13,20 @@ pub const EFFECT_END: u64 = 0x2;
 /// The bootloader/kernel has started execution. Should be the very first event
 /// emitted by any Oro kernel code.
 pub const IN_KERNEL: u64 = 0x3;
+/// The kernel emitted log line data and will continue
+/// with zero or more [`LOG`] messages, followed ultimately
+/// by one of the `LOG_(DEBUG|INFO|...)` messages.
+pub const LOG: u64 = 0x4;
+/// The kernel emitted a TRACE level log chunk.
+pub const LOG_TRACE: u64 = 0x5;
+/// The kernel emitted a DEBUG level log chunk.
+pub const LOG_DEBUG: u64 = 0x6;
+/// The kernel emitted an INFO level log chunk.
+pub const LOG_INFO: u64 = 0x7;
+/// The kernel emitted a WARN level log chunk.
+pub const LOG_WARN: u64 = 0x8;
+/// The kernel emitted an ERROR level log chunk.
+pub const LOG_ERROR: u64 = 0x9;
 
 /// (x86_64) The effect block will write to the `CR0` control register.
 pub const X8664_EFFECT_WRITE_REG_CR0: u64 = 0x100;

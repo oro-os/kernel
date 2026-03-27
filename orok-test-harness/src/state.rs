@@ -352,6 +352,39 @@ impl From<Riscv64State> for Arch {
 pub trait EventHandler {
 	/// Handles an event.
 	fn handle_event(&self, event: Event) {}
+
+	/// Handles a core's logging stream byte data.
+	///
+	/// This comes in the form of bytes that are written to a core-specific
+	/// byte buffer by the implementer. When a log line is finished,
+	/// [`EventHandler::handle_log_finish`] is called with the log level
+	/// and core ID. The implementer should then take the buffer, interpret
+	/// it as lossy UTF-8, and emit it as a log line with the appropriate level and core ID.
+	fn handle_log_bytes(&self, core_id: usize, bytes: &[u8]) {}
+
+	/// Handles a finished log line.
+	///
+	/// This is called when a log line is finished, with the log level and core ID.
+	/// The implementer should take the byte buffer for the core, interpret
+	/// it as lossy UTF-8, and emit it as a log line with the appropriate level and core ID.
+	///
+	/// Byte data is received prior to this via [`EventHandler::handle_log_bytes`].
+	fn handle_log_finish(&self, core_id: usize, level: LogLevel) {}
+}
+
+/// The level of the log event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum LogLevel {
+	/// A trace log message.
+	Trace,
+	/// A debug log message.
+	Debug,
+	/// An informational log message.
+	Info,
+	/// A warning log message.
+	Warn,
+	/// An error log message.
+	Error,
 }
 
 impl EventHandler for () {}
@@ -598,6 +631,12 @@ impl State {
 				C::EFFECT_START => self.handle_k0001(packet, handler),
 				C::EFFECT_END => self.handle_k0002(packet, handler),
 				C::IN_KERNEL => self.handle_k0003(packet, handler),
+				C::LOG => self.handle_log(packet, handler, None),
+				C::LOG_TRACE => self.handle_log(packet, handler, Some(LogLevel::Trace)),
+				C::LOG_DEBUG => self.handle_log(packet, handler, Some(LogLevel::Debug)),
+				C::LOG_INFO => self.handle_log(packet, handler, Some(LogLevel::Info)),
+				C::LOG_WARN => self.handle_log(packet, handler, Some(LogLevel::Warn)),
+				C::LOG_ERROR => self.handle_log(packet, handler, Some(LogLevel::Error)),
 				ty => self.emit(handler, Event::UnknownKernelEvent { ty }),
 			}
 		}
@@ -1089,6 +1128,36 @@ impl State {
 		// This might prove to be a 'naive' assumption, but it works for now.
 		if self.in_kernel.set(true) {
 			self.emit(handler, Event::KernelAlreadyStarted);
+		}
+	}
+
+	/// Handles a lead-up log message, buffering the contents until one of the
+	/// log level messages is stored.
+	fn handle_log(
+		&self,
+		packet: &Packet,
+		handler: &impl EventHandler,
+		finished_level: Option<LogLevel>,
+	) {
+		let Some(core_id) = self.require_core(packet, handler) else {
+			return;
+		};
+
+		// Interpret the registers as a byte array, slicing up
+		// to the first null (if any; not included) and sending
+		// that as byte data if the len > 0.
+		// SAFETY: We know for a fact that the packet has 56 bytes
+		// SAFETY: in registers 1-7 (inclusive).
+		let bytes = unsafe { &*(packet.0[1..]).as_ptr().cast::<[u8; 7 * 8]>() };
+
+		let log_data = bytes.split(|b| *b == 0).next().unwrap_or_default();
+
+		if !log_data.is_empty() {
+			handler.handle_log_bytes(core_id, log_data);
+		}
+
+		if let Some(level) = finished_level {
+			handler.handle_log_finish(core_id, level);
 		}
 	}
 }

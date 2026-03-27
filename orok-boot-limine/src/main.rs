@@ -63,6 +63,12 @@ pub unsafe fn init() -> ! {
 	// Must be first test effect that is emitted.
 	orok_test::oro_has_started_execution!();
 
+	orok_test::trace!("Hello, trace!");
+	orok_test::debug!("Hello, debug!");
+	orok_test::info!("Hello, info!");
+	orok_test::warn!("Hello, warn!");
+	orok_test::error!("Hello, error!");
+
 	panic!();
 }
 

@@ -1,7 +1,7 @@
 pub mod rect;
 pub mod ui;
 
-use std::{cell::RefCell, sync::Arc};
+use std::{cell::RefCell, collections::HashMap, sync::Arc};
 
 use anyhow::{Context, Result, anyhow, bail};
 use ratatui::{
@@ -62,6 +62,15 @@ pub enum Event {
 	NvimStdout { bytes: Vec<u8> },
 	/// Nvim has resized
 	ResizeNvim { rows: u16, cols: u16 },
+	/// Receives core-local log bytes from the kernel.
+	///
+	/// Buffered until `FlushKernelCoreLog` is received for the same core.
+	LogKernelCoreBytes { core_id: usize, bytes: Vec<u8> },
+	/// Indicates that a log line from the kernel is complete and should be flushed.
+	FlushKernelCoreLog {
+		core_id: usize,
+		level:   orok_test_harness::LogLevel,
+	},
 }
 
 pub async fn run<B: ratatui::backend::Backend>(
@@ -78,6 +87,7 @@ pub async fn run<B: ratatui::backend::Backend>(
 	let code_split = ui::SplitState::new(0.75);
 	let glance_split = ui::SplitState::new(0.2);
 	let control_split = ui::SplitState::new(0.4);
+	let logger_split = ui::SplitState::new(0.6);
 
 	let mut video_online = false;
 	let mut video_size = (640, 480);
@@ -92,6 +102,9 @@ pub async fn run<B: ratatui::backend::Backend>(
 	let mut debug_state = Arc::new(orok_test_harness::State::for_arch::<
 		orok_test_harness::X8664State,
 	>());
+
+	let mut core_log_buffers = HashMap::<usize, Vec<u8>>::new();
+	let mut core_log_lines = Vec::new();
 
 	loop {
 		mouse_areas.borrow_mut().clear();
@@ -203,7 +216,12 @@ pub async fn run<B: ratatui::backend::Backend>(
 								),
 							),
 						),
-						ui::Logger(&pass),
+						ui::Split::Vertical(
+							&pass,
+							&logger_split,
+							ui::Logger(&pass),
+							ui::CoreLogger(&core_log_lines),
+						),
 					)
 					.render(area, buf);
 
@@ -240,7 +258,6 @@ pub async fn run<B: ratatui::backend::Backend>(
 			.await
 			.with_context(|| "failed to send Event::SetMouseAreas")?;
 
-		#[expect(clippy::never_loop)]
 		loop {
 			let Some(evt) = rx.recv().await else {
 				bail!("EOF");
@@ -332,6 +349,20 @@ pub async fn run<B: ratatui::backend::Backend>(
 					nvim_tui.resize(rows, cols);
 					break;
 				}
+				Event::LogKernelCoreBytes { core_id, bytes } => {
+					core_log_buffers.entry(core_id).or_default().extend(bytes);
+					// no break; no refresh needed
+				}
+				Event::FlushKernelCoreLog { core_id, level } => {
+					let bytes = core_log_buffers.remove(&core_id).unwrap_or_default();
+					let s = String::from_utf8_lossy(&bytes);
+					core_log_lines.push(ui::CoreLogMessage {
+						core_id,
+						level,
+						message: s.into_owned(),
+					});
+					break;
+				}
 			}
 		}
 	}
@@ -341,13 +372,9 @@ struct ControlPanel<'a>(&'a ui::Pass<'a>, &'a orok_test_harness::State);
 
 impl<'a> Widget for ControlPanel<'a> {
 	fn render(self, area: Rect, buf: &mut Buffer) {
-		let [session_button_area, status_area, stats_area] = Layout::default()
+		let [session_button_area, stats_area] = Layout::default()
 			.direction(Direction::Vertical)
-			.constraints([
-				Constraint::Fill(1),
-				Constraint::Fill(2),
-				Constraint::Fill(2),
-			])
+			.constraints([Constraint::Length(9), Constraint::Fill(2)])
 			.spacing(Spacing::Space(1))
 			.areas(area);
 
@@ -359,11 +386,9 @@ impl<'a> Widget for ControlPanel<'a> {
 				Constraint::Length(1),
 				Constraint::Length(1),
 			])
-			.spacing(Spacing::Space(1))
 			.areas(session_button_area.crop_top(2).crop_bottom(1));
 
 		ui::Titled("Session Control", "").render(session_button_area, buf);
-		ui::Titled("Status", "").render(status_area, buf);
 		ui::Titled("Debug State", ui::DebugState(self.1)).render(stats_area, buf);
 
 		ui::Button::new(self.0, "SCRAM")

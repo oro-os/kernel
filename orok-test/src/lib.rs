@@ -17,3 +17,4 @@ mod macros;
 pub use base::get_vmm_base;
 pub use base::set_vmm_base;
 pub use orok_test_proc::*;
+pub mod log;
