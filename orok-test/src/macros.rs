@@ -48,7 +48,7 @@ macro_rules! emit_raw {
 			#[cfg(target_arch = "aarch64")]
 			let regs = &mut *(($crate::get_vmm_base() + 0x090D0000) as *mut [u64; 8]);
 			#[cfg(target_arch = "riscv64")]
-			let regs = &mut *(($crate::get_vmm_base() + 0x10002000) as *mut [u64; 8]);
+			let regs = &mut *(($crate::get_vmm_base() + 0x10010000) as *mut [u64; 8]);
 			#[cfg(not(any(
 				target_arch = "x86_64",
 				target_arch = "aarch64",
