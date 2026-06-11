@@ -1,4 +1,4 @@
-#![feature(never_type, if_let_guard, try_with_capacity, mapped_lock_guards)]
+#![feature(never_type, try_with_capacity)]
 
 use std::{
 	cell::RefCell,
