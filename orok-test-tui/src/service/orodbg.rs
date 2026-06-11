@@ -53,10 +53,12 @@ impl EventLogger {
 	}
 
 	async fn read_elf_dbgstrs(elf_file: impl AsRef<Path>) -> Result<Vec<u8>> {
-		let elf_data = tokio::fs::read(elf_file)
+		let elf_data = tokio::fs::read(elf_file.as_ref())
 			.await
+			.context(elf_file.as_ref().display().to_string())
 			.context("failed to read ELF file for debug strings")?;
 		let elf = elf::ElfBytes::<elf::endian::AnyEndian>::minimal_parse(elf_data.as_slice())
+			.context(elf_file.as_ref().display().to_string())
 			.context("failed to parse ELF file for debug strings")?;
 
 		let (section_headers, strtab) = elf
