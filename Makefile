@@ -72,15 +72,17 @@ riscv64: riscv64-limine riscv64-kernel
 .PHONY: x86_64-limine
 x86_64-limine:
 	@cargo build \
+		-Zjson-target-spec \
 		--target=./orok-arch-x86_64/x86_64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine \
 		$(CARGO_FLAGS) \
-		$(CARGO_UNSTABLE)
+		$(CARGO_UNSTABLE) \
 
 .PHONY: aarch64-limine
 aarch64-limine:
 	@cargo build \
+		-Zjson-target-spec \
 		--target=./orok-arch-aarch64/aarch64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine \
@@ -90,6 +92,7 @@ aarch64-limine:
 .PHONY: riscv64-limine
 riscv64-limine:
 	@cargo build \
+		-Zjson-target-spec \
 		--target=./orok-arch-riscv64/riscv64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine \
@@ -99,6 +102,7 @@ riscv64-limine:
 .PHONY: x86_64-kernel
 x86_64-kernel:
 	@cargo build \
+		-Zjson-target-spec \
 		--target=./orok-arch-x86_64/x86_64-unknown-oro.json \
 		-p orok-kernel \
 		--bin oro-kernel \
@@ -108,6 +112,7 @@ x86_64-kernel:
 .PHONY: aarch64-kernel
 aarch64-kernel:
 	@cargo build \
+		-Zjson-target-spec \
 		--target=./orok-arch-aarch64/aarch64-unknown-oro.json \
 		-p orok-kernel \
 		--bin oro-kernel \
@@ -117,6 +122,7 @@ aarch64-kernel:
 .PHONY: riscv64-kernel
 riscv64-kernel:
 	@cargo build \
+		-Zjson-target-spec \
 		--target=./orok-arch-riscv64/riscv64-unknown-oro.json \
 		-p orok-kernel \
 		--bin oro-kernel \
