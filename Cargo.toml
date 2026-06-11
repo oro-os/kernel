@@ -173,10 +173,13 @@ impl_trait_in_params = "allow"
 # Way too noisy, not particularly helpful. This will need some
 # judicious review otherwise, but should be manageable.
 min_ident_chars = "allow"
+inline_modules = "allow"
 # We are smart enough :)
 little_endian_bytes = "allow"
 big_endian_bytes = "allow"
 host_endian_bytes = "allow"
+# Too noisy.
+inline_trait_bounds = "allow"
 
 [profile.dev]
 panic = "abort" # Use "abort" panic strategy

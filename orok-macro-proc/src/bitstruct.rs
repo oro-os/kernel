@@ -529,7 +529,7 @@ pub fn bitstruct(input: TokenStream) -> Result<TokenStream> {
 				}
 
 				let see_message =
-					format!("See [`Self::{get_name}()`] for more information about this field.",);
+					format!("See [`Self::{get_name}()`] for more information about this field.");
 
 				match &ext_ty {
 					ExtType::As(as_conv) if as_conv.ty.is_bool() => {
