@@ -253,6 +253,7 @@ target/RISCV_VIRT_VARS.fd:
 .PHONY: clippy-x86_64
 clippy-x86_64:
 	@cargo clippy \
+		-Zjson-target-spec \
 		--target=./orok-arch-x86_64/x86_64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine \
@@ -263,6 +264,7 @@ clippy-x86_64:
 .PHONY: clippy-aarch64
 clippy-aarch64:
 	@cargo clippy \
+		-Zjson-target-spec \
 		--target=./orok-arch-aarch64/aarch64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine \
@@ -273,6 +275,7 @@ clippy-aarch64:
 .PHONY: clippy-riscv64
 clippy-riscv64:
 	@cargo clippy \
+		-Zjson-target-spec \
 		--target=./orok-arch-riscv64/riscv64-unknown-oro.json \
 		-p orok-boot-limine \
 		--bin oro-limine \
