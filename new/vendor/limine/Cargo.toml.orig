@@ -1,0 +1,17 @@
+[package]
+name = "limine"
+version = "0.6.5"
+edition = "2024"
+authors = ["Julian Scheffers <julian@scheffers.net>"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+categories = ["no-std"]
+repository = "https://github.com/robotman2412/limine-boot-rust"
+description = "Rust interface for the Limine boot protocol"
+
+[features]
+uuid = ["dep:uuid"]
+ipaddr = []
+
+[dependencies]
+uuid = { version = "1", default-features = false, optional = true }

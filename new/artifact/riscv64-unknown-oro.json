@@ -1,0 +1,24 @@
+{
+	"arch": "riscv64",
+	"code-model": "large",
+	"cpu": "generic-rv64",
+	"crt-objects-fallback": "false",
+	"data-layout": "e-m:e-p:64:64-i64:64-i128:128-n32:64-S128",
+	"eh-frame-header": false,
+	"emit-debug-gdb-scripts": false,
+	"features": "+m,+a,+f,+d,+c,+zicsr,+zifencei",
+	"linker-flavor": "ld.lld",
+	"linker": "rust-lld",
+	"llvm-abiname": "lp64d",
+	"llvm-target": "riscv64",
+	"max-atomic-width": 64,
+	"panic-strategy": "abort",
+	"relocation-model": "static",
+	"target-pointer-width": 64,
+	"pre-link-args": {
+		"ld": ["--relax", "-static"]
+	},
+	"executables": true,
+	"disable-redzone": true,
+	"os": "oro"
+}

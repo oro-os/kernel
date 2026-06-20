@@ -9,12 +9,11 @@ edition = "2024"
 resolver = "2"
 members = [
 	"orok-kernel",
-	"orok-test-tui",
 	"orok-boot-limine",
 	"orok-arch",
 	"orok-macro-tests",
 ]
-default-members = ["orok-test-tui"]
+exclude = ["vendor", "new"]
 
 [workspace.metadata.oro]
 build-std = ["alloc", "compiler_builtins", "core"]
@@ -43,26 +42,15 @@ orok-test-consts.path = "orok-test-consts"
 orok-test-proc.path = "orok-test-proc"
 orok-boot.path = "orok-boot"
 
-# External dependencies
-limine = "=0.5.0"
-#buddy_system_allocator = "=0.11.0"
+limine.path = "vendor/vendor/limine"
+buddy_system_allocator.path = "vendor/vendor/buddy_system_allocator"
 
-# Development dependencies
-syn = { version = "=2.0.100", features = ["full", "printing"] }
-quote = "=1.0.40"
-proc-macro2 = { version = "=1.0.94", features = ["proc-macro"] }
+syn.path = "vendor/vendor/syn"
+quote.path = "vendor/vendor/quote"
+proc-macro2.path = "vendor/vendor/proc-macro2"
 
-# Testing dependencies
-tokio = { version = "1.49.0", features = [
-  "fs",
-  "io-util",
-  "macros",
-  "net",
-  "process",
-  "rt-multi-thread",
-  "sync",
-] }
-thiserror = "2.0.18"
+thiserror.path = "vendor/vendor/thiserror"
+tokio.path = "vendor/vendor/tokio"
 
 [workspace.lints.rust]
 missing_docs = "warn"

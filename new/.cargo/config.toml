@@ -1,0 +1,49 @@
+paths = [
+    "vendor/anstream",
+    "vendor/anstyle",
+    "vendor/anstyle-parse",
+    "vendor/anstyle-query",
+    "vendor/anstyle-wincon",
+    "vendor/clap",
+    "vendor/clap_builder",
+    "vendor/clap_derive",
+    "vendor/clap_lex",
+    "vendor/colorchoice",
+    "vendor/equivalent",
+    "vendor/hashbrown",
+    "vendor/heck",
+    "vendor/indexmap",
+    "vendor/is_terminal_polyfill",
+    "vendor/limine",
+    "vendor/once_cell_polyfill",
+    "vendor/proc-macro2",
+    "vendor/quote",
+    "vendor/serde",
+    "vendor/serde_core",
+    "vendor/serde_derive",
+    "vendor/serde_spanned",
+    "vendor/strsim",
+    "vendor/syn",
+    "vendor/toml",
+    "vendor/toml_datetime",
+    "vendor/toml_parser",
+    "vendor/toml_writer",
+    "vendor/unicode-ident",
+    "vendor/utf8parse",
+    "vendor/windows-link",
+    "vendor/windows-sys",
+    "vendor/winnow",
+]
+
+[alias]
+oro = [
+    "run",
+    "--offline",
+    "--quiet",
+    "--message-format",
+    "short",
+    "--",
+]
+
+[future-incompat-report]
+frequency = "always"

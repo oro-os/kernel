@@ -1,0 +1,49 @@
+name: Build and Lint
+on:
+  push:
+    branches:
+      - master
+      - kernel13
+  pull_request:
+
+env:
+  RUST_BACKTRACE: full
+
+jobs:
+  lint-rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - uses: ./.github/actions/deps
+      - name: Lint (rustfmt)
+        run: cargo fmt --check
+  check-vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - uses: ./.github/actions/deps
+      - name: Check vendor
+        run: cd third_party && cargo vendor --frozen --no-delete
+  build-artifacts:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        artifact:
+        - aarch64-kernel
+        - riscv64-kernel
+        - x86_64-kernel
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - uses: ./.github/actions/deps
+      - name: Build
+        run: cargo oro build ${{ matrix.artifact }}
+      - name: Build (release)
+        run: cargo oro build ${{ matrix.artifact }} --release
+      - name: Clippy
+        run: cargo oro clippy ${{ matrix.artifact }}

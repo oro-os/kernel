@@ -1,0 +1,13 @@
+[package]
+name = "oro-kernel-aarch64"
+description = "The Oro kernel for the AArch64 architecture"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.oro]
+arch = "aarch64"
+component = "kernel"
+
+[lints]
+workspace = true

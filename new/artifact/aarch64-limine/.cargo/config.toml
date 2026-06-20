@@ -1,0 +1,10 @@
+[unstable]
+build-std = ["core", "alloc", "compiler_builtins"]
+build-std-features = ["compiler-builtins-mem"]
+json-target-spec = true
+
+[build]
+target = "../aarch64-unknown-oro.json"
+
+[future-incompat-report]
+frequency = 'always'

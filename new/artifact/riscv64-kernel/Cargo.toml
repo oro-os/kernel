@@ -1,0 +1,13 @@
+[package]
+name = "oro-kernel-riscv64"
+description = "The Oro kernel for the RISC-V 64 architecture"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.oro]
+arch = "riscv64"
+component = "kernel"
+
+[lints]
+workspace = true

@@ -1,0 +1,30 @@
+[package]
+name = "oro-kernel-root"
+version = "0.1.0"
+publish = false
+edition = "2024"
+
+[lib]
+path = "utils/empty.rs"
+
+[workspace]
+resolver = "2"
+default-members = ["utils/build"]
+members = [
+	"lib/*",
+	"utils/*",
+	"artifact/*/",
+]
+
+[dependencies]
+# Used by the limine bootloader
+limine = "=0.6.5"
+
+# Used by build utilities and proc macros
+toml = "=1.1.2"
+serde = { version = "=1.0.228", features = ["derive"] }
+proc-macro2 = "=1.0.106"
+quote = "=1.0.45"
+clap = { version = "=4.6.1", features = ["derive", "string"] }
+
+[workspace.lints.rust]

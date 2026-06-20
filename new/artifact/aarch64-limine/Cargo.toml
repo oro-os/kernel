@@ -1,0 +1,16 @@
+[package]
+name = "oro-limine-aarch64"
+description = "Limine bootloader stub for the AArch64 architecture"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+limine = "*"
+
+[package.metadata.oro]
+arch = "aarch64"
+component = "bootloader"
+
+[lints]
+workspace = true
