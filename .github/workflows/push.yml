@@ -35,6 +35,8 @@ jobs:
         with:
           submodules: 'true'
       - uses: ./.github/actions/deps
+      - run: find vendor .cargo -type f
+      - run: cargo tree
       - name: Check unused dependencies
         run: cargo oro udeps
   check-licenses:
