@@ -55,8 +55,8 @@ consult [SECURITY.md](SECURITY.md) for instructions on how to responsibly disclo
 your findings.
 
 # License
-The Oro Operating System kernel is &copy; 2016-2026 by Joshua Lee Junon,
-and licensed under the [GPL-2.0 License](licenses/oro-kernel.txt) with a
+The Oro Operating System kernel is &copy; 2016-2026 by Joshua Lee Junon and all
+other contributors, and licensed under the [GPL-2.0 License](licenses/oro-kernel.txt) with a
 syscall exception (see [oro-kernel-syscall-exception.txt](licenses/oro-kernel-syscall-exception.txt))
 and a clarification on the license version (see [oro-kernel-gpl2-only.txt](licenses/oro-kernel-gpl2-only.txt)).
 
