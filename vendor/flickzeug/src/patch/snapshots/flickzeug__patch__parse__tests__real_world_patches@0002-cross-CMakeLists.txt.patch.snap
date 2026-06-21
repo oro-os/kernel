@@ -1,0 +1,630 @@
+---
+source: src/patch/parse.rs
+expression: patches
+input_file: src/patch/test-data/0002-cross-CMakeLists.txt.patch
+---
+Ok(
+    [
+        Patch {
+            original: Some(
+                Filename(
+                    "CMakeLists.txt.old",
+                ),
+            ),
+            modified: Some(
+                Filename(
+                    "CMakeLists.txt",
+                ),
+            ),
+            hunks: [
+                Hunk {
+                    old_range: HunkRange {
+                        start: 91,
+                        len: 2,
+                    },
+                    new_range: HunkRange {
+                        start: 91,
+                        len: 3,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "set(ZIG_STATIC_ZSTD ${ZIG_STATIC} CACHE BOOL \"Prefer linking against static zstd\")\n",
+                        ),
+                        Insert(
+                            "set(ZIG_STATIC_XML2 ${ZIG_STATIC} CACHE BOOL \"Prefer linking against static xml2\")\n",
+                        ),
+                        Context(
+                            "set(ZIG_STATIC_CURSES OFF CACHE BOOL \"Enable static linking against curses\")\n",
+                        ),
+                    ],
+                },
+                Hunk {
+                    old_range: HunkRange {
+                        start: 148,
+                        len: 2,
+                    },
+                    new_range: HunkRange {
+                        start: 149,
+                        len: 5,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "    list(APPEND LLVM_LIBRARIES \"${ZLIB}\")\n",
+                        ),
+                        Insert(
+                            "else()\n",
+                        ),
+                        Insert(
+                            "    find_library(ZLIB NAMES z zlib libz libz.a libzlibstatic.a NAMES_PER_DIR)\n",
+                        ),
+                        Insert(
+                            "    list(APPEND LLVM_LIBRARIES \"${ZLIB}\")\n",
+                        ),
+                        Context(
+                            "endif()\n",
+                        ),
+                    ],
+                },
+                Hunk {
+                    old_range: HunkRange {
+                        start: 159,
+                        len: 2,
+                    },
+                    new_range: HunkRange {
+                        start: 161,
+                        len: 19,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "    list(APPEND LLVM_LIBRARIES \"${ZSTD}\")\n",
+                        ),
+                        Insert(
+                            "else()\n",
+                        ),
+                        Insert(
+                            "    find_library(ZSTD NAMES zstd libzstd.a libzstdstatic.a NAMES_PER_DIR)\n",
+                        ),
+                        Insert(
+                            "    list(APPEND LLVM_LIBRARIES \"${ZSTD}\")\n",
+                        ),
+                        Insert(
+                            "endif()\n",
+                        ),
+                        Insert(
+                            "\n",
+                        ),
+                        Insert(
+                            "if(ZIG_STATIC_XML2)\n",
+                        ),
+                        Insert(
+                            "    if (MSVC)\n",
+                        ),
+                        Insert(
+                            "        list(REMOVE_ITEM LLVM_LIBRARIES \"xml2.lib\")\n",
+                        ),
+                        Insert(
+                            "    else()\n",
+                        ),
+                        Insert(
+                            "        list(REMOVE_ITEM LLVM_LIBRARIES \"-lxml2\")\n",
+                        ),
+                        Insert(
+                            "    endif()\n",
+                        ),
+                        Insert(
+                            "\n",
+                        ),
+                        Insert(
+                            "    find_library(XML2 NAMES libxml2.a xml2 NAMES_PER_DIR)\n",
+                        ),
+                        Insert(
+                            "    list(APPEND LLVM_LIBRARIES \"${XML2}\")\n",
+                        ),
+                        Insert(
+                            "else()\n",
+                        ),
+                        Insert(
+                            "    find_library(XML2 NAMES xml2 libxml2 libxml2.a NAMES_PER_DIR)\n",
+                        ),
+                        Insert(
+                            "    list(APPEND LLVM_LIBRARIES \"${XML2}\")\n",
+                        ),
+                        Context(
+                            "endif()\n",
+                        ),
+                    ],
+                },
+                Hunk {
+                    old_range: HunkRange {
+                        start: 704,
+                        len: 2,
+                    },
+                    new_range: HunkRange {
+                        start: 725,
+                        len: 2,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "    -fno-rtti\n",
+                        ),
+                        Delete(
+                            "    -fno-stack-protector\n",
+                        ),
+                        Insert(
+                            "    # -fno-stack-protector\n",
+                        ),
+                    ],
+                },
+                Hunk {
+                    old_range: HunkRange {
+                        start: 711,
+                        len: 6,
+                    },
+                    new_range: HunkRange {
+                        start: 732,
+                        len: 8,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "    -Wno-comment\n",
+                        ),
+                        Insert(
+                            "    -Os\n",
+                        ),
+                        Context(
+                            "  )\n",
+                        ),
+                        Context(
+                            "else()\n",
+                        ),
+                        Delete(
+                            "target_compile_options(zigcpp PRIVATE /Zc:preprocessor)\n",
+                        ),
+                        Delete(
+                            "set_property(TARGET zigcpp PROPERTY MSVC_RUNTIME_LIBRARY \"MultiThreaded\")\n",
+                        ),
+                        Insert(
+                            "  target_compile_options(zigcpp PRIVATE -MD)\n",
+                        ),
+                        Insert(
+                            "  target_compile_options(zigcpp PRIVATE /Zc:preprocessor)\n",
+                        ),
+                        Insert(
+                            "  set_property(TARGET zigcpp PROPERTY MSVC_RUNTIME_LIBRARY \"MultiThreaded\")\n",
+                        ),
+                        Context(
+                            "endif()\n",
+                        ),
+                    ],
+                },
+                Hunk {
+                    old_range: HunkRange {
+                        start: 789,
+                        len: 1,
+                    },
+                    new_range: HunkRange {
+                        start: 812,
+                        len: 27,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "set(ZIG_HOST_TARGET_TRIPLE \"${ZIG_HOST_TARGET_ARCH}-${ZIG_HOST_TARGET_OS}${ZIG_HOST_TARGET_ABI}\" CACHE STRING \"Host zig target triple.\")\n",
+                        ),
+                        Insert(
+                            "if(DEFINED ENV{CROSSCOMPILING_EMULATOR})\n",
+                        ),
+                        Insert(
+                            "  set(CROSSCOMPILING_EMULATOR $ENV{CROSSCOMPILING_EMULATOR})\n",
+                        ),
+                        Insert(
+                            "  if(NOT DEFINED ENV{CROSSCOMPILING_LIBC})\n",
+                        ),
+                        Insert(
+                            "    set(CROSSCOMPILING_LIBC \"-lc\")\n",
+                        ),
+                        Insert(
+                            "  else()\n",
+                        ),
+                        Insert(
+                            "    set(CROSSCOMPILING_LIBC $ENV{CROSSCOMPILING_LIBC})\n",
+                        ),
+                        Insert(
+                            "    message(STATUS \"Setting CROSSCOMPILING_LIBC ${CROSSCOMPILING_LIBC}\")\n",
+                        ),
+                        Insert(
+                            "  endif()\n",
+                        ),
+                        Insert(
+                            "  if(DEFINED ENV{ZIG_CROSS_TARGET_TRIPLE})\n",
+                        ),
+                        Insert(
+                            "    set(ZIG_CROSS_TARGET_TRIPLE $ENV{ZIG_CROSS_TARGET_TRIPLE} CACHE STRING \"Host zig target triple.\")\n",
+                        ),
+                        Insert(
+                            "    message(STATUS \"Setting ZIG_CROSS_TARGET_TRIPLE ${ZIG_CROSS_TARGET_TRIPLE}\")\n",
+                        ),
+                        Insert(
+                            "  else()\n",
+                        ),
+                        Insert(
+                            "    message(SEND_ERROR \"ZIG_CROSS_TARGET_TRIPLE is not set while cross-compiling\")\n",
+                        ),
+                        Insert(
+                            "  endif()\n",
+                        ),
+                        Insert(
+                            "  if(DEFINED ENV{ZIG_CROSS_TARGET_MCPU})\n",
+                        ),
+                        Insert(
+                            "    set(ZIG_CROSS_TARGET_MCPU $ENV{ZIG_CROSS_TARGET_MCPU} CACHE STRING \"Host zig target cpu.\")\n",
+                        ),
+                        Insert(
+                            "    message(STATUS \"Setting ZIG_CROSS_TARGET_MCPU ${ZIG_CROSS_TARGET_MCPU}\")\n",
+                        ),
+                        Insert(
+                            "  else()\n",
+                        ),
+                        Insert(
+                            "    set(ZIG_CROSS_TARGET_MCPU \"baseline\" CACHE STRING \"Host zig target cpu.\")\n",
+                        ),
+                        Insert(
+                            "    message(STATUS \"Setting ZIG_CROSS_TARGET_MCPU ${ZIG_CROSS_TARGET_MCPU}\")\n",
+                        ),
+                        Insert(
+                            "  endif()\n",
+                        ),
+                        Insert(
+                            "else()\n",
+                        ),
+                        Insert(
+                            "  set(CROSSCOMPILING_EMULATOR \"\")\n",
+                        ),
+                        Insert(
+                            "  set(ZIG_CROSS_TARGET_TRIPLE ${ZIG_TARGET_TRIPLE})\n",
+                        ),
+                        Insert(
+                            "  set(ZIG_CROSS_TARGET_MCPU ${ZIG_TARGET_MCPU})\n",
+                        ),
+                        Insert(
+                            "endif()\n",
+                        ),
+                    ],
+                },
+                Hunk {
+                    old_range: HunkRange {
+                        start: 796,
+                        len: 5,
+                    },
+                    new_range: HunkRange {
+                        start: 865,
+                        len: 11,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "else()\n",
+                        ),
+                        Delete(
+                            "  set(ZIG_WASM2C_COMPILE_FLAGS \"-std=c99 -O2\")\n",
+                        ),
+                        Delete(
+                            "  set(ZIG1_COMPILE_FLAGS \"-std=c99 -Os\")\n",
+                        ),
+                        Delete(
+                            "  set(ZIG2_COMPILE_FLAGS \"-std=c99 -O0 -fno-sanitize=undefined -fno-stack-protector\")\n",
+                        ),
+                        Insert(
+                            "  if(ZIG_HOST_TARGET_ARCH MATCHES \"powerpc64le\")\n",
+                        ),
+                        Insert(
+                            "    set(ZIG_WASM2C_COMPILE_FLAGS \"-std=c99 -O2\")\n",
+                        ),
+                        Insert(
+                            "    set(ZIG1_COMPILE_FLAGS \"-std=c99 -Os\")\n",
+                        ),
+                        Insert(
+                            "    set(ZIG2_COMPILE_FLAGS \"-std=c99 -Os -fno-sanitize=undefined -fno-stack-protector --save-temps\")\n",
+                        ),
+                        Insert(
+                            "  else()\n",
+                        ),
+                        Insert(
+                            "    set(ZIG_WASM2C_COMPILE_FLAGS \"-std=c99 -O2\")\n",
+                        ),
+                        Insert(
+                            "    set(ZIG1_COMPILE_FLAGS \"-std=c99 -Os\")\n",
+                        ),
+                        Insert(
+                            "    set(ZIG2_COMPILE_FLAGS \"-std=c99 -Os\")\n",
+                        ),
+                        Insert(
+                            "  endif()\n",
+                        ),
+                        Context(
+                            "  if(APPLE)\n",
+                        ),
+                    ],
+                },
+                Hunk {
+                    old_range: HunkRange {
+                        start: 821,
+                        len: 3,
+                    },
+                    new_range: HunkRange {
+                        start: 870,
+                        len: 3,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "  OUTPUT \"${ZIG1_C_SOURCE}\"\n",
+                        ),
+                        Delete(
+                            "  COMMAND zig-wasm2c \"${ZIG1_WASM_MODULE}\" \"${ZIG1_C_SOURCE}\"\n",
+                        ),
+                        Insert(
+                            "  COMMAND ${CROSSCOMPILING_EMULATOR} ${PROJECT_BINARY_DIR}/zig-wasm2c \"${ZIG1_WASM_MODULE}\" \"${ZIG1_C_SOURCE}\"\n",
+                        ),
+                        Context(
+                            "  DEPENDS zig-wasm2c \"${ZIG1_WASM_MODULE}\"\n",
+                        ),
+                    ],
+                },
+                Hunk {
+                    old_range: HunkRange {
+                        start: 833,
+                        len: 3,
+                    },
+                    new_range: HunkRange {
+                        start: 882,
+                        len: 9,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "else()\n",
+                        ),
+                        Delete(
+                            "  target_link_libraries(zig1 LINK_PUBLIC m)\n",
+                        ),
+                        Insert(
+                            "  if(WIN32)\n",
+                        ),
+                        Insert(
+                            "    find_library(M NAMES m libm.lib NAMES_PER_DIR)\n",
+                        ),
+                        Insert(
+                            "    target_link_libraries(zig1 LINK_PUBLIC $M)\n",
+                        ),
+                        Insert(
+                            "    # target_link_libraries(zig1 LINK_PUBLIC $ENV{PREFIX}/Library/lib/libm.lib)\n",
+                        ),
+                        Insert(
+                            "  else()\n",
+                        ),
+                        Insert(
+                            "    target_link_libraries(zig1 LINK_PUBLIC m)\n",
+                        ),
+                        Insert(
+                            "  endif()\n",
+                        ),
+                        Context(
+                            "  if(MINGW)\n",
+                        ),
+                    ],
+                },
+                Hunk {
+                    old_range: HunkRange {
+                        start: 839,
+                        len: 8,
+                    },
+                    new_range: HunkRange {
+                        start: 894,
+                        len: 11,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "\n",
+                        ),
+                        Insert(
+                            "if(NOT DEFINED ZIG_CROSS_TARGET_TRIPLE)\n",
+                        ),
+                        Insert(
+                            "    set(ZIG_CROSS_TARGET_TRIPLE ${ZIG_HOST_TARGET_TRIPLE})\n",
+                        ),
+                        Insert(
+                            "endif()\n",
+                        ),
+                        Context(
+                            "set(BUILD_ZIG2_ARGS\n",
+                        ),
+                        Context(
+                            "  \"${PROJECT_SOURCE_DIR}/lib\"\n",
+                        ),
+                        Delete(
+                            "  build-exe -ofmt=c -lc -OReleaseSmall\n",
+                        ),
+                        Insert(
+                            "  build-exe -ofmt=c \"${CROSSCOMPILING_LIBC}\" -OReleaseSmall\n",
+                        ),
+                        Context(
+                            "  --name zig2\n",
+                        ),
+                        Context(
+                            "  -femit-bin=\"${ZIG2_C_SOURCE}\"\n",
+                        ),
+                        Delete(
+                            "  -target \"${ZIG_HOST_TARGET_TRIPLE}\"\n",
+                        ),
+                        Insert(
+                            "  -target \"${ZIG_CROSS_TARGET_TRIPLE}\"\n",
+                        ),
+                        Context(
+                            "  --dep \"build_options\"\n",
+                        ),
+                    ],
+                },
+                Hunk {
+                    old_range: HunkRange {
+                        start: 854,
+                        len: 3,
+                    },
+                    new_range: HunkRange {
+                        start: 912,
+                        len: 3,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "  OUTPUT \"${ZIG2_C_SOURCE}\"\n",
+                        ),
+                        Delete(
+                            "  COMMAND zig1 ${BUILD_ZIG2_ARGS}\n",
+                        ),
+                        Insert(
+                            "  COMMAND ${CROSSCOMPILING_EMULATOR} ${PROJECT_BINARY_DIR}/zig1 ${BUILD_ZIG2_ARGS}\n",
+                        ),
+                        Context(
+                            "  DEPENDS zig1 \"${ZIG_STAGE2_SOURCES}\"\n",
+                        ),
+                    ],
+                },
+                Hunk {
+                    old_range: HunkRange {
+                        start: 865,
+                        len: 3,
+                    },
+                    new_range: HunkRange {
+                        start: 923,
+                        len: 3,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "  -femit-bin=\"${ZIG_COMPILER_RT_C_SOURCE}\"\n",
+                        ),
+                        Delete(
+                            "  -target \"${ZIG_HOST_TARGET_TRIPLE}\"\n",
+                        ),
+                        Insert(
+                            "  -target \"${ZIG_CROSS_TARGET_TRIPLE}\"\n",
+                        ),
+                        Context(
+                            "  --dep \"build_options\"\n",
+                        ),
+                    ],
+                },
+                Hunk {
+                    old_range: HunkRange {
+                        start: 871,
+                        len: 3,
+                    },
+                    new_range: HunkRange {
+                        start: 929,
+                        len: 3,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "  OUTPUT \"${ZIG_COMPILER_RT_C_SOURCE}\"\n",
+                        ),
+                        Delete(
+                            "  COMMAND zig1 ${BUILD_COMPILER_RT_ARGS}\n",
+                        ),
+                        Insert(
+                            "  COMMAND ${CROSSCOMPILING_EMULATOR} ${PROJECT_BINARY_DIR}/zig1 ${BUILD_COMPILER_RT_ARGS}\n",
+                        ),
+                        Context(
+                            "  DEPENDS zig1 \"${ZIG_STAGE2_SOURCES}\"\n",
+                        ),
+                    ],
+                },
+                Hunk {
+                    old_range: HunkRange {
+                        start: 913,
+                        len: 3,
+                    },
+                    new_range: HunkRange {
+                        start: 971,
+                        len: 3,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "  \"-Dversion-string=${RESOLVED_ZIG_VERSION}\"\n",
+                        ),
+                        Delete(
+                            "  \"-Dtarget=${ZIG_TARGET_TRIPLE}\"\n",
+                        ),
+                        Delete(
+                            "  \"-Dcpu=${ZIG_TARGET_MCPU}\"\n",
+                        ),
+                        Insert(
+                            "  \"-Dtarget=${ZIG_CROSS_TARGET_TRIPLE}\"\n",
+                        ),
+                        Insert(
+                            "  \"-Dcpu=${ZIG_CROSS_TARGET_MCPU}\" --verbose --verbose-link --summary all\n",
+                        ),
+                    ],
+                },
+                Hunk {
+                    old_range: HunkRange {
+                        start: 977,
+                        len: 3,
+                    },
+                    new_range: HunkRange {
+                        start: 1035,
+                        len: 4,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "  OUTPUT \"${PROJECT_BINARY_DIR}/stage3/bin/zig\"\n",
+                        ),
+                        Delete(
+                            "  COMMAND zig2 build --prefix \"${PROJECT_BINARY_DIR}/stage3\" ${ZIG_BUILD_ARGS}\n",
+                        ),
+                        Insert(
+                            "  COMMAND ${CROSSCOMPILING_EMULATOR} ${PROJECT_BINARY_DIR}/zig2 build --prefix \"${PROJECT_BINARY_DIR}/stage3\" ${ZIG_BUILD_ARGS}\n",
+                        ),
+                        Insert(
+                            "  DEPENDS zig2\n",
+                        ),
+                        Context(
+                            "  COMMENT STATUS \"Building stage3\"\n",
+                        ),
+                    ],
+                },
+                Hunk {
+                    old_range: HunkRange {
+                        start: 985,
+                        len: 2,
+                    },
+                    new_range: HunkRange {
+                        start: 1043,
+                        len: 3,
+                    },
+                    function_context: None,
+                    lines: [
+                        Context(
+                            "\n",
+                        ),
+                        Insert(
+                            "install(CODE \"set(CROSSCOMPILING_EMULATOR \\\"${CROSSCOMPILING_EMULATOR}\\\")\")\n",
+                        ),
+                        Context(
+                            "install(CODE \"set(ZIG_EXECUTABLE \\\"${ZIG_EXECUTABLE}\\\")\")\n",
+                        ),
+                    ],
+                },
+            ],
+        },
+    ],
+)

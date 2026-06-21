@@ -35,6 +35,9 @@ enum Commands {
 	#[cfg(target_family = "unix")]
 	#[command(override_usage = "cargo license [OPTIONS]")]
 	License(cmd::license::Args),
+	/// Creates a patch for a vendor source file.
+	#[command(override_usage = "cargo oro patch [OPTIONS] <vendor/<dependency>/path/to/file.rs>")]
+	Patch(cmd::patch::Args),
 }
 
 fn main() {
@@ -48,5 +51,6 @@ fn main() {
 		Commands::Udeps => cmd::udeps::run(),
 		#[cfg(target_family = "unix")]
 		Commands::License(args) => cmd::license::run(args),
+		Commands::Patch(args) => cmd::patch::run(args),
 	}
 }

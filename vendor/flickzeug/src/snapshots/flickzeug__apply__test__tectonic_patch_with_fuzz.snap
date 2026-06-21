@@ -1,0 +1,14 @@
+---
+source: src/apply.rs
+expression: relevant_lines
+---
+watchexec-signals = "1.0"
+zip = { version = "^0.6", default-features = false, features = ["deflate"] }
+
+[patch.crates-io]
+libz-sys = { git = 'https://github.com/pkgw/libz-sys', branch = 'pkgconfig.msvc' }
+
+[features]
+default = ["geturl-reqwest", "serialization"]
+
+# The main motivation for this feature was to be able to compile without

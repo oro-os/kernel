@@ -9,3 +9,4 @@ clap = { version = "*", features = ["derive", "string"] }
 toml = "*"
 serde = { version = "*", features = ["derive"] }
 pathdiff = "*"
+flickzeug = "*"

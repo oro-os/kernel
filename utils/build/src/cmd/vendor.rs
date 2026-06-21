@@ -41,6 +41,8 @@ fn vendor() {
 
 	eprintln!();
 	eprintln!("wrote .cargo/config.toml paths");
+
+	super::patch::apply_all();
 }
 
 fn check() {
@@ -105,5 +107,7 @@ fn check() {
 		std::process::exit(1);
 	}
 
-	eprintln!("vendors OK");
+	eprintln!("vendors OK; checking patches");
+
+	super::patch::check_all();
 }

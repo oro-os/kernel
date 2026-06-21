@@ -194,6 +194,10 @@ impl Vfs {
 		)
 	}
 
+	pub fn root(&self) -> PathBuf {
+		self.root_dir.clone()
+	}
+
 	pub fn artifacts(&self) -> impl Iterator<Item = Artifact> {
 		self.read_artifact_dir().filter_map(|path| {
 			let manifest = std::fs::read_to_string(path.join("Cargo.toml")).ok()?;

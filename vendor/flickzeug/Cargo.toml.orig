@@ -1,0 +1,22 @@
+[package]
+name = "flickzeug"
+version = "0.5.1"
+authors = ["prefix.dev <hi@prefix.dev>"]
+license = "MIT OR Apache-2.0"
+description = "A fork of diffy: diff, patch, and merge library featuring Myers' algorithm, unified diff format parsing, fuzzy patch application, and three-way merge with conflict detection"
+documentation = "https://docs.rs/flickzeug"
+repository = "https://github.com/prefix-dev/flickzeug"
+readme = "README.md"
+keywords = ["diff", "patch", "merge"]
+categories = ["text-processing"]
+rust-version = "1.88"
+edition = "2024"
+
+[dependencies]
+nu-ansi-term = "0.50"
+strsim = "0.11.1"
+thiserror = "2.0.12"
+
+[dev-dependencies]
+insta = { version = "1.43.1", features = ["glob"] }
+rstest = "0.26.1"
