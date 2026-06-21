@@ -63,8 +63,8 @@ and a clarification on the license version (see [oro-kernel-gpl2-only.txt](licen
 Certain crates within this repository are dual-licensed under the
 MIT and Apache-2.0 licenses, typically when published to the [crates.io](https://crates.io)
 registry. Those crates will contain a `LICENSE.mit` and `LICENSE.apache2` file
-and are not subject to the GPL-2.0 license to which the rest of this repository
-is subject.
+and are not subject to the GPL-2.0 license under which the rest of this repository
+is licensed.
 
 All folders directly under `vendor/` are third-party crates that are included in this
 repository for reproducibility and ease of use. The chosen licenses applicable to the
