@@ -1,0 +1,5 @@
+[package]
+name = "oro-kernel-build-notice"
+version = "0.1.0"
+publish = false
+edition = "2024"

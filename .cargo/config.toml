@@ -43,6 +43,8 @@ paths = [
 [alias]
 oro = [
     "run",
+	"-p",
+	"oro-kernel-build",
     "--offline",
     "--quiet",
     "--message-format",

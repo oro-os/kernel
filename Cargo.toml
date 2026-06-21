@@ -10,7 +10,7 @@ path = "utils/empty.rs"
 
 [workspace]
 resolver = "2"
-default-members = ["utils/build"]
+default-members = ["utils/build-help"]
 members = [
 	"lib/*",
 	"utils/*",

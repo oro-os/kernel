@@ -180,6 +180,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "oro-kernel-build-notice"
+version = "0.1.0"
+
+[[package]]
 name = "oro-kernel-riscv64"
 version = "0.0.0"
 

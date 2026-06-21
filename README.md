@@ -20,15 +20,25 @@ All code necessary to build and run the kernel is provided in this repository.
 > It is not yet suitable for use in a production environment.
 
 ## Building
-The Oro kernel uses its own build system that runs in-situ with a normal
-`cargo build`. To build all possible versions of the kernel, simply run:
+The Oro kernel uses its own build utility called `cargo oro`.
+
+To build all possible versions of the kernel and all booloaders, simply run:
 
 ```shell
 cargo oro build
 ```
 
-If you'd like to build a specific version of the kernel, you can specify
-the `--features` flag with the appropriate feature.
+To see all available build options, run:
+
+```shell
+cargo oro build --help
+```
+
+For all other operations, such as documenting, linting, vendoring, etc.:
+
+```shell
+cargo oro --help
+```
 
 ## Documentation
 The Oro kernel is thoroughly documented. You may generate a local copy of
