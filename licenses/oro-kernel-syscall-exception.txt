@@ -1,0 +1,11 @@
+The copyright and license mentioned in `oro-kernel.txt` does NOT cover works that interface
+with the Oro Operating System kernel vis-a-vis the system ABI (often referred to as "syscalls").
+
+This is considered normal use of the Oro kernel and is not covered under any license terms,
+including any definition of "derived work". Merely partaking in the Oro Operating System by way
+of writing userspace applications - including those that speak to kernel-supplied interfaces -
+is not governed by the Oro Operating System kernel license dictated in this repository.
+
+You are free to license your userland code under any license that makes sense for you.
+
+- Josh Junon

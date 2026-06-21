@@ -57,10 +57,15 @@ your findings.
 # License
 The Oro Operating System kernel is &copy; 2016-2026 by Joshua Lee Junon,<br>
 and licensed under the [GPL-2.0 License](licenses/oro-kernel.txt) with a
-syscall exception (see [oro-kernel-syscall-exception.txt](licenses/oro-kernel-syscall-exception.txt)).
+syscall exception (see [oro-kernel-syscall-exception.txt](licenses/oro-kernel-syscall-exception.txt))
+and a clarification on the license version (see [oro-kernel-gpl2-only.txt](licenses/oro-kernel-gpl2-only.txt)).
 
 Certain crates within this repository are dual-licensed under the
 MIT and Apache-2.0 licenses, typically when published to the [crates.io](https://crates.io)
 registry. Those crates will contain a `LICENSE.mit` and `LICENSE.apache2` file
 and are not subject to the GPL-2.0 license to which the rest of this repository
 is subject.
+
+All folders directly under `vendor/` are third-party crates that are included in this
+repository for reproducibility and ease of use. The chosen licenses applicable to the
+Oro kernel have been symlinked into `licenses/vendor/<crate-name>`.

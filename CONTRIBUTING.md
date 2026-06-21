@@ -2,8 +2,12 @@
 
 <table>
 	<tr>
+		<th align="left"><strong>Status</strong></th>
+		<td>Current</td>
+	</tr>
+	<tr>
 		<th align="left"><strong>Last Review Date</strong></th>
-		<td>20 June 2026</td>
+		<td>21 June 2026</td>
 	</tr>
 </table>
 
@@ -31,9 +35,11 @@ A few guidelines when introducing or interacting with dependencies:
   file and must be pinned to a specific version and re-exported from
   the `oro-kernel-third-party` crate. This is to ensure that all dependencies are
   vendored and that the kernel is reproducible from an offline checkout.
-- If adding or changing a dependency, a `cargo vendor` should be performed
-  in the `vendor/` directory and included as part of the changeset. Preferably,
-  this should be done in its own commit, separate from any other changes.
+- If adding or changing a dependency, a `cargo oro vendor` should be performed
+  and included as part of the changeset. Preferably, this should be done in its
+  own commit, separate from any other changes. Follow-up with a run of
+  `cargo oro licenses` to be sure that the licenses are properly symlinked
+  into `licenses/vendor/`.
 - No library shall be exposed directly outside of the crate within which
   it is used. Corollary: all third-party libraries must have Oro-specific
   abstractions, and must be written in a way that they may be replaced
@@ -41,7 +47,7 @@ A few guidelines when introducing or interacting with dependencies:
 - Library versions must be pinned to the _most specific_ version possible.
   This means that `^1.0.0` is not acceptable, but `=1.0.0` is. This is to
   ensure that the kernel is reproducible and that we can guarantee that
-  the kernel will build in the future.
+  the kernel will build in the future. CI currently enforces this.
 
 ## Use of `unsafe`
 The kernel project uses `unsafe` judiciously. In some cases, especially
@@ -116,14 +122,13 @@ by CI.
 
 ## Code Style
 The kernel project uses `rustfmt` to enforce a consistent code style.
-Please run `cargo fmt --all` prior to committing and pushing your changes.
+Please run `cargo fmt` prior to committing and pushing your changes.
 
 If you are making a change to the code style configuration, please do the
 following when submitting a pull request:
 
 1. Create a single commit with the configuration changes.
-2. Create a secondary commit (after the first) with the `cargo fmt --all`
-   changes.
+2. Create a secondary commit (after the first) with the `cargo fmt` changes.
 
 Any code changes that are not purely code style changes should be in a
 separate pull request, and will not otherwise be accepted.
@@ -136,8 +141,7 @@ justify the reasoning in your pull request.
 
 ## Warnings, Lints, etc.
 The kernel project uses `clippy` to enforce a consistent code style.
-Please run `cargo klippy` (with a `k`, for `k`ernel) prior to committing and
-pushing your changes.
+Please run `cargo oro clippy` prior to committing and pushing your changes.
 
 ## Continuous Integration (CI)
 The kernel project uses GitHub Actions for continuous integration.
@@ -150,8 +154,8 @@ on real machines. Those machines might uncover issues that are not
 QEMU or other virtualization solutions. These checks must also pass
 prior to merging, with no exceptions. We understand this may present
 a challenge for some contributors, but we believe it is important to
-ensure the highest quality of code. **Please prepare for this when
-contributing.**
+ensure the highest quality of code.
+**Please prepare for this when contributing.**
 
 ## IDEs and Editors
 The kernel project does not enforce the use of any particular IDE or
@@ -168,10 +172,19 @@ local development:
 
 ### Rust-Analyzer
 
-`.cargo/config.toml` contains the `oro-rust-analyzer` alias for `rust-analyzer`'s
-usual `check` command. They should be provided as the
-`rust-analyzer.check.overrideCommand` setting in your editor, IDE
-or other tooling.
+`rust-analyzer` will probably not work out-of-the-box for your IDE, as
+`rust-analyzer`'s usual `check` command will not pick up on all of the
+target configuration for each of the artifacts.
+
+Instead, the `cargo oro` utility provides a check:
+
+```shell
+cargo oro check --json
+cargo oro clippy --json    # Slower, but checks for more things.
+```
+
+One of these should be provided as the `rust-analyzer.check.overrideCommand`
+setting in your editor, IDE, or other tooling.
 
 #### Usage in VSCode
 If you have the [`rust-analyzer` extension](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
@@ -188,7 +201,7 @@ support by doing the following:
 		"/usr/bin/env",
 		"bash",
 		"-c",
-		"cargo oro-ra-aarch64; cargo oro-ra-x86_64"
+		"cargo oro check --json"
 	]
 }
 ```

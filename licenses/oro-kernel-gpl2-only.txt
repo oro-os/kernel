@@ -1,0 +1,12 @@
+The license included in this repository is NOT to be considered "GPL 2.0 or later".
+
+For reasons similar to the Linux kernel project, the Oro Operating System kernel is
+EXCLUSIVELY licensed under the GPLv2, NOT the GPLv3 or later, unless explicitly stated
+otherwise.
+
+As the Linux project does, it's worth stating that the GPL license itself is
+copyright by the Free Software Foundation (FSF); the kernel code located within this
+repository belongs to myself and all other contributors, and the copyright for it
+is attributed to the individual and respective contributors to the Oro kernel project.
+
+- Josh Junon

@@ -2,10 +2,19 @@
 
 <table>
 	<tr>
+		<th align="left"><strong>Status</strong></th>
+		<td>Provisionary (not yet in effect)</td>
+	</tr>
+	<tr>
 		<th align="left"><strong>Last Review Date</strong></th>
-		<td>10 Feb 2024</td>
+		<td>21 June 2026</td>
 	</tr>
 </table>
+
+> [!IMPORTANT]
+> This document is provisionary, and is not yet in effect. For any security-related
+> inquiries, the below stated email will not be checked. Instead, please **do**
+> open an issue on GitHub for anything at all, security-related or not.
 
 The Oro Operating System project takes security _extremely_ seriously.
 
