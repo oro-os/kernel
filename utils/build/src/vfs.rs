@@ -84,11 +84,34 @@ pub struct Artifact {
 #[derive(serde::Deserialize)]
 pub struct CargoManifest {
 	pub package: CargoPackage,
+	pub dependencies: Option<HashMap<String, CargoManifestDependency>>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(untagged)]
+pub enum CargoManifestDependency {
+	Simple(String),
+	Detailed(CargoManifestDependencyDetailed),
+}
+
+impl CargoManifestDependency {
+	pub fn version(&self) -> Option<&str> {
+		match self {
+			Self::Simple(v) => Some(v.as_str()),
+			Self::Detailed(d) => d.version.as_deref(),
+		}
+	}
+}
+
+#[derive(serde::Deserialize)]
+pub struct CargoManifestDependencyDetailed {
+	pub version: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
 pub struct CargoPackage {
 	pub name: String,
+	pub version: String,
 	pub description: Option<String>,
 	pub license: Option<String>,
 	pub license_file: Option<String>,

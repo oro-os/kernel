@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{collections::HashSet, io::Write};
 
 use clap::Parser;
 
@@ -12,12 +12,16 @@ pub struct Args {
 }
 
 pub fn run(args: Args) {
+	if args.check {
+		check();
+	} else {
+		vendor();
+	}
+}
+
+fn vendor() {
 	let mut cmd = super::cargo();
 	cmd.arg("vendor").arg("--color").arg("always");
-
-	if args.check {
-		cmd.arg("--locked").arg("--offline").arg("--quiet");
-	}
 
 	let status = cmd.status().expect("failed to execute cargo vendor");
 
@@ -31,17 +35,75 @@ pub fn run(args: Args) {
 
 	let vfs = crate::vfs::Vfs::new_from_cargo();
 	let mut config_toml = vfs.config_toml();
-	if args.check {
-		let original_config_toml = config_toml.clone();
-		config_toml.set_vendor_paths(vfs.lockfile());
-		if original_config_toml != config_toml {
-			panic!("`cargo oro vendor` would change .cargo/config.toml but --check was passed");
-		}
+	config_toml.set_vendor_paths(vfs.lockfile());
 
-		eprintln!(".cargo/config.toml paths match");
-	} else {
-		config_toml.set_vendor_paths(vfs.lockfile());
-		vfs.write_config_toml(config_toml);
-		eprintln!("wrote .cargo/config.toml paths");
+	vfs.write_config_toml(config_toml);
+
+	eprintln!();
+	eprintln!("wrote .cargo/config.toml paths");
+}
+
+fn check() {
+	let vfs = crate::vfs::Vfs::new_from_cargo();
+
+	let mut ok = true;
+
+	let mut expected_toplevel_deps = vfs
+		.root_cargo_toml()
+		.dependencies
+		.unwrap_or_default()
+		.into_iter()
+		.filter_map(|(k, d)| {
+			d.version().and_then(|version| {
+				if let Some(version) = version.strip_prefix('=') {
+					let version = version.trim();
+					if version.is_empty() {
+						eprintln!("error: top-level dependency {k} is malformed");
+						ok = false;
+						None
+					} else {
+						Some((k, version.to_string()))
+					}
+				} else {
+					eprintln!(
+						"error: top-level dependency {k} does not have an exact version \
+						 requirement"
+					);
+					ok = false;
+					None
+				}
+			})
+		})
+		.collect::<HashSet<_>>();
+
+	for vendor in vfs.vendor_packages() {
+		let version = if let Some((version, _)) = vendor.manifest.package.version.split_once('+') {
+			version
+		} else {
+			&vendor.manifest.package.version
+		};
+
+		expected_toplevel_deps.remove(&(vendor.manifest.package.name, version.to_string()));
 	}
+
+	for (name, version) in expected_toplevel_deps {
+		eprintln!("error: top-level dependency would change vendors: {name} {version}");
+		ok = false;
+	}
+
+	let mut config_toml = vfs.config_toml();
+	let original_config_toml = config_toml.clone();
+	config_toml.set_vendor_paths(vfs.lockfile());
+	if original_config_toml != config_toml {
+		eprintln!(
+			"error: `cargo oro vendor` would change .cargo/config.toml but --check was passed"
+		);
+		ok = false;
+	}
+
+	if !ok {
+		std::process::exit(1);
+	}
+
+	eprintln!("vendors OK");
 }
