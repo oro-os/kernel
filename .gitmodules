@@ -1,4 +1,0 @@
-[submodule ".limine"]
-	path = .limine
-	url = https://github.com/oro-os/dep.limine.git
-	ignore = all
