@@ -43,6 +43,28 @@ fn vendor() {
 	eprintln!("wrote .cargo/config.toml paths");
 
 	super::patch::apply_all();
+
+	eprintln!("cleaning vendor directory...");
+	match std::process::Command::new("git")
+		.arg("clean")
+		.arg("-dffX")
+		.arg("vendor")
+		.current_dir(vfs.root())
+		.stdout(std::process::Stdio::inherit())
+		.stderr(std::process::Stdio::inherit())
+		.stdin(std::process::Stdio::inherit())
+		.status()
+	{
+		Ok(status) if status.success() => {
+			eprintln!("cleaned vendor/ directory");
+		}
+		Ok(status) => {
+			panic!("git exited non-zero; is it installed?: {status}");
+		}
+		Err(err) => {
+			panic!("failed to spawn git to clean vendor/directory: {err}");
+		}
+	}
 }
 
 fn check() {

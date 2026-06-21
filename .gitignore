@@ -1,3 +1,27 @@
 /target/
 /vendor/.vendor*/
 /vendor/**/*._oro-prepatch
+
+# Vendor-specific ignores
+/vendor/*/tests/*
+/vendor/*/examples/*
+/vendor/*/benches/*
+/vendor/**/.editorconfig
+/vendor/**/.github/*
+/vendor/**/release-plz.toml
+/vendor/**/rust-toolchain.toml
+
+!/vendor/**/.github/FUNDING.yml
+!/vendor/**/.github/FUNDING.yaml
+
+!/vendor/clap/examples/demo.rs
+!/vendor/clap/examples/demo.md
+!/vendor/winnow/examples/css
+/vendor/winnow/examples/css/*
+!/vendor/winnow/examples/css/parser.rs
+
+/vendor/flickzeug/test-data/
+vendor/flickzeug/src/patch/snapshots/
+
+# Building on windows isn't supported to begin with.
+/vendor/windows-sys/src/*
