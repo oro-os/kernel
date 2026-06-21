@@ -1,3 +1,5 @@
+#![feature(normalize_lexically)]
+
 pub mod artifact;
 pub mod cmd;
 pub mod vfs;
@@ -29,6 +31,10 @@ enum Commands {
 	/// Checks for unused dependencies.
 	#[command(override_usage = "cargo oro udeps")]
 	Udeps,
+	/// Updates and checks the `licenses/` directory.
+	#[cfg(target_family = "unix")]
+	#[command(override_usage = "cargo license [OPTIONS]")]
+	License(cmd::license::Args),
 }
 
 fn main() {
@@ -40,5 +46,7 @@ fn main() {
 		Commands::Check(args) => cmd::check::run(args),
 		Commands::Vendor(args) => cmd::vendor::run(args),
 		Commands::Udeps => cmd::udeps::run(),
+		#[cfg(target_family = "unix")]
+		Commands::License(args) => cmd::license::run(args),
 	}
 }

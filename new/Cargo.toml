@@ -3,6 +3,7 @@ name = "oro-kernel-root"
 version = "0.1.0"
 publish = false
 edition = "2024"
+license = "GPL-2.0"
 
 [lib]
 path = "utils/empty.rs"
@@ -26,5 +27,6 @@ serde = { version = "=1.0.228", features = ["derive"] }
 proc-macro2 = "=1.0.106"
 quote = "=1.0.45"
 clap = { version = "=4.6.1", features = ["derive", "string"] }
+pathdiff = "=0.2.3"
 
 [workspace.lints.rust]

@@ -90,18 +90,28 @@ pub struct CargoManifest {
 pub struct CargoPackage {
 	pub name: String,
 	pub description: Option<String>,
+	pub license: Option<String>,
+	pub license_file: Option<String>,
 	pub metadata: Option<CargoPackageMetadata>,
 }
 
 #[derive(serde::Deserialize)]
 pub struct CargoPackageMetadata {
-	pub oro: CargoPackageMetadataOro,
+	pub oro: Option<CargoPackageMetadataOro>,
 }
 
 #[derive(serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct CargoPackageMetadataOro {
 	pub arch: Arch,
 	pub component: Component,
+	pub license_overrides: Option<HashMap<String, CargoPackageMetadataLicenseOverride>>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct CargoPackageMetadataLicenseOverride {
+	#[serde(rename = "path")]
+	pub relative_path: PathBuf,
 }
 
 #[derive(serde::Deserialize)]
@@ -115,6 +125,31 @@ pub struct CargoLockfilePackage {
 	pub name: String,
 	pub source: Option<String>,
 	pub dependencies: Option<Vec<String>>,
+}
+
+pub struct VendorPackage {
+	pub root_path: PathBuf,
+	pub license_path: Option<PathBuf>,
+	pub manifest: CargoManifest,
+}
+
+impl VendorPackage {
+	pub fn override_license_info(
+		&mut self,
+		overrides: &HashMap<String, CargoPackageMetadataLicenseOverride>,
+	) {
+		let Some(entry) = overrides.get(&self.manifest.package.name) else {
+			return;
+		};
+		self.license_path = Some(self.root_path.join(&entry.relative_path));
+	}
+}
+
+#[derive(Debug)]
+pub struct LicenseLink {
+	pub license_path: PathBuf,
+	pub target_path: PathBuf,
+	pub is_symlink: bool,
 }
 
 impl Vfs {
@@ -140,16 +175,16 @@ impl Vfs {
 		self.read_artifact_dir().filter_map(|path| {
 			let manifest = std::fs::read_to_string(path.join("Cargo.toml")).ok()?;
 			let manifest: CargoManifest = toml::from_str(&manifest).ok()?;
-			let Some(metadata) = &manifest.package.metadata else {
+			let Some(metadata) = &manifest.package.metadata.and_then(|m| m.oro) else {
 				return None;
 			};
-			let target_triple = format!("{}-unknown-oro", metadata.oro.arch);
+			let target_triple = format!("{}-unknown-oro", metadata.arch);
 			Some(Artifact {
 				path,
-				name: format!("{}-{}", metadata.oro.arch, metadata.oro.component),
+				name: format!("{}-{}", metadata.arch, metadata.component),
 				description: manifest.package.description,
-				architecture: metadata.oro.arch,
-				component: metadata.oro.component,
+				architecture: metadata.arch,
+				component: metadata.component,
 				target_relative_path: PathBuf::from(&manifest.package.name),
 				package_name: manifest.package.name,
 				target_triple,
@@ -225,6 +260,136 @@ impl Vfs {
 			contents.as_bytes(),
 		)
 		.expect("failed to write .cargo/config.toml");
+	}
+
+	/// Reads the vendor packages directory
+	///
+	/// # Panics
+	/// Panics if the vendor directory cannot be read.
+	pub fn vendor_packages(&self) -> impl Iterator<Item = VendorPackage> {
+		std::fs::read_dir(self.root_dir.join("vendor"))
+			.expect(&format!(
+				"failed to read vendor directory: {}",
+				self.root_dir.join("vendor").display()
+			))
+			.filter_map(|entry| entry.ok())
+			.filter(|entry| {
+				entry.path().file_name().is_some_and(|n| {
+					n.to_string_lossy()
+						.bytes()
+						.next()
+						.is_some_and(|b| b != b'.')
+				}) && entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false)
+			})
+			.map(|entry| {
+				let manifest: CargoManifest = toml::from_str(
+					&std::fs::read_to_string(entry.path().join("Cargo.toml")).expect(&format!(
+						"failed to read Cargo.toml for vendor dependency: {}",
+						entry.path().display()
+					)),
+				)
+				.expect(&format!(
+					"failed to parse Cargo.toml for vendor dependency: {}",
+					entry.path().display()
+				));
+
+				VendorPackage {
+					root_path: entry.path(),
+					license_path: manifest
+						.package
+						.license_file
+						.as_ref()
+						.and_then(|lf| Some(entry.path().join(lf)))
+						.or_else(|| entry.path().try_find_license()),
+					manifest,
+				}
+			})
+	}
+
+	pub fn vendor_license_dir(&self) -> PathBuf {
+		self.root_dir.join("licenses").join("vendor")
+	}
+
+	/// Reads out all of the third-party licenses.
+	///
+	/// # Panics
+	/// Panics if it cannot read the `licenses/vendor` directory.
+	pub fn vendor_licenses(&self) -> impl Iterator<Item = LicenseLink> {
+		std::fs::read_dir(self.vendor_license_dir())
+			.expect(&format!(
+				"failed to read vendor license directory: {}",
+				self.vendor_license_dir().display()
+			))
+			.filter_map(|entry| entry.ok())
+			.filter(|entry| {
+				entry
+					.file_type()
+					.map(|ft| ft.is_file() || ft.is_symlink())
+					.unwrap_or(false)
+			})
+			.map(|entry| {
+				LicenseLink {
+					is_symlink: entry
+						.file_type()
+						.map(|ft| ft.is_symlink())
+						.unwrap_or_default(),
+					license_path: entry.path(),
+					target_path: entry
+						.file_type()
+						.map(|ft| ft.is_symlink())
+						.unwrap_or_default()
+						.then(|| {
+							std::fs::canonicalize(entry.path()).expect(&format!(
+								"failed to canonicalize symlink license path: {}",
+								entry.path().display()
+							))
+						})
+						.unwrap_or_else(|| entry.path().into()),
+				}
+			})
+	}
+}
+
+trait LicensePath {
+	fn try_find_license(&self) -> Option<PathBuf>;
+}
+
+impl<P: AsRef<std::path::Path>> LicensePath for P {
+	fn try_find_license(&self) -> Option<PathBuf> {
+		let base = self.as_ref().to_path_buf();
+		macro_rules! test_license_file {
+			($($relpath:literal),* $(,)?) => {
+				(None)$(.or_else(|| {let p = base.join($relpath); p.try_exists().unwrap_or_default().then(|| p)}))*
+			}
+		}
+
+		test_license_file![
+			"LICENSE-MIT",
+			"LICENSE-APACHE",
+			"license-mit",
+			"license-apache",
+			"license-apache-2.0",
+			"LICENSE",
+			"LICENSE.txt",
+			"LICENSE.TXT",
+			"LICENSE.md",
+			"LICENSE.MD",
+			"COPYING",
+			"COPYING.txt",
+			"COPYING.TXT",
+			"COPYING.md",
+			"COPYING.MD",
+			"LICENSE.apache2",
+			"LICENSE.apache",
+			"LICENSE.mit",
+			"LICENSE.gpl",
+			"LICENSE.gpl2",
+			"LICENSE.gpl-2.0",
+			"LICENSE.gpl2.0",
+			"LICENSE.gpl3",
+			"LICENSE.gpl-3.0",
+			"LICENSE.gpl2.0",
+		]
 	}
 }
 

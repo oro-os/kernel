@@ -1,6 +1,8 @@
 pub mod build;
 pub mod check;
 pub mod clippy;
+#[cfg(target_family = "unix")]
+pub mod license;
 pub mod udeps;
 pub mod vendor;
 
