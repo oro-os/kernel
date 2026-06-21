@@ -6,7 +6,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
-limine = "*"
+#limine = "*"
 
 [package.metadata.oro]
 arch = "x86_64"

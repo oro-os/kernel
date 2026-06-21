@@ -1,5 +1,5 @@
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{HashMap, HashSet, VecDeque},
 	path::PathBuf,
 };
 
@@ -82,39 +82,39 @@ pub struct Artifact {
 }
 
 #[derive(serde::Deserialize)]
-struct CargoManifest {
-	package: CargoPackage,
+pub struct CargoManifest {
+	pub package: CargoPackage,
 }
 
 #[derive(serde::Deserialize)]
-struct CargoPackage {
-	name: String,
-	description: Option<String>,
-	metadata: CargoPackageMetadata,
+pub struct CargoPackage {
+	pub name: String,
+	pub description: Option<String>,
+	pub metadata: Option<CargoPackageMetadata>,
 }
 
 #[derive(serde::Deserialize)]
-struct CargoPackageMetadata {
-	oro: CargoPackageMetadataOro,
+pub struct CargoPackageMetadata {
+	pub oro: CargoPackageMetadataOro,
 }
 
 #[derive(serde::Deserialize)]
-struct CargoPackageMetadataOro {
-	arch: Arch,
-	component: Component,
+pub struct CargoPackageMetadataOro {
+	pub arch: Arch,
+	pub component: Component,
 }
 
 #[derive(serde::Deserialize)]
-struct CargoLockfile {
-	version: u32,
-	package: Vec<CargoLockfilePackage>,
+pub struct CargoLockfile {
+	pub version: u32,
+	pub package: Vec<CargoLockfilePackage>,
 }
 
 #[derive(serde::Deserialize)]
-struct CargoLockfilePackage {
-	name: String,
-	source: Option<String>,
-	dependencies: Option<Vec<String>>,
+pub struct CargoLockfilePackage {
+	pub name: String,
+	pub source: Option<String>,
+	pub dependencies: Option<Vec<String>>,
 }
 
 impl Vfs {
@@ -140,16 +140,16 @@ impl Vfs {
 		self.read_artifact_dir().filter_map(|path| {
 			let manifest = std::fs::read_to_string(path.join("Cargo.toml")).ok()?;
 			let manifest: CargoManifest = toml::from_str(&manifest).ok()?;
-			let target_triple = format!("{}-unknown-oro", manifest.package.metadata.oro.arch);
+			let Some(metadata) = &manifest.package.metadata else {
+				return None;
+			};
+			let target_triple = format!("{}-unknown-oro", metadata.oro.arch);
 			Some(Artifact {
 				path,
-				name: format!(
-					"{}-{}",
-					manifest.package.metadata.oro.arch, manifest.package.metadata.oro.component
-				),
+				name: format!("{}-{}", metadata.oro.arch, metadata.oro.component),
 				description: manifest.package.description,
-				architecture: manifest.package.metadata.oro.arch,
-				component: manifest.package.metadata.oro.component,
+				architecture: metadata.oro.arch,
+				component: metadata.oro.component,
 				target_relative_path: PathBuf::from(&manifest.package.name),
 				package_name: manifest.package.name,
 				target_triple,
@@ -171,6 +171,14 @@ impl Vfs {
 	}
 
 	/// # Panics
+	/// Panics if the root `Cargo.toml` cannot be read.
+	pub fn root_cargo_toml(&self) -> CargoManifest {
+		let contents = std::fs::read_to_string(self.root_dir.join("Cargo.toml"))
+			.expect("failed to read root Cargo.toml");
+		toml::from_str(&contents).expect("failed to parse root Cargo.toml")
+	}
+
+	/// # Panics
 	/// Panics if the lockfile cannot be read.
 	pub fn lockfile(&self) -> impl Iterator<Item = LockEntry> {
 		let contents = std::fs::read_to_string(self.root_dir.join("Cargo.lock"))
@@ -181,12 +189,15 @@ impl Vfs {
 			lockfile.version, 4,
 			"Cargo.lock version 4 is the only version supported"
 		);
-		lockfile.package.into_iter().map(|e| {
-			LockEntry {
-				package_name: e.name,
-				is_registry: e.source.is_some_and(|s| s.starts_with("registry+")),
-				dependencies: e.dependencies.unwrap_or_default(),
-			}
+		let root_package_name = self.root_cargo_toml().package.name;
+		lockfile.package.into_iter().filter_map(move |e| {
+			(e.name != root_package_name).then(|| {
+				LockEntry {
+					package_name: e.name,
+					is_registry: e.source.is_some_and(|s| s.starts_with("registry+")),
+					dependencies: e.dependencies.unwrap_or_default(),
+				}
+			})
 		})
 	}
 
@@ -224,44 +235,33 @@ pub trait Lockfile: IntoIterator<Item = LockEntry> + Sized {
 			.collect()
 	}
 
-	fn used(self) -> impl Iterator<Item = LockEntry>
-	where
-		Self: Clone,
-	{
+	fn used(self) -> impl Iterator<Item = LockEntry> {
+		let map = self.into_map();
 		let mut seen = HashSet::new();
+		let mut queue = map
+			.iter()
+			.filter_map(|(n, e)| (!e.is_registry).then(|| n.to_string()))
+			.collect::<VecDeque<_>>();
 
-		for item in self.clone().into_iter() {
-			if item.is_registry {
-				for dep in item.dependencies {
-					seen.insert(dep);
-				}
-			} else {
-				seen.insert(item.package_name);
+		while let Some(name) = queue.pop_back() {
+			if !seen.insert(name.clone()) {
+				continue;
+			}
+
+			for dep in &map[&name].dependencies {
+				queue.push_back(dep.into());
 			}
 		}
 
-		self.into_iter()
-			.filter(move |e| seen.contains(&e.package_name))
+		map.into_iter()
+			.filter_map(move |(k, e)| seen.contains(&k).then(move || e))
 	}
 
-	fn unused(self) -> impl Iterator<Item = LockEntry>
-	where
-		Self: Clone,
-	{
-		let mut seen = HashSet::new();
-
-		for item in self.clone().into_iter() {
-			if item.is_registry {
-				for dep in item.dependencies {
-					seen.insert(dep);
-				}
-			} else {
-				seen.insert(item.package_name);
-			}
-		}
-
-		self.into_iter()
-			.filter(move |e| !seen.contains(&e.package_name))
+	fn unused(self) -> impl Iterator<Item = LockEntry> {
+		let all: Vec<LockEntry> = self.into_iter().collect();
+		let used: HashSet<String> = all.iter().cloned().used().map(|e| e.package_name).collect();
+		all.into_iter()
+			.filter(move |e| !used.contains(&e.package_name))
 	}
 
 	fn dependencies(self) -> impl Iterator<Item = LockEntry> {

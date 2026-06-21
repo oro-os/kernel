@@ -1,6 +1,7 @@
 pub mod build;
 pub mod check;
 pub mod clippy;
+pub mod udeps;
 pub mod vendor;
 
 pub fn cargo() -> std::process::Command {

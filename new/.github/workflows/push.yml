@@ -28,6 +28,15 @@ jobs:
       - uses: ./.github/actions/deps
       - name: Check vendor
         run: cargo oro vendor --check
+  check-udeps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - uses: ./.github/actions/deps
+      - name: Check unused dependencies
+        run: cargo oro udeps
   build-artifacts:
     runs-on: ubuntu-latest
     strategy:

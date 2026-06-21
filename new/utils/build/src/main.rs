@@ -26,6 +26,9 @@ enum Commands {
 	/// Vendor sources and update references in `.cargo/config.toml`.
 	#[command(override_usage = "cargo oro vendor [OPTIONS] [ARTIFACTS]")]
 	Vendor(cmd::vendor::Args),
+	/// Checks for unused dependencies.
+	#[command(override_usage = "cargo oro udeps")]
+	Udeps,
 }
 
 fn main() {
@@ -36,5 +39,6 @@ fn main() {
 		Commands::Clippy(args) => cmd::clippy::run(args),
 		Commands::Check(args) => cmd::check::run(args),
 		Commands::Vendor(args) => cmd::vendor::run(args),
+		Commands::Udeps => cmd::udeps::run(),
 	}
 }

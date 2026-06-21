@@ -184,23 +184,14 @@ version = "0.0.0"
 [[package]]
 name = "oro-limine-aarch64"
 version = "0.0.0"
-dependencies = [
- "limine",
-]
 
 [[package]]
 name = "oro-limine-riscv64"
 version = "0.0.0"
-dependencies = [
- "limine",
-]
 
 [[package]]
 name = "oro-limine-x86_64"
 version = "0.0.0"
-dependencies = [
- "limine",
-]
 
 [[package]]
 name = "proc-macro2"
