@@ -43,8 +43,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-      - run: find vendor .cargo -type f
-      - run: cargo tree
       - uses: ./.github/actions/deps
       - name: Check licenses
         run: cargo oro license --check

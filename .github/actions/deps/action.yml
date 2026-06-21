@@ -8,3 +8,11 @@ runs:
       with:
         toolchain: stable
         components: rustfmt, clippy, rustc-dev, rust-src, llvm-tools-preview
+    # Sigh. Cargo is severely broken. `build-std` is a nightmare.
+    # The `std`/`core`/etc crates are not properly offline-able when
+    # no other online builds have taken place to prime whatever they do
+    # in `~/.cargo`. This is a workaround to get them properly cached.
+    - name: Workaround for broken cargo/build-std
+      shell: bash
+      run: |
+        cd artifact/x86_64-limine && cargo build
