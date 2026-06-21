@@ -17,6 +17,10 @@ members = [
 	"artifact/*/",
 ]
 
+[workspace.dependencies]
+orok_kernel.path = "lib/kernel"
+orok_limine.path = "lib/limine"
+
 [dependencies]
 # Used by the limine bootloader
 limine = "=0.6.5"

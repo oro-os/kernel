@@ -16,6 +16,7 @@ paths = [
     "vendor/is_terminal_polyfill",
     "vendor/limine",
     "vendor/once_cell_polyfill",
+    "vendor/pathdiff",
     "vendor/proc-macro2",
     "vendor/quote",
     "vendor/serde",

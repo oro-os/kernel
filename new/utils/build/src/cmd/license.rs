@@ -54,10 +54,13 @@ pub fn run(args: Args) {
 			));
 
 			expected_links.insert(
-				std::path::absolute(&license_link_path).expect(&format!(
-					"failed to absolutize path: {}",
-					license_link_path.display()
-				)).normalize_lexically().unwrap(),
+				std::path::absolute(&license_link_path)
+					.expect(&format!(
+						"failed to absolutize path: {}",
+						license_link_path.display()
+					))
+					.normalize_lexically()
+					.unwrap(),
 				lf,
 			);
 		} else {
@@ -65,14 +68,14 @@ pub fn run(args: Args) {
 		}
 	}
 
-
-
 	for existing in existing_licenses {
 		let license_path = existing.license_path.normalize_lexically().unwrap();
 		if let Some(expected) = expected_links.remove(&license_path) {
-			let relpath = pathdiff::diff_paths(&existing.target_path, &canonical_license_dir).expect(&format!(
-				"failed to relativize an existing license path: {}", existing.target_path.display()
-			));
+			let relpath = pathdiff::diff_paths(&existing.target_path, &canonical_license_dir)
+				.expect(&format!(
+					"failed to relativize an existing license path: {}",
+					existing.target_path.display()
+				));
 
 			if expected != relpath {
 				unexpected_links.insert(license_path.clone());
@@ -99,7 +102,10 @@ pub fn run(args: Args) {
 
 		for unexpected in unexpected_links {
 			ok = false;
-			eprintln!("error: unexpected vendor license link: {}", unexpected.display());
+			eprintln!(
+				"error: unexpected vendor license link: {}",
+				unexpected.display()
+			);
 		}
 	} else {
 		for unexpected in unexpected_links {

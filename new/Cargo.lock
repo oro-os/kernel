@@ -145,10 +145,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
-name = "oro-kernel"
-version = "0.0.0"
-
-[[package]]
 name = "oro-kernel-aarch64"
 version = "0.0.0"
 
@@ -186,14 +182,34 @@ version = "0.0.0"
 [[package]]
 name = "oro-limine-aarch64"
 version = "0.0.0"
+dependencies = [
+ "orok_limine",
+]
 
 [[package]]
 name = "oro-limine-riscv64"
 version = "0.0.0"
+dependencies = [
+ "orok_limine",
+]
 
 [[package]]
 name = "oro-limine-x86_64"
 version = "0.0.0"
+dependencies = [
+ "orok_limine",
+]
+
+[[package]]
+name = "orok"
+version = "0.0.0"
+
+[[package]]
+name = "orok_limine"
+version = "0.0.0"
+dependencies = [
+ "limine",
+]
 
 [[package]]
 name = "pathdiff"
