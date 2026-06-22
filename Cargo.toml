@@ -3,7 +3,7 @@ name = "oro-kernel-root"
 version = "0.1.0"
 publish = false
 edition = "2024"
-license = "GPL-2.0"
+license = "GPL-2.0 WITH Oro-syscall-exception"
 
 [lib]
 path = "utils/empty.rs"
