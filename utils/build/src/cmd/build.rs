@@ -18,6 +18,8 @@ pub struct Args {
 pub fn run(args: Args) {
 	let artifacts = args.artifacts.collapse();
 
+	let mut ok = true;
+
 	for artifact in artifacts {
 		let mut cmd = super::cargo();
 		cmd.arg("--color")
@@ -45,7 +47,12 @@ pub fn run(args: Args) {
 				artifact.name,
 				artifact.path.display()
 			);
-			std::process::exit(1);
+
+			ok = false;
 		}
+	}
+
+	if !ok {
+		std::process::exit(1);
 	}
 }

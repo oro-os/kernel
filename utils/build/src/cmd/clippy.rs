@@ -22,6 +22,7 @@ pub struct Args {
 pub fn run(args: Args) {
 	let artifacts = args.artifacts.collapse();
 
+	let mut ok = true;
 	for artifact in artifacts {
 		let mut cmd = super::cargo();
 		cmd.arg("clippy")
@@ -34,10 +35,11 @@ pub fn run(args: Args) {
 
 		if args.json {
 			cmd.arg("--message-format")
-				.arg("json")
+				.arg("json-diagnostic-rendered-ansi")
 				.arg("--color")
 				.arg("never")
-				.arg("--quiet");
+				.arg("--quiet")
+				.stderr(std::process::Stdio::null());
 		} else {
 			cmd.arg("--color").arg("always");
 		}
@@ -52,12 +54,18 @@ pub fn run(args: Args) {
 		std::io::stderr().flush().ok();
 
 		if !status.success() {
-			eprintln!(
-				"cargo clippy failed for artifact {}: {}",
-				artifact.name,
-				artifact.path.display()
-			);
-			std::process::exit(1);
+			if !args.json {
+				eprintln!(
+					"cargo clippy failed for artifact {}: {}",
+					artifact.name,
+					artifact.path.display()
+				);
+			}
+			ok = false;
 		}
+	}
+
+	if !ok {
+		std::process::exit(1);
 	}
 }
