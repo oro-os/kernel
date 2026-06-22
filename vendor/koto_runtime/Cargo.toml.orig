@@ -1,0 +1,47 @@
+[package]
+name = "koto_runtime"
+version = "0.16.1"
+description = "The runtime used by the Koto programming language"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[features]
+default = ["rc"]
+
+# Only one memory management strategy can be enabled at a time.
+# To use `arc`, default features must be disabled.
+arc = ["koto_memory/arc", "koto_derive/arc"]
+rc = ["koto_memory/rc", "koto_derive/rc"]
+
+[dependencies]
+koto_bytecode = { path = "../bytecode", version = "^0.16.1", default-features = false }
+koto_derive = { path = "../derive", version = "^0.16.1", default-features = false }
+koto_lexer = { path = "../lexer", version = "^0.16.1" }
+koto_memory = { path = "../memory", version = "^0.16.1", default-features = false }
+koto_parser = { path = "../parser", version = "^0.16.1", default-features = false }
+
+indexmap = { workspace = true }
+paste = { workspace = true }
+rustc-hash = { workspace = true }
+saturating_cast = { workspace = true }
+smallvec = { workspace = true }
+thiserror = { workspace = true }
+unicode-segmentation = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+chrono = { workspace = true, features = ["clock", "std"] }
+instant = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+chrono = { workspace = true, features = ["clock", "std", "wasmbind"] }
+instant = { workspace = true, features = ["wasm-bindgen"] }
+
+[dev-dependencies]
+koto_test_utils = { path = "../../crates/test_utils", default-features = false }
+test-case = { workspace = true }

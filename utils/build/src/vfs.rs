@@ -126,8 +126,8 @@ pub struct CargoPackageMetadata {
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct CargoPackageMetadataOro {
-	pub arch: Arch,
-	pub component: Component,
+	pub arch: Option<Arch>,
+	pub component: Option<Component>,
 	pub license_overrides: Option<HashMap<String, CargoPackageMetadataLicenseOverride>>,
 }
 
@@ -202,16 +202,16 @@ impl Vfs {
 		self.read_artifact_dir().filter_map(|path| {
 			let manifest = std::fs::read_to_string(path.join("Cargo.toml")).ok()?;
 			let manifest: CargoManifest = toml::from_str(&manifest).ok()?;
-			let Some(metadata) = &manifest.package.metadata.and_then(|m| m.oro) else {
-				return None;
-			};
-			let target_triple = format!("{}-unknown-oro", metadata.arch);
+			let metadata = &manifest.package.metadata.as_ref()?.oro.as_ref()?;
+			let arch = metadata.arch?;
+			let component = metadata.component?;
+			let target_triple = format!("{}-unknown-oro", arch);
 			Some(Artifact {
 				path,
-				name: format!("{}-{}", metadata.arch, metadata.component),
+				name: format!("{arch}-{component}"),
 				description: manifest.package.description,
-				architecture: metadata.arch,
-				component: metadata.component,
+				architecture: arch,
+				component,
 				target_relative_path: PathBuf::from(&manifest.package.name),
 				package_name: manifest.package.name,
 				target_triple,

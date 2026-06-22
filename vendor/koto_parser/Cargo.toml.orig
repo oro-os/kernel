@@ -1,0 +1,35 @@
+[package]
+name = "koto_parser"
+version = "0.16.1"
+description = "The parser used by the Koto programming language"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[features]
+default = ["rc"]
+
+# Only one memory management strategy can be enabled at a time.
+# To use `arc`, default features must be disabled.
+arc = ["koto_memory/arc"]
+rc = ["koto_memory/rc"]
+
+# Panicking be useful during development, e.g. to see the backtrace that led to the error
+panic_on_parser_error = []
+
+# When enabled, the parser will return the partially constructed AST in the error
+error_ast = []
+
+[dependencies]
+koto_lexer = { path = "../lexer", version = "^0.16.1" }
+koto_memory = { path = "../memory", version = "^0.16.1", default-features = false }
+
+derive-name = { workspace = true }
+smallvec = { workspace = true }
+thiserror = { workspace = true }
+unicode-segmentation = { workspace = true }

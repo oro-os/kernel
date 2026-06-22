@@ -1,4 +1,12 @@
 /target/
+
+####################################
+# Vendor artifacts, removed by the #
+# `cargo oro vendor` tool upon     #
+# vendoring via a `git clean` run. #
+####################################
+
+# Random Vendor artifacts / Oro tooling artifacts.
 /vendor/.vendor*/
 /vendor/**/*._oro-prepatch
 
@@ -25,3 +33,18 @@ vendor/flickzeug/src/patch/snapshots/
 
 # Building on windows isn't supported to begin with.
 /vendor/windows-sys/src/*
+/vendor/windows-strings/src/*
+/vendor/windows-result/src/*
+/vendor/windows-core/src/*
+/vendor/windows-interface/src/*
+/vendor/windows-implement/src/*
+
+# Neither is building on/for WASM.
+/vendor/web-sys/src/*
+/vendor/wasm-bindgen/src/*
+/vendor/wasm-bindgen-macro/src/*
+/vendor/wasm-bindgen-macro-support/src/*
+/vendor/wasm-bindgen-shared/src/*
+
+# Nor for Android.
+/vendor/android_system_properties/src/*

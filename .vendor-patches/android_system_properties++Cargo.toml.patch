@@ -1,0 +1,15 @@
+--- original
++++ modified
+@@ -22,6 +22,12 @@
+ license = "MIT/Apache-2.0"
+ repository = "https://github.com/nical/android_system_properties"
+
++# ORO PATCH: We don't need/want this dependency in the tree, so
++#            we patch in a fake executable.
++[[bin]]
++name = "android_system_properties"
++path = "../../utils/empty.rs"
++
+ [package.metadata.docs.rs]
+ targets = [
+     "arm-linux-androideabi",

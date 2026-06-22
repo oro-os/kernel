@@ -33,6 +33,18 @@ quote = "=1.0.45"
 clap = { version = "=4.6.1", features = ["derive", "string"] }
 pathdiff = "=0.2.3"
 flickzeug = "=0.5.1"
+koto = "=0.16.1"
+
+[package.metadata.oro.license-overrides]
+koto.path = "../../.vendor-patches/LICENSE.koto"
+koto_serde.path = "../../.vendor-patches/LICENSE.koto"
+koto_parser.path = "../../.vendor-patches/LICENSE.koto"
+koto_lexer.path = "../../.vendor-patches/LICENSE.koto"
+koto_bytecode.path = "../../.vendor-patches/LICENSE.koto"
+koto_memory.path = "../../.vendor-patches/LICENSE.koto"
+koto_derive.path = "../../.vendor-patches/LICENSE.koto"
+koto_runtime.path = "../../.vendor-patches/LICENSE.koto"
+derive-name-macros.path = "../../.vendor-patches/LICENSE.derive-name-macros"
 
 
 [workspace.lints.rust]

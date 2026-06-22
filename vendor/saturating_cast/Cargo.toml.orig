@@ -1,0 +1,26 @@
+[package]
+name = "saturating_cast"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+exclude = [".github"]
+description = "Library for saturating casts between integer primitives."
+homepage = "https://github.com/okaneco/saturating_cast"
+repository = "https://github.com/okaneco/saturating_cast"
+readme = "README.md"
+
+keywords = ["saturating", "cast", "clamp", "conversion", "clip"]
+categories = ["mathematics", "no-std", ""]
+
+[dependencies]
+
+[features]
+default = []
+
+[profile.dev]
+opt-level = 1
+
+[package.metadata.docs.rs]
+no-default-features = true
+features = [""]
+targets = []
