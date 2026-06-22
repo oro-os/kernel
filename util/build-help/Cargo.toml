@@ -1,5 +1,5 @@
 [package]
-name = "oro-kernel-build-notice"
+name = "oro-util-build-help"
 version = "0.1.0"
 publish = false
 edition = "2024"

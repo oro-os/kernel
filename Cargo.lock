@@ -464,21 +464,6 @@ name = "oro-kernel-aarch64"
 version = "0.0.0"
 
 [[package]]
-name = "oro-kernel-build"
-version = "0.0.0"
-dependencies = [
- "clap",
- "flickzeug",
- "pathdiff",
- "serde",
- "toml",
-]
-
-[[package]]
-name = "oro-kernel-build-notice"
-version = "0.1.0"
-
-[[package]]
 name = "oro-kernel-riscv64"
 version = "0.0.0"
 
@@ -505,32 +490,55 @@ version = "0.0.0"
 name = "oro-limine-aarch64"
 version = "0.0.0"
 dependencies = [
- "orok_limine",
+ "orok-limine",
 ]
 
 [[package]]
 name = "oro-limine-riscv64"
 version = "0.0.0"
 dependencies = [
- "orok_limine",
+ "orok-limine",
 ]
 
 [[package]]
 name = "oro-limine-x86_64"
 version = "0.0.0"
 dependencies = [
- "orok_limine",
+ "orok-limine",
 ]
+
+[[package]]
+name = "oro-util-build-help"
+version = "0.1.0"
 
 [[package]]
 name = "orok"
 version = "0.0.0"
 
 [[package]]
-name = "orok_limine"
+name = "orok-limine"
 version = "0.0.0"
 dependencies = [
  "limine",
+]
+
+[[package]]
+name = "orok-util-build"
+version = "0.0.0"
+dependencies = [
+ "clap",
+ "flickzeug",
+ "pathdiff",
+ "serde",
+ "toml",
+]
+
+[[package]]
+name = "orok-util-pkg"
+version = "0.0.0"
+dependencies = [
+ "clap",
+ "koto",
 ]
 
 [[package]]

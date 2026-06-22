@@ -96,7 +96,7 @@ paths = [
 oro = [
     "run",
     "-p",
-    "oro-kernel-build",
+    "orok-util-build",
     "--offline",
     "--quiet",
     "--message-format",

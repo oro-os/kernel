@@ -6,7 +6,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
-orok_limine.workspace = true
+orok-limine.workspace = true
 
 [package.metadata.oro]
 arch = "x86_64"

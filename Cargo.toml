@@ -6,20 +6,20 @@ edition = "2024"
 license = "GPL-2.0 WITH Oro-syscall-exception"
 
 [lib]
-path = "utils/empty.rs"
+path = "util/empty.rs"
 
 [workspace]
 resolver = "2"
-default-members = ["utils/build-help"]
+default-members = ["util/build-help"]
 members = [
 	"lib/*",
-	"utils/*",
+	"util/*",
 	"artifact/*/",
 ]
 
 [workspace.dependencies]
-orok_kernel.path = "lib/kernel"
-orok_limine.path = "lib/limine"
+orok.path = "lib/kernel"
+orok-limine.path = "lib/limine"
 
 [dependencies]
 # Used by the limine bootloader

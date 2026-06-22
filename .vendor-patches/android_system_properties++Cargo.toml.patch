@@ -8,7 +8,7 @@
 +#            we patch in a fake executable.
 +[[bin]]
 +name = "android_system_properties"
-+path = "../../utils/empty.rs"
++path = "../../util/empty.rs"
 +
  [package.metadata.docs.rs]
  targets = [
