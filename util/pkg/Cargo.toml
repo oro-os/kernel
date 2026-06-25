@@ -1,0 +1,10 @@
+[package]
+name = "orok-util-pkg"
+description = "The Oro kernel packaging utility"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+clap = { version = "*", features = ["derive"] }
+koto = "*"

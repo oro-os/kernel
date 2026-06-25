@@ -5,6 +5,12 @@ version = "0.0.0"
 edition = "2024"
 publish = false
 
+# NOTE: Limine's `ARCH` macro uses `x86-64` instead of the underscore,
+#       so we adjust for that here.
+[[bin]]
+name = "oro-limine-x86-64"
+path = "src/main.rs"
+
 [dependencies]
 orok-limine.workspace = true
 

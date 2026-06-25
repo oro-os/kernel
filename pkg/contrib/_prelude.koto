@@ -1,0 +1,19 @@
+## Prelude file; ran in every single Koto context prior to executing
+## the script file. Useful for defining global utilities and extensions.
+
+# Joins an iterator with an intersperse separator.
+iterator.join = |sep: String|
+	first = match self.next()
+		null then return null
+		x then x.get()
+	folded = self.fold [first], |acc, i| acc + [sep, i]
+	folded.to_string()
+
+# Joins a list with an intersperse separator.
+list.join = |sep: String| self.iter().join sep
+
+# Joins a range with an intersperse separator.
+range.join = |sep: String| self.iter().join sep
+
+# Joins a tuple with an intersperse separator.
+tuple.join = |sep: String| self.iter().join sep

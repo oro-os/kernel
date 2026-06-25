@@ -1,0 +1,25 @@
+## Useful wrappers around the ISO builder.
+
+from oro import iso
+
+# Pre-configured ISO builder for emulators (e.g. QEMU).
+export for_emulators = || iso.builder()
+	.use_gpt true
+	.eltorito_mode 'both'
+	.esp_mode 'appended_partition'
+	.esp_alignment_lba_512 4096
+	.mbr_mode 'hybrid_linux_esp'
+	.hidden_sectors_mode 'partition_offset'
+	.uefi_boot_strategy 'eltorito_direct_efi'
+	.isohybrid true
+
+# Pre-configured ISO builders for booting on real hardware.
+export for_hardware = || iso.builder()
+	.use_gpt true
+	.eltorito_mode 'both'
+	.esp_mode 'appended_partition'
+	.esp_alignment_lba_512 4096
+	.mbr_mode 'hybrid_linux_esp'
+	.hidden_sectors_mode 'zero'
+	.uefi_boot_strategy 'esp_partition'
+	.isohybrid true

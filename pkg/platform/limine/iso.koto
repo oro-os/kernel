@@ -1,0 +1,197 @@
+from oro import package, artifact, file
+from oro_contrib import iso
+
+LIMINE_BIOS_CD = file './limine-bios-cd.bin'
+LIMINE_UEFI_CD = file './limine-uefi-cd.bin'
+
+ARCH_EFI_FILES =
+	'x86-64': file './BOOTX64.EFI',
+	'aarch64': file './BOOTAA64.EFI',
+	'riscv64': file './BOOTRISCV64.EFI'
+
+limine_cfg = |comment: String, archs...| file.from_str "
+timeout: 0
+quiet: yes
+default_entry: 1
+graphics: yes
+randomise_memory: no
+interface_branding: Oro Operating System
+interface_branding_color: 5
+
+/Oro:
+	comment: {comment}
+	protocol: limine
+	path: boot():/boot/oro-limine-$\{ARCH}
+	module_path: boot():/boot/oro-$\{ARCH}.rd
+	randomise_hhdm_base: yes
+	kasler: no
+	serial: yes
+
+	{if archs.is_empty() then '' else 'if_arch: {archs.join ' '}'}
+"
+
+export
+	'limine-multiarch-dev': || package
+		.arch('x86_64', 'aarch64', 'riscv64')
+		.single_file 'iso', ||
+			boot =
+				'limine.cfg': limine_cfg('[DEV] Oro Operating System (Multi-arch)', 'x86-64', 'aarch64', 'riscv64'),
+				'oro-limine-x86-64': artifact.limine.x86_64.dev,
+				'oro-limine-aarch64': artifact.limine.aarch64.dev,
+				'oro-limine-riscv64': artifact.limine.riscv64.dev,
+				'oro-kernel-x86-64': artifact.kernel.x86_64.dev,
+				'oro-kernel-aarch64': artifact.kernel.aarch64.dev,
+				'oro-kernel-riscv64': artifact.kernel.riscv64.dev
+				'limine-bios-cd.bin': LIMINE_BIOS_CD,
+				'limine-uefi-cd.bin': LIMINE_UEFI_CD
+
+			efi =
+				'BOOTX64.EFI': ARCH_EFI_FILES['x86-64'],
+				'BOOTAA64.EFI': ARCH_EFI_FILES['aarch64'],
+				'BOOTRISCV64.EFI': ARCH_EFI_FILES['riscv64']
+
+			iso.for_emulators()
+				.volume_id 'ORO-EMU-LIMINE-MULTI-DEV'
+				.boot_bios ['boot', 'limine-bios-cd.bin']
+				.boot_uefi ['boot', 'limine-uefi-cd.bin']
+				.filesystem { boot, EFI: { BOOT: efi } },
+
+	'limine-multiarch': || package
+		.arch('x86_64', 'aarch64', 'riscv64')
+		.single_file 'iso', ||
+			boot =
+				'limine.cfg': limine_cfg('Oro Operating System (Multi-arch)', 'x86-64', 'aarch64', 'riscv64'),
+				'oro-limine-x86-64': artifact.limine.x86_64.release,
+				'oro-limine-aarch64': artifact.limine.aarch64.release,
+				'oro-limine-riscv64': artifact.limine.riscv64.release,
+				'oro-kernel-x86-64': artifact.kernel.x86_64.release,
+				'oro-kernel-aarch64': artifact.kernel.aarch64.release,
+				'oro-kernel-riscv64': artifact.kernel.riscv64.release,
+				'limine-bios-cd.bin': LIMINE_BIOS_CD,
+				'limine-uefi-cd.bin': LIMINE_UEFI_CD
+
+			efi =
+				'BOOTX64.EFI': ARCH_EFI_FILES['x86-64'],
+				'BOOTAA64.EFI': ARCH_EFI_FILES['aarch64'],
+				'BOOTRISCV64.EFI': ARCH_EFI_FILES['riscv64']
+
+			iso.for_emulators()
+				.volume_id 'ORO-EMU-LIMINE-MULTI'
+				.boot_bios ['boot', 'limine-bios-cd.bin']
+				.boot_uefi ['boot', 'limine-uefi-cd.bin']
+				.filesystem { boot, EFI: { BOOT: efi } },
+
+	'limine-x86_64-dev': || package
+		.arch('x86_64')
+		.single_file 'iso', ||
+			boot =
+				'limine.cfg': limine_cfg('[DEV] Oro Operating System (x86-64)', 'x86-64'),
+				'oro-limine-x86-64': artifact.limine.x86_64.dev,
+				'oro-kernel-x86-64': artifact.kernel.x86_64.dev,
+				'limine-bios-cd.bin': LIMINE_BIOS_CD,
+				'limine-uefi-cd.bin': LIMINE_UEFI_CD
+
+			efi =
+				'BOOTX64.EFI': ARCH_EFI_FILES['x86-64']
+
+			iso.for_emulators()
+				.volume_id 'ORO-EMU-LIMINE-X64-DEV'
+				.boot_bios ['boot', 'limine-bios-cd.bin']
+				.boot_uefi ['boot', 'limine-uefi-cd.bin']
+				.filesystem { boot, EFI: { BOOT: efi } },
+
+	'limine-x86_64': || package
+		.arch('x86_64')
+		.single_file 'iso', ||
+			boot =
+				'limine.cfg': limine_cfg('Oro Operating System (x86-64)', 'x86-64'),
+				'oro-limine-x86-64': artifact.limine.x86_64.release,
+				'oro-kernel-x86-64': artifact.kernel.x86_64.release,
+				'limine-bios-cd.bin': LIMINE_BIOS_CD,
+				'limine-uefi-cd.bin': LIMINE_UEFI_CD
+
+			efi =
+				'BOOTX64.EFI': ARCH_EFI_FILES['x86-64']
+
+			iso.for_emulators()
+				.volume_id 'ORO-EMU-LIMINE-X64'
+				.boot_bios ['boot', 'limine-bios-cd.bin']
+				.boot_uefi ['boot', 'limine-uefi-cd.bin']
+				.filesystem { boot, EFI: { BOOT: efi } },
+
+	'limine-aarch64-dev': || package
+		.arch('aarch64')
+		.single_file 'iso', ||
+			boot =
+				'limine.cfg': limine_cfg('[DEV] Oro Operating System (AArch64)', 'aarch64'),
+				'oro-limine-aarch64': artifact.limine.aarch64.dev,
+				'oro-kernel-aarch64': artifact.kernel.aarch64.dev,
+				'limine-bios-cd.bin': LIMINE_BIOS_CD,
+				'limine-uefi-cd.bin': LIMINE_UEFI_CD
+
+			efi =
+				'BOOTAA64.EFI': ARCH_EFI_FILES['aarch64']
+
+			iso.for_emulators()
+				.volume_id 'ORO-EMU-LIMINE-AA64-DEV'
+				.boot_bios ['boot', 'limine-bios-cd.bin']
+				.boot_uefi ['boot', 'limine-uefi-cd.bin']
+				.filesystem { boot, EFI: { BOOT: efi } },
+
+	'limine-aarch64': || package
+		.arch('aarch64')
+		.single_file 'iso', ||
+			boot =
+				'limine.cfg': limine_cfg('Oro Operating System (AArch64)', 'aarch64'),
+				'oro-limine-aarch64': artifact.limine.aarch64.release,
+				'oro-kernel-aarch64': artifact.kernel.aarch64.release,
+				'limine-bios-cd.bin': LIMINE_BIOS_CD,
+				'limine-uefi-cd.bin': LIMINE_UEFI_CD
+
+			efi =
+				'BOOTAA64.EFI': ARCH_EFI_FILES['aarch64']
+
+			iso.for_emulators()
+				.volume_id 'ORO-EMU-LIMINE-AA64'
+				.boot_bios ['boot', 'limine-bios-cd.bin']
+				.boot_uefi ['boot', 'limine-uefi-cd.bin']
+				.filesystem { boot, EFI: { BOOT: efi } },
+
+
+	'limine-riscv64-dev': || package
+		.arch('riscv64')
+		.single_file 'iso', ||
+			boot =
+				'limine.cfg': limine_cfg('[DEV] Oro Operating System (RISC-V 64)', 'riscv64'),
+				'oro-limine-riscv64': artifact.limine.riscv64.dev,
+				'oro-kernel-riscv64': artifact.kernel.riscv64.dev,
+				'limine-bios-cd.bin': LIMINE_BIOS_CD,
+				'limine-uefi-cd.bin': LIMINE_UEFI_CD
+
+			efi =
+				'BOOTRISCV64.EFI': ARCH_EFI_FILES['riscv64']
+
+			iso.for_emulators()
+				.volume_id 'ORO-EMU-LIMINE-RV64-DEV'
+				.boot_bios ['boot', 'limine-bios-cd.bin']
+				.boot_uefi ['boot', 'limine-uefi-cd.bin']
+				.filesystem { boot, EFI: { BOOT: efi } },
+
+	'limine-riscv64': || package
+		.arch('riscv64')
+		.single_file 'iso', ||
+			boot =
+				'limine.cfg': limine_cfg('Oro Operating System (RISC-V 64)', 'riscv64'),
+				'oro-limine-riscv64': artifact.limine.riscv64.release,
+				'oro-kernel-riscv64': artifact.kernel.riscv64.release,
+				'limine-bios-cd.bin': LIMINE_BIOS_CD,
+				'limine-uefi-cd.bin': LIMINE_UEFI_CD
+
+			efi =
+				'BOOTRISCV64.EFI': ARCH_EFI_FILES['riscv64']
+
+			iso.for_emulators()
+				.volume_id 'ORO-EMU-LIMINE-RV64'
+				.boot_bios ['boot', 'limine-bios-cd.bin']
+				.boot_uefi ['boot', 'limine-uefi-cd.bin']
+				.filesystem { boot, EFI: { BOOT: efi } },
