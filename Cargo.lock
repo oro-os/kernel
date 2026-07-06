@@ -470,17 +470,6 @@ version = "0.0.0"
 [[package]]
 name = "oro-kernel-root"
 version = "0.1.0"
-dependencies = [
- "clap",
- "flickzeug",
- "koto",
- "limine",
- "pathdiff",
- "proc-macro2",
- "quote",
- "serde",
- "toml",
-]
 
 [[package]]
 name = "oro-kernel-x86_64"

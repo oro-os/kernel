@@ -26,7 +26,8 @@ pub fn run(args: Args) {
 	for artifact in artifacts {
 		let mut cmd = super::cargo();
 		cmd.arg("clippy")
-			.arg("--frozen")
+			// TODO: reenable after fix: https://github.com/rust-lang/cargo/issues/7058
+			//.arg("--frozen")
 			.current_dir(&artifact.path);
 
 		if let Some(profile) = &args.profile {

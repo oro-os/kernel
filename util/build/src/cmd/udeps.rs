@@ -1,6 +1,9 @@
 use crate::vfs::Lockfile;
 
+#[expect(unreachable_code)]
 pub fn run() {
+	panic!("command is disabled until `cargo vendor` is fixed: https://github.com/rust-lang/cargo/issues/7058");
+
 	let vfs = crate::vfs::Vfs::new_from_cargo();
 	let lockfile = vfs.lockfile().collect::<Vec<_>>();
 

@@ -19,33 +19,35 @@ jobs:
       - uses: ./.github/actions/deps
       - name: Lint (rustfmt)
         run: cargo fmt --check
-  check-vendor:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'true'
-      - uses: ./.github/actions/deps
-      - name: Check vendor
-        run: cargo oro vendor --check
-  check-udeps:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'true'
-      - uses: ./.github/actions/deps
-      - name: Check unused dependencies
-        run: cargo oro udeps
-  check-licenses:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'true'
-      - uses: ./.github/actions/deps
-      - name: Check licenses
-        run: cargo oro license --check
+# NOTE: Disabled until the following is resolved:
+#       https://github.com/rust-lang/cargo/issues/7058
+#  check-vendor:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v4
+#        with:
+#          submodules: 'true'
+#      - uses: ./.github/actions/deps
+#      - name: Check vendor
+#        run: cargo oro vendor --check
+#  check-udeps:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v4
+#        with:
+#          submodules: 'true'
+#      - uses: ./.github/actions/deps
+#      - name: Check unused dependencies
+#        run: cargo oro udeps
+#  check-licenses:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v4
+#        with:
+#          submodules: 'true'
+#      - uses: ./.github/actions/deps
+#      - name: Check licenses
+#        run: cargo oro license --check
   build-artifacts:
     runs-on: ubuntu-latest
     strategy:

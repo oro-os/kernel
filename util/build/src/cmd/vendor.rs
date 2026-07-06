@@ -11,7 +11,10 @@ pub struct Args {
 	check: bool,
 }
 
+#[expect(unreachable_code, unused_variables)]
 pub fn run(args: Args) {
+	panic!("command is disabled until `cargo vendor` is fixed: https://github.com/rust-lang/cargo/issues/7058");
+
 	if args.check {
 		check();
 	} else {

@@ -5,8 +5,8 @@ edition = "2024"
 publish = false
 
 [dependencies]
-clap = { version = "*", features = ["derive", "string"] }
-toml = "*"
-serde = { version = "*", features = ["derive"] }
-pathdiff = "*"
-flickzeug = "*"
+clap = { workspace = true, features = ["derive", "string"] }
+toml.workspace = true
+serde = { workspace = true, features = ["derive"] }
+pathdiff.workspace = true
+flickzeug.workspace = true

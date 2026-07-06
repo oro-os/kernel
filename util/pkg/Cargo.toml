@@ -6,5 +6,5 @@ edition = "2024"
 publish = false
 
 [dependencies]
-clap = { version = "*", features = ["derive"] }
-koto = "*"
+clap = { workspace = true, features = ["derive"] }
+koto.workspace = true

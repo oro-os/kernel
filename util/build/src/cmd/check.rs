@@ -25,7 +25,11 @@ pub fn run(args: Args) {
 	let mut ok = true;
 	for artifact in artifacts {
 		let mut cmd = super::cargo();
-		cmd.arg("check").arg("--frozen").current_dir(&artifact.path);
+		cmd
+			.arg("check")
+			// TODO: reenable after fix: https://github.com/rust-lang/cargo/issues/7058
+			//.arg("--frozen")
+			.current_dir(&artifact.path);
 
 		if let Some(profile) = &args.profile {
 			cmd.arg("--profile").arg(profile);

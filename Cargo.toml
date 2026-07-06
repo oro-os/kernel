@@ -21,7 +21,6 @@ members = [
 orok.path = "lib/kernel"
 orok-limine.path = "lib/limine"
 
-[dependencies]
 # Used by the limine bootloader
 limine = "=0.6.5"
 
