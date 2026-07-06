@@ -66,6 +66,9 @@ registry. Those crates will contain a `LICENSE.mit` and `LICENSE.apache2` file
 and are not subject to the GPL-2.0 license under which the rest of this repository
 is licensed.
 
+<!-- Removed until rust-lang/cargo/issues/7058 is fixed -->
+<!--
 All folders directly under `vendor/` are third-party crates that are included in this
 repository for reproducibility and ease of use. The chosen licenses applicable to the
 Oro kernel have been symlinked into `licenses/vendor/<crate-name>`.
+-->
