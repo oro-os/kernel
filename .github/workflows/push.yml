@@ -84,3 +84,4 @@ jobs:
           name: kernel-artifacts
           path: target/pkg/
       - run: ls target/pkg/
+      - run: which qemu-system-x86_64
