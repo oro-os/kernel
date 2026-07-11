@@ -68,3 +68,18 @@ jobs:
         with:
           name: kernel-artifacts
           path: target/pkg/*
+
+  test-kernel-qemu:
+    runs-on: ubuntu-latest
+    needs: build-artifacts
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - uses: ./.github/actions/deps
+      # Get the artifacts from build-artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: kernel-artifacts
+          path: target/pkg/
+      - run: ls target/pkg/

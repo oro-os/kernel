@@ -1,0 +1,121 @@
+name: oro-qemu
+description: Builds oro-os/oro-qemu (cached) and uploads the qemu-system-* binaries as artifacts
+
+inputs:
+  ref:
+    description: Branch or tag of oro-os/oro-qemu to build
+    required: false
+    default: master
+  targets:
+    description: Comma-separated QEMU --target-list
+    required: false
+    default: x86_64-softmmu,aarch64-softmmu,riscv64-softmmu
+  artifact-name:
+    description: Name of the uploaded artifact bundle
+    required: false
+    default: qemu-system-binaries
+
+outputs:
+  build-dir:
+    description: Path to the QEMU build directory containing the qemu-system-* binaries
+    value: ${{ steps.paths.outputs.build-dir }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve paths
+      id: paths
+      shell: bash
+      run: |
+        echo "src-dir=${{ github.workspace }}/.oro-qemu-src" >> "$GITHUB_OUTPUT"
+        echo "build-dir=${{ github.workspace }}/.oro-qemu-src/build" >> "$GITHUB_OUTPUT"
+
+    - name: Resolve oro-qemu commit
+      id: rev
+      shell: bash
+      run: |
+        sha="$(git ls-remote https://github.com/oro-os/oro-qemu.git "${{ inputs.ref }}" | cut -f1)"
+        if [ -z "$sha" ]; then
+          sha="${{ inputs.ref }}"
+        fi
+        echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+    # If this hits, the qemu-system-* binaries already exist in build-dir and
+    # every step below is skipped entirely.
+    - name: Cache QEMU build
+      id: cache-build
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.paths.outputs.build-dir }}
+        key: oro-qemu-build-${{ runner.os }}-${{ inputs.targets }}-${{ steps.rev.outputs.sha }}
+
+    # ccache survives across commits so a source bump only recompiles what
+    # actually changed, rather than paying for a full rebuild every time.
+    - name: Cache ccache
+      if: steps.cache-build.outputs.cache-hit != 'true'
+      uses: actions/cache@v4
+      with:
+        path: ~/.ccache
+        key: oro-qemu-ccache-${{ runner.os }}-${{ inputs.targets }}-${{ steps.rev.outputs.sha }}
+        restore-keys: |
+          oro-qemu-ccache-${{ runner.os }}-${{ inputs.targets }}-
+
+    - name: Install build dependencies
+      if: steps.cache-build.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          ninja-build ccache meson pkg-config flex bison \
+          libglib2.0-dev libpixman-1-dev libslirp-dev
+
+    - name: Clone oro-qemu
+      if: steps.cache-build.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        git clone --filter=blob:none --no-checkout \
+          https://github.com/oro-os/oro-qemu.git "${{ steps.paths.outputs.src-dir }}"
+        cd "${{ steps.paths.outputs.src-dir }}"
+        git checkout "${{ steps.rev.outputs.sha }}"
+        git submodule update --init --recursive --depth 1
+
+    - name: Configure
+      if: steps.cache-build.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ steps.paths.outputs.src-dir }}
+      env:
+        CC: ccache gcc
+        CXX: ccache g++
+        CCACHE_MAXSIZE: 2G
+      run: |
+        mkdir -p build
+        cd build
+        ../configure \
+          --target-list=${{ inputs.targets }} \
+          --disable-docs \
+          --disable-werror \
+          --disable-gtk \
+          --disable-sdl \
+          --disable-vnc \
+          --disable-spice \
+          --disable-curses \
+          --disable-opengl \
+          --audio-drv-list= \
+          --enable-slirp
+
+    - name: Build
+      if: steps.cache-build.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ steps.paths.outputs.build-dir }}
+      env:
+        CCACHE_MAXSIZE: 2G
+      run: |
+        ninja
+        ccache -s
+
+    - name: Upload qemu-system binaries
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ steps.paths.outputs.build-dir }}/qemu-system-*
+        if-no-files-found: error
