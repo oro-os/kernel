@@ -10,3 +10,4 @@ toml.workspace = true
 serde = { workspace = true, features = ["derive"] }
 pathdiff.workspace = true
 flickzeug.workspace = true
+orok-util-common.workspace = true

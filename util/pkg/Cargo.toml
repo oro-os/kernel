@@ -8,3 +8,6 @@ publish = false
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
 koto.workspace = true
+isobemak.workspace = true
+crc32fast.workspace = true
+orok-util-common.workspace = true

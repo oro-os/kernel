@@ -20,6 +20,7 @@ members = [
 [workspace.dependencies]
 orok.path = "lib/kernel"
 orok-limine.path = "lib/limine"
+orok-util-common.path = "util/common"
 
 # Used by the limine bootloader
 limine = "=0.6.5"
@@ -33,6 +34,8 @@ clap = { version = "=4.6.1", features = ["derive", "string"] }
 pathdiff = "=0.2.3"
 flickzeug = "=0.5.1"
 koto = "=0.16.1"
+isobemak = "=0.4.2"
+crc32fast = "=1.5.0"
 
 [package.metadata.oro.license-overrides]
 koto.path = "../../.vendor-patches/LICENSE.koto"

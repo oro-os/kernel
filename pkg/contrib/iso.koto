@@ -5,6 +5,7 @@ from oro import iso
 # Pre-configured ISO builder for emulators (e.g. QEMU).
 export for_emulators = || iso.builder()
 	.use_gpt true
+	.boot_info_table true
 	.eltorito_mode 'both'
 	.esp_mode 'appended_partition'
 	.esp_alignment_lba_512 4096
@@ -16,6 +17,7 @@ export for_emulators = || iso.builder()
 # Pre-configured ISO builders for booting on real hardware.
 export for_hardware = || iso.builder()
 	.use_gpt true
+	.boot_info_table true
 	.eltorito_mode 'both'
 	.esp_mode 'appended_partition'
 	.esp_alignment_lba_512 4096

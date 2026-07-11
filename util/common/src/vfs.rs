@@ -69,6 +69,32 @@ pub struct LockEntry {
 	pub dependencies: Vec<String>,
 }
 
+/// The cargo profile an artifact is built under.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Profile {
+	Dev,
+	Release,
+}
+
+impl Profile {
+	/// The name of the profile's output directory under `target/<triple>/`.
+	pub fn target_dir_name(&self) -> &'static str {
+		match self {
+			Self::Dev => "debug",
+			Self::Release => "release",
+		}
+	}
+}
+
+impl std::fmt::Display for Profile {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::Dev => write!(f, "dev"),
+			Self::Release => write!(f, "release"),
+		}
+	}
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Artifact {
 	pub path: PathBuf,
@@ -77,14 +103,45 @@ pub struct Artifact {
 	pub description: Option<String>,
 	pub architecture: Arch,
 	pub component: Component,
+	/// The artifact's kind, taken from its directory name with the
+	/// architecture prefix stripped (e.g. `artifact/x86_64-limine`
+	/// has kind `limine`). Unlike [`Component`], this distinguishes
+	/// between different implementations of the same component
+	/// (e.g. multiple bootloaders).
+	pub kind: String,
+	/// The name of the produced binary; usually the package name, but
+	/// honors `[[bin]]` renames (e.g. `oro-limine-x86-64`, hyphenated
+	/// to match Limine's `ARCH` naming).
+	pub binary_name: String,
 	pub target_relative_path: PathBuf,
 	pub target_triple: String,
+}
+
+impl Artifact {
+	/// The path to the artifact's built binary for the given profile,
+	/// relative to the workspace root.
+	///
+	/// Note that this does not imply the binary exists; the artifact
+	/// must have been built (e.g. via `cargo oro build`) first.
+	pub fn binary_path(&self, workspace_root: &std::path::Path, profile: Profile) -> PathBuf {
+		workspace_root
+			.join("target")
+			.join(&self.target_triple)
+			.join(profile.target_dir_name())
+			.join(&self.binary_name)
+	}
 }
 
 #[derive(serde::Deserialize)]
 pub struct CargoManifest {
 	pub package: CargoPackage,
+	pub bin: Option<Vec<CargoManifestBin>>,
 	pub dependencies: Option<HashMap<String, CargoManifestDependency>>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct CargoManifestBin {
+	pub name: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -206,12 +263,25 @@ impl Vfs {
 			let arch = metadata.arch?;
 			let component = metadata.component?;
 			let target_triple = format!("{}-unknown-oro", arch);
+			let kind = path
+				.file_name()
+				.map(|n| n.to_string_lossy())
+				.and_then(|n| n.strip_prefix(&format!("{arch}-")).map(str::to_string))
+				.unwrap_or_else(|| component.to_string());
+			let binary_name = manifest
+				.bin
+				.as_ref()
+				.and_then(|bins| bins.first())
+				.and_then(|bin| bin.name.clone())
+				.unwrap_or_else(|| manifest.package.name.clone());
 			Some(Artifact {
 				path,
 				name: format!("{arch}-{component}"),
 				description: manifest.package.description,
 				architecture: arch,
 				component,
+				kind,
+				binary_name,
 				target_relative_path: PathBuf::from(&manifest.package.name),
 				package_name: manifest.package.name,
 				target_triple,

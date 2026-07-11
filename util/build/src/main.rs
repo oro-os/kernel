@@ -2,9 +2,9 @@
 
 pub mod artifact;
 pub mod cmd;
-pub mod vfs;
 
 use clap::{Parser, Subcommand};
+pub use orok_util_common::vfs;
 
 /// Oro kernel build utility.
 #[derive(Parser)]
