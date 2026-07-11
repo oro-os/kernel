@@ -50,20 +50,21 @@ jobs:
 #        run: cargo oro license --check
   build-artifacts:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        artifact:
-        - aarch64-kernel
-        - riscv64-kernel
-        - x86_64-kernel
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - uses: ./.github/actions/deps
       - name: Build
-        run: cargo oro build ${{ matrix.artifact }}
+        run: cargo oro build
       - name: Build (release)
-        run: cargo oro build ${{ matrix.artifact }} --release
+        run: cargo oro build --release
       - name: Clippy
-        run: cargo oro clippy ${{ matrix.artifact }}
+        run: cargo oro clippy
+      - name: Package
+        run: cargo pkg
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-artifacts
+          path: target/pkg/*
