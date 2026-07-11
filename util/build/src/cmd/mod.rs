@@ -4,6 +4,7 @@ pub mod clippy;
 #[cfg(target_family = "unix")]
 pub mod license;
 pub mod patch;
+pub mod pkg;
 pub mod udeps;
 pub mod vendor;
 

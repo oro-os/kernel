@@ -38,6 +38,12 @@ enum Commands {
 	/// Creates a patch for a vendor source file.
 	#[command(override_usage = "cargo oro patch [OPTIONS] <vendor/<dependency>/path/to/file.rs>")]
 	Patch(cmd::patch::Args),
+	/// Packages one or more artifacts into a distributable format.
+	///
+	/// Arguments are passed directly to the `cargo pkg` utility.
+	/// See `cargo pkg --help` for more information.
+	#[command(override_usage = "cargo oro pkg [ARGS...]")]
+	Pkg(cmd::pkg::Args),
 }
 
 fn main() {
@@ -52,5 +58,6 @@ fn main() {
 		#[cfg(target_family = "unix")]
 		Commands::License(args) => cmd::license::run(args),
 		Commands::Patch(args) => cmd::patch::run(args),
+		Commands::Pkg(args) => cmd::pkg::run(args),
 	}
 }

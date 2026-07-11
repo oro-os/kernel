@@ -1,4 +1,4 @@
-#[cfg(not(test))]
+#[cfg(not(any(test, doc, miri, rust_analyzer)))]
 compile_error!("run `cargo oro --help` instead");
 
 fn main() {
