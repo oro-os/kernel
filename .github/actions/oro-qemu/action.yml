@@ -29,6 +29,7 @@ runs:
       run: |
         echo "src-dir=${{ github.workspace }}/.oro-qemu-src" >> "$GITHUB_OUTPUT"
         echo "build-dir=${{ github.workspace }}/.oro-qemu-src/build" >> "$GITHUB_OUTPUT"
+        echo "targets-slug=$(echo '${{ inputs.targets }}' | tr ',' '_')" >> "$GITHUB_OUTPUT"
 
     - name: Resolve oro-qemu commit
       id: rev
@@ -47,7 +48,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: ${{ steps.paths.outputs.build-dir }}
-        key: oro-qemu-build-${{ runner.os }}-${{ inputs.targets }}-${{ steps.rev.outputs.sha }}
+        key: oro-qemu-build-${{ runner.os }}-${{ steps.paths.outputs.targets-slug }}-${{ steps.rev.outputs.sha }}
 
     # ccache survives across commits so a source bump only recompiles what
     # actually changed, rather than paying for a full rebuild every time.
@@ -56,9 +57,9 @@ runs:
       uses: actions/cache@v4
       with:
         path: ~/.ccache
-        key: oro-qemu-ccache-${{ runner.os }}-${{ inputs.targets }}-${{ steps.rev.outputs.sha }}
+        key: oro-qemu-ccache-${{ runner.os }}-${{ steps.paths.outputs.targets-slug }}-${{ steps.rev.outputs.sha }}
         restore-keys: |
-          oro-qemu-ccache-${{ runner.os }}-${{ inputs.targets }}-
+          oro-qemu-ccache-${{ runner.os }}-${{ steps.paths.outputs.targets-slug }}-
 
     - name: Install build dependencies
       if: steps.cache-build.outputs.cache-hit != 'true'
