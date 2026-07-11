@@ -31,15 +31,6 @@ A few guidelines when introducing or interacting with dependencies:
   Oro Operating System kernel project.
 - All libraries must be well-maintained and have a clear path for
   security updates and bug fixes.
-- All libraries must be listed in `vendor/Cargo.toml`
-  file and must be pinned to a specific version and re-exported from
-  the `oro-kernel-third-party` crate. This is to ensure that all dependencies are
-  vendored and that the kernel is reproducible from an offline checkout.
-- If adding or changing a dependency, a `cargo oro vendor` should be performed
-  and included as part of the changeset. Preferably, this should be done in its
-  own commit, separate from any other changes. Follow-up with a run of
-  `cargo oro licenses` to be sure that the licenses are properly symlinked
-  into `licenses/vendor/`.
 - No library shall be exposed directly outside of the crate within which
   it is used. Corollary: all third-party libraries must have Oro-specific
   abstractions, and must be written in a way that they may be replaced
@@ -92,8 +83,15 @@ or item-level comment (depending on the breadth of the port), and must be
 accompanied by a clear explanation of why the code was ported and how it
 fits into the Oro kernel project.
 
-Code from the Linux kernel or any corporate-owned
-operating system (Windows, MacOS/Darwin, etc.) will not be accepted.
+Code from any corporate-owned operating system (Windows, MacOS/Darwin, etc.)
+will not be accepted.
+
+Code from the Linux kernel or other open-source operating systems similarly
+licensed under a compatible OSI-approved license _may_ be accepted with proper
+attribution, but will be scrutinized heavily to ensure it is used fairly
+and appropriately. Prepare to defend your reasoning for porting such code.
+Not properly attributing code from other operating systems will result in a
+permanent ban from the project in perpetuity at the discretion of the maintainers.
 
 Further, code written in languages other than Rust will not be accepted.
 
