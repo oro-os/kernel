@@ -77,6 +77,7 @@ jobs:
         with:
           submodules: 'true'
       - uses: ./.github/actions/deps
+      - uses: ./.github/actions/oro-qemu
       # Get the artifacts from build-artifacts
       - uses: actions/download-artifact@v4
         with:

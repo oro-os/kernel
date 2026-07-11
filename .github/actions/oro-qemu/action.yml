@@ -119,3 +119,7 @@ runs:
         name: ${{ inputs.artifact-name }}
         path: ${{ steps.paths.outputs.build-dir }}/qemu-system-*
         if-no-files-found: error
+
+    - name: Add build dir to PATH
+      shell: bash
+      run: echo "${{ steps.paths.outputs.build-dir }}" >> "$GITHUB_PATH"
