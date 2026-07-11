@@ -31,6 +31,9 @@ static REQ_STKSZ: limine::request::StackSizeRequest =
 #[used]
 static REQ_HHDM: HhdmRequest = HhdmRequest::new();
 
+#[used]
+static REQ_FB: limine::request::FramebufferRequest = limine::request::FramebufferRequest::new();
+
 /// Runs the Limine bootloader.
 ///
 /// # Safety
@@ -46,6 +49,22 @@ static REQ_HHDM: HhdmRequest = HhdmRequest::new();
 )]
 pub unsafe fn init() -> ! {
 	let _offs: u64 = REQ_HHDM.response().unwrap().offset;
+
+	let fb = REQ_FB
+		.response()
+		.expect("Limine did not provide a framebuffer response");
+	let fbs = fb
+		.framebuffers()
+		.first()
+		.expect("Limine did not provide a framebuffer");
+	let base: *mut u8 = fbs.address().cast();
+
+	for i in 0..fbs.size() {
+		unsafe {
+			base.wrapping_add(i)
+				.write_volatile(if i % 3 == 0 { 0xFF } else { 0x00 })
+		};
+	}
 
 	panic!();
 }

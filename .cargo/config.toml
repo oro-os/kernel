@@ -3,11 +3,17 @@ oro = [
     "run",
     "-p",
     "orok-util-build",
-    "--offline",
     "--quiet",
     "--message-format",
     "short",
     "--",
+]
+
+pkg = [
+	"run",
+	"-p",
+	"orok-util-pkg",
+	"--"
 ]
 
 [future-incompat-report]
