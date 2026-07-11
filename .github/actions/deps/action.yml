@@ -12,7 +12,9 @@ runs:
     # The `std`/`core`/etc crates are not properly offline-able when
     # no other online builds have taken place to prime whatever they do
     # in `~/.cargo`. This is a workaround to get them properly cached.
-    - name: Workaround for broken cargo/build-std
-      shell: bash
-      run: |
-        cd artifact/x86_64-limine && cargo build
+    #
+    # TODO: reenable after fix: https://github.com/rust-lang/cargo/issues/7058
+    #- name: Workaround for broken cargo/build-std
+    #  shell: bash
+    #  run: |
+    #    cd artifact/x86_64-limine && cargo build
