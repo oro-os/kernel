@@ -27,7 +27,7 @@ A few guidelines when introducing or interacting with dependencies:
 
 - All libraries used in the kernel itself must be `no_std` compatible.
 - All libraries must be licensed under an OSI-approved license,
-  compatible with the [LICENSE](licenses/oro-kernel.txt) of the
+  compatible with the [LICENSE](license/oro-kernel.txt) of the
   Oro Operating System kernel project.
 - All libraries must be well-maintained and have a clear path for
   security updates and bug fixes.
@@ -75,7 +75,7 @@ The kernel project is not a dumping ground for code from other operating
 systems. However, some code may be ported from other operating systems
 if it is necessary, and **only if the code is licensed under an OSI-approved
 license compatible with the kernel project's** (see
-[the Oro Operating System kernel license](licenses/oro-kernel.txt)).
+[the Oro Operating System kernel license](license/oro-kernel.txt)).
 
 In such a case, the code must adhere to **all** guidelines in this document,
 must have proper attribution to the original authors in the form of a module-

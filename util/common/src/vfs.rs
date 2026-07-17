@@ -404,13 +404,13 @@ impl Vfs {
 	}
 
 	pub fn vendor_license_dir(&self) -> PathBuf {
-		self.root_dir.join("licenses").join("vendor")
+		self.root_dir.join("license").join("vendor")
 	}
 
 	/// Reads out all of the third-party licenses.
 	///
 	/// # Panics
-	/// Panics if it cannot read the `licenses/vendor` directory.
+	/// Panics if it cannot read the `license/vendor` directory.
 	pub fn vendor_licenses(&self) -> impl Iterator<Item = LicenseLink> {
 		std::fs::read_dir(self.vendor_license_dir())
 			.expect(&format!(

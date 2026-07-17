@@ -31,7 +31,7 @@ enum Commands {
 	/// Checks for unused dependencies.
 	#[command(override_usage = "cargo oro udeps")]
 	Udeps,
-	/// Updates and checks the `licenses/` directory.
+	/// Updates and checks the `license/` directory.
 	#[cfg(target_family = "unix")]
 	#[command(override_usage = "cargo license [OPTIONS]")]
 	License(cmd::license::Args),
