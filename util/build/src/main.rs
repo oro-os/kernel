@@ -2,6 +2,7 @@
 
 pub mod artifact;
 pub mod cmd;
+pub mod dedupe;
 
 use clap::{Parser, Subcommand};
 pub use orok_util_common::vfs;

@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{collections::HashSet, io::Write};
 
 use clap::Parser;
 
@@ -22,6 +22,8 @@ pub struct Args {
 pub fn run(args: Args) {
 	let artifacts = args.artifacts.collapse();
 
+	let mut seen = HashSet::new();
+
 	let mut ok = true;
 	for artifact in artifacts {
 		let mut cmd = super::cargo();
@@ -34,18 +36,36 @@ pub fn run(args: Args) {
 			cmd.arg("--profile").arg(profile);
 		}
 
+		let mut dedupe_stdout = false;
+
 		if args.json {
 			cmd.arg("--message-format")
 				.arg("json-diagnostic-rendered-ansi")
 				.arg("--color")
 				.arg("never")
 				.arg("--quiet")
-				.stderr(std::process::Stdio::null());
+				.stderr(std::process::Stdio::null())
+				.stdout(std::process::Stdio::piped());
+
+			dedupe_stdout = true;
 		} else {
 			cmd.arg("--color").arg("always");
 		}
 
-		let status = cmd.status().expect(&format!(
+		let mut child = cmd.spawn().expect(&format!(
+			"failed to execute cargo clippy for artifact {}: {}",
+			artifact.name,
+			artifact.path.display()
+		));
+
+		if dedupe_stdout {
+			let stdout = child.stdout.take().expect("failed to capture stdout");
+			let mut dedupe_stream = crate::dedupe::DedupeStream::new(&mut seen, std::io::stdout());
+			std::io::copy(&mut std::io::BufReader::new(stdout), &mut dedupe_stream)
+				.expect("failed to copy stdout");
+		}
+
+		let status = child.wait().expect(&format!(
 			"failed to execute cargo clippy for artifact {}: {}",
 			artifact.name,
 			artifact.path.display()
