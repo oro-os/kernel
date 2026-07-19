@@ -6,6 +6,7 @@ publish = false
 
 [dependencies]
 limine.workspace = true
+oro-ramdisk = { workspace = true, features = ["decoder", "decompression"] }
 
 [lints]
 workspace = true

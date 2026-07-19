@@ -1,0 +1,23 @@
+[package]
+name = "oro-ramdisk"
+version = "0.1.0"
+description = "The Oro kernel ramdisk format"
+publish = false
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[features]
+default = []
+std = ["ruzstd?/std"]
+encoder = ["std"]
+decoder = []
+compression = ["dep:zstd"]
+decompression = ["dep:ruzstd"]
+
+[dependencies]
+oro-crc64.workspace = true
+ruzstd = { version = "=0.8.3", optional = true, default-features = false }
+zstd = { version = "=0.13.3", optional = true }
+
+[lints]
+workspace = true

@@ -6,6 +6,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
+oro-ramdisk = { workspace = true, features = ["encoder", "compression"] }
 clap = { workspace = true, features = ["derive"] }
 koto.workspace = true
 isobemak.workspace = true

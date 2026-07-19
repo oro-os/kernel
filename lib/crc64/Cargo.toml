@@ -1,0 +1,6 @@
+[package]
+name = "oro-crc64"
+version = "0.0.0"
+description = "CRC64 implementation for Oro kernel crates"
+publish = false
+edition = "2024"

@@ -1,10 +1,11 @@
 [package]
-name = "orok"
+name = "orok-kernel"
 version = "0.0.0"
 edition = "2024"
 publish = false
 
 [dependencies]
+oro-ramdisk = { workspace = true, features = ["decoder", "decompression"] }
 
 [lints]
 workspace = true

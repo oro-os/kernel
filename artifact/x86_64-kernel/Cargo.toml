@@ -7,6 +7,9 @@ publish = false
 
 build = "build.rs"
 
+[dependencies]
+orok-kernel.workspace = true
+
 [package.metadata.oro]
 arch = "x86_64"
 component = "kernel"

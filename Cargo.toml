@@ -21,6 +21,10 @@ members = [
 orok.path = "lib/kernel"
 orok-limine.path = "lib/limine"
 orok-util-common.path = "util/common"
+orok-kernel.path = "lib/kernel"
+
+oro-ramdisk.path = "lib/ramdisk"
+oro-crc64.path = "lib/crc64"
 
 # Used by the limine bootloader
 limine = "=0.6.5"

@@ -1,4 +1,3 @@
-use core::hash::Hash;
 use std::{collections::HashSet, io::Write};
 
 use clap::Parser;
