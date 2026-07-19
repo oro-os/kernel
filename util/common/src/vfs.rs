@@ -293,10 +293,12 @@ impl Vfs {
 	/// Panics if the artifacts directory cannot be read.
 	fn read_artifact_dir(&self) -> impl Iterator<Item = PathBuf> {
 		std::fs::read_dir(self.root_dir.join("artifact"))
-			.expect(&format!(
-				"failed to read artifacts directory: {}",
-				self.root_dir.join("artifact").display()
-			))
+			.unwrap_or_else(|err| {
+				panic!(
+					"failed to read artifacts directory: {}: {err}",
+					self.root_dir.join("artifact").display()
+				)
+			})
 			.filter_map(|entry| entry.ok())
 			.filter(|entry| entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false))
 			.map(|entry| entry.path())
@@ -365,10 +367,12 @@ impl Vfs {
 	/// Panics if the vendor directory cannot be read.
 	pub fn vendor_packages(&self) -> impl Iterator<Item = VendorPackage> {
 		std::fs::read_dir(self.root_dir.join("vendor"))
-			.expect(&format!(
-				"failed to read vendor directory: {}",
-				self.root_dir.join("vendor").display()
-			))
+			.unwrap_or_else(|err| {
+				panic!(
+					"failed to read vendor directory: {}: {err}",
+					self.root_dir.join("vendor").display()
+				)
+			})
 			.filter_map(|entry| entry.ok())
 			.filter(|entry| {
 				entry.path().file_name().is_some_and(|n| {
@@ -380,15 +384,21 @@ impl Vfs {
 			})
 			.map(|entry| {
 				let manifest: CargoManifest = toml::from_str(
-					&std::fs::read_to_string(entry.path().join("Cargo.toml")).expect(&format!(
-						"failed to read Cargo.toml for vendor dependency: {}",
-						entry.path().display()
-					)),
+					&std::fs::read_to_string(entry.path().join("Cargo.toml")).unwrap_or_else(
+						|err| {
+							panic!(
+								"failed to read Cargo.toml for vendor dependency: {}: {err}",
+								entry.path().display()
+							)
+						},
+					),
 				)
-				.expect(&format!(
-					"failed to parse Cargo.toml for vendor dependency: {}",
-					entry.path().display()
-				));
+				.unwrap_or_else(|err| {
+					panic!(
+						"failed to parse Cargo.toml for vendor dependency: {}: {err}",
+						entry.path().display()
+					)
+				});
 
 				VendorPackage {
 					root_path: entry.path(),
@@ -396,7 +406,7 @@ impl Vfs {
 						.package
 						.license_file
 						.as_ref()
-						.and_then(|lf| Some(entry.path().join(lf)))
+						.map(|lf| entry.path().join(lf))
 						.or_else(|| entry.path().try_find_license()),
 					manifest,
 				}
@@ -413,10 +423,12 @@ impl Vfs {
 	/// Panics if it cannot read the `license/vendor` directory.
 	pub fn vendor_licenses(&self) -> impl Iterator<Item = LicenseLink> {
 		std::fs::read_dir(self.vendor_license_dir())
-			.expect(&format!(
-				"failed to read vendor license directory: {}",
-				self.vendor_license_dir().display()
-			))
+			.unwrap_or_else(|err| {
+				panic!(
+					"failed to read vendor license directory: {}: {err}",
+					self.vendor_license_dir().display()
+				)
+			})
 			.filter_map(|entry| entry.ok())
 			.filter(|entry| {
 				entry
@@ -431,17 +443,20 @@ impl Vfs {
 						.map(|ft| ft.is_symlink())
 						.unwrap_or_default(),
 					license_path: entry.path(),
-					target_path: entry
+					target_path: if entry
 						.file_type()
 						.map(|ft| ft.is_symlink())
 						.unwrap_or_default()
-						.then(|| {
-							std::fs::canonicalize(entry.path()).expect(&format!(
-								"failed to canonicalize symlink license path: {}",
+					{
+						std::fs::canonicalize(entry.path()).unwrap_or_else(|err| {
+							panic!(
+								"failed to canonicalize symlink license path: {}: {err}",
 								entry.path().display()
-							))
+							)
 						})
-						.unwrap_or_else(|| entry.path().into()),
+					} else {
+						entry.path()
+					},
 				}
 			})
 	}
@@ -502,7 +517,8 @@ pub trait Lockfile: IntoIterator<Item = LockEntry> + Sized {
 		let mut seen = HashSet::new();
 		let mut queue = map
 			.iter()
-			.filter_map(|(n, e)| (!e.is_registry).then(|| n.to_string()))
+			.filter(|(_, e)| !e.is_registry)
+			.map(|(n, _)| n.to_string())
 			.collect::<VecDeque<_>>();
 
 		while let Some(name) = queue.pop_back() {
@@ -516,7 +532,7 @@ pub trait Lockfile: IntoIterator<Item = LockEntry> + Sized {
 		}
 
 		map.into_iter()
-			.filter_map(move |(k, e)| seen.contains(&k).then(move || e))
+			.filter_map(move |(k, e)| seen.contains(&k).then_some(e))
 	}
 
 	fn unused(self) -> impl Iterator<Item = LockEntry> {

@@ -23,3 +23,6 @@ need_stdout = true
 command = ["cargo", "oro", "clippy", "--json"]
 analyzer = "cargo_json"
 need_stdout = true
+
+[jobs.clippy-pkg]
+command = ["cargo", "clippy", "-p", "orok-util-pkg"]
