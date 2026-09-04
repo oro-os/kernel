@@ -17,6 +17,23 @@ Oro Operating System kernel project!
 The following is a set of guidelines for contributing to the
 kernel codebase.
 
+## Crate Naming
+There are two prefixes used for each of the crates in this workspace:
+
+- `orok-*` crates are all internal to the project; they are not to be published.
+  These crates are generally support crates that have little use outside the kernel
+  project and are not useful nor even usable/compilable outside the kernel project.
+- `oro-*` crates are all technically usable by the public, and may be published
+  to [crates.io](https://crates.io) for use in external projects. They are reserved
+  primarily for interop crates (such as the kernel boot protocol crate) or crates
+  meant for creating/parsing file formats (such as the Oro kernel ramdisk format crate).
+
+Under no circumstance should `orok-*` crates be marked as `publish = true` or have the
+`publish` attribute in `Cargo.toml` omitted.
+
+All `oro-*` crates should be licensed under typical permissive licenses prior to publishing,
+even if those licenses do not match the broader Oro Kernel license.
+
 ## Dependencies and Abstractions
 The kernel project attempts to minimize dependencies, but
 recognizes that some libraries simply do a better job than
