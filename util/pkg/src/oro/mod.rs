@@ -5,6 +5,7 @@ pub mod file;
 pub mod iso;
 pub mod limine;
 pub mod package;
+pub mod ramdisk;
 
 use std::path::Path;
 
@@ -18,5 +19,6 @@ pub fn make_module(workspace_root: &Path) -> KMap {
 	map.insert("file", file::make_module());
 	map.insert("iso", iso::make_module());
 	map.insert("limine", limine::make_module());
+	map.insert("ramdisk", ramdisk::make_module());
 	map
 }

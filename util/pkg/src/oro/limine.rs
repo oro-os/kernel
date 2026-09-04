@@ -30,6 +30,16 @@ pub fn make_module() -> KMap {
 						}
 					}
 					FileSource::Memory(contents) => contents.clone(),
+					FileSource::Generated(generator) => {
+						match generator.generate() {
+							Ok(contents) => contents,
+							Err(error) => {
+								return runtime_error!(
+									"limine.bios_install: failed to generate stage blob: {error}"
+								);
+							}
+						}
+					}
 				};
 
 				match crate::limine::bios_install(Path::new(image.as_str()), &blob) {

@@ -1,4 +1,4 @@
-from oro import package, artifact, file, limine
+from oro import package, artifact, file, limine, ramdisk
 from oro_contrib import iso
 
 LIMINE_BIOS_CD = file './bin/limine-bios-cd.bin'
@@ -23,13 +23,19 @@ interface_branding_color: 5
 	comment: {comment}
 	protocol: limine
 	path: boot():/boot/oro-limine-$\{ARCH}
-	module_path: boot():/boot/oro-$\{ARCH}.rd
+	module_path: boot():/oro.rd
 	randomise_hhdm_base: yes
 	kasler: no
 	serial: yes
 
 	{if archs.is_empty() then '' else 'if_arch: {archs.join ' '}'}
 "
+
+oro_ramdisk = |kernels|
+	rd = ramdisk.builder()
+	for arch, kernel in kernels
+		rd.item ramdisk.kernel(kernel, arch).compress()
+	rd.file()
 
 export
 	'limine-multiarch-dev': || package
@@ -51,11 +57,22 @@ export
 				'BOOTAA64.EFI': ARCH_EFI_FILES.get 'aarch64'
 				'BOOTRISCV64.EFI': ARCH_EFI_FILES.get 'riscv64'
 
+			kernels =
+				'x86_64': artifact.kernel.x86_64.dev
+				'aarch64': artifact.kernel.aarch64.dev
+				'riscv64': artifact.kernel.riscv64.dev
+
+			fs = {
+				boot,
+				EFI: { BOOT: efi },
+				'oro.rd': oro_ramdisk(kernels),
+			}
+
 			iso.for_emulators()
 				.volume_id 'ORO-EMU-LIMINE-MULTI-DEV'
 				.boot_bios ['boot', 'limine-bios-cd.bin']
 				.boot_uefi ['EFI', 'BOOT', 'BOOTX64.EFI']
-				.filesystem { boot, EFI: { BOOT: efi } }
+				.filesystem fs
 				.build out
 
 			limine.bios_install out, LIMINE_BIOS_HDD
@@ -79,11 +96,22 @@ export
 				'BOOTAA64.EFI': ARCH_EFI_FILES.get 'aarch64'
 				'BOOTRISCV64.EFI': ARCH_EFI_FILES.get 'riscv64'
 
+			kernels =
+				'x86_64': artifact.kernel.x86_64.release
+				'aarch64': artifact.kernel.aarch64.release
+				'riscv64': artifact.kernel.riscv64.release
+
+			fs = {
+				boot,
+				EFI: { BOOT: efi },
+				'oro.rd': oro_ramdisk(kernels),
+			}
+
 			iso.for_emulators()
 				.volume_id 'ORO-EMU-LIMINE-MULTI'
 				.boot_bios ['boot', 'limine-bios-cd.bin']
 				.boot_uefi ['EFI', 'BOOT', 'BOOTX64.EFI']
-				.filesystem { boot, EFI: { BOOT: efi } }
+				.filesystem fs
 				.build out
 
 			limine.bios_install out, LIMINE_BIOS_HDD
@@ -101,11 +129,19 @@ export
 			efi =
 				'BOOTX64.EFI': ARCH_EFI_FILES.get 'x86-64'
 
+			kernels = { 'x86_64': artifact.kernel.x86_64.dev }
+
+			fs = {
+				boot,
+				EFI: { BOOT: efi },
+				'oro.rd': oro_ramdisk(kernels),
+			}
+
 			iso.for_emulators()
 				.volume_id 'ORO-EMU-LIMINE-X64-DEV'
 				.boot_bios ['boot', 'limine-bios-cd.bin']
 				.boot_uefi ['EFI', 'BOOT', 'BOOTX64.EFI']
-				.filesystem { boot, EFI: { BOOT: efi } }
+				.filesystem fs
 				.build out
 
 			limine.bios_install out, LIMINE_BIOS_HDD
@@ -123,11 +159,19 @@ export
 			efi =
 				'BOOTX64.EFI': ARCH_EFI_FILES.get 'x86-64'
 
+			kernels = { 'x86_64': artifact.kernel.x86_64.release }
+
+			fs = {
+				boot,
+				EFI: { BOOT: efi },
+				'oro.rd': oro_ramdisk(kernels),
+			}
+
 			iso.for_emulators()
 				.volume_id 'ORO-EMU-LIMINE-X64'
 				.boot_bios ['boot', 'limine-bios-cd.bin']
 				.boot_uefi ['EFI', 'BOOT', 'BOOTX64.EFI']
-				.filesystem { boot, EFI: { BOOT: efi } }
+				.filesystem fs
 				.build out
 
 			limine.bios_install out, LIMINE_BIOS_HDD
@@ -145,11 +189,19 @@ export
 			efi =
 				'BOOTAA64.EFI': ARCH_EFI_FILES.get 'aarch64'
 
+			kernels = { 'aarch64': artifact.kernel.aarch64.dev }
+
+			fs = {
+				boot,
+				EFI: { BOOT: efi },
+				'oro.rd': oro_ramdisk(kernels),
+			}
+
 			iso.for_emulators()
 				.volume_id 'ORO-EMU-LIMINE-AA64-DEV'
 				.boot_bios ['boot', 'limine-bios-cd.bin']
 				.boot_uefi ['EFI', 'BOOT', 'BOOTAA64.EFI']
-				.filesystem { boot, EFI: { BOOT: efi } }
+				.filesystem fs
 				.build out
 
 			limine.bios_install out, LIMINE_BIOS_HDD
@@ -167,11 +219,19 @@ export
 			efi =
 				'BOOTAA64.EFI': ARCH_EFI_FILES.get 'aarch64'
 
+			kernels = { 'aarch64': artifact.kernel.aarch64.release }
+
+			fs = {
+				boot,
+				EFI: { BOOT: efi },
+				'oro.rd': oro_ramdisk(kernels),
+			}
+
 			iso.for_emulators()
 				.volume_id 'ORO-EMU-LIMINE-AA64'
 				.boot_bios ['boot', 'limine-bios-cd.bin']
 				.boot_uefi ['EFI', 'BOOT', 'BOOTAA64.EFI']
-				.filesystem { boot, EFI: { BOOT: efi } }
+				.filesystem fs
 				.build out
 
 			limine.bios_install out, LIMINE_BIOS_HDD
@@ -190,11 +250,19 @@ export
 			efi =
 				'BOOTRISCV64.EFI': ARCH_EFI_FILES.get 'riscv64'
 
+			kernels = { 'riscv64': artifact.kernel.riscv64.dev }
+
+			fs = {
+				boot,
+				EFI: { BOOT: efi },
+				'oro.rd': oro_ramdisk(kernels),
+			}
+
 			iso.for_emulators()
 				.volume_id 'ORO-EMU-LIMINE-RV64-DEV'
 				.boot_bios ['boot', 'limine-bios-cd.bin']
 				.boot_uefi ['EFI', 'BOOT', 'BOOTRISCV64.EFI']
-				.filesystem { boot, EFI: { BOOT: efi } }
+				.filesystem fs
 				.build out
 
 			limine.bios_install out, LIMINE_BIOS_HDD
@@ -212,11 +280,19 @@ export
 			efi =
 				'BOOTRISCV64.EFI': ARCH_EFI_FILES.get 'riscv64'
 
+			kernels = { 'riscv64': artifact.kernel.riscv64.release }
+
+			fs = {
+				boot,
+				EFI: { BOOT: efi },
+				'oro.rd': oro_ramdisk(kernels),
+			}
+
 			iso.for_emulators()
 				.volume_id 'ORO-EMU-LIMINE-RV64'
 				.boot_bios ['boot', 'limine-bios-cd.bin']
 				.boot_uefi ['EFI', 'BOOT', 'BOOTRISCV64.EFI']
-				.filesystem { boot, EFI: { BOOT: efi } }
+				.filesystem fs
 				.build out
 
 			limine.bios_install out, LIMINE_BIOS_HDD

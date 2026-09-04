@@ -248,7 +248,7 @@ impl IsoBuilder {
 
 impl IsoBuilder {
 	/// Resolves the specification and writes the ISO image to `dest`
-	/// via isobemak, staging in-memory files as needed.
+	/// via isobemak, staging in-memory and generated files as needed.
 	fn build_to(&self, dest: &Path) -> std::result::Result<(), String> {
 		let Some(dest_name) = dest.file_name() else {
 			return Err(format!("invalid destination path: {}", dest.display()));
@@ -258,8 +258,25 @@ impl IsoBuilder {
 			.map_err(|e| format!("failed to create {}: {e}", dest_dir.display()))?;
 		let staging_dir = dest_dir.join(".staging").join(dest_name);
 
+		// Writes contents that have no file of their own into the
+		// staging directory, returning the staged path.
+		let stage = |destination: &str, contents: &[u8]| {
+			let staged = staging_dir.join(destination);
+			if let Some(parent) = staged.parent() {
+				std::fs::create_dir_all(parent).map_err(|e| {
+					format!(
+						"failed to create staging directory {}: {e}",
+						parent.display()
+					)
+				})?;
+			}
+			std::fs::write(&staged, contents)
+				.map_err(|e| format!("failed to stage {}: {e}", staged.display()))?;
+			Ok::<_, String>(staged)
+		};
+
 		// Resolve every filesystem entry to a file on disk, staging
-		// in-memory files as needed.
+		// in-memory and generated files as needed.
 		let mut files = Vec::with_capacity(self.entries.len());
 		for entry in &self.entries {
 			let source = match &entry.file.source {
@@ -274,19 +291,12 @@ impl IsoBuilder {
 					}
 					path.clone()
 				}
-				FileSource::Memory(contents) => {
-					let staged = staging_dir.join(&entry.destination);
-					if let Some(parent) = staged.parent() {
-						std::fs::create_dir_all(parent).map_err(|e| {
-							format!(
-								"failed to create staging directory {}: {e}",
-								parent.display()
-							)
-						})?;
-					}
-					std::fs::write(&staged, contents)
-						.map_err(|e| format!("failed to stage {}: {e}", staged.display()))?;
-					staged
+				FileSource::Memory(contents) => stage(&entry.destination, contents)?,
+				FileSource::Generated(generator) => {
+					let contents = generator
+						.generate()
+						.map_err(|e| format!("failed to generate '{}': {e}", entry.destination))?;
+					stage(&entry.destination, &contents)?
 				}
 			};
 

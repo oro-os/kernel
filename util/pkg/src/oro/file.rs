@@ -2,7 +2,11 @@
 
 use std::path::{Path, PathBuf};
 
-use koto::{derive::*, prelude::*, runtime::Result};
+use koto::{
+	derive::*,
+	prelude::*,
+	runtime::{Ptr, Result},
+};
 
 /// The source of a [`File`]'s contents.
 #[derive(Clone, Debug)]
@@ -15,6 +19,21 @@ pub enum FileSource {
 	/// An in-memory file, staged to disk when a package referencing it
 	/// is built.
 	Memory(Vec<u8>),
+	/// A file whose contents are produced on demand, when a package
+	/// referencing it is built (e.g. a ramdisk encoded from other
+	/// files).
+	///
+	/// Like [`FileSource::Disk`], nothing is read or computed until
+	/// then; a generator over artifacts that haven't been built yet is
+	/// perfectly valid until something asks for its contents.
+	Generated(Ptr<dyn GenerateFile>),
+}
+
+/// Produces a [`File`]'s contents on demand.
+pub trait GenerateFile: std::fmt::Debug {
+	/// Produces the contents, or a human-readable reason it could not
+	/// be produced.
+	fn generate(&self) -> std::result::Result<Vec<u8>, String>;
 }
 
 /// A reference to a file that can be placed into a package.
@@ -35,6 +54,12 @@ impl File {
 			source: FileSource::Memory(contents.into()),
 		}
 	}
+
+	pub fn generated(generator: impl GenerateFile + 'static) -> Self {
+		Self {
+			source: FileSource::Generated(Ptr::from(Box::new(generator) as Box<dyn GenerateFile>)),
+		}
+	}
 }
 
 impl KotoEntries for File {}
@@ -45,6 +70,9 @@ impl KotoObject for File {
 			FileSource::Disk(path) => ctx.append(format!("file({})", path.display())),
 			FileSource::Memory(contents) => {
 				ctx.append(format!("file(<memory: {} bytes>)", contents.len()));
+			}
+			FileSource::Generated(generator) => {
+				ctx.append(format!("file(<generated: {generator:?}>)"));
 			}
 		}
 		Ok(())

@@ -12,3 +12,11 @@ koto.workspace = true
 isobemak.workspace = true
 crc32fast.workspace = true
 orok-util-common.workspace = true
+
+[dev-dependencies]
+oro-ramdisk = { workspace = true, features = [
+	"encoder",
+	"compression",
+	"decoder",
+	"decompression",
+] }
