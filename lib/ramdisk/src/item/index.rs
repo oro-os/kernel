@@ -145,6 +145,15 @@ impl IndexItem {
 	}
 }
 
+impl IndexItem {
+	/// Returns whether or not this item is an item of the given type.
+	pub fn is_a<T: super::Item>(&self) -> bool {
+		self.tag == <T::Descriptor as super::ItemDescriptor>::TAG
+			&& self.length.to_ne()
+				>= u64::try_from(<T::Descriptor as super::ItemDescriptor>::MIN_LENGTH).unwrap()
+	}
+}
+
 impl super::ItemDescriptor for Index {
 	type Flags = super::ReservedFlags;
 	type Output<'a> = &'a Self;
