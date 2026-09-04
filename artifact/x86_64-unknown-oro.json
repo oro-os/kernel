@@ -13,7 +13,7 @@
 	"disable-redzone": true,
 	"features": "-mmx,-sse,-sse2,-sse3,-ssse3,-sse4.1,-sse4.2,-avx,-avx2,+soft-float",
 	"code-model": "kernel",
-	"rustc-abi": "x86-softfloat",
+	"rustc-abi": "softfloat",
 	"max-atomic-width": 64,
 	"pre-link-args": {
 		"ld": ["--relax", "-static"]
